@@ -1,0 +1,41 @@
+{
+  "name": "LDC1614",
+  "version": "0.1.0",
+  "description": "Production-grade LDC1614/LDC1612 multi-channel 28-bit inductance-to-digital converter driver",
+  "keywords": [
+    "ldc1614",
+    "ldc1612",
+    "inductance",
+    "ldc",
+    "inductive-sensing",
+    "i2c",
+    "28-bit"
+  ],
+  "authors": [
+    {
+      "name": "Thymos Solution s.r.o",
+      "email": "info@thymos.cz",
+      "url": "https://www.thymos.cz",
+      "maintainer": true
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://www.thymos.cz/LDC1614.git"
+  },
+  "license": "MIT",
+  "homepage": "https://www.thymos.cz",
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32"
+  ],
+  "headers": [
+    "LDC1614/LDC1614.h"
+  ],
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}

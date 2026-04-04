@@ -1,0 +1,418 @@
+=== SOURCE: emi_considerations.pdf ===
+=== PAGES: 6 ===
+
+
+--- PAGE 1 ---
+1
+SNOA962–February 2017
+Submit Documentation Feedback
+Copyright © 2017, Texas Instruments Incorporated
+EMI Considerations for Inductive Sensing
+Application Report
+SNOA962–February 2017
+EMI Considerations for Inductive Sensing
+Rachel Liao, Luke LaPointe
+ABSTRACT
+This application note explains various EMI reduction techniques to help improve EMI performance for TI's
+Inductance-to-Digital Converters (LDC). Each section details a general technique with references to other
+useful online documents. A list of relevant EMI reduction techniques is provided for specific devices within
+the LDC family of products.
+Contents
+1
+Introduction ...................................................................................................................
+2
+2
+Design Techniques .........................................................................................................
+2
+3
+Troubleshooting..............................................................................................................
+5
+4
+Conclusion....................................................................................................................
+5
+5
+References ...................................................................................................................
+5
+List of Figures
+1
+Layout of Effective Coil Shielding.......................................................................................... 3
+2
+Examples of Effective Coil Shielding Structures......................................................................... 3
+3
+Common-Mode Choke and Capacitor Filtering Network on the LDC EVMs......................................... 4
+List of Tables
+1
+Suitable EMI Reduction Techniques ...................................................................................... 2
+
+--- PAGE 2 ---
+Introduction
+www.ti.com
+2
+SNOA962–February 2017
+Submit Documentation Feedback
+Copyright © 2017, Texas Instruments Incorporated
+EMI Considerations for Inductive Sensing
+1
+Introduction
+When an electronic system or device resides in a harsh and noisy environment, electromagnetic
+interference (EMI) can occur, disrupting system level functions or causing a product to fail electromagnetic
+compatibility (EMC) testing. EMI is essentially any unwanted radiated or conducted electrical signals that
+negatively affect a system or device’s performance. Due to the increasing number of radiating wireless
+devices, it is vital to ensure EMC and adhere to its standards. Each application may have different
+compliance standards, for example, safety critical system automotive applications have more stringent
+standards than personal electronics.
+TI’s inductive sensing products are based on a narrowband resonant sensing architecture which provides
+inherent immunity to broadband noise and targeted frequency ranges that fall outside of the resonant
+frequency range. These devices also include internal EMI and deglitch filters to prevent high frequency
+signals from disrupting the circuitry after the sensors which increases robustness against EMI
+susceptibility. As part of normal operation, the LDC devices drive an inductive sensor that intentionally
+radiates a magnetic field to sense nearby conductive objects. Therefore, it is important to be aware of the
+radiated output spectrum which could disrupt nearby circuits that are sensitive to EMI. For more
+discussion on the basics of inductive sensing, please refer to the TI Application Note LDC Device
+Selection Guide.
+There are a number of factors which affect the strength of the EMI radiated emissions from the LDC. At
+high frequencies, the PCB traces, wires to remote coils, and the coil itself can serve as antennas that
+generate far-field RF radiation or receive RF interference from the ambient environment. At low
+frequencies, long wires to the supply are typically sources of radiation. Different mitigation techniques for
+each LDC device are outlined below in Table 1 and a more detailed discussion can be found within each
+section below.
+Table 1. Suitable EMI Reduction Techniques
+Device
+Shielding
+Passive Filters
+Supply/Return Routing
+LDC1101
+X
+X
+X
+LDC1312
+LDC1314
+X
+X
+X
+LDC1612
+LDC1614
+X
+X
+X
+LDC0851
+X
+X
+LDC2112
+LDC2114
+X
+X
+X
+2
+Design Techniques
+2.1
+Shielding
+Shielding represents an approach to prevent unwanted signals from leaving or entering critical or sensitive
+areas of the system. Any time there is a moving charge, there will be a generated magnetic field (B-field)
+and orthogonal electric field (E-field). If unmanaged, these fundamental fields can be the source of
+potential EMI problems, each with their own coupling mechanisms to victim circuits. For this reason, the
+orientation of the attacker and/or victim has a significant effect on the magnitude of the interference. The
+magnetic field is created by current flow in closed loops and sensitive to large di/dt changes that can
+couple to other loops. The electric field is created by large voltage transients on high impedance lines that
+can radiate or couple to other high impedance lines which act like antennas to the incoming signal. For
+inductive sensing products, a magnetic field is emitted by the inductive sensor to sense nearby conductive
+materials. Therefore, the goal of shielding for the LDC products is to minimize the electric field coupling by
+reducing the number of high-impedance nodes while still allowing the magnetic field to sense the desired
+conductive targets.
+
+--- PAGE 3 ---
+www.ti.com
+Design Techniques
+3
+SNOA962–February 2017
+Submit Documentation Feedback
+Copyright © 2017, Texas Instruments Incorporated
+EMI Considerations for Inductive Sensing
+(1)
+R. F. German, H. W. Ott and C. R. Paul, "Effect of an image plane on printed circuit board radiation," IEEE International Symposium on
+Electromagnetic Compatibility, Washington, DC, 1990, pp. 284-291. doi: 10.1109/ISEMC.1990.252775
+2.1.1
+Trace Shielding
+For optimal EMI performance, signal traces should be routed on the middle layers of the PCB with a
+ground shield (or COM for the LDC211x) above and below. This effectively creates a low impedance
+shield above and below the traces which helps protect against incoming and outgoing electric fields. If the
+application requires the sensors to be connected remotely by an external cable, then the cables should be
+short, shielded, and in a twisted pair whenever possible.
+2.1.2
+Coil Shielding
+For large sensors or sensors that are directly exposed to large voltage transients such as ESD, it can also
+be helpful to shield the sensor coil from picking up strong E-field emissions nearby. A solid ground plane
+should not be used directly over the sensor because this would block the B-field, preventing the LDC from
+sensing intended targets. Instead, the ground shield should have cut-outs to prevent eddy currents from
+forming on the surface. Figure 1 and Figure 2 show some examples. A coil shield with orthogonal lines to
+the sensor traces is recommended as it minimizes the parasitic capacitance to the sensor coils
+underneath.
+Figure 1. Layout of Effective Coil Shielding
+Figure 2. Examples of Effective Coil Shielding Structures
+2.1.3
+Ground Plane
+In addition to shielding the sensors and the routing, adding a solid un-cut ground plane beneath all the
+components can be one of the biggest factors for improving emissions up to 40 dB (1). See Section 2.3 of
+the TI Application Note High-Speed Layout Guidelines for more discussion.
+
+--- PAGE 4 ---
+SCL
+SDA
+CLKIN
+SD
+ADDR
+GND
+1
+2
+J13
+TSW-102-07-G-S
+18pF
+C37
+GND
+18pF
+C38
+1
+2
+J6
+TSW-102-07-G-S
+GND
+GND
+1
+2
+J4
+1729018
+C34
+INTB
+18pF
+C39
+18pF
+C41
+GND
+0
+R19
+0
+R20
+0
+R23
+0
+R33
+IN1B
+IN1A
+IN0B
+IN0A
+18pF
+C23
+18pF
+C20
+18pF
+C42
+18pF
+C44
+1
+2
+J5
+1729018
+330pF
+C17
+330pF
+C24
+SCL
+1
+SDA
+2
+CLKIN
+3
+ADDR
+4
+INTB
+5
+SD
+6
+VDD
+7
+GND
+8
+IN0A
+9
+IN0B
+10
+IN1A
+11
+IN1B
+12
+PAD
+13
+U1
+LDC1612DNT
+COIL1
+COIL0
+C6
+330pF
+C10
+330pF
+C7
+Populate in case
+of EMI emissions
+issues.
+Populate in case
+of EMI
+susceptibility
+issues.
+Replace with
+Common-mode
+chokes (e.g.
+SRF3216-222Y) in
+case of EMI emissions
+or susceptibility
+In case of EMI issues with long wires, replace these EMI ﬁlter
+component placeholders:
+Design Techniques
+www.ti.com
+4
+SNOA962–February 2017
+Submit Documentation Feedback
+Copyright © 2017, Texas Instruments Incorporated
+EMI Considerations for Inductive Sensing
+2.2
+Passive Filters
+2.2.1
+Common-Mode Chokes
+There are two significant types of signals that need to be considered when looking at EMI effects. First,
+there are differential-mode signals. These are signals that appear on the two lines of a closed loop, equal
+in magnitude and opposite in direction. Differential-mode signals can be conceptualized as the desired
+signal and it's return path. Long traces or poor supply bypassing often causes differential-mode signals to
+radiate. Secondly, there are common-mode signals which appear on the two lines of a closed loop but are
+unequal in magnitude resulting in a net current flow in one direction. Common-mode radiation is one of
+typical sources of EMI issues, especially with signals that have a large di/dt or dv/dt component. Sources
+of common-mode signals include return paths that have a shared or common impedance with noisy
+signals or unintentional coupling to a reference ground or metal chassis through stray capacitance. Good
+layout can resolve many of these issues, however, shunting the noise at the source or adding a common-
+mode filter at the source can also provide a significant reduction in EMI if additional suppression is
+needed. Many commercially available common mode filters exist and can be quite useful in debugging or
+fixing issues which are identified late in the product development process. A good practice is to integrate
+the common-mode filter on the PCB itself through the use of a common-mode choke or simple L and C
+filtering as seen in Figure 3 below. A common-mode choke produces a high-impedance node which
+prevents any common-mode signals from coupling into the system. In order to effectively use a common-
+mode choke, the chokes are placed as close to the device under test as possible. This way, any common-
+mode signals traveling through the device will have a short path, minimizing the possibility of any radiation
+before being filtered out by the chokes.
+2.2.2
+Shunt Capacitors
+For even further EMI filtering, shunt capacitors can be placed near the device in conjunction with the
+common-mode chokes. Footprints for these are already implemented on the LDC131x/161x EVMs as
+seen in Figure 3. These capacitors should be much smaller than the sensor capacitor itself to prevent a
+loss in sensitivity. The latest LDC devices such as the LDC2114 and LDC2112 have a dedicated COM
+plane which can incorporate much larger shunt capacitors near the device to more effectively mitigate
+EMI. Please also refer to Section 3.3.4 EMI Emissions Testing of the TI Application Note Inductive
+Sensing Touch-On-Metal Buttons Design Guide for more discussion on the use of passive filtering for
+emissions.
+Figure 3. Common-Mode Choke and Capacitor Filtering Network on the LDC EVMs
+2.3
+Supply/Return Routing
+For optimal EMI performance, it is crucial to have a stable and clean power supply and low impedance
+return routing. For more in-depth discussions on these subjects, please see the references below.
+
+--- PAGE 5 ---
+www.ti.com
+Troubleshooting
+5
+SNOA962–February 2017
+Submit Documentation Feedback
+Copyright © 2017, Texas Instruments Incorporated
+EMI Considerations for Inductive Sensing
+2.3.1
+Rise-Time and Fall-Time Considerations
+Fast rise and fall times on critical signals can translate directly to EMI problems even if the failing
+frequencies are outside the expected operating range. See Section 1.2 of the TI Application Note High-
+Speed Layout Guidelines.
+2.3.2
+Appropriate Bypass Capacitor Selection
+Bypass capacitors play a critical role in ensuring stable device operation. Proper selection of the values
+and location, based on the supply characteristics and device requirements, can greatly improve system
+performance. Incorrect selections may create unexpected resonances in impedance making the supply
+lines more susceptible to EMI at those frequencies. See Section 2.4 of the TI Application Note High-Speed
+Layout Guidelines.
+2.3.3
+Routing Considerations
+Long traces can be thought of as antennas which can be sources of radiation and susceptibility depending
+on its length and excitation signal. The previous generation of LDC devices expects the PCB sensor coil to
+be placed close to the device, thus limiting the length of the traces. For guidance on the maximum
+recommended length for trace routing, please refer to the Remote Coil Length tab of the LDC Calculator
+Tool. The latest LDC devices (LDC211x) are designed to incorporate the long traces as part of the sensor
+and can be represented as transmission lines in series with the PCB coil. This allows the sensor tank
+capacitor to be placed near the device which provides extra EMI filtering towards any unwanted signals
+that may have coupled onto the traces after the PCB sensor coil.
+For high frequency signals, the lowest impedance return path is directly underneath the forward going
+signal trace. Therefore, it is important to have a solid return path underneath the trace by minimizing cuts
+and splits in the ground plane which otherwise forces the return current to flow around the cutout, forming
+a loop. If unmanaged, additional loops may overlap potentially disrupting sensitive circuits. See Section
+2.3 of the High-Speed Layout Guidelines application report.
+3
+Troubleshooting
+During EMC testing, it can be important to debug problems in real time. If the PCB fails a radiated EMI
+test, there are a couple of tips to determine its root cause. For example, if the failure occurs around 300
+MHz or less, it is likely that the issue is coming from long external cabling since this frequency has an
+effective wavelength of 1 m or more. These problems can be mitigated by adding ferrite beads to the
+cabling and retesting. On the other hand, if the failure occurs at a frequency greater than 300 MHz, it is
+likely that the issue is coming from the PCB itself either due to issues in routing, shielding, or bypassing. If
+this is the case, then a board spin with the techniques outlined above may be required.
+4
+Conclusion
+EMI is often a crucial but neglected topic for robust system performance. However, using the techniques
+discussed above, good EMI performance can be achieved.
+5
+References
+R. F. German, H. W. Ott and C. R. Paul, "Effect of an image plane on printed circuit board radiation," IEEE
+International Symposium on Electromagnetic Compatibility, Washington, DC, 1990, pp. 284-291.
+doi: 10.1109/ISEMC.1990.252775
+A. Weiler and A. Pakosta, "High-Speed Layout Guidelines", Clock Drivers, Texas Instruments Application
+Report. SCAA082, November 2006.
+C. Oberhauser, "LDC Device Selection Guide", Texas Instruments Application Report. SNOA954A,
+January 2017.
+B. Kasemsadeh and L. LaPointe, "Inductive Sensing Touch-On-Metal Buttons Design Guide", Texas
+Instruments Application Report. SNOA951, June 2016.
+
+--- PAGE 6 ---
+IMPORTANT NOTICE FOR TI DESIGN INFORMATION AND RESOURCES
+Texas Instruments Incorporated (‘TI”) technical, application or other design advice, services or information, including, but not limited to,
+reference designs and materials relating to evaluation modules, (collectively, “TI Resources”) are intended to assist designers who are
+developing applications that incorporate TI products; by downloading, accessing or using any particular TI Resource in any way, you
+(individually or, if you are acting on behalf of a company, your company) agree to use it solely for this purpose and subject to the terms of
+this Notice.
+TI’s provision of TI Resources does not expand or otherwise alter TI’s applicable published warranties or warranty disclaimers for TI
+products, and no additional obligations or liabilities arise from TI providing such TI Resources. TI reserves the right to make corrections,
+enhancements, improvements and other changes to its TI Resources.
+You understand and agree that you remain responsible for using your independent analysis, evaluation and judgment in designing your
+applications and that you have full and exclusive responsibility to assure the safety of your applications and compliance of your applications
+(and of all TI products used in or for your applications) with all applicable regulations, laws and other applicable requirements. You
+represent that, with respect to your applications, you have all the necessary expertise to create and implement safeguards that (1)
+anticipate dangerous consequences of failures, (2) monitor failures and their consequences, and (3) lessen the likelihood of failures that
+might cause harm and take appropriate actions. You agree that prior to using or distributing any applications that include TI products, you
+will thoroughly test such applications and the functionality of such TI products as used in such applications. TI has not conducted any
+testing other than that specifically described in the published documentation for a particular TI Resource.
+You are authorized to use, copy and modify any individual TI Resource only in connection with the development of applications that include
+the TI product(s) identified in such TI Resource. NO OTHER LICENSE, EXPRESS OR IMPLIED, BY ESTOPPEL OR OTHERWISE TO
+ANY OTHER TI INTELLECTUAL PROPERTY RIGHT, AND NO LICENSE TO ANY TECHNOLOGY OR INTELLECTUAL PROPERTY
+RIGHT OF TI OR ANY THIRD PARTY IS GRANTED HEREIN, including but not limited to any patent right, copyright, mask work right, or
+other intellectual property right relating to any combination, machine, or process in which TI products or services are used. Information
+regarding or referencing third-party products or services does not constitute a license to use such products or services, or a warranty or
+endorsement thereof. Use of TI Resources may require a license from a third party under the patents or other intellectual property of the
+third party, or a license from TI under the patents or other intellectual property of TI.
+TI RESOURCES ARE PROVIDED “AS IS” AND WITH ALL FAULTS. TI DISCLAIMS ALL OTHER WARRANTIES OR
+REPRESENTATIONS, EXPRESS OR IMPLIED, REGARDING TI RESOURCES OR USE THEREOF, INCLUDING BUT NOT LIMITED TO
+ACCURACY OR COMPLETENESS, TITLE, ANY EPIDEMIC FAILURE WARRANTY AND ANY IMPLIED WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT OF ANY THIRD PARTY INTELLECTUAL
+PROPERTY RIGHTS.
+TI SHALL NOT BE LIABLE FOR AND SHALL NOT DEFEND OR INDEMNIFY YOU AGAINST ANY CLAIM, INCLUDING BUT NOT
+LIMITED TO ANY INFRINGEMENT CLAIM THAT RELATES TO OR IS BASED ON ANY COMBINATION OF PRODUCTS EVEN IF
+DESCRIBED IN TI RESOURCES OR OTHERWISE. IN NO EVENT SHALL TI BE LIABLE FOR ANY ACTUAL, DIRECT, SPECIAL,
+COLLATERAL, INDIRECT, PUNITIVE, INCIDENTAL, CONSEQUENTIAL OR EXEMPLARY DAMAGES IN CONNECTION WITH OR
+ARISING OUT OF TI RESOURCES OR USE THEREOF, AND REGARDLESS OF WHETHER TI HAS BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES.
+You agree to fully indemnify TI and its representatives against any damages, costs, losses, and/or liabilities arising out of your non-
+compliance with the terms and provisions of this Notice.
+This Notice applies to TI Resources. Additional terms apply to the use and purchase of certain types of materials, TI products and services.
+These include; without limitation, TI’s standard terms for semiconductor products http://www.ti.com/sc/docs/stdterms.htm), evaluation
+modules, and samples (http://www.ti.com/sc/docs/sampterms.htm).
+Mailing Address: Texas Instruments, Post Office Box 655303, Dallas, Texas 75265
+Copyright © 2017, Texas Instruments Incorporated
