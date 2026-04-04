@@ -444,6 +444,7 @@ void test_multiple_failures_reach_offline() {
   bus.readStatus = Status::Error(Err::TIMEOUT, "forced timeout", -9);
 
   // First failure -> DEGRADED
+  bus.nowMs = 1000;
   (void)dev.recover();
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::DEGRADED),
                           static_cast<uint8_t>(dev.state()));
@@ -451,6 +452,7 @@ void test_multiple_failures_reach_offline() {
   TEST_ASSERT_TRUE(dev.isOnline());  // DEGRADED is still online
 
   // Second failure -> still DEGRADED
+  bus.nowMs = 2000;
   (void)dev.recover();
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::DEGRADED),
                           static_cast<uint8_t>(dev.state()));
@@ -458,6 +460,7 @@ void test_multiple_failures_reach_offline() {
   TEST_ASSERT_TRUE(dev.isOnline());
 
   // Third failure -> OFFLINE
+  bus.nowMs = 3000;
   (void)dev.recover();
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
                           static_cast<uint8_t>(dev.state()));
@@ -466,6 +469,7 @@ void test_multiple_failures_reach_offline() {
 
   // Recover -> back to READY
   bus.readStatus = Status::Ok();
+  bus.nowMs = 4000;
   Status st = dev.recover();
   TEST_ASSERT_TRUE(st.ok());
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
