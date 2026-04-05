@@ -233,7 +233,7 @@ void printHelp() {
 
   helpSection("Registers");
   helpItem("reg <addr>", "Read register (hex address)");
-  helpItem("wreg <addr> <val>", "Write register (hex)");
+  helpItem("wreg <addr> <val>", "Write register (diagnostic only; may desync cached config)");
 
   helpSection("Diagnostics");
   helpItem("drv", "Show driver state and health");

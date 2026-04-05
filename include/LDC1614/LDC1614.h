@@ -23,13 +23,13 @@ enum class DriverState : uint8_t {
 /// Parsed device status flags from STATUS register
 struct DeviceStatus {
   uint8_t errChan = 0;      ///< Channel that generated the error (0-3)
-  bool errUnderRange = false;
-  bool errOverRange = false;
-  bool errWatchdog = false;
-  bool errAmplitudeHigh = false;
-  bool errAmplitudeLow = false;
-  bool errZeroCount = false;
-  bool dataReady = false;
+  bool errUnderRange = false;    ///< ERR_UR: conversion result below valid range
+  bool errOverRange = false;     ///< ERR_OR: conversion result above valid range
+  bool errWatchdog = false;      ///< ERR_WD: sensor timeout/watchdog event
+  bool errAmplitudeHigh = false; ///< ERR_AH: sensor amplitude too high
+  bool errAmplitudeLow = false;  ///< ERR_AL: sensor amplitude too low
+  bool errZeroCount = false;     ///< ERR_ZC: zero-count condition detected
+  bool dataReady = false;        ///< DRDY: at least one unread conversion is available
   bool unreadConv[4] = {};   ///< Per-channel unread conversion flags
   uint16_t raw = 0;          ///< Raw STATUS register value
 
@@ -43,10 +43,10 @@ struct DeviceStatus {
 /// Per-channel data result from conversion readout
 struct ChannelData {
   uint32_t rawData = 0;     ///< 28-bit conversion result
-  bool errUnderRange = false;
-  bool errOverRange = false;
-  bool errWatchdog = false;
-  bool errAmplitude = false;
+  bool errUnderRange = false; ///< Channel result below valid operating range
+  bool errOverRange = false;  ///< Channel result above valid operating range
+  bool errWatchdog = false;   ///< Channel watchdog/timeout flag
+  bool errAmplitude = false;  ///< Channel amplitude error (high or low)
 
   /// @return true if any per-channel error flag is set
   bool hasError() const {
@@ -57,19 +57,19 @@ struct ChannelData {
 /// Snapshot of driver configuration and operational state.
 /// Returned by getSettings() for diagnostics without further I2C.
 struct SettingsSnapshot {
-  DriverState state = DriverState::UNINIT;
-  bool sleeping = true;
-  bool autoScan = false;
-  uint8_t activeChan = 0;
-  uint8_t channelCount = 4;
-  RRSequence rrSequence = RRSequence::CH0_CH1;
-  Deglitch deglitch = Deglitch::BW_33MHZ;
-  RefClkSrc refClkSrc = RefClkSrc::INTERNAL;
-  SensorActivation sensorActivation = SensorActivation::LOW_POWER;
-  bool rpOverrideEn = true;
-  bool autoAmpDis = true;
-  bool highCurrentDrv = false;
-  bool intbEnabled = false;
+  DriverState state = DriverState::UNINIT;      ///< Driver health state at snapshot time
+  bool sleeping = true;                         ///< True if the driver believes conversions are stopped
+  bool autoScan = false;                        ///< Multi-channel autoscan enabled in MUX_CONFIG
+  uint8_t activeChan = 0;                       ///< Active channel when single-channel mode is selected
+  uint8_t channelCount = 4;                     ///< Configured logical channel count (2 or 4)
+  RRSequence rrSequence = RRSequence::CH0_CH1;  ///< Conversion sequence programmed in MUX_CONFIG
+  Deglitch deglitch = Deglitch::BW_33MHZ;       ///< Input deglitch filter bandwidth
+  RefClkSrc refClkSrc = RefClkSrc::INTERNAL;    ///< Reference clock source selection
+  SensorActivation sensorActivation = SensorActivation::LOW_POWER; ///< Sensor current drive policy
+  bool rpOverrideEn = true;                     ///< RP_OVERRIDE_EN bit state
+  bool autoAmpDis = true;                       ///< AUTO_AMP_DIS bit state
+  bool highCurrentDrv = false;                  ///< High-current drive mode enabled
+  bool intbEnabled = false;                     ///< INTB pin enabled for DRDY/error signaling
   uint32_t sampleTimestampMs[4] = {};   ///< Per-channel last sample timestamp (0 = never)
   ChannelConfig channel[4] = {};        ///< Per-channel config at snapshot time
 };
@@ -98,6 +98,12 @@ public:
   /// @brief Shut down the driver. Best-effort sleep before UNINIT.
   /// After end(), call begin() to reinitialize.
   void end();
+
+  /// @brief Check if begin() completed successfully and end() has not been called.
+  bool isInitialized() const { return _initialized; }
+
+  /// @brief Get the active configuration snapshot.
+  const Config& getConfig() const { return _config; }
 
   // === Diagnostics (no health tracking) ===
 

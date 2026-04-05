@@ -132,6 +132,8 @@ void loop() {
 | `begin(config)` | Initialize driver, verify device identity, apply config. Device remains in sleep mode. |
 | `tick(nowMs)` | Cooperative update (currently a no-op; reserved for future use). |
 | `end()` | Deinitialize driver, transition to UNINIT. |
+| `isInitialized()` | Return `true` after successful `begin()` until `end()`. |
+| `getConfig()` | Return the cached configuration snapshot currently held by the driver. |
 
 ### Data Readback
 
@@ -139,7 +141,18 @@ void loop() {
 |--------|-------------|
 | `readChannel(ch, data)` | Read conversion data for a single channel. |
 | `readAllChannels(data)` | Read all active channels. |
+| `readChannelBlocking(ch, data, timeoutMs)` | Wait for DRDY and then read one channel with a bounded timeout. |
+| `readAllChannelsBlocking(data, timeoutMs)` | Wait for DRDY and then read all active channels with a bounded timeout. |
 | `dataReady()` | Check if new conversion data is available (via INTB pin or STATUS register). |
+
+### Sample Cache
+
+| Method | Description |
+|--------|-------------|
+| `getLastSample(ch, data)` | Return the last successfully read sample for a channel without I2C. |
+| `sampleTimestampMs(ch)` | Timestamp of the last successful sample for a channel (`0` if none). |
+| `sampleAgeMs(ch, nowMs)` | Age of the cached sample for a channel. |
+| `isMeasuring()` | True when the device is awake and conversions are running. |
 
 ### Control
 
@@ -148,6 +161,7 @@ void loop() {
 | `sleep()` | Enter sleep mode (stop conversions, retain config). |
 | `wake()` | Wake and start conversions. |
 | `softReset()` | Reset device to defaults. Requires `begin()` to reinitialize. |
+| `resetAndReapply()` | Reset the device and re-apply the cached configuration, returning to READY on success. |
 
 ### Runtime Configuration (requires sleep mode)
 
@@ -167,6 +181,9 @@ void loop() {
 |--------|-------------|
 | `probe()` | Verify device identity (no health tracking). |
 | `recover()` | Attempt recovery by reading MANUFACTURER_ID (tracks health). |
+| `readRegister16()` / `writeRegister16()` | Raw tracked register access for diagnostics and service operations. |
+| `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
+| `getSettings()` | Return a RAM-only snapshot of active settings and cached sample timestamps. |
 
 ### Health
 
@@ -183,6 +200,10 @@ void loop() {
 
 - `examples/01_basic_bringup_cli/` - Interactive CLI for LDC1614 features
 
+The bringup CLI includes raw `reg` / `wreg` commands for diagnostics. `wreg` bypasses
+driver-level validation and can desynchronize the cached configuration until a fresh
+`begin()` or `resetAndReapply()`.
+
 ### Example Helpers (`examples/common/`)
 
 Not part of the library. These simulate project-level glue and keep examples self-contained:
@@ -195,7 +216,11 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | `I2cTransport.h` | Wire-based I2C transport adapter |
 | `I2cScanner.h` | I2C bus scanner with table output and bus recovery |
 | `BusDiag.h` | Bus diagnostics wrapper |
+| `CliShell.h` | Serial command-line shell with line editing |
 | `CommandHandler.h` | Command parsing helpers (`readLine`, `match`, `parseInt`) |
+| `HealthDiag.h` | Verbose driver-health diagnostics and snapshots |
+| `HealthView.h` | Compact health/status formatting helpers |
+| `TransportAdapter.h` | Function-pointer adapter for example transports |
 
 ## Behavioral Contracts
 
