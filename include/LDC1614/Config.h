@@ -122,7 +122,7 @@ struct Config {
   // === Global Conversion Settings ===
   bool autoScan = false;                        ///< true = multi-channel sequential, false = single-channel
   uint8_t activeChan = 0;                       ///< Active channel for single-channel mode (0-3)
-  RRSequence rrSequence = RRSequence::CH0_CH1;  ///< Round-robin sequence for auto-scan mode
+  RRSequence rrSequence = RRSequence::CH0_CH1;  ///< Round-robin sequence for auto-scan mode (LDC1612: CH0_CH1 only)
   Deglitch deglitch = Deglitch::BW_33MHZ;       ///< Input deglitch filter bandwidth
 
   // === CONFIG Register Settings ===
@@ -133,7 +133,7 @@ struct Config {
   bool highCurrentDrv = false;                             ///< true = high current drive for Ch0 only (single-channel only)
 
   // === Error Reporting ===
-  uint16_t errorConfig = 0x0000;    ///< ERROR_CONFIG register value (see CommandTable.h for masks)
+  uint16_t errorConfig = 0x0000;    ///< ERROR_CONFIG register value (reserved bits must remain 0; see CommandTable.h masks)
 
   // === INTB Pin (optional) ===
   int intbPin = -1;                 ///< GPIO pin for INTB; -1 means not used

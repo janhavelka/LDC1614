@@ -9,6 +9,7 @@
 #include "examples/common/BusDiag.h"
 #include "examples/common/I2cScanner.h"
 #include "examples/common/I2cTransport.h"
+#include "examples/common/CliStyle.h"
 #include "examples/common/Log.h"
 
 #include "LDC1614/LDC1614.h"
@@ -183,67 +184,70 @@ void printDriverHealth() {
 }
 
 void printHelp() {
-  auto helpSection = [](const char* title) {
-    Serial.printf("\n%s[%s]%s\n", LOG_COLOR_GREEN, title, LOG_COLOR_RESET);
-  };
-  auto helpItem = [](const char* cmd, const char* desc) {
-    Serial.printf("  %s%-32s%s - %s\n", LOG_COLOR_CYAN, cmd, LOG_COLOR_RESET, desc);
-  };
-
   Serial.println();
-  Serial.printf("%s=== LDC1614 CLI Help ===%s\n", LOG_COLOR_CYAN, LOG_COLOR_RESET);
-  helpSection("Common");
-  helpItem("help / ?", "Show this help");
-  helpItem("version / ver", "Print firmware and library version info");
-  helpItem("scan", "Scan I2C bus");
+  cli::printHelpHeader("LDC1614 CLI Help");
+  cli::printHelpSection("Common");
+  cli::printHelpItem("help / ?", "Show this help");
+  cli::printHelpItem("version / ver", "Print firmware and library version info");
+  cli::printHelpItem("scan", "Scan I2C bus");
 
-  helpSection("Data");
-  helpItem("read", "Read all active channels");
-  helpItem("read <ch>", "Read specific channel (0-3)");
-  helpItem("readblocking", "Blocking read all channels (waits for DRDY)");
-  helpItem("readblocking <ch>", "Blocking read specific channel");
-  helpItem("sample <ch>", "Get last cached sample (no I2C)");
-  helpItem("sampleage <ch>", "Show age of cached sample (ms)");
-  helpItem("drdy", "Check data ready");
-  helpItem("status", "Read and parse STATUS register");
-  helpItem("status_raw", "Read raw STATUS register value");
-  helpItem("freq <ch> <fRef>", "Calc sensor frequency from last read");
-  helpItem("timing <ch> <fRef>", "Calc conversion time (us)");
+  cli::printHelpSection("Data");
+  cli::printHelpItem("read", "Read configured channels");
+  cli::printHelpItem("read <ch>", "Read specific channel (0-3)");
+  cli::printHelpItem("readblocking", "Blocking read configured channels (waits for DRDY)");
+  cli::printHelpItem("readblocking <ch>", "Blocking read specific channel");
+  cli::printHelpItem("sample <ch>", "Get last cached sample (no I2C)");
+  cli::printHelpItem("sampleage <ch>", "Show age of cached sample (ms)");
+  cli::printHelpItem("drdy", "Check data ready");
+  cli::printHelpItem("status", "Read and parse STATUS register");
+  cli::printHelpItem("status_raw", "Read raw STATUS register value");
+  cli::printHelpItem("freq <ch> <fRef>", "Read channel and calc sensor frequency");
+  cli::printHelpItem("timing <ch> <fRef>", "Calc conversion time (us)");
 
-  helpSection("Control");
-  helpItem("init", "Initialize/reinitialize device");
-  helpItem("end", "Shut down driver (returns to UNINIT)");
-  helpItem("sleep", "Enter sleep mode (stop conversions)");
-  helpItem("wake", "Wake and start conversions");
-  helpItem("reset", "Software reset (returns to UNINIT)");
-  helpItem("resetreapply", "Soft reset + re-apply config (stays READY)");
+  cli::printHelpSection("Control");
+  cli::printHelpItem("init", "Initialize/reinitialize device");
+  cli::printHelpItem("end", "Shut down driver (returns to UNINIT)");
+  cli::printHelpItem("sleep", "Enter sleep mode (stop conversions)");
+  cli::printHelpItem("wake", "Wake and start conversions");
+  cli::printHelpItem("reset", "Software reset (returns to UNINIT)");
+  cli::printHelpItem("resetreapply", "Soft reset + re-apply config (stays READY)");
 
-  helpSection("Configuration");
-  helpItem("cfg / settings", "Print active configuration snapshot");
-  helpItem("snapshot", "Print settings snapshot struct (no I2C)");
-  helpItem("channels", "Show configured channel count");
-  helpItem("activech", "Show current active channel");
-  helpItem("activech <ch>", "Set active channel (single-ch mode)");
-  helpItem("rcount <ch> <val>", "Set RCOUNT for channel");
-  helpItem("settle <ch> <val>", "Set SETTLECOUNT for channel");
-  helpItem("clkdiv <ch> <fin> <fref>", "Set clock dividers");
-  helpItem("offset <ch> <val>", "Set conversion offset");
-  helpItem("idrive <ch> <val>", "Set drive current (0-31)");
-  helpItem("initidrive <ch>", "Read auto-calibrated INIT_IDRIVE");
+  cli::printHelpSection("Configuration");
+  cli::printHelpItem("cfg / settings", "Print active configuration snapshot");
+  cli::printHelpItem("snapshot", "Print settings snapshot struct (no I2C)");
+  cli::printHelpItem("channels", "Show configured channel count");
+  cli::printHelpItem("activech", "Show current active channel");
+  cli::printHelpItem("activech <ch>", "Set active channel (single-ch mode)");
+  cli::printHelpItem("single <ch>", "Set single-channel mode and active channel");
+  cli::printHelpItem("autoscan <2|3|4>", "Set auto-scan sequence length");
+  cli::printHelpItem("deglitch <1|3|10|33>", "Set input deglitch bandwidth in MHz");
+  cli::printHelpItem("errcfg [mask]", "Show or set ERROR_CONFIG bit mask");
+  cli::printHelpItem("intb [0|1]", "Show or enable/disable INTB output");
+  cli::printHelpItem("refclk <int|ext>", "Set reference clock source");
+  cli::printHelpItem("activate <full|low>", "Set sensor activation current policy");
+  cli::printHelpItem("rpoverride <0|1>", "Enable/disable fixed RP override drive");
+  cli::printHelpItem("autoamp <0|1>", "Enable/disable auto amplitude correction");
+  cli::printHelpItem("highcurrent <0|1>", "Enable/disable high-current Ch0 drive");
+  cli::printHelpItem("rcount <ch> <val>", "Set RCOUNT for channel");
+  cli::printHelpItem("settle <ch> <val>", "Set SETTLECOUNT for channel");
+  cli::printHelpItem("clkdiv <ch> <fin> <fref>", "Set clock dividers");
+  cli::printHelpItem("offset <ch> <val>", "Set conversion offset");
+  cli::printHelpItem("idrive <ch> <val>", "Set drive current (0-31)");
+  cli::printHelpItem("initidrive <ch>", "Read auto-calibrated INIT_IDRIVE");
 
-  helpSection("Registers");
-  helpItem("reg <addr>", "Read register (hex address)");
-  helpItem("wreg <addr> <val>", "Write register (diagnostic only; may desync cached config)");
+  cli::printHelpSection("Registers");
+  cli::printHelpItem("reg <addr>", "Read register (hex address)");
+  cli::printHelpItem("wreg <addr> <val>", "Write register (diagnostic only; may desync cached config)");
 
-  helpSection("Diagnostics");
-  helpItem("drv", "Show driver state and health");
-  helpItem("online", "Check if device is online");
-  helpItem("probe", "Probe device (no health tracking)");
-  helpItem("recover", "Manual recovery attempt");
-  helpItem("verbose [0|1]", "Enable/disable verbose output");
-  helpItem("stress [N]", "Run N read cycles (default 10)");
-  helpItem("stress_mix [N]", "Run N mixed-operation stress cycles");
-  helpItem("selftest", "Run safe command self-test report");
+  cli::printHelpSection("Diagnostics");
+  cli::printHelpItem("drv", "Show driver state and health");
+  cli::printHelpItem("online", "Check if device is online");
+  cli::printHelpItem("probe", "Probe device (no health tracking)");
+  cli::printHelpItem("recover", "Manual recovery attempt");
+  cli::printHelpItem("verbose [0|1]", "Enable/disable verbose output");
+  cli::printHelpItem("stress [N]", "Run N read cycles (default 10)");
+  cli::printHelpItem("stress_mix [N]", "Run N mixed-operation stress cycles");
+  cli::printHelpItem("selftest", "Run safe command self-test report");
 }
 
 void printVersionInfo() {
@@ -294,6 +298,117 @@ bool parseU32(const String& token, uint32_t& out) {
   }
   out = static_cast<uint32_t>(value);
   return true;
+}
+
+bool parseBoolToken(String token, bool& out) {
+  token.trim();
+  token.toLowerCase();
+  if (token == "1" || token == "on" || token == "true" || token == "yes" || token == "enable") {
+    out = true;
+    return true;
+  }
+  if (token == "0" || token == "off" || token == "false" || token == "no" || token == "disable") {
+    out = false;
+    return true;
+  }
+  return false;
+}
+
+bool parseRRSequence(const String& token, LDC1614::RRSequence& out) {
+  int32_t count = 0;
+  if (!parseI32(token, count)) {
+    return false;
+  }
+  if (count == 2) {
+    out = LDC1614::RRSequence::CH0_CH1;
+    return true;
+  }
+  if (count == 3) {
+    out = LDC1614::RRSequence::CH0_CH1_CH2;
+    return true;
+  }
+  if (count == 4) {
+    out = LDC1614::RRSequence::CH0_CH1_CH2_CH3;
+    return true;
+  }
+  return false;
+}
+
+bool parseDeglitch(String token, LDC1614::Deglitch& out) {
+  token.trim();
+  token.toLowerCase();
+  if (token == "1" || token == "1mhz") {
+    out = LDC1614::Deglitch::BW_1MHZ;
+    return true;
+  }
+  if (token == "3" || token == "3mhz" || token == "3.3" || token == "3.3mhz") {
+    out = LDC1614::Deglitch::BW_3MHZ;
+    return true;
+  }
+  if (token == "10" || token == "10mhz") {
+    out = LDC1614::Deglitch::BW_10MHZ;
+    return true;
+  }
+  if (token == "33" || token == "33mhz") {
+    out = LDC1614::Deglitch::BW_33MHZ;
+    return true;
+  }
+  return false;
+}
+
+bool parseRefClk(String token, LDC1614::RefClkSrc& out) {
+  token.trim();
+  token.toLowerCase();
+  if (token == "int" || token == "internal") {
+    out = LDC1614::RefClkSrc::INTERNAL;
+    return true;
+  }
+  if (token == "ext" || token == "external" || token == "clkin") {
+    out = LDC1614::RefClkSrc::EXT_CLK;
+    return true;
+  }
+  return false;
+}
+
+bool parseActivation(String token, LDC1614::SensorActivation& out) {
+  token.trim();
+  token.toLowerCase();
+  if (token == "full" || token == "full_current") {
+    out = LDC1614::SensorActivation::FULL_CURRENT;
+    return true;
+  }
+  if (token == "low" || token == "low_power") {
+    out = LDC1614::SensorActivation::LOW_POWER;
+    return true;
+  }
+  return false;
+}
+
+const char* rrSequenceToStr(LDC1614::RRSequence sequence) {
+  switch (sequence) {
+    case LDC1614::RRSequence::CH0_CH1:         return "CH0_CH1";
+    case LDC1614::RRSequence::CH0_CH1_CH2:     return "CH0_CH1_CH2";
+    case LDC1614::RRSequence::CH0_CH1_CH2_CH3: return "CH0_CH1_CH2_CH3";
+    default:                                   return "UNKNOWN";
+  }
+}
+
+const char* deglitchToStr(LDC1614::Deglitch deglitch) {
+  switch (deglitch) {
+    case LDC1614::Deglitch::BW_1MHZ:  return "1 MHz";
+    case LDC1614::Deglitch::BW_3MHZ:  return "3.3 MHz";
+    case LDC1614::Deglitch::BW_10MHZ: return "10 MHz";
+    case LDC1614::Deglitch::BW_33MHZ: return "33 MHz";
+    default:                          return "UNKNOWN";
+  }
+}
+
+const char* refClkToStr(LDC1614::RefClkSrc source) {
+  return source == LDC1614::RefClkSrc::EXT_CLK ? "EXT_CLK" : "INTERNAL";
+}
+
+const char* activationToStr(LDC1614::SensorActivation activation) {
+  return activation == LDC1614::SensorActivation::LOW_POWER ? "LOW_POWER" : "FULL_CURRENT";
 }
 
 LDC1614::Config makeDefaultConfig() {
@@ -443,7 +558,23 @@ void runSelfTest() {
 
 void printConfig() {
   Serial.println("=== Active Configuration ===");
-  Serial.printf("  I2C address: 0x2A (default)\n");
+  const LDC1614::Config& cfg = device.getConfig();
+  Serial.printf("  I2C address: 0x%02X\n", cfg.i2cAddress);
+  Serial.printf("  Mode: %s  RR sequence: %s  Deglitch: %s\n",
+                cfg.autoScan ? "auto-scan" : "single-channel",
+                rrSequenceToStr(cfg.rrSequence),
+                deglitchToStr(cfg.deglitch));
+  Serial.printf("  RefClk: %s  Activation: %s\n",
+                refClkToStr(cfg.refClkSrc),
+                activationToStr(cfg.sensorActivation));
+  Serial.printf("  RPoverride: %s  AutoAmp: %s  HighCurrentDrv: %s\n",
+                log_bool_str(cfg.rpOverrideEn),
+                log_bool_str(!cfg.autoAmpDis),
+                log_bool_str(cfg.highCurrentDrv));
+  Serial.printf("  INTB configured: %s  INTB output: %s\n",
+                log_bool_str(cfg.intbPin >= 0),
+                log_bool_str(cfg.intbPin >= 0 && !cfg.intbDisable));
+  Serial.printf("  Cached ERROR_CONFIG: 0x%04X\n", cfg.errorConfig);
 
   // Read key registers to show current config
   uint16_t regVal = 0;
@@ -770,9 +901,15 @@ void processCommand(const String& cmdLine) {
   } else if (cmd == "channels") {
     Serial.printf("  Channel count: %u\n", device.channelCount());
   } else if (cmd == "drdy") {
+    bool ready = false;
+    auto st = device.readDataReady(ready);
+    if (!st.ok()) {
+      printStatus(st);
+      return;
+    }
     Serial.printf("  Data ready: %s%s%s\n",
-                  yesNoColor(device.dataReady()),
-                  device.dataReady() ? "YES" : "NO",
+                  yesNoColor(ready),
+                  ready ? "YES" : "NO",
                   LOG_COLOR_RESET);
   } else if (cmd == "read") {
     if (!device.isOnline()) {
@@ -940,12 +1077,16 @@ void processCommand(const String& cmdLine) {
     Serial.printf("  Channels: %u  Active: %u  AutoScan: %s\n",
                   snap.channelCount, snap.activeChan,
                   log_bool_str(snap.autoScan));
-    Serial.printf("  RefClk: %s  INTB: %s\n",
-                  snap.refClkSrc == LDC1614::RefClkSrc::INTERNAL ? "INTERNAL" : "EXT_CLK",
+    Serial.printf("  RR sequence: %s  Deglitch: %s\n",
+                  rrSequenceToStr(snap.rrSequence),
+                  deglitchToStr(snap.deglitch));
+    Serial.printf("  RefClk: %s  Activation: %s  INTB: %s\n",
+                  refClkToStr(snap.refClkSrc),
+                  activationToStr(snap.sensorActivation),
                   log_bool_str(snap.intbEnabled));
-    Serial.printf("  RPoverride: %s  AutoAmpDis: %s  HighCurrentDrv: %s\n",
+    Serial.printf("  RPoverride: %s  AutoAmp: %s  HighCurrentDrv: %s\n",
                   log_bool_str(snap.rpOverrideEn),
-                  log_bool_str(snap.autoAmpDis),
+                  log_bool_str(!snap.autoAmpDis),
                   log_bool_str(snap.highCurrentDrv));
     for (uint8_t i = 0; i < snap.channelCount && i < 4; i++) {
       const auto& cc = snap.channel[i];
@@ -1066,6 +1207,104 @@ void processCommand(const String& cmdLine) {
       return;
     }
     auto st = device.setActiveChannel(static_cast<uint8_t>(ch));
+    printStatus(st);
+  } else if (cmd.startsWith("single ")) {
+    int ch = cmd.substring(7).toInt();
+    if (ch < 0 || ch > 3) {
+      LOGW("Invalid channel (0-3)");
+      return;
+    }
+    auto st = device.setSingleChannelMode(static_cast<uint8_t>(ch));
+    printStatus(st);
+  } else if (cmd.startsWith("autoscan ")) {
+    LDC1614::RRSequence sequence = LDC1614::RRSequence::CH0_CH1;
+    if (!parseRRSequence(cmd.substring(9), sequence)) {
+      LOGW("Usage: autoscan <2|3|4>");
+      return;
+    }
+    auto st = device.setAutoScanMode(sequence);
+    printStatus(st);
+  } else if (cmd.startsWith("deglitch ")) {
+    LDC1614::Deglitch deglitch = LDC1614::Deglitch::BW_33MHZ;
+    if (!parseDeglitch(cmd.substring(9), deglitch)) {
+      LOGW("Usage: deglitch <1|3|10|33>");
+      return;
+    }
+    auto st = device.setDeglitch(deglitch);
+    printStatus(st);
+  } else if (cmd == "errcfg") {
+    Serial.printf("  Cached ERROR_CONFIG: 0x%04X\n", device.getErrorConfig());
+    if (device.isOnline()) {
+      uint16_t value = 0;
+      auto st = device.readRegister16(LDC1614::cmd::REG_ERROR_CONFIG, value);
+      if (st.ok()) {
+        Serial.printf("  Live ERROR_CONFIG:   0x%04X\n", value);
+      } else {
+        printStatus(st);
+      }
+    }
+  } else if (cmd.startsWith("errcfg ")) {
+    uint32_t value = 0;
+    if (!parseU32(cmd.substring(7), value) || value > 0xFFFFU) {
+      LOGW("Usage: errcfg <mask>");
+      return;
+    }
+    auto st = device.setErrorConfig(static_cast<uint16_t>(value));
+    printStatus(st);
+  } else if (cmd == "intb") {
+    const LDC1614::Config& cfg = device.getConfig();
+    Serial.printf("  INTB pin: %d  output: %s%s%s\n",
+                  cfg.intbPin,
+                  cfg.intbPin >= 0 && !cfg.intbDisable ? LOG_COLOR_GREEN : LOG_COLOR_YELLOW,
+                  log_bool_str(cfg.intbPin >= 0 && !cfg.intbDisable),
+                  LOG_COLOR_RESET);
+  } else if (cmd.startsWith("intb ")) {
+    bool enabled = false;
+    if (!parseBoolToken(cmd.substring(5), enabled)) {
+      LOGW("Usage: intb <0|1>");
+      return;
+    }
+    auto st = device.setIntbDisabled(!enabled);
+    printStatus(st);
+  } else if (cmd.startsWith("refclk ")) {
+    LDC1614::RefClkSrc source = LDC1614::RefClkSrc::INTERNAL;
+    if (!parseRefClk(cmd.substring(7), source)) {
+      LOGW("Usage: refclk <int|ext>");
+      return;
+    }
+    auto st = device.setReferenceClockSource(source);
+    printStatus(st);
+  } else if (cmd.startsWith("activate ")) {
+    LDC1614::SensorActivation activation = LDC1614::SensorActivation::FULL_CURRENT;
+    if (!parseActivation(cmd.substring(9), activation)) {
+      LOGW("Usage: activate <full|low>");
+      return;
+    }
+    auto st = device.setSensorActivation(activation);
+    printStatus(st);
+  } else if (cmd.startsWith("rpoverride ")) {
+    bool enabled = false;
+    if (!parseBoolToken(cmd.substring(11), enabled)) {
+      LOGW("Usage: rpoverride <0|1>");
+      return;
+    }
+    auto st = device.setRpOverrideEnabled(enabled);
+    printStatus(st);
+  } else if (cmd.startsWith("autoamp ")) {
+    bool enabled = false;
+    if (!parseBoolToken(cmd.substring(8), enabled)) {
+      LOGW("Usage: autoamp <0|1>");
+      return;
+    }
+    auto st = device.setAutoAmplitudeCorrectionEnabled(enabled);
+    printStatus(st);
+  } else if (cmd.startsWith("highcurrent ")) {
+    bool enabled = false;
+    if (!parseBoolToken(cmd.substring(12), enabled)) {
+      LOGW("Usage: highcurrent <0|1>");
+      return;
+    }
+    auto st = device.setHighCurrentDriveEnabled(enabled);
     printStatus(st);
   } else if (cmd.startsWith("wreg ")) {
     if (!device.isOnline()) {
@@ -1222,7 +1461,7 @@ void setup() {
   }
 
   Serial.println("\nType 'help' for commands");
-  Serial.print("> ");
+  cli::printPrompt();
 }
 
 void loop() {
@@ -1236,7 +1475,7 @@ void loop() {
       if (inputBuffer.length() > 0) {
         processCommand(inputBuffer);
         inputBuffer = "";
-        Serial.print("> ");
+        cli::printPrompt();
       }
     } else if (inputBuffer.length() < kMaxInputLen) {
       inputBuffer += c;

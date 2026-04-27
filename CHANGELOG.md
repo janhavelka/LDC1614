@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
+- Runtime setters for single-channel mode, auto-scan sequence, deglitch bandwidth, `ERROR_CONFIG`, INTB output, reference clock source, sensor activation policy, RP override, auto amplitude correction, and high-current drive.
+- Validation for `ERROR_CONFIG` reserved bits and LDC1612 round-robin sequence limits.
+- Native tests for data-ready error propagation, STATUS parsing, channel data parsing, recovery identity validation, runtime setter cache commits, and configuration constraints.
+- Bringup CLI commands covering the runtime configuration surface.
+
+### Changed
+- Blocking read helpers now propagate `readDataReady()` failures instead of converting I2C errors into timeouts.
+- Runtime setters now commit cached configuration only after successful register writes.
+- `recover()` now validates both `MANUFACTURER_ID` and `DEVICE_ID` and documents the recovery ladder.
+- README now documents runtime setters, configuration constraints, CLI coverage, and STATUS/INTB data-ready behavior.
+
+### Fixed
+- INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
+- Channel cache and calculation helpers now reject channels outside the configured LDC1612/LDC1614 channel count.
+
 ## [1.0.0] - 2026-04-05
 
 ### Added

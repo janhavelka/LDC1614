@@ -113,9 +113,11 @@ public:
   /// @return Status (OK if device responds with expected IDs)
   Status probe();
 
-  /// @brief Attempt manual recovery by re-reading MANUFACTURER_ID.
+  /// @brief Attempt manual recovery through the configured recovery ladder.
   /// Uses tracked I2C — updates health counters on success/failure.
   /// On success, driver returns to READY state.
+  /// Ladder: identity read, optional bus reset, optional soft reset/reapply,
+  /// optional hard reset/reapply.
   /// @return Status
   Status recover();
 
@@ -161,26 +163,36 @@ public:
   /// @return Status
   Status readChannel(uint8_t ch, ChannelData& out);
 
-  /// @brief Read conversion data for all active channels.
-  /// @param out Array of ChannelData, must have at least channelCount elements
+  /// @brief Read conversion data for channels starting at channel 0.
+  /// @param out Array of ChannelData, must have at least count elements
+  ///            (or channelCount elements when count is 0)
   /// @param count Number of channels to read (0 = use config channelCount)
   /// @return Status (first error encountered, or OK)
   Status readAllChannels(ChannelData* out, uint8_t count = 0);
 
   /// @brief Check if data is ready (poll DRDY flag or INTB pin).
+  /// Convenience wrapper around readDataReady(). Returns false if the driver is
+  /// not initialized or if the underlying STATUS read fails.
   /// @return true if new conversion data is available
   bool dataReady();
 
+  /// @brief Check if data is ready with explicit error reporting.
+  /// Uses INTB pin if configured and enabled; otherwise reads STATUS.DRDY.
+  /// @param ready Output: true if new conversion data is available
+  /// @return Status from the underlying GPIO/STATUS path
+  Status readDataReady(bool& ready);
+
   /// @brief Read a channel with blocking wait for data ready.
-  /// Polls dataReady() with cooperative yield until timeout.
+  /// Polls readDataReady() with cooperative yield until timeout.
   /// @param ch Channel index (0-3)
   /// @param out Parsed channel data result
   /// @param timeoutMs Maximum wait time in milliseconds (default 200)
   /// @return Status (TIMEOUT if data not ready within deadline)
   Status readChannelBlocking(uint8_t ch, ChannelData& out, uint32_t timeoutMs = 200);
 
-  /// @brief Read all active channels with blocking wait.
-  /// @param out Array of ChannelData, at least channelCount elements
+  /// @brief Read channels starting at channel 0 with blocking wait.
+  /// @param out Array of ChannelData, at least count elements
+  ///            (or channelCount elements when count is 0)
   /// @param timeoutMs Maximum wait time for data ready (default 200)
   /// @param count Number of channels (0 = use config channelCount)
   /// @return Status
@@ -258,6 +270,70 @@ public:
 
   /// @brief Get current active channel index.
   uint8_t getActiveChannel() const { return _config.activeChan; }
+
+  /// @brief Set single-channel continuous mode and select active channel.
+  /// Device must be in sleep mode. Writes MUX_CONFIG and CONFIG.
+  /// @param ch Channel index (0-3)
+  /// @return Status
+  Status setSingleChannelMode(uint8_t ch);
+
+  /// @brief Set multi-channel auto-scan mode.
+  /// Device must be in sleep mode. Sequence must fit the configured device
+  /// channel count (for example, LDC1612 only supports CH0_CH1).
+  /// @param sequence Round-robin conversion sequence
+  /// @return Status
+  Status setAutoScanMode(RRSequence sequence);
+
+  /// @brief Set input deglitch filter bandwidth.
+  /// Device must be in sleep mode. Writes MUX_CONFIG.
+  /// @param deglitch Deglitch filter bandwidth
+  /// @return Status
+  Status setDeglitch(Deglitch deglitch);
+
+  /// @brief Set ERROR_CONFIG register and cached error-reporting configuration.
+  /// Device must be in sleep mode.
+  /// @param errorConfig Bit mask using cmd::MASK_ERRCFG_* constants
+  /// @return Status
+  Status setErrorConfig(uint16_t errorConfig);
+
+  /// @brief Get cached ERROR_CONFIG value.
+  uint16_t getErrorConfig() const { return _config.errorConfig; }
+
+  /// @brief Enable or disable INTB output in CONFIG.INTB_DIS.
+  /// Device must be in sleep mode.
+  /// @param disabled true disables INTB and holds pin high
+  /// @return Status
+  Status setIntbDisabled(bool disabled);
+
+  /// @brief Set reference clock source.
+  /// Device must be in sleep mode. Writes CONFIG.
+  /// @param source Internal oscillator or external CLKIN
+  /// @return Status
+  Status setReferenceClockSource(RefClkSrc source);
+
+  /// @brief Set sensor activation current policy.
+  /// Device must be in sleep mode. Writes CONFIG.
+  /// @param activation Full-current or low-power activation policy
+  /// @return Status
+  Status setSensorActivation(SensorActivation activation);
+
+  /// @brief Set RP_OVERRIDE_EN.
+  /// Device must be in sleep mode. Writes CONFIG.
+  /// @param enabled true uses fixed IDRIVEx drive current
+  /// @return Status
+  Status setRpOverrideEnabled(bool enabled);
+
+  /// @brief Enable or disable automatic amplitude correction.
+  /// Device must be in sleep mode. Writes CONFIG.AUTO_AMP_DIS.
+  /// @param enabled true enables automatic amplitude correction
+  /// @return Status
+  Status setAutoAmplitudeCorrectionEnabled(bool enabled);
+
+  /// @brief Set high-current drive mode.
+  /// Device must be in sleep mode. Valid only in single-channel Ch0 mode.
+  /// @param enabled true enables high current drive
+  /// @return Status
+  Status setHighCurrentDriveEnabled(bool enabled);
 
   /// @brief Set RCOUNT for a channel.
   /// Device must be in sleep mode.

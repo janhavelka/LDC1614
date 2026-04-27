@@ -39,12 +39,29 @@ bool isValidRRSequence(RRSequence seq) {
   return static_cast<uint8_t>(seq) <= static_cast<uint8_t>(RRSequence::CH0_CH1_CH2_CH3);
 }
 
+bool isRRSequenceAllowed(RRSequence seq, uint8_t channelCount) {
+  if (!isValidRRSequence(seq)) {
+    return false;
+  }
+  if (channelCount == 2) {
+    return seq == RRSequence::CH0_CH1;
+  }
+  if (channelCount == 4) {
+    return true;
+  }
+  return false;
+}
+
 bool isValidRefClkSrc(RefClkSrc src) {
   return static_cast<uint8_t>(src) <= static_cast<uint8_t>(RefClkSrc::EXT_CLK);
 }
 
 bool isValidSensorActivation(SensorActivation sa) {
   return static_cast<uint8_t>(sa) <= static_cast<uint8_t>(SensorActivation::LOW_POWER);
+}
+
+bool isValidErrorConfig(uint16_t errorConfig) {
+  return (errorConfig & ~cmd::MASK_ERRCFG_ALLOWED) == 0;
 }
 
 } // namespace
@@ -91,8 +108,8 @@ Status LDC1614::begin(const Config& config) {
   if (!isValidDeglitch(_config.deglitch)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid deglitch value");
   }
-  if (!isValidRRSequence(_config.rrSequence)) {
-    return Status::Error(Err::INVALID_CONFIG, "Invalid RR sequence");
+  if (!isRRSequenceAllowed(_config.rrSequence, _config.channelCount)) {
+    return Status::Error(Err::INVALID_CONFIG, "Invalid RR sequence for channelCount");
   }
   if (!isValidRefClkSrc(_config.refClkSrc)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid reference clock source");
@@ -111,6 +128,9 @@ Status LDC1614::begin(const Config& config) {
   }
   if (_config.highCurrentDrv && _config.activeChan != 0) {
     return Status::Error(Err::INVALID_CONFIG, "HIGH_CURRENT_DRV only on Ch0");
+  }
+  if (!isValidErrorConfig(_config.errorConfig)) {
+    return Status::Error(Err::INVALID_CONFIG, "ERROR_CONFIG has reserved bits set");
   }
 
   // Validate per-channel config
@@ -285,23 +305,47 @@ Status LDC1614::readAllChannels(ChannelData* out, uint8_t count) {
 }
 
 bool LDC1614::dataReady() {
+  bool ready = false;
+  (void)readDataReady(ready);
+  return ready;
+}
+
+Status LDC1614::readDataReady(bool& ready) {
+  ready = false;
   if (!_initialized) {
-    return false;
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
 
   // Check INTB pin if configured (active low)
   if (_config.intbPin >= 0 && _config.gpioRead != nullptr && !_config.intbDisable) {
-    bool level = _config.gpioRead(_config.intbPin, _config.gpioUser);
-    return !level;  // INTB is active low
+    const bool level = _config.gpioRead(_config.intbPin, _config.gpioUser);
+    if (level) {
+      return Status::Ok();
+    }
+
+    // INTB can be asserted by DRDY or by enabled error conditions. Read STATUS
+    // to distinguish the source instead of treating every interrupt as data.
+    DeviceStatus status;
+    Status st = readDeviceStatus(status);
+    if (!st.ok()) {
+      return st;
+    }
+    ready = status.dataReady;
+    if (!ready && status.hasError()) {
+      return Status::Error(Err::SENSOR_ERROR, "INTB asserted by sensor error",
+                           static_cast<int32_t>(status.raw));
+    }
+    return Status::Ok();
   }
 
   // Fall back to polling STATUS register DRDY bit
   uint16_t status = 0;
   Status st = readRegister16(cmd::REG_STATUS, status);
   if (!st.ok()) {
-    return false;
+    return st;
   }
-  return (status & cmd::MASK_STATUS_DRDY) != 0;
+  ready = (status & cmd::MASK_STATUS_DRDY) != 0;
+  return Status::Ok();
 }
 
 // ============================================================================
@@ -445,9 +489,17 @@ Status LDC1614::readChannelBlocking(uint8_t ch, ChannelData& out, uint32_t timeo
     return Status::Error(Err::BUSY, "Device is sleeping; wake first");
   }
 
-  const uint32_t deadline = _nowMs() + timeoutMs;
-  while (!dataReady()) {
-    if (_nowMs() >= deadline) {
+  const uint32_t startMs = _nowMs();
+  while (true) {
+    bool ready = false;
+    Status st = readDataReady(ready);
+    if (!st.ok()) {
+      return st;
+    }
+    if (ready) {
+      break;
+    }
+    if (static_cast<uint32_t>(_nowMs() - startMs) >= timeoutMs) {
       return Status::Error(Err::TIMEOUT, "Data ready timeout");
     }
     _cooperativeYield();
@@ -467,9 +519,17 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
     return Status::Error(Err::BUSY, "Device is sleeping; wake first");
   }
 
-  const uint32_t deadline = _nowMs() + timeoutMs;
-  while (!dataReady()) {
-    if (_nowMs() >= deadline) {
+  const uint32_t startMs = _nowMs();
+  while (true) {
+    bool ready = false;
+    Status st = readDataReady(ready);
+    if (!st.ok()) {
+      return st;
+    }
+    if (ready) {
+      break;
+    }
+    if (static_cast<uint32_t>(_nowMs() - startMs) >= timeoutMs) {
       return Status::Error(Err::TIMEOUT, "Data ready timeout");
     }
     _cooperativeYield();
@@ -483,7 +543,7 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
 // ============================================================================
 
 Status LDC1614::getLastSample(uint8_t ch, ChannelData& out) const {
-  if (ch >= cmd::MAX_CHANNELS) {
+  if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
   if (_sampleTimestampMs[ch] == 0) {
@@ -494,14 +554,14 @@ Status LDC1614::getLastSample(uint8_t ch, ChannelData& out) const {
 }
 
 uint32_t LDC1614::sampleTimestampMs(uint8_t ch) const {
-  if (ch >= cmd::MAX_CHANNELS) {
+  if (!isValidChannel(ch, _config.channelCount)) {
     return 0;
   }
   return _sampleTimestampMs[ch];
 }
 
 uint32_t LDC1614::sampleAgeMs(uint8_t ch, uint32_t nowMs) const {
-  if (ch >= cmd::MAX_CHANNELS || _sampleTimestampMs[ch] == 0) {
+  if (!isValidChannel(ch, _config.channelCount) || _sampleTimestampMs[ch] == 0) {
     return 0;
   }
   return nowMs - _sampleTimestampMs[ch];
@@ -545,9 +605,258 @@ Status LDC1614::setActiveChannel(uint8_t ch) {
   if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
+  if (_config.highCurrentDrv && ch != 0) {
+    return Status::Error(Err::INVALID_PARAM, "HIGH_CURRENT_DRV only on Ch0");
+  }
 
+  const uint8_t oldActive = _config.activeChan;
   _config.activeChan = ch;
-  return writeRegister16(cmd::REG_CONFIG, _buildConfigRegister(true));
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.activeChan = oldActive;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.activeChan = ch;
+  }
+  return st;
+}
+
+Status LDC1614::setSingleChannelMode(uint8_t ch) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (!isValidChannel(ch, _config.channelCount)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid channel");
+  }
+  if (_config.highCurrentDrv && ch != 0) {
+    return Status::Error(Err::INVALID_PARAM, "HIGH_CURRENT_DRV only on Ch0");
+  }
+
+  const bool oldAutoScan = _config.autoScan;
+  const uint8_t oldActive = _config.activeChan;
+  _config.autoScan = false;
+  _config.activeChan = ch;
+  const uint16_t muxReg = _buildMuxConfigRegister();
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.autoScan = oldAutoScan;
+  _config.activeChan = oldActive;
+
+  Status st = writeRegister16(cmd::REG_MUX_CONFIG, muxReg);
+  if (!st.ok()) {
+    return st;
+  }
+  st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.autoScan = false;
+    _config.activeChan = ch;
+  }
+  return st;
+}
+
+Status LDC1614::setAutoScanMode(RRSequence sequence) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (!isRRSequenceAllowed(sequence, _config.channelCount)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid RR sequence for channelCount");
+  }
+  if (_config.highCurrentDrv) {
+    return Status::Error(Err::INVALID_PARAM, "Disable HIGH_CURRENT_DRV before auto-scan");
+  }
+
+  const bool oldAutoScan = _config.autoScan;
+  const RRSequence oldSequence = _config.rrSequence;
+  _config.autoScan = true;
+  _config.rrSequence = sequence;
+  const uint16_t muxReg = _buildMuxConfigRegister();
+  _config.autoScan = oldAutoScan;
+  _config.rrSequence = oldSequence;
+
+  Status st = writeRegister16(cmd::REG_MUX_CONFIG, muxReg);
+  if (st.ok()) {
+    _config.autoScan = true;
+    _config.rrSequence = sequence;
+  }
+  return st;
+}
+
+Status LDC1614::setDeglitch(Deglitch deglitch) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (!isValidDeglitch(deglitch)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid deglitch value");
+  }
+
+  const Deglitch oldDeglitch = _config.deglitch;
+  _config.deglitch = deglitch;
+  const uint16_t muxReg = _buildMuxConfigRegister();
+  _config.deglitch = oldDeglitch;
+
+  Status st = writeRegister16(cmd::REG_MUX_CONFIG, muxReg);
+  if (st.ok()) {
+    _config.deglitch = deglitch;
+  }
+  return st;
+}
+
+Status LDC1614::setErrorConfig(uint16_t errorConfig) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (!isValidErrorConfig(errorConfig)) {
+    return Status::Error(Err::INVALID_PARAM, "ERROR_CONFIG has reserved bits set");
+  }
+
+  Status st = writeRegister16(cmd::REG_ERROR_CONFIG, errorConfig);
+  if (st.ok()) {
+    _config.errorConfig = errorConfig;
+  }
+  return st;
+}
+
+Status LDC1614::setIntbDisabled(bool disabled) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+
+  const bool oldValue = _config.intbDisable;
+  _config.intbDisable = disabled;
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.intbDisable = oldValue;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.intbDisable = disabled;
+  }
+  return st;
+}
+
+Status LDC1614::setReferenceClockSource(RefClkSrc source) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (!isValidRefClkSrc(source)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid reference clock source");
+  }
+
+  const RefClkSrc oldSource = _config.refClkSrc;
+  _config.refClkSrc = source;
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.refClkSrc = oldSource;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.refClkSrc = source;
+  }
+  return st;
+}
+
+Status LDC1614::setSensorActivation(SensorActivation activation) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (!isValidSensorActivation(activation)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid sensor activation mode");
+  }
+
+  const SensorActivation oldActivation = _config.sensorActivation;
+  _config.sensorActivation = activation;
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.sensorActivation = oldActivation;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.sensorActivation = activation;
+  }
+  return st;
+}
+
+Status LDC1614::setRpOverrideEnabled(bool enabled) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+
+  const bool oldValue = _config.rpOverrideEn;
+  _config.rpOverrideEn = enabled;
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.rpOverrideEn = oldValue;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.rpOverrideEn = enabled;
+  }
+  return st;
+}
+
+Status LDC1614::setAutoAmplitudeCorrectionEnabled(bool enabled) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+
+  const bool oldValue = _config.autoAmpDis;
+  _config.autoAmpDis = !enabled;
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.autoAmpDis = oldValue;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.autoAmpDis = !enabled;
+  }
+  return st;
+}
+
+Status LDC1614::setHighCurrentDriveEnabled(bool enabled) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!_sleeping) {
+    return Status::Error(Err::BUSY, "Must be in sleep mode to change config");
+  }
+  if (enabled && _config.autoScan) {
+    return Status::Error(Err::INVALID_PARAM, "HIGH_CURRENT_DRV only in single-channel mode");
+  }
+  if (enabled && _config.activeChan != 0) {
+    return Status::Error(Err::INVALID_PARAM, "HIGH_CURRENT_DRV only on Ch0");
+  }
+
+  const bool oldValue = _config.highCurrentDrv;
+  _config.highCurrentDrv = enabled;
+  const uint16_t configReg = _buildConfigRegister(true);
+  _config.highCurrentDrv = oldValue;
+
+  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  if (st.ok()) {
+    _config.highCurrentDrv = enabled;
+  }
+  return st;
 }
 
 Status LDC1614::setRcount(uint8_t ch, uint16_t rcount) {
@@ -564,8 +873,11 @@ Status LDC1614::setRcount(uint8_t ch, uint16_t rcount) {
     return Status::Error(Err::INVALID_PARAM, "RCOUNT below minimum (0x0005)");
   }
 
-  _config.channel[ch].rcount = rcount;
-  return writeRegister16(cmd::regRcount(ch), rcount);
+  Status st = writeRegister16(cmd::regRcount(ch), rcount);
+  if (st.ok()) {
+    _config.channel[ch].rcount = rcount;
+  }
+  return st;
 }
 
 Status LDC1614::setSettleCount(uint8_t ch, uint16_t count) {
@@ -579,8 +891,11 @@ Status LDC1614::setSettleCount(uint8_t ch, uint16_t count) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
 
-  _config.channel[ch].settleCount = count;
-  return writeRegister16(cmd::regSettleCount(ch), count);
+  Status st = writeRegister16(cmd::regSettleCount(ch), count);
+  if (st.ok()) {
+    _config.channel[ch].settleCount = count;
+  }
+  return st;
 }
 
 Status LDC1614::setClockDividers(uint8_t ch, uint8_t finDiv, uint16_t frefDiv) {
@@ -600,12 +915,14 @@ Status LDC1614::setClockDividers(uint8_t ch, uint8_t finDiv, uint16_t frefDiv) {
     return Status::Error(Err::INVALID_PARAM, "Invalid FREF_DIVIDER (1-1023)");
   }
 
-  _config.channel[ch].finDivider = finDiv;
-  _config.channel[ch].frefDivider = frefDiv;
-
   uint16_t regVal = (static_cast<uint16_t>(finDiv) << cmd::BIT_FIN_DIVIDER) |
                     (frefDiv & cmd::MASK_FREF_DIVIDER);
-  return writeRegister16(cmd::regClockDividers(ch), regVal);
+  Status st = writeRegister16(cmd::regClockDividers(ch), regVal);
+  if (st.ok()) {
+    _config.channel[ch].finDivider = finDiv;
+    _config.channel[ch].frefDivider = frefDiv;
+  }
+  return st;
 }
 
 Status LDC1614::setOffset(uint8_t ch, uint16_t offset) {
@@ -619,8 +936,11 @@ Status LDC1614::setOffset(uint8_t ch, uint16_t offset) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
 
-  _config.channel[ch].offset = offset;
-  return writeRegister16(cmd::regOffset(ch), offset);
+  Status st = writeRegister16(cmd::regOffset(ch), offset);
+  if (st.ok()) {
+    _config.channel[ch].offset = offset;
+  }
+  return st;
 }
 
 Status LDC1614::setDriveCurrent(uint8_t ch, uint8_t idrive) {
@@ -637,10 +957,13 @@ Status LDC1614::setDriveCurrent(uint8_t ch, uint8_t idrive) {
     return Status::Error(Err::INVALID_PARAM, "IDRIVE exceeds maximum (31)");
   }
 
-  _config.channel[ch].idrive = idrive;
   // INIT_IDRIVE (bits 10:6) must be written as 0; reserved bits (5:0) must be 0
   uint16_t regVal = static_cast<uint16_t>(idrive) << cmd::BIT_IDRIVE;
-  return writeRegister16(cmd::regDriveCurrent(ch), regVal);
+  Status st = writeRegister16(cmd::regDriveCurrent(ch), regVal);
+  if (st.ok()) {
+    _config.channel[ch].idrive = idrive;
+  }
+  return st;
 }
 
 Status LDC1614::readInitIdrive(uint8_t ch, uint8_t& out) {
@@ -666,7 +989,7 @@ Status LDC1614::readInitIdrive(uint8_t ch, uint8_t& out) {
 // ============================================================================
 
 float LDC1614::calcSensorFrequency(uint8_t ch, uint32_t rawData, float fRef) const {
-  if (ch >= cmd::MAX_CHANNELS) {
+  if (!isValidChannel(ch, _config.channelCount) || fRef <= 0.0f) {
     return 0.0f;
   }
 
@@ -679,7 +1002,7 @@ float LDC1614::calcSensorFrequency(uint8_t ch, uint32_t rawData, float fRef) con
 }
 
 float LDC1614::calcConversionTimeUs(uint8_t ch, float fRef) const {
-  if (ch >= cmd::MAX_CHANNELS) {
+  if (!isValidChannel(ch, _config.channelCount) || fRef <= 0.0f) {
     return 0.0f;
   }
 
@@ -819,6 +1142,30 @@ Status LDC1614::_updateHealth(const Status& st) {
 Status LDC1614::_performRecoveryLadder() {
   const uint32_t now = _nowMs();
 
+  auto readIdentityTracked = [this]() -> Status {
+    uint16_t mfgId = 0;
+    Status st = readRegister16(cmd::REG_MANUFACTURER_ID, mfgId);
+    if (!st.ok()) {
+      return st;
+    }
+    if (mfgId != cmd::MANUFACTURER_ID_VALUE) {
+      return Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
+                           static_cast<int32_t>(mfgId));
+    }
+
+    uint16_t devId = 0;
+    st = readRegister16(cmd::REG_DEVICE_ID, devId);
+    if (!st.ok()) {
+      return st;
+    }
+    if (devId != cmd::DEVICE_ID_VALUE) {
+      return Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
+                           static_cast<int32_t>(devId));
+    }
+
+    return Status::Ok();
+  };
+
   // Enforce recovery backoff
   if (_config.recoverBackoffMs > 0 && _lastRecoverValid &&
       (now - _lastRecoverMs) < _config.recoverBackoffMs) {
@@ -827,9 +1174,8 @@ Status LDC1614::_performRecoveryLadder() {
   _lastRecoverMs = now;
   _lastRecoverValid = true;
 
-  // Step 1: Simple probe via tracked read (updates health on success)
-  uint16_t mfgId = 0;
-  Status last = readRegister16(cmd::REG_MANUFACTURER_ID, mfgId);
+  // Step 1: Identity probe via tracked reads (updates health on I2C access)
+  Status last = readIdentityTracked();
   if (last.ok()) {
     return Status::Ok();
   }
@@ -838,7 +1184,7 @@ Status LDC1614::_performRecoveryLadder() {
   if (_config.recoverUseBusReset && _config.busReset != nullptr) {
     Status st = _config.busReset(_config.i2cUser);
     if (st.ok()) {
-      st = readRegister16(cmd::REG_MANUFACTURER_ID, mfgId);
+      st = readIdentityTracked();
       if (st.ok()) {
         return Status::Ok();
       }

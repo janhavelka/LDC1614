@@ -139,6 +139,15 @@ static constexpr uint16_t MASK_ERRCFG_AL_ERR2INT  = 0x0008;  ///< Amplitude low 
 static constexpr uint16_t MASK_ERRCFG_ZC_ERR2INT  = 0x0004;  ///< Zero count → INTB + STATUS
 static constexpr uint16_t MASK_ERRCFG_DRDY_2INT   = 0x0001;  ///< Data ready → INTB + STATUS
 
+/// ERROR_CONFIG bits supported by LDC1612/LDC1614. Reserved bits must stay 0.
+static constexpr uint16_t MASK_ERRCFG_ALLOWED =
+    MASK_ERRCFG_UR_ERR2OUT | MASK_ERRCFG_OR_ERR2OUT |
+    MASK_ERRCFG_WD_ERR2OUT | MASK_ERRCFG_AH_ERR2OUT |
+    MASK_ERRCFG_AL_ERR2OUT | MASK_ERRCFG_UR_ERR2INT |
+    MASK_ERRCFG_OR_ERR2INT | MASK_ERRCFG_WD_ERR2INT |
+    MASK_ERRCFG_AH_ERR2INT | MASK_ERRCFG_AL_ERR2INT |
+    MASK_ERRCFG_ZC_ERR2INT | MASK_ERRCFG_DRDY_2INT;
+
 // ============================================================================
 // CONFIG Register (0x1A) Bit Masks
 // ============================================================================

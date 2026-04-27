@@ -12,8 +12,10 @@ converter I2C driver for ESP32-S2 / ESP32-S3 (Arduino framework, PlatformIO).
 - Single-channel and multi-channel auto-scan modes
 - Internal (~43 MHz) or external reference clock
 - Sensor frequency and conversion time calculation helpers
-- INTB pin support for data-ready detection
+- INTB pin and STATUS polling support for data-ready detection
 - Comprehensive device status and per-channel error flag parsing
+- Runtime setters for mode, autoscan sequence, deglitch, error reporting, INTB, clock source, drive policy, and per-channel timing
+- Manual recovery ladder with backoff, optional bus reset, optional soft reset, and optional hard reset callbacks
 
 ## Installation
 
@@ -113,7 +115,14 @@ void setup() {
 void loop() {
   device.tick(millis());
 
-  if (device.dataReady()) {
+  bool ready = false;
+  auto readyStatus = device.readDataReady(ready);
+  if (!readyStatus.ok()) {
+    Serial.printf("DRDY check failed: %s\n", readyStatus.msg);
+    return;
+  }
+
+  if (ready) {
     LDC1614::ChannelData data;
     auto st = device.readChannel(0, data);
     if (st.ok()) {
@@ -140,10 +149,13 @@ void loop() {
 | Method | Description |
 |--------|-------------|
 | `readChannel(ch, data)` | Read conversion data for a single channel. |
-| `readAllChannels(data)` | Read all active channels. |
+| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. |
 | `readChannelBlocking(ch, data, timeoutMs)` | Wait for DRDY and then read one channel with a bounded timeout. |
-| `readAllChannelsBlocking(data, timeoutMs)` | Wait for DRDY and then read all active channels with a bounded timeout. |
-| `dataReady()` | Check if new conversion data is available (via INTB pin or STATUS register). |
+| `readAllChannelsBlocking(data, timeoutMs, count)` | Wait for DRDY and then call `readAllChannels()` with a bounded timeout. |
+| `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. |
+| `dataReady()` | Convenience wrapper around `readDataReady()`. Returns `false` if the STATUS/INTB path fails. |
+
+`readDeviceStatus()`, `readStatusRaw()`, and STATUS-based data-ready polling read the device STATUS register. Per the device behavior, that read can clear sticky status flags and de-assert INTB.
 
 ### Sample Cache
 
@@ -168,6 +180,16 @@ void loop() {
 | Method | Description |
 |--------|-------------|
 | `setActiveChannel(ch)` | Set active channel for single-channel mode. |
+| `setSingleChannelMode(ch)` | Disable autoscan and select the active single channel. |
+| `setAutoScanMode(sequence)` | Enable autoscan using `CH0_CH1`, `CH0_CH1_CH2`, or `CH0_CH1_CH2_CH3`. |
+| `setDeglitch(deglitch)` | Set the input deglitch filter bandwidth. |
+| `setErrorConfig(mask)` / `getErrorConfig()` | Set/read cached `ERROR_CONFIG`. Reserved bits are rejected. |
+| `setIntbDisabled(disabled)` | Enable or disable INTB output in `CONFIG.INTB_DIS`. |
+| `setReferenceClockSource(source)` | Select internal oscillator or external CLKIN. |
+| `setSensorActivation(activation)` | Select full-current or low-power sensor activation. |
+| `setRpOverrideEnabled(enabled)` | Enable/disable fixed drive current override. |
+| `setAutoAmplitudeCorrectionEnabled(enabled)` | Enable/disable automatic amplitude correction. |
+| `setHighCurrentDriveEnabled(enabled)` | Enable high-current drive. Valid only for single-channel Ch0. |
 | `setRcount(ch, rcount)` | Set reference count for channel. |
 | `setSettleCount(ch, count)` | Set settling reference count. |
 | `setClockDividers(ch, fin, fref)` | Set frequency dividers. |
@@ -175,15 +197,19 @@ void loop() {
 | `setDriveCurrent(ch, idrive)` | Set sensor drive current (0-31). |
 | `readInitIdrive(ch, out)` | Read auto-calibrated INIT_IDRIVE value. |
 
+Runtime setters require the device to be in sleep mode. Call `sleep()`, apply the changes, then call `wake()` when conversions should resume. Cached configuration is committed only after the corresponding register write succeeds.
+
 ### Diagnostics
 
 | Method | Description |
 |--------|-------------|
 | `probe()` | Verify device identity (no health tracking). |
-| `recover()` | Attempt recovery by reading MANUFACTURER_ID (tracks health). |
+| `recover()` | Manual recovery ladder. Uses tracked identity reads, then optional bus reset, optional soft reset/reapply, and optional hard reset/reapply. |
 | `readRegister16()` / `writeRegister16()` | Raw tracked register access for diagnostics and service operations. |
 | `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
 | `getSettings()` | Return a RAM-only snapshot of active settings and cached sample timestamps. |
+
+`recover()` honors `Config::recoverBackoffMs` and validates both `MANUFACTURER_ID` and `DEVICE_ID` before reporting success. Transport failures update health counters; `probe()` is intentionally raw and does not affect health.
 
 ### Health
 
@@ -204,6 +230,11 @@ The bringup CLI includes raw `reg` / `wreg` commands for diagnostics. `wreg` byp
 driver-level validation and can desynchronize the cached configuration until a fresh
 `begin()` or `resetAndReapply()`.
 
+The CLI also exposes runtime configuration commands for the driver features:
+`single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
+`rpoverride`, `autoamp`, `highcurrent`, `rcount`, `settle`, `clkdiv`,
+`offset`, `idrive`, and `initidrive`.
+
 ### Example Helpers (`examples/common/`)
 
 Not part of the library. These simulate project-level glue and keep examples self-contained:
@@ -217,6 +248,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | `I2cScanner.h` | I2C bus scanner with table output and bus recovery |
 | `BusDiag.h` | Bus diagnostics wrapper |
 | `CliShell.h` | Serial command-line shell with line editing |
+| `CliStyle.h` | Shared CLI color and help formatting helpers |
 | `CommandHandler.h` | Command parsing helpers (`readLine`, `match`, `parseInt`) |
 | `HealthDiag.h` | Verbose driver-health diagnostics and snapshots |
 | `HealthView.h` | Compact health/status formatting helpers |
@@ -229,6 +261,21 @@ Not part of the library. These simulate project-level glue and keep examples sel
 3. **Resource ownership**: I2C bus and GPIO pins owned by the application. Provided via `Config`.
 4. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
 5. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.
+
+## Configuration Constraints
+
+| Setting | Constraint |
+|---------|------------|
+| `i2cWrite`, `i2cWriteRead` | Required. The library never touches `Wire` directly. |
+| `i2cAddress` | `0x2A` or `0x2B`. |
+| `channelCount` | `2` for LDC1612 or `4` for LDC1614. |
+| Channel indexes | Must be less than `channelCount`. |
+| `rrSequence` | LDC1612 accepts only `CH0_CH1`; LDC1614 accepts all defined sequences. |
+| `deglitch` | Must be one of 1 MHz, 3.3 MHz, 10 MHz, or 33 MHz. |
+| `errorConfig` | Only `cmd::MASK_ERRCFG_*` bits in `cmd::MASK_ERRCFG_ALLOWED` may be set. |
+| INTB | If `intbPin >= 0`, `gpioRead` is required. |
+| `highCurrentDrv` | Valid only in single-channel mode on Ch0. |
+| Recovery | `recoverBackoffMs` gates repeated `recover()` attempts; bus/hard reset callbacks are optional. |
 
 ## Documentation
 
