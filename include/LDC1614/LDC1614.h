@@ -381,6 +381,7 @@ public:
 
   /// @brief Read a 16-bit register.
   /// Uses tracked I2C — updates health counters.
+  /// Rejects access before begin() and register addresses outside the LDC1614 map.
   /// @param reg Register address
   /// @param value Output: register value
   /// @return Status
@@ -388,7 +389,8 @@ public:
 
   /// @brief Write a 16-bit register.
   /// Uses tracked I2C — updates health counters.
-  /// @warning Bypasses driver-level validation. Use with care.
+  /// Rejects access before begin() and register addresses outside the LDC1614 map.
+  /// @warning Diagnostic writes can still desynchronize cached configuration. Use with care.
   /// @param reg Register address
   /// @param value Value to write
   /// @return Status
@@ -430,9 +432,12 @@ private:
 
   // === Register Access (raw, no health tracking) ===
   Status _readRegister16Raw(uint8_t reg, uint16_t& value);
+  Status _readRegister16Tracked(uint8_t reg, uint16_t& value);
+  Status _writeRegister16Tracked(uint8_t reg, uint16_t value);
 
   // === Health Tracking ===
   Status _updateHealth(const Status& st);
+  Status _recordFailure(const Status& st);
 
   // === Internal ===
   Status _applyConfig();

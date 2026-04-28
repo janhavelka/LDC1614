@@ -1319,7 +1319,9 @@ void processCommand(const String& cmdLine) {
       return;
     }
     uint32_t addr = 0, val = 0;
-    if (!parseU32(args.substring(0, split), addr) || !parseU32(args.substring(split + 1), val)) {
+    if (!parseU32(args.substring(0, split), addr) ||
+        !parseU32(args.substring(split + 1), val) ||
+        addr > 0xFFu || val > 0xFFFFu) {
       LOGW("Usage: wreg <addr> <val>");
       return;
     }
@@ -1331,7 +1333,7 @@ void processCommand(const String& cmdLine) {
       return;
     }
     uint32_t addr = 0;
-    if (!parseU32(cmd.substring(4), addr)) {
+    if (!parseU32(cmd.substring(4), addr) || addr > 0xFFu) {
       LOGW("Usage: reg <addr>");
       return;
     }

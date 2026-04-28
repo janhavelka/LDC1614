@@ -6,6 +6,8 @@
 #include "Arduino.h"
 #include "Wire.h"
 
+#include <limits>
+
 SerialClass Serial;
 TwoWire Wire;
 
@@ -27,6 +29,7 @@ struct FakeBus {
   uint32_t nowMs = 1234;
   uint32_t writeCalls = 0;
   uint32_t readCalls = 0;
+  uint32_t yieldCalls = 0;
   uint16_t reg[128] = {};
   uint8_t lastWriteReg = 0;
   uint16_t lastWriteValue = 0;
@@ -95,12 +98,17 @@ bool fakeGpioRead(int, void* user) {
   return static_cast<FakeBus*>(user)->gpioLevel;
 }
 
+void fakeYield(void* user) {
+  static_cast<FakeBus*>(user)->yieldCalls++;
+}
+
 Config makeConfig(FakeBus& bus) {
   Config cfg;
   cfg.i2cWrite = fakeWrite;
   cfg.i2cWriteRead = fakeWriteRead;
   cfg.i2cUser = &bus;
   cfg.nowMs = fakeNowMs;
+  cfg.cooperativeYield = fakeYield;
   cfg.timeUser = &bus;
   cfg.i2cAddress = 0x2A;
   cfg.i2cTimeoutMs = 10;
@@ -371,6 +379,10 @@ void test_recover_rejects_wrong_device_id() {
   Status st = dev.recover();
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::DEVICE_NOT_FOUND),
                           static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(1u, dev.totalFailures());
+  TEST_ASSERT_EQUAL_UINT8(1u, dev.consecutiveFailures());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::DEGRADED),
+                          static_cast<uint8_t>(dev.state()));
 }
 
 void test_recover_reaches_offline_when_threshold_is_one() {
@@ -425,6 +437,25 @@ void test_raw_transport_rejects_invalid_buffers() {
                           static_cast<uint8_t>(st.code));
 }
 
+void test_invalid_register_address_does_not_touch_bus() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  const uint32_t readsBefore = bus.readCalls;
+  const uint32_t writesBefore = bus.writeCalls;
+  uint16_t value = 0;
+  Status st = dev.readRegister16(0x1D, value);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_PARAM),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(readsBefore, bus.readCalls);
+
+  st = dev.writeRegister16(0x1D, 0x1234);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_PARAM),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(writesBefore, bus.writeCalls);
+}
+
 // ============================================================================
 // Precondition Tests
 // ============================================================================
@@ -449,6 +480,22 @@ void test_recover_not_initialized() {
   Status st = dev.recover();
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::NOT_INITIALIZED),
                           static_cast<uint8_t>(st.code));
+}
+
+void test_register_access_not_initialized_does_not_touch_bus() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+
+  uint16_t value = 0;
+  Status st = dev.readRegister16(cmd::REG_STATUS, value);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::NOT_INITIALIZED),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+
+  st = dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::NOT_INITIALIZED),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
 }
 
 // ============================================================================
@@ -616,6 +663,17 @@ void test_readChannel_reconstructs_28bit_data_and_error_flags() {
   TEST_ASSERT_FALSE(data.errOverRange);
   TEST_ASSERT_FALSE(data.errWatchdog);
   TEST_ASSERT_TRUE(data.errAmplitude);
+}
+
+void test_readAllChannels_rejects_count_above_channel_count() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  ChannelData data[4];
+  Status st = dev.readAllChannels(data, 5);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_PARAM),
+                          static_cast<uint8_t>(st.code));
 }
 
 void test_readDeviceStatus_parses_flags() {
@@ -854,6 +912,16 @@ void test_calc_helpers_use_channel_config() {
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 16.4f, convUs);
 }
 
+void test_calc_helpers_reject_nonfinite_reference_clock() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  const float nanRef = std::numeric_limits<float>::quiet_NaN();
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dev.calcSensorFrequency(0, 0x08000000u, nanRef));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dev.calcConversionTimeUs(0, nanRef));
+}
+
 // ============================================================================
 // isMeasuring Tests
 // ============================================================================
@@ -975,6 +1043,34 @@ void test_readChannelBlocking_propagates_dataReady_failure() {
                           static_cast<uint8_t>(st.code));
 }
 
+void test_readChannelBlocking_times_out_with_stalled_clock() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+
+  bus.reg[cmd::REG_STATUS] = 0x0000;
+  ChannelData data;
+  Status st = dev.readChannelBlocking(0, data, 5);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::TIMEOUT),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_TRUE(bus.yieldCalls > 0);
+}
+
+void test_readAllChannelsBlocking_times_out_with_stalled_clock() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+
+  bus.reg[cmd::REG_STATUS] = 0x0000;
+  ChannelData data[4];
+  Status st = dev.readAllChannelsBlocking(data, 5);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::TIMEOUT),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_TRUE(bus.yieldCalls > 0);
+}
+
 // ============================================================================
 // resetAndReapply Tests
 // ============================================================================
@@ -1086,11 +1182,13 @@ int main() {
 
   // Transport
   RUN_TEST(test_raw_transport_rejects_invalid_buffers);
+  RUN_TEST(test_invalid_register_address_does_not_touch_bus);
 
   // Preconditions
   RUN_TEST(test_readChannel_not_initialized);
   RUN_TEST(test_sleep_not_initialized);
   RUN_TEST(test_recover_not_initialized);
+  RUN_TEST(test_register_access_not_initialized_does_not_touch_bus);
 
   // end()
   RUN_TEST(test_end_resets_to_uninit);
@@ -1109,6 +1207,7 @@ int main() {
   RUN_TEST(test_sampleTimestampMs_before_read);
   RUN_TEST(test_readChannel_caches_data_and_timestamp);
   RUN_TEST(test_readChannel_reconstructs_28bit_data_and_error_flags);
+  RUN_TEST(test_readAllChannels_rejects_count_above_channel_count);
   RUN_TEST(test_readDeviceStatus_parses_flags);
   RUN_TEST(test_getLastSample_invalid_channel);
 
@@ -1126,6 +1225,7 @@ int main() {
   RUN_TEST(test_setHighCurrentDrive_rejects_autoscan);
   RUN_TEST(test_config_bit_setters_write_config_and_commit);
   RUN_TEST(test_calc_helpers_use_channel_config);
+  RUN_TEST(test_calc_helpers_reject_nonfinite_reference_clock);
 
   // isMeasuring
   RUN_TEST(test_isMeasuring_false_when_sleeping);
@@ -1141,6 +1241,8 @@ int main() {
   RUN_TEST(test_dataReady_convenience_returns_false_on_failure);
   RUN_TEST(test_readDataReady_intb_reads_status_to_distinguish_error);
   RUN_TEST(test_readChannelBlocking_propagates_dataReady_failure);
+  RUN_TEST(test_readChannelBlocking_times_out_with_stalled_clock);
+  RUN_TEST(test_readAllChannelsBlocking_times_out_with_stalled_clock);
 
   // resetAndReapply
   RUN_TEST(test_resetAndReapply_not_initialized);

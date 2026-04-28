@@ -205,7 +205,7 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 |--------|-------------|
 | `probe()` | Verify device identity (no health tracking). |
 | `recover()` | Manual recovery ladder. Uses tracked identity reads, then optional bus reset, optional soft reset/reapply, and optional hard reset/reapply. |
-| `readRegister16()` / `writeRegister16()` | Raw tracked register access for diagnostics and service operations. |
+| `readRegister16()` / `writeRegister16()` | Raw tracked register access for diagnostics and service operations. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. |
 | `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
 | `getSettings()` | Return a RAM-only snapshot of active settings and cached sample timestamps. |
 
@@ -226,9 +226,9 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 
 - `examples/01_basic_bringup_cli/` - Interactive CLI for LDC1614 features
 
-The bringup CLI includes raw `reg` / `wreg` commands for diagnostics. `wreg` bypasses
-driver-level validation and can desynchronize the cached configuration until a fresh
-`begin()` or `resetAndReapply()`.
+The bringup CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid
+register addresses are rejected before I2C, but valid diagnostic writes can still
+desynchronize the cached configuration until a fresh `begin()` or `resetAndReapply()`.
 
 The CLI also exposes runtime configuration commands for the driver features:
 `single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
@@ -257,7 +257,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 ## Behavioral Contracts
 
 1. **Threading model**: Single-threaded. All calls from one task/loop.
-2. **Timing model**: `tick()` is bounded (currently no-op). All I2C blocking.
+2. **Timing model**: `tick()` is bounded (currently no-op). Blocking read waits use deadlines and a finite poll cap, so a stalled injected clock cannot spin forever.
 3. **Resource ownership**: I2C bus and GPIO pins owned by the application. Provided via `Config`.
 4. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
 5. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.

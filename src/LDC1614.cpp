@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include <climits>
+#include <cmath>
 
 namespace LDC1614 {
 
@@ -62,6 +63,13 @@ bool isValidSensorActivation(SensorActivation sa) {
 
 bool isValidErrorConfig(uint16_t errorConfig) {
   return (errorConfig & ~cmd::MASK_ERRCFG_ALLOWED) == 0;
+}
+
+bool isValidRegisterAddress(uint8_t reg) {
+  return reg <= cmd::REG_RESET_DEV ||
+         (reg >= cmd::REG_DRIVE_CURRENT0 && reg <= cmd::REG_DRIVE_CURRENT3) ||
+         reg == cmd::REG_MANUFACTURER_ID ||
+         reg == cmd::REG_DEVICE_ID;
 }
 
 } // namespace
@@ -291,7 +299,7 @@ Status LDC1614::readAllChannels(ChannelData* out, uint8_t count) {
 
   uint8_t n = (count > 0) ? count : _config.channelCount;
   if (n > _config.channelCount) {
-    n = _config.channelCount;
+    return Status::Error(Err::INVALID_PARAM, "Count exceeds channelCount");
   }
 
   for (uint8_t ch = 0; ch < n; ch++) {
@@ -490,19 +498,28 @@ Status LDC1614::readChannelBlocking(uint8_t ch, ChannelData& out, uint32_t timeo
   }
 
   const uint32_t startMs = _nowMs();
-  while (true) {
+  const uint32_t maxPolls = timeoutMs + 2U;
+  uint32_t polls = 0;
+  bool readySeen = false;
+  while (polls < maxPolls) {
     bool ready = false;
     Status st = readDataReady(ready);
     if (!st.ok()) {
       return st;
     }
     if (ready) {
+      readySeen = true;
       break;
     }
     if (static_cast<uint32_t>(_nowMs() - startMs) >= timeoutMs) {
       return Status::Error(Err::TIMEOUT, "Data ready timeout");
     }
+    polls++;
     _cooperativeYield();
+  }
+
+  if (!readySeen) {
+    return Status::Error(Err::TIMEOUT, "Data ready timeout");
   }
 
   return readChannel(ch, out);
@@ -520,19 +537,28 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
   }
 
   const uint32_t startMs = _nowMs();
-  while (true) {
+  const uint32_t maxPolls = timeoutMs + 2U;
+  uint32_t polls = 0;
+  bool readySeen = false;
+  while (polls < maxPolls) {
     bool ready = false;
     Status st = readDataReady(ready);
     if (!st.ok()) {
       return st;
     }
     if (ready) {
+      readySeen = true;
       break;
     }
     if (static_cast<uint32_t>(_nowMs() - startMs) >= timeoutMs) {
       return Status::Error(Err::TIMEOUT, "Data ready timeout");
     }
+    polls++;
     _cooperativeYield();
+  }
+
+  if (!readySeen) {
+    return Status::Error(Err::TIMEOUT, "Data ready timeout");
   }
 
   return readAllChannels(out, count);
@@ -989,7 +1015,7 @@ Status LDC1614::readInitIdrive(uint8_t ch, uint8_t& out) {
 // ============================================================================
 
 float LDC1614::calcSensorFrequency(uint8_t ch, uint32_t rawData, float fRef) const {
-  if (!isValidChannel(ch, _config.channelCount) || fRef <= 0.0f) {
+  if (!isValidChannel(ch, _config.channelCount) || !std::isfinite(fRef) || fRef <= 0.0f) {
     return 0.0f;
   }
 
@@ -1002,7 +1028,7 @@ float LDC1614::calcSensorFrequency(uint8_t ch, uint32_t rawData, float fRef) con
 }
 
 float LDC1614::calcConversionTimeUs(uint8_t ch, float fRef) const {
-  if (!isValidChannel(ch, _config.channelCount) || fRef <= 0.0f) {
+  if (!isValidChannel(ch, _config.channelCount) || !std::isfinite(fRef) || fRef <= 0.0f) {
     return 0.0f;
   }
 
@@ -1067,6 +1093,26 @@ Status LDC1614::_i2cWriteTracked(const uint8_t* buf, size_t len) {
 // ============================================================================
 
 Status LDC1614::readRegister16(uint8_t reg, uint16_t& value) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!isValidRegisterAddress(reg)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid register address");
+  }
+  return _readRegister16Tracked(reg, value);
+}
+
+Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (!isValidRegisterAddress(reg)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid register address");
+  }
+  return _writeRegister16Tracked(reg, value);
+}
+
+Status LDC1614::_readRegister16Tracked(uint8_t reg, uint16_t& value) {
   uint8_t rx[2] = {0, 0};
   Status st = _i2cWriteReadTracked(&reg, 1, rx, sizeof(rx));
   if (!st.ok()) {
@@ -1076,7 +1122,7 @@ Status LDC1614::readRegister16(uint8_t reg, uint16_t& value) {
   return Status::Ok();
 }
 
-Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
+Status LDC1614::_writeRegister16Tracked(uint8_t reg, uint16_t value) {
   uint8_t tx[3] = {
     reg,
     static_cast<uint8_t>((value >> 8) & 0xFF),
@@ -1135,6 +1181,33 @@ Status LDC1614::_updateHealth(const Status& st) {
   return st;
 }
 
+Status LDC1614::_recordFailure(const Status& st) {
+  if (st.ok() || st.inProgress()) {
+    return st;
+  }
+
+  uint32_t nowMs = _nowMs();
+  _lastErrorMs = nowMs;
+  _lastError = st;
+
+  if (_consecutiveFailures < UINT8_MAX) {
+    _consecutiveFailures++;
+  }
+  if (_totalFailures < UINT32_MAX) {
+    _totalFailures++;
+  }
+
+  if (_initialized) {
+    if (_consecutiveFailures >= _config.offlineThreshold) {
+      _driverState = DriverState::OFFLINE;
+    } else {
+      _driverState = DriverState::DEGRADED;
+    }
+  }
+
+  return st;
+}
+
 // ============================================================================
 // Internal
 // ============================================================================
@@ -1149,8 +1222,8 @@ Status LDC1614::_performRecoveryLadder() {
       return st;
     }
     if (mfgId != cmd::MANUFACTURER_ID_VALUE) {
-      return Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
-                           static_cast<int32_t>(mfgId));
+      return _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
+                                          static_cast<int32_t>(mfgId)));
     }
 
     uint16_t devId = 0;
@@ -1159,8 +1232,8 @@ Status LDC1614::_performRecoveryLadder() {
       return st;
     }
     if (devId != cmd::DEVICE_ID_VALUE) {
-      return Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
-                           static_cast<int32_t>(devId));
+      return _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
+                                          static_cast<int32_t>(devId)));
     }
 
     return Status::Ok();
@@ -1234,40 +1307,40 @@ Status LDC1614::_applyConfig() {
     const auto& cc = _config.channel[ch];
 
     // RCOUNT
-    Status st = writeRegister16(cmd::regRcount(ch), cc.rcount);
+    Status st = _writeRegister16Tracked(cmd::regRcount(ch), cc.rcount);
     if (!st.ok()) return st;
 
     // SETTLECOUNT
-    st = writeRegister16(cmd::regSettleCount(ch), cc.settleCount);
+    st = _writeRegister16Tracked(cmd::regSettleCount(ch), cc.settleCount);
     if (!st.ok()) return st;
 
     // CLOCK_DIVIDERS: FIN_DIVIDER[15:12], reserved[11:10]=0, FREF_DIVIDER[9:0]
     uint16_t clkDiv = (static_cast<uint16_t>(cc.finDivider) << cmd::BIT_FIN_DIVIDER) |
                       (cc.frefDivider & cmd::MASK_FREF_DIVIDER);
-    st = writeRegister16(cmd::regClockDividers(ch), clkDiv);
+    st = _writeRegister16Tracked(cmd::regClockDividers(ch), clkDiv);
     if (!st.ok()) return st;
 
     // OFFSET
-    st = writeRegister16(cmd::regOffset(ch), cc.offset);
+    st = _writeRegister16Tracked(cmd::regOffset(ch), cc.offset);
     if (!st.ok()) return st;
 
     // DRIVE_CURRENT: IDRIVE[15:11], INIT_IDRIVE[10:6]=0, reserved[5:0]=0
     uint16_t drv = static_cast<uint16_t>(cc.idrive) << cmd::BIT_IDRIVE;
-    st = writeRegister16(cmd::regDriveCurrent(ch), drv);
+    st = _writeRegister16Tracked(cmd::regDriveCurrent(ch), drv);
     if (!st.ok()) return st;
   }
 
   // ERROR_CONFIG
-  Status st = writeRegister16(cmd::REG_ERROR_CONFIG, _config.errorConfig);
+  Status st = _writeRegister16Tracked(cmd::REG_ERROR_CONFIG, _config.errorConfig);
   if (!st.ok()) return st;
 
   // MUX_CONFIG
-  st = writeRegister16(cmd::REG_MUX_CONFIG, _buildMuxConfigRegister());
+  st = _writeRegister16Tracked(cmd::REG_MUX_CONFIG, _buildMuxConfigRegister());
   if (!st.ok()) return st;
 
   // CONFIG (must be written last — starts conversions if SLEEP_MODE_EN=0)
   // After _applyConfig(), device remains in sleep mode. Caller uses wake() to start.
-  st = writeRegister16(cmd::REG_CONFIG, _buildConfigRegister(true));
+  st = _writeRegister16Tracked(cmd::REG_CONFIG, _buildConfigRegister(true));
   if (!st.ok()) return st;
 
   _sleeping = true;
