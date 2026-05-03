@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bringup CLI commands covering the runtime configuration surface.
 
 ### Changed
+- Doxyfile project metadata now matches `library.json`.
+- Doxyfile inputs now focus generated API docs on public headers and top-level
+  project docs, avoiding extracted application-note math warnings.
 - Blocking read helpers now propagate `readDataReady()` failures instead of converting I2C errors into timeouts.
 - Blocking read helpers now have a finite poll cap even if the injected clock callback stops advancing.
 - Runtime setters now commit cached configuration only after successful register writes.
