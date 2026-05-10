@@ -1,0 +1,155 @@
+# Measuring Rp of an L-C Sensor for Inductive Sensing
+
+- Source PDF: `../application_notes/measuring_rp.pdf`
+- Extraction tool: pdfplumber
+- Page count: 4
+- SHA256: `d292c1233ed0dbd97c6d5c8cc857af1e5998ea951d887e62bc3f017c60e7dafe`
+
+## Page 1
+
+Application Report
+SNOA936 –October 2015
+Measuring R of an L-C Sensor for Inductive Sensing
+p
+Don Liu
+ABSTRACT
+Three methods are introduced for the measurement of the R value of an L-C tank circuit using common
+P
+lab equipment.
+Contents
+1 Introduction .................................................................................................................. 1
+2 R Measurement Method 1 – Using a Network Analyzer .............................................................. 1
+P
+3 R Measurement Method 2 – Using an Impedance Analyzer ......................................................... 2
+P
+4 Measurement Method 3 – Using a Signal Generator and an Oscilloscope ......................................... 2
+5 Conclusion .................................................................................................................... 3
+1 Introduction
+When designing an application using TI’s LDC series of inductive sensors, it is necessary to know the L-C
+sensor’s equivalent parallel resistance R at the sensor’s resonant frequency. The R value changes as
+P P
+the target is moved; the minimum R occurs when the metal target is closest to the sensor. The maximum
+P
+R occurs when the target is at the farthest distance. Accordingly, both values should be measured to
+P
+ensure that the R value is within the proper range as defined in the datasheets.
+P
+2 R Measurement Method 1 – Using a Network Analyzer
+P
+A vector network analyzer can measure the complex impedance of the inductor over a range of frequency.
+The X (reactance) and R (series loss resistance) values are displayed at a selected frequency. Then use
+L S
+the formula shown in the figure to calculate the R at desired frequency.
+P
+Figure 1. Using a Network Analyzer to Find R .
+P
+SNOA936–October 2015 Measuring R of an L-C Sensor for Inductive Sensing 1
+p
+Submit Documentation Feedback
+Copyright © 2015, Texas Instruments Incorporated
+
+## Page 2
+
+R Measurement Method 2 – Using an Impedance Analyzer www.ti.com
+P
+3 R Measurement Method 2 – Using an Impedance Analyzer
+P
+An impedance analyzer can measure the impedance of the inductor over a range of frequency. Some
+impedance analyzer has built-in R measurement function. If not, the R value can be calculated using the
+P p
+L (Inductance) and R (series loss resistance). Use the formula shown in the figure to calculate the R at
+S S P
+desired frequency.
+Figure 2. Using an Impedance Analyzer to Find R .
+P
+4 Measurement Method 3 – Using a Signal Generator and an Oscilloscope
+Use a sine-wave signal generator and oscilloscope, as illustrated in Figure 3, below. Note that the LC
+sensor capacitor is required for this method, therefore the R value is measured at the resonant frequency
+P
+only. Adjust the frequency so that the VPP1 reaches maximum value (resonance occurs). Adjust the R
+such that VPP2=2VPP1. Repeat the above steps if needed to get better accuracy. Then use an ohm
+meter to measure R. The value of R is the R of the LC sensor.
+P
+2 Measuring R of an L-C Sensor for Inductive Sensing SNOA936–October 2015
+p
+Submit Documentation Feedback
+Copyright © 2015, Texas Instruments Incorporated
+
+## Page 3
+
+www.ti.com Conclusion
+Figure 3. Using a Signal Generator and Oscilloscope to Find R .
+P
+5 Conclusion
+To properly configure an LDC for optimum system operation, it is necessary to know the R range for the
+P
+system. The methods described in this application note can be used to measure the expected R range,
+P
+and combined with the guidance found in application note Configuring Inductive-to-Digital-Converters for
+Parallel Resistance (R ) Variation in L-C Tank Sensors, enable the proper configuration of the relevant
+P
+LDC device.
+SNOA936–October 2015 Measuring R of an L-C Sensor for Inductive Sensing 3
+p
+Submit Documentation Feedback
+Copyright © 2015, Texas Instruments Incorporated
+
+## Page 4
+
+IMPORTANT NOTICE
+Texas Instruments Incorporated and its subsidiaries (TI) reserve the right to make corrections, enhancements, improvements and other
+changes to its semiconductor products and services per JESD46, latest issue, and to discontinue any product or service per JESD48, latest
+issue. Buyers should obtain the latest relevant information before placing orders and should verify that such information is current and
+complete. All semiconductor products (also referred to herein as “components”) are sold subject to TI’s terms and conditions of sale
+supplied at the time of order acknowledgment.
+TI warrants performance of its components to the specifications applicable at the time of sale, in accordance with the warranty in TI’s terms
+and conditions of sale of semiconductor products. Testing and other quality control techniques are used to the extent TI deems necessary
+to support this warranty. Except where mandated by applicable law, testing of all parameters of each component is not necessarily
+performed.
+TI assumes no liability for applications assistance or the design of Buyers’ products. Buyers are responsible for their products and
+applications using TI components. To minimize the risks associated with Buyers’ products and applications, Buyers should provide
+adequate design and operating safeguards.
+TI does not warrant or represent that any license, either express or implied, is granted under any patent right, copyright, mask work right, or
+other intellectual property right relating to any combination, machine, or process in which TI components or services are used. Information
+published by TI regarding third-party products or services does not constitute a license to use such products or services or a warranty or
+endorsement thereof. Use of such information may require a license from a third party under the patents or other intellectual property of the
+third party, or a license from TI under the patents or other intellectual property of TI.
+Reproduction of significant portions of TI information in TI data books or data sheets is permissible only if reproduction is without alteration
+and is accompanied by all associated warranties, conditions, limitations, and notices. TI is not responsible or liable for such altered
+documentation. Information of third parties may be subject to additional restrictions.
+Resale of TI components or services with statements different from or beyond the parameters stated by TI for that component or service
+voids all express and any implied warranties for the associated TI component or service and is an unfair and deceptive business practice.
+TI is not responsible or liable for any such statements.
+Buyer acknowledges and agrees that it is solely responsible for compliance with all legal, regulatory and safety-related requirements
+concerning its products, and any use of TI components in its applications, notwithstanding any applications-related information or support
+that may be provided by TI. Buyer represents and agrees that it has all the necessary expertise to create and implement safeguards which
+anticipate dangerous consequences of failures, monitor failures and their consequences, lessen the likelihood of failures that might cause
+harm and take appropriate remedial actions. Buyer will fully indemnify TI and its representatives against any damages arising out of the use
+of any TI components in safety-critical applications.
+In some cases, TI components may be promoted specifically to facilitate safety-related applications. With such components, TI’s goal is to
+help enable customers to design and create their own end-product solutions that meet applicable functional safety standards and
+requirements. Nonetheless, such components are subject to these terms.
+No TI components are authorized for use in FDA Class III (or similar life-critical medical equipment) unless authorized officers of the parties
+have executed a special agreement specifically governing such use.
+Only those TI components which TI has specifically designated as military grade or “enhanced plastic” are designed and intended for use in
+military/aerospace applications or environments. Buyer acknowledges and agrees that any military or aerospace use of TI components
+which have not been so designated is solely at the Buyer's risk, and that Buyer is solely responsible for compliance with all legal and
+regulatory requirements in connection with such use.
+TI has specifically designated certain components as meeting ISO/TS16949 requirements, mainly for automotive use. In any case of use of
+non-designated products, TI will not be responsible for any failure to meet ISO/TS16949.
+Products Applications
+Audio www.ti.com/audio Automotive and Transportation www.ti.com/automotive
+Amplifiers amplifier.ti.com Communications and Telecom www.ti.com/communications
+Data Converters dataconverter.ti.com Computers and Peripherals www.ti.com/computers
+DLP® Products www.dlp.com Consumer Electronics www.ti.com/consumer-apps
+DSP dsp.ti.com Energy and Lighting www.ti.com/energy
+Clocks and Timers www.ti.com/clocks Industrial www.ti.com/industrial
+Interface interface.ti.com Medical www.ti.com/medical
+Logic logic.ti.com Security www.ti.com/security
+Power Mgmt power.ti.com Space, Avionics and Defense www.ti.com/space-avionics-defense
+Microcontrollers microcontroller.ti.com Video and Imaging www.ti.com/video
+RFID www.ti-rfid.com
+OMAP Applications Processors www.ti.com/omap TI E2E Community e2e.ti.com
+Wireless Connectivity www.ti.com/wirelessconnectivity
+Mailing Address: Texas Instruments, Post Office Box 655303, Dallas, Texas 75265
+Copyright © 2015, Texas Instruments Incorporated

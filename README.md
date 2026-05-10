@@ -261,6 +261,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 3. **Resource ownership**: I2C bus and GPIO pins owned by the application. Provided via `Config`.
 4. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
 5. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.
+6. **Health behavior**: `OFFLINE` is latched. Normal public I2C operations return `BUSY` with `Driver is offline; call recover()` without touching the bus until `recover()` succeeds.
 
 ## Configuration Constraints
 

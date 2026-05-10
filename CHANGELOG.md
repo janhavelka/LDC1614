@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validation for `ERROR_CONFIG` reserved bits and LDC1612 round-robin sequence limits.
 - Native tests for data-ready error propagation, STATUS parsing, channel data parsing, recovery identity validation, runtime setter cache commits, and configuration constraints.
 - Native tests for public raw-register preconditions, invalid register rejection, explicit channel-count rejection, non-finite reference clocks, and stalled-clock blocking wait timeouts.
+- Native coverage proving latched `OFFLINE` blocks normal I2C operations without touching the bus while `recover()` remains the explicit recovery path.
 - Bringup CLI commands covering the runtime configuration surface.
 
 ### Changed
 - Doxyfile project metadata now matches `library.json`.
+- Explicit recovery/reset bypass internals now use the shared `ScopedOfflineI2cAllowance` / `_reassertOfflineLatch()` procedure so failed recovery attempts that begin from `OFFLINE` keep the latch asserted.
 - Doxyfile inputs now focus generated API docs on public headers and top-level
   project docs, avoiding extracted application-note math warnings.
 - Blocking read helpers now propagate `readDataReady()` failures instead of converting I2C errors into timeouts.
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `recover()` now validates both `MANUFACTURER_ID` and `DEVICE_ID` and documents the recovery ladder.
 - Public raw register helpers now reject calls before `begin()` and reject addresses outside the LDC1614 register map before touching I2C.
 - README now documents runtime setters, configuration constraints, CLI coverage, and STATUS/INTB data-ready behavior.
+- Health behavior is now standardized on latched `OFFLINE`: normal public I2C operations return `BUSY` with `Driver is offline; call recover()` and do not touch I2C until `recover()` succeeds.
 
 ### Fixed
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
