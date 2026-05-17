@@ -6,7 +6,7 @@
 
 namespace LDC1614 {
 
-/// Error codes for all LDC1614 operations
+/// @brief Error codes for all LDC1614 operations.
 enum class Err : uint8_t {
   OK = 0,                    ///< Operation successful
   NOT_INITIALIZED,           ///< begin() not called
@@ -26,7 +26,7 @@ enum class Err : uint8_t {
   SENSOR_ERROR               ///< Sensor error reported by device (check status flags)
 };
 
-/// Status structure returned by all fallible operations
+/// @brief Status structure returned by all fallible operations.
 struct Status {
   Err code = Err::OK;
   int32_t detail = 0;        ///< Implementation-specific detail (e.g., I2C error code)
@@ -38,6 +38,9 @@ struct Status {
 
   /// @return true if operation succeeded
   constexpr bool ok() const { return code == Err::OK; }
+
+  /// @return true if the status matches the supplied error code
+  constexpr bool is(Err err) const { return code == err; }
 
   /// @return true if operation in progress (not a failure)
   constexpr bool inProgress() const { return code == Err::IN_PROGRESS; }

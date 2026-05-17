@@ -202,10 +202,10 @@ void printHelp() {
   cli::printHelpItem("status", "Read and parse STATUS register");
   cli::printHelpItem("status_raw", "Read raw STATUS register value");
   cli::printHelpItem("freq <ch> <fRef>", "Read channel and calc sensor frequency");
-  cli::printHelpItem("timing <ch> <fRef>", "Calc conversion time (us)");
+  cli::printHelpItem("timing <ch> <fRef>", "Calc conversion, settling, and sample time");
 
   cli::printHelpSection("Control");
-  cli::printHelpItem("init", "Initialize/reinitialize device");
+  cli::printHelpItem("init / begin", "Initialize/reinitialize device");
   cli::printHelpItem("end", "Shut down driver (returns to UNINIT)");
   cli::printHelpItem("sleep", "Enter sleep mode (stop conversions)");
   cli::printHelpItem("wake", "Wake and start conversions");
@@ -242,6 +242,7 @@ void printHelp() {
   cli::printHelpSection("Diagnostics");
   cli::printHelpItem("drv", "Show driver state and health");
   cli::printHelpItem("online", "Check if device is online");
+  cli::printHelpItem("id", "Read MANUFACTURER_ID and DEVICE_ID");
   cli::printHelpItem("probe", "Probe device (no health tracking)");
   cli::printHelpItem("recover", "Manual recovery attempt");
   cli::printHelpItem("verbose [0|1]", "Enable/disable verbose output");
@@ -623,6 +624,37 @@ void printConfig() {
   }
 }
 
+void printIdentity() {
+  uint16_t manufacturer = 0;
+  uint16_t deviceId = 0;
+  LDC1614::Status st = device.readRegister16(LDC1614::cmd::REG_MANUFACTURER_ID, manufacturer);
+  if (!st.ok()) {
+    printStatus(st);
+    return;
+  }
+  st = device.readRegister16(LDC1614::cmd::REG_DEVICE_ID, deviceId);
+  if (!st.ok()) {
+    printStatus(st);
+    return;
+  }
+
+  const bool manufacturerOk = manufacturer == LDC1614::cmd::MANUFACTURER_ID_VALUE;
+  const bool deviceOk = deviceId == LDC1614::cmd::DEVICE_ID_VALUE;
+  Serial.println("=== Device Identity ===");
+  Serial.printf("  MANUFACTURER_ID: 0x%04X expected=0x%04X match=%s%s%s\n",
+                manufacturer,
+                LDC1614::cmd::MANUFACTURER_ID_VALUE,
+                yesNoColor(manufacturerOk),
+                manufacturerOk ? "YES" : "NO",
+                LOG_COLOR_RESET);
+  Serial.printf("  DEVICE_ID:       0x%04X expected=0x%04X match=%s%s%s\n",
+                deviceId,
+                LDC1614::cmd::DEVICE_ID_VALUE,
+                yesNoColor(deviceOk),
+                deviceOk ? "YES" : "NO",
+                LOG_COLOR_RESET);
+}
+
 // ============================================================================
 // Stress Mix
 // ============================================================================
@@ -787,7 +819,7 @@ void processCommand(const String& cmdLine) {
     int val = cmd.substring(8).toInt();
     verboseMode = (val != 0);
     LOGI("Verbose mode: %s%s%s", onOffColor(verboseMode), verboseMode ? "ON" : "OFF", LOG_COLOR_RESET);
-  } else if (cmd == "init") {
+  } else if (cmd == "init" || cmd == "begin") {
     LOGI("Initializing LDC1614...");
     device.end();
     auto st = device.begin(makeDefaultConfig());
@@ -894,10 +926,20 @@ void processCommand(const String& cmdLine) {
       return;
     }
     const float convTimeUs = device.calcConversionTimeUs(static_cast<uint8_t>(ch), fRef);
+    const float settleTimeUs = device.calcSettleTimeUs(static_cast<uint8_t>(ch), fRef);
+    const float sampleTimeUs = device.calcSampleTimeUs(static_cast<uint8_t>(ch), fRef);
     Serial.printf("  Ch%ld: conversion time = %.2f us (%.3f ms)\n",
                   static_cast<long>(ch),
                   convTimeUs,
                   convTimeUs / 1000.0f);
+    Serial.printf("  Ch%ld: settling time   = %.2f us (%.3f ms)\n",
+                  static_cast<long>(ch),
+                  settleTimeUs,
+                  settleTimeUs / 1000.0f);
+    Serial.printf("  Ch%ld: sample time     = %.2f us (%.3f ms)\n",
+                  static_cast<long>(ch),
+                  sampleTimeUs,
+                  sampleTimeUs / 1000.0f);
   } else if (cmd == "channels") {
     Serial.printf("  Channel count: %u\n", device.channelCount());
   } else if (cmd == "drdy") {
@@ -1353,6 +1395,8 @@ void processCommand(const String& cmdLine) {
       return;
     }
     printConfig();
+  } else if (cmd == "id") {
+    printIdentity();
   } else if (cmd == "stress_mix") {
     if (!device.isOnline()) {
       LOGW("Device not online. Run 'init' and 'wake' first.");
@@ -1456,7 +1500,7 @@ void setup() {
   if (!st.ok()) {
     LOGE("Failed to initialize device");
     printStatus(st);
-    LOGI("Type 'init' to retry initialization");
+    LOGI("Type 'begin' or 'init' to retry initialization");
   } else {
     LOGI("Device initialized successfully");
     printDriverHealth();

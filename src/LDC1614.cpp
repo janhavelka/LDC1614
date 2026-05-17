@@ -11,6 +11,24 @@ namespace LDC1614 {
 
 namespace {
 
+class ScopedOfflineI2cAllowance {
+public:
+  explicit ScopedOfflineI2cAllowance(bool& flag, bool allow) : _flag(flag), _old(flag) {
+    _flag = allow;
+  }
+
+  ~ScopedOfflineI2cAllowance() {
+    _flag = _old;
+  }
+
+  ScopedOfflineI2cAllowance(const ScopedOfflineI2cAllowance&) = delete;
+  ScopedOfflineI2cAllowance& operator=(const ScopedOfflineI2cAllowance&) = delete;
+
+private:
+  bool& _flag;
+  bool _old;
+};
+
 bool isValidChannel(uint8_t ch, uint8_t channelCount) {
   return ch < channelCount;
 }
@@ -79,10 +97,13 @@ bool isValidRegisterAddress(uint8_t reg) {
 // ============================================================================
 
 Status LDC1614::begin(const Config& config) {
-  _config = config;
+  const Config requestedConfig = config;
+
+  _config = Config{};
   _initialized = false;
   _sleeping = true;
   _driverState = DriverState::UNINIT;
+  _allowOfflineI2c = false;
 
   _lastOkMs = 0;
   _lastErrorMs = 0;
@@ -98,52 +119,52 @@ Status LDC1614::begin(const Config& config) {
     _sampleTimestampMs[i] = 0;
   }
 
-  if (_config.i2cWrite == nullptr || _config.i2cWriteRead == nullptr) {
+  if (requestedConfig.i2cWrite == nullptr || requestedConfig.i2cWriteRead == nullptr) {
     return Status::Error(Err::INVALID_CONFIG, "I2C callbacks required");
   }
-  if (_config.i2cTimeoutMs == 0) {
+  if (requestedConfig.i2cTimeoutMs == 0) {
     return Status::Error(Err::INVALID_CONFIG, "Timeout must be > 0");
   }
-  if (_config.i2cAddress != 0x2A && _config.i2cAddress != 0x2B) {
+  if (requestedConfig.i2cAddress != 0x2A && requestedConfig.i2cAddress != 0x2B) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid I2C address (must be 0x2A or 0x2B)");
   }
-  if (_config.channelCount != 2 && _config.channelCount != 4) {
+  if (requestedConfig.channelCount != 2 && requestedConfig.channelCount != 4) {
     return Status::Error(Err::INVALID_CONFIG, "channelCount must be 2 or 4");
   }
-  if (_config.activeChan >= _config.channelCount) {
+  if (requestedConfig.activeChan >= requestedConfig.channelCount) {
     return Status::Error(Err::INVALID_CONFIG, "activeChan exceeds channelCount");
   }
-  if (!isValidDeglitch(_config.deglitch)) {
+  if (!isValidDeglitch(requestedConfig.deglitch)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid deglitch value");
   }
-  if (!isRRSequenceAllowed(_config.rrSequence, _config.channelCount)) {
+  if (!isRRSequenceAllowed(requestedConfig.rrSequence, requestedConfig.channelCount)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid RR sequence for channelCount");
   }
-  if (!isValidRefClkSrc(_config.refClkSrc)) {
+  if (!isValidRefClkSrc(requestedConfig.refClkSrc)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid reference clock source");
   }
-  if (!isValidSensorActivation(_config.sensorActivation)) {
+  if (!isValidSensorActivation(requestedConfig.sensorActivation)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid sensor activation mode");
   }
-  if (_config.intbPin < -1) {
+  if (requestedConfig.intbPin < -1) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid INTB pin");
   }
-  if (_config.intbPin >= 0 && _config.gpioRead == nullptr) {
+  if (requestedConfig.intbPin >= 0 && requestedConfig.gpioRead == nullptr) {
     return Status::Error(Err::INVALID_CONFIG, "INTB gpioRead required");
   }
-  if (_config.highCurrentDrv && _config.autoScan) {
+  if (requestedConfig.highCurrentDrv && requestedConfig.autoScan) {
     return Status::Error(Err::INVALID_CONFIG, "HIGH_CURRENT_DRV only in single-channel mode");
   }
-  if (_config.highCurrentDrv && _config.activeChan != 0) {
+  if (requestedConfig.highCurrentDrv && requestedConfig.activeChan != 0) {
     return Status::Error(Err::INVALID_CONFIG, "HIGH_CURRENT_DRV only on Ch0");
   }
-  if (!isValidErrorConfig(_config.errorConfig)) {
+  if (!isValidErrorConfig(requestedConfig.errorConfig)) {
     return Status::Error(Err::INVALID_CONFIG, "ERROR_CONFIG has reserved bits set");
   }
 
   // Validate per-channel config
-  for (uint8_t ch = 0; ch < _config.channelCount; ch++) {
-    const auto& cc = _config.channel[ch];
+  for (uint8_t ch = 0; ch < requestedConfig.channelCount; ch++) {
+    const auto& cc = requestedConfig.channel[ch];
     if (!isValidRcount(cc.rcount)) {
       return Status::Error(Err::INVALID_CONFIG, "RCOUNT below minimum (0x0005)");
     }
@@ -158,6 +179,7 @@ Status LDC1614::begin(const Config& config) {
     }
   }
 
+  _config = requestedConfig;
   if (_config.offlineThreshold == 0) {
     _config.offlineThreshold = 1;
   }
@@ -243,7 +265,13 @@ Status LDC1614::recover() {
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
-  return _performRecoveryLadder();
+  const bool startedOffline = _driverState == DriverState::OFFLINE;
+  ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
+  Status st = _performRecoveryLadder();
+  if (startedOffline && !st.ok() && !st.inProgress()) {
+    _reassertOfflineLatch();
+  }
+  return st;
 }
 
 // ============================================================================
@@ -440,6 +468,7 @@ Status LDC1614::softReset() {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
 
+  ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
   Status st = writeRegister16(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
   if (!st.ok()) {
     return st;
@@ -459,20 +488,27 @@ Status LDC1614::resetAndReapply() {
   // Save config before reset (softReset clears _initialized)
   Config savedConfig = _config;
 
-  Status st = writeRegister16(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
-  if (!st.ok()) {
-    return st;
-  }
+  ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
+  Status st = [this, &savedConfig]() -> Status {
+    Status inner = writeRegister16(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
+    if (!inner.ok()) {
+      return inner;
+    }
 
-  // Restore state for re-initialization
-  _config = savedConfig;
-  _sleeping = true;
+    // Restore state for re-initialization
+    _config = savedConfig;
+    _sleeping = true;
 
-  // Re-apply full configuration
-  st = _applyConfig();
+    // Re-apply full configuration
+    inner = _applyConfig();
+    if (!inner.ok()) {
+      _initialized = false;
+      _driverState = DriverState::UNINIT;
+      return inner;
+    }
+    return Status::Ok();
+  }();
   if (!st.ok()) {
-    _initialized = false;
-    _driverState = DriverState::UNINIT;
     return st;
   }
 
@@ -579,6 +615,10 @@ Status LDC1614::getLastSample(uint8_t ch, ChannelData& out) const {
   return Status::Ok();
 }
 
+bool LDC1614::hasSample(uint8_t ch) const {
+  return isValidChannel(ch, _config.channelCount) && _sampleTimestampMs[ch] != 0;
+}
+
 uint32_t LDC1614::sampleTimestampMs(uint8_t ch) const {
   if (!isValidChannel(ch, _config.channelCount)) {
     return 0;
@@ -597,8 +637,15 @@ uint32_t LDC1614::sampleAgeMs(uint8_t ch, uint32_t nowMs) const {
 // Settings Snapshot
 // ============================================================================
 
-void LDC1614::getSettings(SettingsSnapshot& out) const {
+Status LDC1614::getSettings(SettingsSnapshot& out) const {
+  out.initialized = _initialized;
   out.state = _driverState;
+  out.i2cAddress = _config.i2cAddress;
+  out.i2cTimeoutMs = _config.i2cTimeoutMs;
+  out.offlineThreshold = _config.offlineThreshold;
+  out.hasNowMsHook = (_config.nowMs != nullptr);
+  out.hasGpioReadHook = (_config.gpioRead != nullptr);
+  out.hasCooperativeYieldHook = (_config.cooperativeYield != nullptr);
   out.sleeping = _sleeping;
   out.autoScan = _config.autoScan;
   out.activeChan = _config.activeChan;
@@ -612,9 +659,11 @@ void LDC1614::getSettings(SettingsSnapshot& out) const {
   out.highCurrentDrv = _config.highCurrentDrv;
   out.intbEnabled = (_config.intbPin >= 0 && !_config.intbDisable);
   for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
+    out.hasSample[i] = _sampleTimestampMs[i] != 0;
     out.sampleTimestampMs[i] = _sampleTimestampMs[i];
     out.channel[i] = _config.channel[i];
   }
+  return Status::Ok();
 }
 
 // ============================================================================
@@ -1043,6 +1092,27 @@ float LDC1614::calcConversionTimeUs(uint8_t ch, float fRef) const {
   return tConv * 1e6f;  // Convert seconds to microseconds
 }
 
+float LDC1614::calcSettleTimeUs(uint8_t ch, float fRef) const {
+  if (!isValidChannel(ch, _config.channelCount) || !std::isfinite(fRef) || fRef <= 0.0f) {
+    return 0.0f;
+  }
+
+  const auto& cc = _config.channel[ch];
+  const float fRefCh = fRef / static_cast<float>(cc.frefDivider);
+  if (fRefCh <= 0.0f) {
+    return 0.0f;
+  }
+
+  const float settleCycles = (cc.settleCount <= 1U)
+                                 ? 32.0f
+                                 : (static_cast<float>(cc.settleCount) * 16.0f);
+  return (settleCycles / fRefCh) * 1e6f;
+}
+
+float LDC1614::calcSampleTimeUs(uint8_t ch, float fRef) const {
+  return calcConversionTimeUs(ch, fRef) + calcSettleTimeUs(ch, fRef);
+}
+
 // ============================================================================
 // Transport Wrappers
 // ============================================================================
@@ -1073,6 +1143,10 @@ Status LDC1614::_i2cWriteRaw(const uint8_t* buf, size_t len) {
 
 Status LDC1614::_i2cWriteReadTracked(const uint8_t* txBuf, size_t txLen,
                                      uint8_t* rxBuf, size_t rxLen) {
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
   Status st = _i2cWriteReadRaw(txBuf, txLen, rxBuf, rxLen);
   if (st.code == Err::INVALID_CONFIG || st.code == Err::INVALID_PARAM) {
     return st;
@@ -1081,6 +1155,10 @@ Status LDC1614::_i2cWriteReadTracked(const uint8_t* txBuf, size_t txLen,
 }
 
 Status LDC1614::_i2cWriteTracked(const uint8_t* buf, size_t len) {
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
   Status st = _i2cWriteRaw(buf, len);
   if (st.code == Err::INVALID_CONFIG || st.code == Err::INVALID_PARAM) {
     return st;
@@ -1146,18 +1224,20 @@ Status LDC1614::_readRegister16Raw(uint8_t reg, uint16_t& value) {
 // ============================================================================
 
 Status LDC1614::_updateHealth(const Status& st) {
+  if (!_initialized || st.inProgress()) {
+    return st;
+  }
+
   uint32_t nowMs = _nowMs();
 
-  if (st.ok() || st.inProgress()) {
+  if (st.ok()) {
     _lastOkMs = nowMs;
     _consecutiveFailures = 0;
     if (_totalSuccess < UINT32_MAX) {
       _totalSuccess++;
     }
 
-    if (_initialized) {
-      _driverState = DriverState::READY;
-    }
+    _driverState = DriverState::READY;
   } else {
     _lastErrorMs = nowMs;
     _lastError = st;
@@ -1169,12 +1249,10 @@ Status LDC1614::_updateHealth(const Status& st) {
       _totalFailures++;
     }
 
-    if (_initialized) {
-      if (_consecutiveFailures >= _config.offlineThreshold) {
-        _driverState = DriverState::OFFLINE;
-      } else {
-        _driverState = DriverState::DEGRADED;
-      }
+    if (_consecutiveFailures >= _config.offlineThreshold) {
+      _driverState = DriverState::OFFLINE;
+    } else {
+      _driverState = DriverState::DEGRADED;
     }
   }
 
@@ -1206,6 +1284,21 @@ Status LDC1614::_recordFailure(const Status& st) {
   }
 
   return st;
+}
+
+void LDC1614::_reassertOfflineLatch() {
+  _driverState = DriverState::OFFLINE;
+  const uint8_t threshold = _config.offlineThreshold == 0 ? 1 : _config.offlineThreshold;
+  if (_consecutiveFailures < threshold) {
+    _consecutiveFailures = threshold;
+  }
+}
+
+Status LDC1614::_ensureNormalI2cAllowed() const {
+  if (_initialized && _driverState == DriverState::OFFLINE && !_allowOfflineI2c) {
+    return Status::Error(Err::BUSY, "Driver is offline; call recover()");
+  }
+  return Status::Ok();
 }
 
 // ============================================================================

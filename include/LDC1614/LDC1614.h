@@ -12,7 +12,7 @@
 
 namespace LDC1614 {
 
-/// Driver state for health monitoring
+/// @brief Driver state for health monitoring.
 enum class DriverState : uint8_t {
   UNINIT,    ///< begin() not called or end() called
   READY,     ///< Operational, consecutiveFailures == 0
@@ -20,7 +20,7 @@ enum class DriverState : uint8_t {
   OFFLINE    ///< consecutiveFailures >= offlineThreshold
 };
 
-/// Parsed device status flags from STATUS register
+/// @brief Parsed device status flags from STATUS register.
 struct DeviceStatus {
   uint8_t errChan = 0;      ///< Channel that generated the error (0-3)
   bool errUnderRange = false;    ///< ERR_UR: conversion result below valid range
@@ -40,7 +40,7 @@ struct DeviceStatus {
   }
 };
 
-/// Per-channel data result from conversion readout
+/// @brief Per-channel data result from conversion readout.
 struct ChannelData {
   uint32_t rawData = 0;     ///< 28-bit conversion result
   bool errUnderRange = false; ///< Channel result below valid operating range
@@ -54,10 +54,17 @@ struct ChannelData {
   }
 };
 
-/// Snapshot of driver configuration and operational state.
+/// @brief Snapshot of driver configuration and operational state.
 /// Returned by getSettings() for diagnostics without further I2C.
 struct SettingsSnapshot {
+  bool initialized = false;                    ///< True after begin() succeeds
   DriverState state = DriverState::UNINIT;      ///< Driver health state at snapshot time
+  uint8_t i2cAddress = 0x2A;                   ///< Active 7-bit I2C address
+  uint32_t i2cTimeoutMs = 0;                   ///< Active I2C timeout
+  uint8_t offlineThreshold = 0;                ///< Failure threshold for OFFLINE
+  bool hasNowMsHook = false;                   ///< True when Config::nowMs is set
+  bool hasGpioReadHook = false;                ///< True when Config::gpioRead is set
+  bool hasCooperativeYieldHook = false;        ///< True when Config::cooperativeYield is set
   bool sleeping = true;                         ///< True if the driver believes conversions are stopped
   bool autoScan = false;                        ///< Multi-channel autoscan enabled in MUX_CONFIG
   uint8_t activeChan = 0;                       ///< Active channel when single-channel mode is selected
@@ -70,6 +77,7 @@ struct SettingsSnapshot {
   bool autoAmpDis = true;                       ///< AUTO_AMP_DIS bit state
   bool highCurrentDrv = false;                  ///< High-current drive mode enabled
   bool intbEnabled = false;                     ///< INTB pin enabled for DRDY/error signaling
+  bool hasSample[4] = {};                       ///< Per-channel cached-sample flags
   uint32_t sampleTimestampMs[4] = {};   ///< Per-channel last sample timestamp (0 = never)
   ChannelConfig channel[4] = {};        ///< Per-channel config at snapshot time
 };
@@ -126,6 +134,9 @@ public:
   /// @brief Get current driver state.
   /// @return DriverState (UNINIT, READY, DEGRADED, or OFFLINE)
   DriverState state() const { return _driverState; }
+
+  /// @brief Alias for state() used by shared diagnostics.
+  DriverState driverState() const { return state(); }
 
   /// @brief Check if driver is operational (READY or DEGRADED).
   /// @return true if the driver can perform I2C operations
@@ -205,6 +216,10 @@ public:
   /// @param out Last cached channel data
   /// @return Status (CONVERSION_NOT_READY if never read)
   Status getLastSample(uint8_t ch, ChannelData& out) const;
+
+  /// @brief True after a sample has been cached for a channel.
+  /// @param ch Channel index (0-3)
+  bool hasSample(uint8_t ch) const;
 
   /// @brief Timestamp (ms) of the last successful read for a channel.
   /// @param ch Channel index (0-3)
@@ -401,7 +416,15 @@ public:
   /// @brief Get a snapshot of current driver configuration and state (no I2C).
   /// Captures driver state, mode, channel config, and sample timestamps.
   /// @param out Settings snapshot
-  void getSettings(SettingsSnapshot& out) const;
+  /// @return Status::Ok() always
+  Status getSettings(SettingsSnapshot& out) const;
+
+  /// @brief Return a by-value settings snapshot.
+  SettingsSnapshot settings() const {
+    SettingsSnapshot out;
+    (void)getSettings(out);
+    return out;
+  }
 
   // === Utility ===
 
@@ -417,6 +440,19 @@ public:
   /// @param fRef Reference clock frequency in Hz
   /// @return Conversion time in microseconds
   float calcConversionTimeUs(uint8_t ch, float fRef) const;
+
+  /// @brief Calculate sensor settling time for a channel in microseconds.
+  /// @param ch Channel index
+  /// @param fRef Reference clock frequency in Hz
+  /// @return Settling time in microseconds
+  float calcSettleTimeUs(uint8_t ch, float fRef) const;
+
+  /// @brief Calculate conversion plus settling time for a channel in microseconds.
+  /// Does not include host readout time or multi-channel switching overhead.
+  /// @param ch Channel index
+  /// @param fRef Reference clock frequency in Hz
+  /// @return Nominal per-channel sample time in microseconds
+  float calcSampleTimeUs(uint8_t ch, float fRef) const;
 
   /// @brief Get the configured channel count.
   uint8_t channelCount() const { return _config.channelCount; }
@@ -438,6 +474,8 @@ private:
   // === Health Tracking ===
   Status _updateHealth(const Status& st);
   Status _recordFailure(const Status& st);
+  void _reassertOfflineLatch();
+  Status _ensureNormalI2cAllowed() const;
 
   // === Internal ===
   Status _applyConfig();
@@ -460,6 +498,7 @@ private:
   uint8_t _consecutiveFailures = 0;
   uint32_t _totalFailures = 0;
   uint32_t _totalSuccess = 0;
+  bool _allowOfflineI2c = false;
 
   // === Sample Cache (per channel) ===
   ChannelData _lastChannelData[4] = {};

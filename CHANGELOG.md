@@ -9,21 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
+- Expanded settings snapshot API: `getSettings(SettingsSnapshot&)`, by-value `settings()`, `driverState()`, and per-channel `hasSample()`.
+- Public timing helpers `calcSettleTimeUs()` and `calcSampleTimeUs()`.
 - Runtime setters for single-channel mode, auto-scan sequence, deglitch bandwidth, `ERROR_CONFIG`, INTB output, reference clock source, sensor activation policy, RP override, auto amplitude correction, and high-current drive.
+- `Status::is(Err)` for type-safe error checks.
 - Validation for `ERROR_CONFIG` reserved bits and LDC1612 round-robin sequence limits.
 - Native tests for data-ready error propagation, STATUS parsing, channel data parsing, recovery identity validation, runtime setter cache commits, and configuration constraints.
 - Native tests for public raw-register preconditions, invalid register rejection, explicit channel-count rejection, non-finite reference clocks, and stalled-clock blocking wait timeouts.
 - Native coverage proving latched `OFFLINE` blocks normal I2C operations without touching the bus while `recover()` remains the explicit recovery path.
-- Bringup CLI commands covering the runtime configuration surface.
+- Bringup CLI commands covering the runtime configuration surface, identity readback, reinitialization aliases, and timing calculations.
 
 ### Changed
 - Doxyfile project metadata now matches `library.json`.
 - Explicit recovery/reset bypass internals now use the shared `ScopedOfflineI2cAllowance` / `_reassertOfflineLatch()` procedure so failed recovery attempts that begin from `OFFLINE` keep the latch asserted.
 - Doxyfile inputs now focus generated API docs on public headers and top-level
   project docs, avoiding extracted application-note math warnings.
+- Reference documentation now uses human-readable vendor PDF names and separates compact inductance-converter notes from full PDF/application-note extractions under `docs/extracted-md/` and `docs/pdf-extracted-md/`.
 - Blocking read helpers now propagate `readDataReady()` failures instead of converting I2C errors into timeouts.
 - Blocking read helpers now have a finite poll cap even if the injected clock callback stops advancing.
 - Runtime setters now commit cached configuration only after successful register writes.
+- `begin()` now resets cached runtime/health before validation, normalizes `offlineThreshold = 0` to one, and startup I2C no longer inflates runtime success counters.
 - `recover()` now validates both `MANUFACTURER_ID` and `DEVICE_ID` and documents the recovery ladder.
 - Public raw register helpers now reject calls before `begin()` and reject addresses outside the LDC1614 register map before touching I2C.
 - README now documents runtime setters, configuration constraints, CLI coverage, and STATUS/INTB data-ready behavior.

@@ -207,7 +207,11 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 | `recover()` | Manual recovery ladder. Uses tracked identity reads, then optional bus reset, optional soft reset/reapply, and optional hard reset/reapply. |
 | `readRegister16()` / `writeRegister16()` | Raw tracked register access for diagnostics and service operations. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. |
 | `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
-| `getSettings()` | Return a RAM-only snapshot of active settings and cached sample timestamps. |
+| `getSettings(snap)` | Populate an expanded RAM-only snapshot of active settings, hook presence, cached samples, timestamps, and health. |
+| `settings()` | Return the same snapshot by value for compact diagnostics. |
+| `driverState()` | Cross-library alias for the current `DriverState`. |
+| `hasSample(ch)` | Check whether a configured channel has a cached sample. |
+| `calcSettleTimeUs(ch, fRef)` / `calcSampleTimeUs(ch, fRef)` | Calculate configured settling and conversion-plus-settling timing for service diagnostics. |
 
 `recover()` honors `Config::recoverBackoffMs` and validates both `MANUFACTURER_ID` and `DEVICE_ID` before reporting success. Transport failures update health counters; `probe()` is intentionally raw and does not affect health.
 
@@ -233,7 +237,10 @@ desynchronize the cached configuration until a fresh `begin()` or `resetAndReapp
 The CLI also exposes runtime configuration commands for the driver features:
 `single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
 `rpoverride`, `autoamp`, `highcurrent`, `rcount`, `settle`, `clkdiv`,
-`offset`, `idrive`, and `initidrive`.
+`offset`, `idrive`, and `initidrive`. Additional service commands include
+`begin` / `init` for reinitialization, `id` for manufacturer/device identity,
+and `timing <ch> <fRef>` for conversion, settling, and total sample-time
+calculations.
 
 ### Example Helpers (`examples/common/`)
 

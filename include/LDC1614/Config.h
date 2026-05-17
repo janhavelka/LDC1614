@@ -8,7 +8,7 @@
 
 namespace LDC1614 {
 
-/// I2C write callback signature
+/// @brief I2C write callback signature.
 /// @param addr     I2C device address (7-bit)
 /// @param data     Pointer to data to write
 /// @param len      Number of bytes to write
@@ -18,7 +18,7 @@ namespace LDC1614 {
 using I2cWriteFn = Status (*)(uint8_t addr, const uint8_t* data, size_t len,
                               uint32_t timeoutMs, void* user);
 
-/// I2C write-then-read callback signature
+/// @brief I2C write-then-read callback signature.
 /// @param addr     I2C device address (7-bit)
 /// @param txData   Pointer to data to write
 /// @param txLen    Number of bytes to write
@@ -31,46 +31,46 @@ using I2cWriteReadFn = Status (*)(uint8_t addr, const uint8_t* txData, size_t tx
                                   uint8_t* rxData, size_t rxLen, uint32_t timeoutMs,
                                   void* user);
 
-/// GPIO read callback signature (for INTB pin)
+/// @brief GPIO read callback signature for the INTB pin.
 /// @param pin      GPIO pin number
 /// @param user     User context pointer passed through from Config
 /// @return true if pin level is HIGH, false if LOW
 using GpioReadFn = bool (*)(int pin, void* user);
 
-/// Millisecond timestamp callback.
+/// @brief Millisecond timestamp callback.
 /// @param user User context pointer passed through from Config
 /// @return Current monotonic milliseconds
 using NowMsFn = uint32_t (*)(void* user);
 
-/// Cooperative yield callback.
+/// @brief Cooperative yield callback.
 /// @param user User context pointer passed through from Config
 using YieldFn = void (*)(void* user);
 
-/// Optional bus reset callback (e.g., SCL pulse recovery).
+/// @brief Optional bus reset callback (for example, SCL pulse recovery).
 /// Called by recover() if provided and recoverUseBusReset is true.
 /// @param user User context pointer (Config::i2cUser)
 /// @return Status indicating success or failure
 using BusResetFn = Status (*)(void* user);
 
-/// Optional hard reset callback (e.g., SHDN pin toggle).
+/// @brief Optional hard reset callback (for example, SHDN pin toggle).
 /// Called by recover() if provided and recoverUseHardReset is true.
 /// @param user User context pointer (Config::i2cUser)
 /// @return Status indicating success or failure
 using HardResetFn = Status (*)(void* user);
 
-/// Reference clock source
+/// @brief Reference clock source.
 enum class RefClkSrc : uint8_t {
   INTERNAL = 0,   ///< Internal oscillator (~43 MHz)
   EXT_CLK = 1     ///< External CLKIN (2-40 MHz)
 };
 
-/// Sensor activation mode
+/// @brief Sensor activation mode.
 enum class SensorActivation : uint8_t {
   FULL_CURRENT = 0,   ///< Full current activation (max drive during settle, faster)
   LOW_POWER    = 1    ///< Low power activation (uses IDRIVEx during settle)
 };
 
-/// Deglitch filter bandwidth
+/// @brief Deglitch filter bandwidth.
 enum class Deglitch : uint8_t {
   BW_1MHZ  = 1,   ///< 1.0 MHz
   BW_3MHZ  = 4,   ///< 3.3 MHz
@@ -78,14 +78,14 @@ enum class Deglitch : uint8_t {
   BW_33MHZ = 7    ///< 33 MHz
 };
 
-/// Round-robin channel sequence (for multi-channel auto-scan mode)
+/// @brief Round-robin channel sequence for multi-channel auto-scan mode.
 enum class RRSequence : uint8_t {
   CH0_CH1          = 0,   ///< Ch0, Ch1
   CH0_CH1_CH2      = 1,   ///< Ch0, Ch1, Ch2 (LDC1614 only)
   CH0_CH1_CH2_CH3  = 2    ///< Ch0, Ch1, Ch2, Ch3 (LDC1614 only)
 };
 
-/// Per-channel configuration
+/// @brief Per-channel configuration.
 struct ChannelConfig {
   uint16_t rcount = 0x0080;          ///< Reference count (0x0005-0xFFFF). Higher = longer conversion, more resolution.
   uint16_t settleCount = 0x0000;     ///< Settling reference count. 0 = minimum (32/fREF).
@@ -95,7 +95,7 @@ struct ChannelConfig {
   uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See datasheet Table 11.
 };
 
-/// Configuration for LDC1614 driver
+/// @brief Configuration for LDC1614 driver.
 struct Config {
   // === I2C Transport (required) ===
   I2cWriteFn i2cWrite = nullptr;

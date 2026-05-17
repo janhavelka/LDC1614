@@ -146,6 +146,7 @@ void test_status_ok() {
 void test_status_error() {
   Status st = Status::Error(Err::I2C_ERROR, "Test error", 42);
   TEST_ASSERT_FALSE(st.ok());
+  TEST_ASSERT_TRUE(st.is(Err::I2C_ERROR));
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR), static_cast<uint8_t>(st.code));
   TEST_ASSERT_EQUAL_INT32(42, st.detail);
 }
@@ -274,9 +275,50 @@ void test_begin_rejects_idrive_above_maximum() {
                           static_cast<uint8_t>(st.code));
 }
 
+void test_invalid_begin_resets_runtime_and_default_config() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config good = makeConfig(bus);
+  good.i2cAddress = 0x2B;
+  TEST_ASSERT_TRUE(dev.begin(good).ok());
+
+  bus.readStatus = Status::Error(Err::TIMEOUT, "forced recover timeout", -9);
+  (void)dev.recover();
+  TEST_ASSERT_GREATER_THAN_UINT32(0u, dev.totalFailures());
+
+  Config bad = makeConfig(bus);
+  bad.i2cTimeoutMs = 0;
+  Status st = dev.begin(bad);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_CONFIG),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_FALSE(dev.isInitialized());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::UNINIT),
+                          static_cast<uint8_t>(dev.state()));
+  TEST_ASSERT_NULL(dev.getConfig().i2cWrite);
+  TEST_ASSERT_NULL(dev.getConfig().i2cWriteRead);
+  TEST_ASSERT_EQUAL_HEX8(0x2A, dev.getConfig().i2cAddress);
+  TEST_ASSERT_EQUAL_UINT8(5u, dev.getConfig().offlineThreshold);
+  TEST_ASSERT_EQUAL_UINT16(0x0080u, dev.getConfig().channel[0].rcount);
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.totalSuccess());
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.totalFailures());
+  TEST_ASSERT_EQUAL_UINT8(0u, dev.consecutiveFailures());
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.lastOkMs());
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.lastErrorMs());
+}
+
+void test_begin_normalizes_offline_threshold_on_stored_copy() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  cfg.offlineThreshold = 0;
+
+  Status st = dev.begin(cfg);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_EQUAL_UINT8(0u, cfg.offlineThreshold);
+  TEST_ASSERT_EQUAL_UINT8(1u, dev.getConfig().offlineThreshold);
+}
+
 void test_begin_success_sets_ready() {
-  // begin() flow: probe() does 2 raw reads (not tracked),
-  // _applyConfig() does 5 writes * 4 channels + 3 global writes = 23 tracked writes
   FakeBus bus;
   LDC1614::LDC1614 dev;
   Status st = dev.begin(makeConfig(bus));
@@ -285,14 +327,13 @@ void test_begin_success_sets_ready() {
                           static_cast<uint8_t>(dev.state()));
   TEST_ASSERT_TRUE(dev.isOnline());
   TEST_ASSERT_TRUE(dev.isSleeping());   // Device stays in sleep after begin()
-  TEST_ASSERT_EQUAL_UINT32(23u, dev.totalSuccess());  // 23 tracked writes
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.totalSuccess());
   TEST_ASSERT_EQUAL_UINT32(0u, dev.totalFailures());
   TEST_ASSERT_EQUAL_UINT8(0u, dev.consecutiveFailures());
-  TEST_ASSERT_EQUAL_UINT32(bus.nowMs, dev.lastOkMs());
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.lastOkMs());
 }
 
 void test_begin_with_2channels() {
-  // 2-channel mode: 5 writes * 2 + 3 global = 13 tracked writes
   FakeBus bus;
   Config cfg = makeConfig(bus);
   cfg.channelCount = 2;
@@ -300,7 +341,7 @@ void test_begin_with_2channels() {
   LDC1614::LDC1614 dev;
   Status st = dev.begin(cfg);
   TEST_ASSERT_TRUE(st.ok());
-  TEST_ASSERT_EQUAL_UINT32(13u, dev.totalSuccess());
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.totalSuccess());
 }
 
 // ============================================================================
@@ -365,7 +406,7 @@ void test_recover_success_returns_ready() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
                           static_cast<uint8_t>(dev.state()));
   TEST_ASSERT_EQUAL_UINT8(0u, dev.consecutiveFailures());
-  TEST_ASSERT_EQUAL_UINT32(25u, dev.totalSuccess());  // 23 from begin + 2 identity reads
+  TEST_ASSERT_EQUAL_UINT32(2u, dev.totalSuccess());
   TEST_ASSERT_EQUAL_UINT32(1u, dev.totalFailures());
   TEST_ASSERT_EQUAL_UINT32(4321u, dev.lastOkMs());
 }
@@ -581,6 +622,57 @@ void test_multiple_failures_reach_offline() {
   TEST_ASSERT_TRUE(dev.isOnline());
 }
 
+void test_offline_read_channel_returns_busy_without_i2c() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.offlineThreshold = 1;
+
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  bus.readStatus = Status::Error(Err::TIMEOUT, "forced timeout", -9);
+  (void)dev.recover();
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
+                          static_cast<uint8_t>(dev.state()));
+
+  const uint32_t readsBefore = bus.readCalls;
+  const uint32_t writesBefore = bus.writeCalls;
+  ChannelData data;
+  Status st = dev.readChannel(0, data);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::BUSY),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_STRING("Driver is offline; call recover()", st.msg);
+  TEST_ASSERT_EQUAL_UINT32(readsBefore, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(writesBefore, bus.writeCalls);
+}
+
+void test_failed_recover_from_offline_keeps_latch_after_intermediate_success() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.offlineThreshold = 3;
+
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  bus.readStatus = Status::Error(Err::TIMEOUT, "forced timeout", -21);
+  for (uint8_t i = 0; i < cfg.offlineThreshold; ++i) {
+    bus.nowMs = 1000u * static_cast<uint32_t>(i + 1u);
+    TEST_ASSERT_FALSE(dev.recover().ok());
+  }
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
+                          static_cast<uint8_t>(dev.state()));
+
+  bus.readStatus = Status::Ok();
+  bus.reg[cmd::REG_DEVICE_ID] = 0x1234;
+  bus.nowMs = 5000;
+  const Status st = dev.recover();
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::DEVICE_NOT_FOUND),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
+                          static_cast<uint8_t>(dev.state()));
+  TEST_ASSERT_TRUE(dev.consecutiveFailures() >= cfg.offlineThreshold);
+}
+
 // ============================================================================
 // Config Recovery Defaults Tests
 // ============================================================================
@@ -710,6 +802,7 @@ void test_getLastSample_invalid_channel() {
   Status st = dev.getLastSample(5, data);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_PARAM),
                           static_cast<uint8_t>(st.code));
+  TEST_ASSERT_FALSE(dev.hasSample(5));
 }
 
 // ============================================================================
@@ -729,10 +822,18 @@ void test_getSettings_captures_state() {
   TEST_ASSERT_TRUE(dev.begin(cfg).ok());
 
   SettingsSnapshot snap;
-  dev.getSettings(snap);
+  TEST_ASSERT_TRUE(dev.getSettings(snap).ok());
 
+  TEST_ASSERT_TRUE(snap.initialized);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
                           static_cast<uint8_t>(snap.state));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
+                          static_cast<uint8_t>(dev.driverState()));
+  TEST_ASSERT_EQUAL_HEX8(0x2A, snap.i2cAddress);
+  TEST_ASSERT_EQUAL_UINT32(10u, snap.i2cTimeoutMs);
+  TEST_ASSERT_EQUAL_UINT8(3u, snap.offlineThreshold);
+  TEST_ASSERT_TRUE(snap.hasNowMsHook);
+  TEST_ASSERT_FALSE(snap.hasSample[0]);
   TEST_ASSERT_TRUE(snap.sleeping);
   TEST_ASSERT_TRUE(snap.autoScan);
   TEST_ASSERT_EQUAL_UINT8(2u, snap.activeChan);
@@ -740,6 +841,9 @@ void test_getSettings_captures_state() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(RefClkSrc::EXT_CLK),
                           static_cast<uint8_t>(snap.refClkSrc));
   TEST_ASSERT_EQUAL_UINT16(0x1000, snap.channel[0].rcount);
+
+  SettingsSnapshot byValue = dev.settings();
+  TEST_ASSERT_EQUAL_UINT8(4u, byValue.channelCount);
 }
 
 // ============================================================================
@@ -898,6 +1002,7 @@ void test_calc_helpers_use_channel_config() {
   FakeBus bus;
   Config cfg = makeConfig(bus);
   cfg.channel[0].rcount = 10;
+  cfg.channel[0].settleCount = 5;
   cfg.channel[0].finDivider = 2;
   cfg.channel[0].frefDivider = 4;
   cfg.channel[0].offset = 0;
@@ -910,6 +1015,26 @@ void test_calc_helpers_use_channel_config() {
 
   const float convUs = dev.calcConversionTimeUs(0, 40000000.0f);
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 16.4f, convUs);
+
+  const float settleUs = dev.calcSettleTimeUs(0, 40000000.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 8.0f, settleUs);
+
+  const float sampleUs = dev.calcSampleTimeUs(0, 40000000.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 24.4f, sampleUs);
+}
+
+void test_calc_settle_uses_datasheet_minimum_for_zero_and_one() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.channel[0].settleCount = 0;
+  cfg.channel[0].frefDivider = 4;
+
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 3.2f, dev.calcSettleTimeUs(0, 40000000.0f));
+  TEST_ASSERT_TRUE(dev.setSettleCount(0, 1).ok());
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 3.2f, dev.calcSettleTimeUs(0, 40000000.0f));
 }
 
 void test_calc_helpers_reject_nonfinite_reference_clock() {
@@ -920,6 +1045,8 @@ void test_calc_helpers_reject_nonfinite_reference_clock() {
   const float nanRef = std::numeric_limits<float>::quiet_NaN();
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dev.calcSensorFrequency(0, 0x08000000u, nanRef));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dev.calcConversionTimeUs(0, nanRef));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dev.calcSettleTimeUs(0, nanRef));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dev.calcSampleTimeUs(0, nanRef));
 }
 
 // ============================================================================
@@ -1170,6 +1297,8 @@ int main() {
   RUN_TEST(test_begin_rejects_idrive_above_maximum);
   RUN_TEST(test_begin_rejects_ldc1612_invalid_rr_sequence);
   RUN_TEST(test_begin_rejects_reserved_error_config_bits);
+  RUN_TEST(test_invalid_begin_resets_runtime_and_default_config);
+  RUN_TEST(test_begin_normalizes_offline_threshold_on_stored_copy);
   RUN_TEST(test_begin_success_sets_ready);
   RUN_TEST(test_begin_with_2channels);
 
@@ -1198,6 +1327,8 @@ int main() {
 
   // Offline threshold
   RUN_TEST(test_multiple_failures_reach_offline);
+  RUN_TEST(test_offline_read_channel_returns_busy_without_i2c);
+  RUN_TEST(test_failed_recover_from_offline_keeps_latch_after_intermediate_success);
 
   // Config recovery defaults
   RUN_TEST(test_config_recovery_defaults);
@@ -1225,6 +1356,7 @@ int main() {
   RUN_TEST(test_setHighCurrentDrive_rejects_autoscan);
   RUN_TEST(test_config_bit_setters_write_config_and_commit);
   RUN_TEST(test_calc_helpers_use_channel_config);
+  RUN_TEST(test_calc_settle_uses_datasheet_minimum_for_zero_and_one);
   RUN_TEST(test_calc_helpers_reject_nonfinite_reference_clock);
 
   // isMeasuring
