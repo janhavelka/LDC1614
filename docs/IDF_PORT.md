@@ -1,6 +1,6 @@
 # LDC1614 ESP-IDF v6.0.1 Port Audit
 
-Last audited: 2026-05-17
+Last audited: 2026-05-19
 
 This started as a readiness audit and now records the ESP-IDF implementation
 target for branch `idf-port`. See `docs/IDF_PORT_IMPLEMENTATION.md` for the
@@ -31,11 +31,14 @@ Official ESP-IDF references for the future port:
   `millis()` or `yield()` from `_nowMs()` / `_cooperativeYield()`; applications
   should provide timing/yield hooks when needed.
 - Arduino-only glue lives in `examples/common/I2cTransport.h`,
-  `I2cScanner.h`, `BoardConfig.h`, and the CLI example.
+  `I2cScanner.h`, `BoardConfig.h`, and the Arduino platform wrapper.
+- The user-visible CLI contract lives in framework-neutral
+  `examples/common/Ldc1614Cli.cpp` and is used by both Arduino and ESP-IDF
+  examples.
 
-Readiness verdict: the driver core is framework-neutral and IDF component/example
-scaffolding is present. Final readiness still requires an ESP-IDF 6.0.1 build
-and hardware validation.
+Readiness verdict: the driver core is framework-neutral and the Arduino/ESP-IDF
+examples share the same CLI behavior. Final readiness still requires an
+ESP-IDF 6.0.1 build and hardware validation.
 
 ## Portability Blockers
 
@@ -47,40 +50,23 @@ and hardware validation.
 - Recovery support can call `Config::busReset` and `Config::hardReset`; IDF
   implementations must keep those bounded and must not silently reconfigure bus
   ownership inside the core driver.
-- Arduino examples use `Serial`, `String`, `Wire`, `millis()`, `delay()`, and
-  `yield()`; keep them Arduino-only.
+- Arduino platform wrappers use `Serial`, `Wire`, `millis()`, `delay()`, and
+  `yield()`; keep those calls outside `include/` and `src/`.
 - IDF v6.0.1 warning profiles can expose implicit conversions in register field
   packing, channel indexing, and floating-point utility calculations.
 
-## Exact Files/APIs To Change Later
+## Implemented Files/APIs
 
-- `src/LDC1614.cpp`
-  - Remove the unconditional `#include <Arduino.h>`.
-  - Keep `_i2cWriteReadRaw()`, `_i2cWriteRaw()`,
-    `_i2cWriteReadTracked()`, and `_i2cWriteTracked()` as the only transport
-    path.
-  - Replace `_nowMs()` and `_cooperativeYield()` fallbacks with a portability
-    boundary:
-    - Arduino build: may call `millis()` and `yield()`.
-    - ESP-IDF build: use `Config::nowMs` and `Config::cooperativeYield`, or
-      guarded defaults using `esp_timer_get_time()` and `taskYIELD()`.
-  - Do not add direct `i2c_master_*` calls to register helpers.
-  - Keep `recover()` as a manual recovery ladder; do not add automatic retry
-    loops.
-- `include/LDC1614/Config.h`
-  - Preserve existing callback signatures, including `BusResetFn` and
-    `HardResetFn`.
-  - Document that pure IDF users should set `nowMs`, `cooperativeYield`, and
-    `gpioRead` when INTB is used.
-  - Do not include IDF driver headers in the public core header.
-- `include/LDC1614/LDC1614.h`
-  - Preserve namespace, class name, enums, `Status`, sample cache APIs,
-    recovery APIs, and health APIs.
-- Add root `CMakeLists.txt`.
-- Add IDF-only adapter/example files under a new path such as
-  `examples/esp_idf/basic/`.
-- Do not edit Arduino examples/common helpers except for separate Arduino
-  regression fixes during the implementation PR.
+- `src/LDC1614.cpp` has no Arduino or ESP-IDF framework includes and keeps
+  `_i2cWriteReadRaw()`, `_i2cWriteRaw()`, `_i2cWriteReadTracked()`, and
+  `_i2cWriteTracked()` as the only transport path.
+- `include/LDC1614/Config.h` preserves callback-based I2C, GPIO, time/yield,
+  bus reset, and hard reset hooks without including framework headers.
+- Root `CMakeLists.txt` registers the library as an ESP-IDF component.
+- `examples/esp_idf/basic/` owns bus/device setup, GPIO setup, console I/O, and
+  native `driver/i2c_master.h` transport callbacks.
+- `examples/common/Ldc1614Cli.cpp` owns the shared user-visible command
+  behavior for Arduino and ESP-IDF examples.
 
 ## Proposed Architecture Preserving Arduino Compatibility
 
@@ -176,7 +162,6 @@ Core-only component:
 idf_component_register(
   SRCS "src/LDC1614.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES esp_timer freertos
 )
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)
 ```
@@ -186,33 +171,32 @@ If an IDF adapter is shipped inside the component, include its source and add
 adapter lives only in the example, put those requirements in the example
 component instead.
 
-## Example Plan
+## Example Status
 
-- Keep the existing Arduino CLI example as the Arduino reference.
-- Add `examples/esp_idf/basic`:
-  - create an I2C master bus with `i2c_new_master_bus()`;
-  - add the LDC1614 device with `i2c_master_bus_add_device()` at `0x2A`;
-  - fill `LDC1614::Config` with IDF callbacks, channel count, channel
-    parameters, `nowMs`, `cooperativeYield`, and optional INTB/hard-reset hooks;
-  - call `begin()`;
-  - log MANUFACTURER_ID, DEVICE_ID, STATUS, one channel read, and health
-    counters.
-- Add a second IDF example only after basic success:
-  - configure auto-scan across 2 or 4 channels;
-  - use INTB data-ready via `gpioRead`;
-  - demonstrate bounded `readAllChannelsBlocking()`.
+- `examples/01_basic_bringup_cli` and `examples/esp_idf/basic` use the same
+  shared CLI implementation for the command contract.
+- The ESP-IDF example creates an I2C master bus with `i2c_new_master_bus()`,
+  adds the LDC1614 device with `i2c_master_bus_add_device()` at `0x2A`, and uses
+  `i2c_master_probe()` for the shared `scan` command.
+- The ESP-IDF example fills `LDC1614::Config` with IDF callbacks, channel count,
+  channel parameters, `nowMs`, `cooperativeYield`, and optional INTB/hard-reset
+  hooks.
+- Auto-scan, INTB data-ready, bounded blocking reads, diagnostics, raw register
+  access, self-test, stress, and demo workflows are available through CLI
+  commands rather than separate one-off sample code.
 
 ## Test/Validation Plan
 
 - Static checks:
-  - `rg "<Arduino.h>|<Wire.h>|millis\\(|delay\\(|yield\\(" include src`
-    should find no unguarded Arduino dependencies in the ESP-IDF build path.
+  - `python tools/check_core_timing_guard.py`
+  - `python tools/check_cli_contract.py`
+  - `python tools/check_idf_example_contract.py`
   - `rg "driver/i2c.h|i2c_cmd_link|i2c_driver_install" .` should not find
     legacy I2C driver usage in IDF code.
 - Arduino regression:
-  - `pio test -e native`
-  - `pio run -e esp32s3dev`
-  - `pio run -e esp32s2dev`
+  - `python -m platformio test -e native`
+  - `python -m platformio run -e esp32s3dev`
+  - `python -m platformio run -e esp32s2dev`
 - IDF build:
   - `idf.py set-target esp32s3 build` from `examples/esp_idf/basic`
   - `idf.py set-target esp32s2 build` from `examples/esp_idf/basic`
@@ -242,21 +226,16 @@ component instead.
   the bus, but the driver must not create or destroy the bus internally.
 - Keep `recover()` manual and bounded. Do not add background retry loops.
 
-## Ordered Implementation Checklist
+## Implementation Checklist Status
 
-1. Add the root `CMakeLists.txt` for the core component.
-2. Remove or compile-guard the Arduino include and timing/yield fallbacks in
-   `src/LDC1614.cpp`.
-3. Build the core component under IDF with callback stubs.
-4. Add the IDF I2C/GPIO adapter using `<driver/i2c_master.h>` and
-   `driver/gpio.h`.
-5. Add `examples/esp_idf/basic` and build for ESP32-S3.
-6. Build the same example for ESP32-S2.
-7. Run PlatformIO native and Arduino example builds as regression checks only.
-8. Validate identity, single-channel reads, auto-scan, INTB, sleep/wake, and
-   recovery on hardware.
-9. Inject I2C failures and verify status/health/recovery behavior.
-10. Add final `espidf` metadata/build matrix coverage and keep generated
-    `Version.h` synchronized with `library.json`.
-11. Add optional IDF component manifest only after both Arduino and IDF builds
-    pass.
+1. Done: root `CMakeLists.txt` registers the core component.
+2. Done: `include/` and `src/` have no Arduino include or timing/yield calls.
+3. Done: IDF I2C/GPIO adapter uses `<driver/i2c_master.h>` and `driver/gpio.h`.
+4. Done: `examples/esp_idf/basic` uses the same shared CLI command contract as
+   the Arduino example.
+5. Done: PlatformIO native tests and Arduino ESP32-S3/ESP32-S2 builds pass in
+   this environment.
+6. Pending: ESP-IDF `idf.py set-target esp32s3 build` and `esp32s2 build`
+   because `idf.py` was not on PATH in this shell.
+7. Pending: hardware validation for identity, single-channel reads, auto-scan,
+   INTB, sleep/wake, recovery, and injected I2C failures.

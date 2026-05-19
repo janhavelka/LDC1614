@@ -22,13 +22,26 @@ Implemented on branch `idf-port`.
   the new `driver/i2c_master.h` API, `esp_timer_get_time()` timing, a FreeRTOS
   yield hook, optional INTB input handling, `i2c_master_bus_reset()`, and an
   optional SHDN hard-reset hook.
+- Arduino and ESP-IDF examples both use `examples/common/Ldc1614Cli.cpp` for the
+  user-visible CLI contract. Platform-specific files now provide only output,
+  time/delay/yield, default `Config`, and I2C address-probe callbacks.
+- The ESP-IDF example exposes the same command set as the Arduino bringup CLI,
+  including aliases, help sections, raw `reg` / `wreg`, health diagnostics,
+  `probe`, `recover`, `reset`, `resetreapply`, `selftest`, `stress`,
+  `stress_mix`, and `demo`.
 
 ## Validation
 
-- Static check target: `rg "<Arduino.h>|<Wire.h>|millis\\(|delay\\(|yield\\(" include src`
-  should return no matches.
+- Static check target: `python tools/check_core_timing_guard.py`
+  enforces no Arduino timing calls/includes in `include/` and `src/`.
+- CLI parity checks: `python tools/check_cli_contract.py` and
+  `python tools/check_idf_example_contract.py`.
 - Arduino examples remain under `examples/01_basic_bringup_cli` and continue to
   provide `Wire`, `millis()`, and `yield()` through example-local callbacks.
+- PlatformIO Arduino builds pass for ESP32-S3 and ESP32-S2 through
+  `python -m platformio run -e esp32s3dev` and
+  `python -m platformio run -e esp32s2dev`.
+- Native tests pass through `python -m platformio test -e native`.
 - IDF builds were not run in this environment because `idf.py` was not on PATH.
 
 ## Remaining Hardware Work

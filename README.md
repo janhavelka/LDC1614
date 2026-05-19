@@ -40,8 +40,8 @@ The repository root is an ESP-IDF component. Add it through `EXTRA_COMPONENT_DIR
 or component manager metadata, then provide `Config::i2cWrite`,
 `Config::i2cWriteRead`, `Config::nowMs`, optional `Config::cooperativeYield`,
 optional `Config::gpioRead`, and optional recovery callbacks from your
-application-owned adapter. A basic new-driver example is in
-`examples/esp_idf/basic`.
+application-owned adapter. An interactive ESP-IDF CLI example using the
+`driver/i2c_master.h` API is in `examples/esp_idf/basic`.
 
 ## Quick Start
 
@@ -241,18 +241,27 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 
 ## Examples
 
-- `examples/01_basic_bringup_cli/` - Interactive CLI for LDC1614 features
+- `examples/01_basic_bringup_cli/` - Arduino interactive CLI for LDC1614 features
+- `examples/esp_idf/basic/` - ESP-IDF interactive CLI with native
+  `driver/i2c_master.h` transport glue
 
-The bringup CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid
-register addresses are rejected before I2C, but valid diagnostic writes can still
-desynchronize the cached configuration until a fresh `begin()` or `resetAndReapply()`.
+Both examples use the shared framework-neutral command implementation in
+`examples/common/Ldc1614Cli.cpp`, so command names, aliases, help sections,
+arguments, defaults, output structure, colors, prompts, health reporting, and
+diagnostic workflows stay aligned across Arduino and ESP-IDF.
+
+The CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid register
+addresses are rejected before I2C, but valid diagnostic writes can still
+desynchronize the cached configuration until a fresh `begin()` or
+`resetAndReapply()`.
 
 The CLI also exposes runtime configuration commands for the driver features:
 `single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
 `rpoverride`, `autoamp`, `highcurrent`, `rcount`, `settle`, `clkdiv`,
 `offset`, `idrive`, and `initidrive`. Additional service commands include
 `begin` / `init` for reinitialization, `id` for manufacturer/device identity,
-and `timing <ch> <fRef>` for conversion, settling, and total sample-time
+`demo [N]`, `selftest`, `stress [N]`, `stress_mix [N]`, and
+`timing <ch> <fRef>` for conversion, settling, and total sample-time
 calculations.
 
 ### Example Helpers (`examples/common/`)
@@ -269,6 +278,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | `BusDiag.h` | Bus diagnostics wrapper |
 | `CliShell.h` | Serial command-line shell with line editing |
 | `CliStyle.h` | Shared CLI color and help formatting helpers |
+| `Ldc1614Cli.h/.cpp` | Shared framework-neutral command implementation used by Arduino and ESP-IDF examples |
 | `CommandHandler.h` | Command parsing helpers (`readLine`, `match`, `parseInt`) |
 | `HealthDiag.h` | Verbose driver-health diagnostics and snapshots |
 | `HealthView.h` | Compact health/status formatting helpers |

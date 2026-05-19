@@ -8,10 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- ESP-IDF component metadata, root `CMakeLists.txt`, and a basic
-  `examples/esp_idf/basic` application using the ESP-IDF new I2C master driver,
-  `esp_timer`, FreeRTOS yield hook, optional INTB GPIO hook, and optional
-  bus/hard reset callbacks.
+- ESP-IDF component metadata, root `CMakeLists.txt`, and an interactive
+  `examples/esp_idf/basic` CLI application using the ESP-IDF new I2C master
+  driver, `esp_timer`, FreeRTOS yield hook, optional INTB GPIO hook, and
+  optional bus/hard reset callbacks.
+- Shared framework-neutral example CLI implementation used by both Arduino and
+  ESP-IDF examples, including identical help text, command aliases, colors,
+  prompts, health diagnostics, raw register access, probe/recover/reset,
+  `selftest`, `stress`, `stress_mix`, and `demo` workflows.
+- `tools/check_idf_example_contract.py` to guard ESP-IDF CLI parity, native I2C
+  driver usage, and stale wording.
 - IDF port implementation notes documenting the framework-neutral core boundary
   and validation status.
 - Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
@@ -44,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public raw register helpers now reject calls before `begin()` and reject addresses outside the LDC1614 register map before touching I2C.
 - README now documents runtime setters, configuration constraints, CLI coverage, and STATUS/INTB data-ready behavior.
 - Health behavior is now standardized on latched `OFFLINE`: normal public I2C operations return `BUSY` with `Driver is offline; call recover()` and do not touch I2C until `recover()` succeeds.
+- Arduino bringup example now delegates command behavior to the shared CLI
+  source, while retaining Arduino-owned Wire, Serial, timing, and pin setup.
+- Core timing guard now enforces zero Arduino timing calls/includes in
+  `include/` and `src/`.
 
 ### Fixed
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
