@@ -569,7 +569,7 @@ void test_begin_without_now_ms_uses_millis_fallback() {
   LDC1614::LDC1614 dev;
   Status st = dev.begin(cfg);
   TEST_ASSERT_TRUE(st.ok());
-  // millis() stub returns 0; lastOkMs should be 0 (from millis fallback)
+  // Missing nowMs hook returns 0; lastOkMs should stay 0.
   TEST_ASSERT_EQUAL_UINT32(0u, dev.lastOkMs());
 }
 

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prompts, health diagnostics, raw register access, probe/recover/reset,
   `selftest`, `stress`, `stress_mix`, and `demo` workflows.
 - `tools/check_idf_example_contract.py` to guard ESP-IDF CLI parity, native I2C
-  driver usage, and stale wording.
+  driver usage, and absence of Arduino compatibility facades.
 - IDF port implementation notes documenting the framework-neutral core boundary
   and validation status.
 - Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
@@ -50,8 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public raw register helpers now reject calls before `begin()` and reject addresses outside the LDC1614 register map before touching I2C.
 - README now documents runtime setters, configuration constraints, CLI coverage, and STATUS/INTB data-ready behavior.
 - Health behavior is now standardized on latched `OFFLINE`: normal public I2C operations return `BUSY` with `Driver is offline; call recover()` and do not touch I2C until `recover()` succeeds.
-- Arduino bringup example now delegates command behavior to the shared CLI
-  source, while retaining Arduino-owned Wire, Serial, timing, and pin setup.
+- Arduino and ESP-IDF examples now share framework-neutral command behavior
+  while each framework owns its own bus, timing, CLI input, and pin setup.
 - Core timing guard now enforces zero Arduino timing calls/includes in
   `include/` and `src/`.
 

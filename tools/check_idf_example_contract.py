@@ -82,6 +82,14 @@ REQUIRED_IDF_TOKENS = [
 ]
 
 FORBIDDEN_IDF_TOKENS = [
+    "ArduinoCompat",
+    "IdfArduinoCompat",
+    "Arduino.h",
+    "Wire.h",
+    "TwoWire",
+    "String",
+    "Serial",
+    "../../../01_basic_bringup_cli/main.cpp",
     "driver/" + "i2c.h",
     "i2c_cmd_link",
     "i2c_driver_install",
@@ -129,6 +137,10 @@ def main() -> int:
     for token in FORBIDDEN_IDF_TOKENS:
         if token in idf_all:
             fail(f"forbidden ESP-IDF token present: {token}")
+
+    for stale in ("ArduinoCompat.cpp", "Arduino.h", "Wire.h", "IdfArduinoCompat.h"):
+        if (idf_main.parent / stale).exists():
+            fail(f"stale compatibility file remains: {stale}")
 
     print("IDF example contract PASSED")
     return 0
