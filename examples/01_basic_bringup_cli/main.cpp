@@ -417,6 +417,8 @@ LDC1614::Config makeDefaultConfig() {
   cfg.i2cWrite = transport::wireWrite;
   cfg.i2cWriteRead = transport::wireWriteRead;
   cfg.i2cUser = &Wire;
+  cfg.nowMs = [](void*) { return millis(); };
+  cfg.cooperativeYield = [](void*) { yield(); };
   cfg.i2cAddress = 0x2A;
   cfg.channelCount = 4;
   cfg.i2cTimeoutMs = board::I2C_TIMEOUT_MS;

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ESP-IDF component metadata, root `CMakeLists.txt`, and a basic
+  `examples/esp_idf/basic` application using the ESP-IDF new I2C master driver,
+  `esp_timer`, FreeRTOS yield hook, optional INTB GPIO hook, and optional
+  bus/hard reset callbacks.
+- IDF port implementation notes documenting the framework-neutral core boundary
+  and validation status.
 - Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
 - Expanded settings snapshot API: `getSettings(SettingsSnapshot&)`, by-value `settings()`, `driverState()`, and per-channel `hasSample()`.
 - Public timing helpers `calcSettleTimeUs()` and `calcSampleTimeUs()`.
@@ -20,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bringup CLI commands covering the runtime configuration surface, identity readback, reinitialization aliases, and timing calculations.
 
 ### Changed
+- Removed Arduino `millis()` and `yield()` fallbacks from the driver core.
+  Applications should provide `Config::nowMs` and `Config::cooperativeYield`
+  when blocking helpers need wall-clock time or cooperative scheduling.
+- Declared `espidf` framework support in PlatformIO metadata while keeping the
+  Arduino example functionality equivalent through example-local hooks.
 - Doxyfile project metadata now matches `library.json`.
 - Explicit recovery/reset bypass internals now use the shared `ScopedOfflineI2cAllowance` / `_reassertOfflineLatch()` procedure so failed recovery attempts that begin from `OFFLINE` keep the latch asserted.
 - Doxyfile inputs now focus generated API docs on public headers and top-level
