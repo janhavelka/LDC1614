@@ -250,6 +250,63 @@ bool parseU32(const Line& token, uint32_t& out) {
   return true;
 }
 
+bool parseU32Flexible(Line token, uint32_t& out) {
+  token.trim();
+  if (parseU32(token, out)) {
+    return true;
+  }
+
+  const char* text = token.c_str();
+  if (text[0] == '\0') {
+    return false;
+  }
+  for (const char* p = text; *p != '\0'; ++p) {
+    if (std::isxdigit(static_cast<unsigned char>(*p)) == 0) {
+      return false;
+    }
+  }
+
+  char* end = nullptr;
+  const unsigned long value = std::strtoul(text, &end, 16);
+  if (end == text || *end != '\0') {
+    return false;
+  }
+  out = static_cast<uint32_t>(value);
+  return true;
+}
+
+bool parseU32FlexibleList(const Line& args, uint32_t* out, size_t maxCount, size_t& count) {
+  count = 0;
+  if (out == nullptr || maxCount == 0U) {
+    return false;
+  }
+
+  const char* p = args.c_str();
+  while (*p != '\0') {
+    while (std::isspace(static_cast<unsigned char>(*p)) != 0) {
+      ++p;
+    }
+    if (*p == '\0') {
+      break;
+    }
+    if (count >= maxCount) {
+      return false;
+    }
+
+    const char* start = p;
+    while (*p != '\0' && std::isspace(static_cast<unsigned char>(*p)) == 0) {
+      ++p;
+    }
+    uint32_t value = 0;
+    if (!parseU32Flexible(Line(std::string(start, static_cast<size_t>(p - start))), value)) {
+      return false;
+    }
+    out[count++] = value;
+  }
+
+  return count > 0U;
+}
+
 bool parseBoolToken(Line token, bool& out) {
   token.trim();
   token.toLowerCase();
@@ -334,6 +391,10 @@ bool parseActivation(Line token, LDC1614::SensorActivation& out) {
     return true;
   }
   return false;
+}
+
+bool isLdcAddress(uint8_t addr) {
+  return addr == 0x2AU || addr == 0x2BU;
 }
 
 }  // namespace
@@ -522,6 +583,101 @@ void Cli::printDriverHealth() const {
   }
 }
 
+HealthSnapshot Cli::captureHealth() const {
+  HealthSnapshot snap;
+  snap.state = _device.state();
+  snap.online = _device.isOnline();
+  snap.consecutiveFailures = _device.consecutiveFailures();
+  snap.totalFailures = _device.totalFailures();
+  snap.totalSuccess = _device.totalSuccess();
+  return snap;
+}
+
+void Cli::printHealthCompact() const {
+  const HealthSnapshot snap = captureHealth();
+  const uint32_t total = snap.totalSuccess + snap.totalFailures;
+  const float pct = (total > 0U)
+                        ? (100.0f * static_cast<float>(snap.totalSuccess) /
+                           static_cast<float>(total))
+                        : 0.0f;
+
+  printf("Health: state=%s%s%s online=%s%s%s consec=%s%u%s ok=%s%lu%s "
+         "fail=%s%lu%s rate=%s%.1f%%%s\n",
+         stateColor(snap.state, snap.online, snap.consecutiveFailures),
+         stateToStr(snap.state),
+         COLOR_RESET,
+         snap.online ? COLOR_GREEN : COLOR_RED,
+         snap.online ? "true" : "false",
+         COLOR_RESET,
+         goodIfZeroColor(snap.consecutiveFailures),
+         snap.consecutiveFailures,
+         COLOR_RESET,
+         goodIfNonZeroColor(snap.totalSuccess),
+         static_cast<unsigned long>(snap.totalSuccess),
+         COLOR_RESET,
+         goodIfZeroColor(snap.totalFailures),
+         static_cast<unsigned long>(snap.totalFailures),
+         COLOR_RESET,
+         successRateColor(pct),
+         pct,
+         COLOR_RESET);
+}
+
+void Cli::printHealthDiff(const HealthSnapshot& before, const HealthSnapshot& after) const {
+  bool changed = false;
+
+  if (before.state != after.state) {
+    printf("  State: %s%s%s -> %s%s%s\n",
+           stateColor(before.state, before.online, before.consecutiveFailures),
+           stateToStr(before.state),
+           COLOR_RESET,
+           stateColor(after.state, after.online, after.consecutiveFailures),
+           stateToStr(after.state),
+           COLOR_RESET);
+    changed = true;
+  }
+  if (before.online != after.online) {
+    printf("  Online: %s%s%s -> %s%s%s\n",
+           before.online ? COLOR_GREEN : COLOR_RED,
+           before.online ? "true" : "false",
+           COLOR_RESET,
+           after.online ? COLOR_GREEN : COLOR_RED,
+           after.online ? "true" : "false",
+           COLOR_RESET);
+    changed = true;
+  }
+  if (before.consecutiveFailures != after.consecutiveFailures) {
+    printf("  ConsecFail: %s%u -> %u%s\n",
+           goodIfZeroColor(after.consecutiveFailures),
+           before.consecutiveFailures,
+           after.consecutiveFailures,
+           COLOR_RESET);
+    changed = true;
+  }
+  if (before.totalSuccess != after.totalSuccess) {
+    printf("  TotalOK: %lu -> %s%lu (+%lu)%s\n",
+           static_cast<unsigned long>(before.totalSuccess),
+           COLOR_GREEN,
+           static_cast<unsigned long>(after.totalSuccess),
+           static_cast<unsigned long>(after.totalSuccess - before.totalSuccess),
+           COLOR_RESET);
+    changed = true;
+  }
+  if (before.totalFailures != after.totalFailures) {
+    printf("  TotalFail: %lu -> %s%lu (+%lu)%s\n",
+           static_cast<unsigned long>(before.totalFailures),
+           COLOR_RED,
+           static_cast<unsigned long>(after.totalFailures),
+           static_cast<unsigned long>(after.totalFailures - before.totalFailures),
+           COLOR_RESET);
+    changed = true;
+  }
+
+  if (!changed) {
+    println("  (no health changes)");
+  }
+}
+
 void Cli::printHelp() const {
   println();
   printf("%s=== LDC1614 CLI Help ===%s\n", COLOR_CYAN, COLOR_RESET);
@@ -538,6 +694,8 @@ void Cli::printHelp() const {
          "read", COLOR_RESET, "Read configured channels");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "read <ch>", COLOR_RESET, "Read specific channel (0-3)");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "read <ch> [N]", COLOR_RESET, "Read channel N times");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "readblocking", COLOR_RESET, "Blocking read configured channels (waits for DRDY)");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
@@ -573,7 +731,7 @@ void Cli::printHelp() const {
 
   printf("\n%s[Configuration]%s\n", COLOR_GREEN, COLOR_RESET);
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
-         "cfg / settings", COLOR_RESET, "Print active configuration snapshot");
+         "cfg / config / settings", COLOR_RESET, "Print active configuration snapshot");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "snapshot", COLOR_RESET, "Print settings snapshot struct (no I2C)");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
@@ -621,14 +779,24 @@ void Cli::printHelp() const {
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "wreg <addr> <val>", COLOR_RESET,
          "Write register (diagnostic only; may desync cached config)");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "rawreg <reg> [addr]", COLOR_RESET, "Raw register read before begin");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "rawwreg <reg> <val> [addr]", COLOR_RESET, "Raw register write before begin");
 
   printf("\n%s[Diagnostics]%s\n", COLOR_GREEN, COLOR_RESET);
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "drv", COLOR_RESET, "Show driver state and health");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "state", COLOR_RESET, "Compact driver health summary");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "online", COLOR_RESET, "Check if device is online");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "id", COLOR_RESET, "Read MANUFACTURER_ID and DEVICE_ID");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "bus", COLOR_RESET, "I2C scan plus raw LDC identity checks");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "probeaddr <addr>", COLOR_RESET, "Raw LDC identity check at address");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "probe", COLOR_RESET, "Probe device (no health tracking)");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
@@ -649,6 +817,10 @@ void Cli::printVersionInfo() const {
   println("=== Version Info ===");
   printf("  Example firmware build: %s %s\n", __DATE__, __TIME__);
   printf("  LDC1614 library version: %s\n", LDC1614::VERSION);
+  printf("  LDC1614 full version: %s\n", LDC1614::VERSION_FULL);
+  printf("  LDC1614 build timestamp: %s\n", LDC1614::BUILD_TIMESTAMP);
+  printf("  LDC1614 git commit: %s\n", LDC1614::GIT_COMMIT);
+  printf("  LDC1614 git status: %s\n", LDC1614::GIT_STATUS);
   printf("  LDC1614 version code: %d (major=%d minor=%d patch=%d)\n",
          LDC1614::VERSION_INT,
          LDC1614::VERSION_MAJOR,
@@ -708,15 +880,33 @@ void Cli::scanI2c() {
         continue;
       }
 
-      const I2cProbeResult result =
-          _platform.i2cProbe(addr, _platform.scanTimeoutMs, _platform.user);
-      if (result == I2cProbeResult::ACK) {
-        printf("%02X ", addr);
-        count++;
-      } else if (result == I2cProbeResult::TIMEOUT) {
-        printf("TO ");
+      if (isLdcAddress(addr)) {
+        uint16_t manufacturer = 0;
+        uint16_t deviceId = 0;
+        LDC1614::Status failure = LDC1614::Status::Ok();
+        if (readIdentityRaw(addr, manufacturer, deviceId, failure)) {
+          const bool identityOk =
+              manufacturer == LDC1614::cmd::MANUFACTURER_ID_VALUE &&
+              deviceId == LDC1614::cmd::DEVICE_ID_VALUE;
+          printf("%s%02X%s ", identityOk ? COLOR_GREEN : COLOR_YELLOW, addr, COLOR_RESET);
+          count++;
+        } else if (failure.code == LDC1614::Err::I2C_TIMEOUT ||
+                   failure.code == LDC1614::Err::TIMEOUT) {
+          printf("TO ");
+        } else {
+          printf("-- ");
+        }
       } else {
-        printf("-- ");
+        const I2cProbeResult result =
+            _platform.i2cProbe(addr, _platform.scanTimeoutMs, _platform.user);
+        if (result == I2cProbeResult::ACK) {
+          printf("%02X ", addr);
+          count++;
+        } else if (result == I2cProbeResult::TIMEOUT) {
+          printf("TO ");
+        } else {
+          printf("-- ");
+        }
       }
       yield();
       delayMs(1);
@@ -728,7 +918,138 @@ void Cli::scanI2c() {
   if (count > 0U) {
     logInfo("Common addresses: 0x2A/0x2B=LDC1614, 0x48-0x4B=ADS1115, "
             "0x51=RV3032, 0x76/0x77=BME280");
+    logInfo("LDC addresses are verified with MANUFACTURER_ID/DEVICE_ID reads.");
   }
+}
+
+uint8_t Cli::diagnosticAddress() const {
+  const LDC1614::Config cfg = makeDefaultConfig();
+  if (isLdcAddress(cfg.i2cAddress)) {
+    return cfg.i2cAddress;
+  }
+
+  const LDC1614::Config& active = _device.getConfig();
+  if (isLdcAddress(active.i2cAddress)) {
+    return active.i2cAddress;
+  }
+
+  return 0x2AU;
+}
+
+LDC1614::Status Cli::rawReadRegister16(uint8_t i2cAddress, uint8_t reg,
+                                       uint16_t& value) const {
+  const LDC1614::Config cfg = makeDefaultConfig();
+  if (cfg.i2cWriteRead == nullptr) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "I2C read callback not configured");
+  }
+  if (i2cAddress < 0x08U || i2cAddress > 0x77U) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                                  "I2C address out of 7-bit user range",
+                                  i2cAddress);
+  }
+
+  const uint8_t tx = reg;
+  uint8_t rx[2] = {};
+  const uint32_t timeoutMs = cfg.i2cTimeoutMs > 0U ? cfg.i2cTimeoutMs : _platform.scanTimeoutMs;
+  const LDC1614::Status st =
+      cfg.i2cWriteRead(i2cAddress, &tx, 1U, rx, sizeof(rx), timeoutMs, cfg.i2cUser);
+  if (!st.ok()) {
+    return st;
+  }
+
+  value = static_cast<uint16_t>((static_cast<uint16_t>(rx[0]) << 8) | rx[1]);
+  return LDC1614::Status::Ok();
+}
+
+LDC1614::Status Cli::rawWriteRegister16(uint8_t i2cAddress, uint8_t reg,
+                                        uint16_t value) const {
+  const LDC1614::Config cfg = makeDefaultConfig();
+  if (cfg.i2cWrite == nullptr) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "I2C write callback not configured");
+  }
+  if (i2cAddress < 0x08U || i2cAddress > 0x77U) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                                  "I2C address out of 7-bit user range",
+                                  i2cAddress);
+  }
+
+  const uint8_t tx[3] = {
+      reg,
+      static_cast<uint8_t>((value >> 8) & 0xFFU),
+      static_cast<uint8_t>(value & 0xFFU),
+  };
+  const uint32_t timeoutMs = cfg.i2cTimeoutMs > 0U ? cfg.i2cTimeoutMs : _platform.scanTimeoutMs;
+  return cfg.i2cWrite(i2cAddress, tx, sizeof(tx), timeoutMs, cfg.i2cUser);
+}
+
+bool Cli::readIdentityRaw(uint8_t address, uint16_t& manufacturer, uint16_t& deviceId,
+                          LDC1614::Status& failure) const {
+  failure = rawReadRegister16(address, LDC1614::cmd::REG_MANUFACTURER_ID, manufacturer);
+  if (!failure.ok()) {
+    return false;
+  }
+
+  failure = rawReadRegister16(address, LDC1614::cmd::REG_DEVICE_ID, deviceId);
+  if (!failure.ok()) {
+    return false;
+  }
+
+  failure = LDC1614::Status::Ok();
+  return true;
+}
+
+void Cli::printRawIdentity(uint8_t address) const {
+  println("=== Raw LDC Identity ===");
+  printf("  Address: 0x%02X\n", address);
+
+  uint16_t manufacturer = 0;
+  LDC1614::Status st =
+      rawReadRegister16(address, LDC1614::cmd::REG_MANUFACTURER_ID, manufacturer);
+  printf("  Read MANUFACTURER_ID (0x%02X):\n", LDC1614::cmd::REG_MANUFACTURER_ID);
+  printStatus(st);
+  if (st.ok()) {
+    const bool ok = manufacturer == LDC1614::cmd::MANUFACTURER_ID_VALUE;
+    printf("  Value: 0x%04X expected=0x%04X match=%s%s%s\n",
+           manufacturer,
+           LDC1614::cmd::MANUFACTURER_ID_VALUE,
+           yesNoColor(ok),
+           ok ? "YES" : "NO",
+           COLOR_RESET);
+  }
+
+  uint16_t deviceId = 0;
+  st = rawReadRegister16(address, LDC1614::cmd::REG_DEVICE_ID, deviceId);
+  printf("  Read DEVICE_ID (0x%02X):\n", LDC1614::cmd::REG_DEVICE_ID);
+  printStatus(st);
+  if (st.ok()) {
+    const bool ok = deviceId == LDC1614::cmd::DEVICE_ID_VALUE;
+    printf("  Value: 0x%04X expected=0x%04X match=%s%s%s\n",
+           deviceId,
+           LDC1614::cmd::DEVICE_ID_VALUE,
+           yesNoColor(ok),
+           ok ? "YES" : "NO",
+           COLOR_RESET);
+  }
+}
+
+void Cli::printBusDiagnostics() {
+  const LDC1614::Config cfg = makeDefaultConfig();
+  println("=== I2C Bus Diagnostics ===");
+  printf("  Default LDC address: 0x%02X\n", cfg.i2cAddress);
+  printf("  Timeout: %lu ms\n", static_cast<unsigned long>(cfg.i2cTimeoutMs));
+  printf("  Callbacks: write=%s read=%s addr-probe=%s now=%s yield=%s gpio=%s\n",
+         boolStr(cfg.i2cWrite != nullptr),
+         boolStr(cfg.i2cWriteRead != nullptr),
+         boolStr(_platform.i2cProbe != nullptr),
+         boolStr(cfg.nowMs != nullptr),
+         boolStr(cfg.cooperativeYield != nullptr),
+         boolStr(cfg.gpioRead != nullptr));
+  println("  LDC scan entries use repeated-start ID reads, not address-only probes.");
+  scanI2c();
+  printRawIdentity(0x2AU);
+  printRawIdentity(0x2BU);
 }
 
 void Cli::runSelfTest() {
@@ -827,8 +1148,40 @@ void Cli::runSelfTest() {
 
 void Cli::printConfig() {
   println("=== Active Configuration ===");
-  const LDC1614::Config& cfg = _device.getConfig();
-  printf("  I2C address: 0x%02X\n", cfg.i2cAddress);
+  LDC1614::SettingsSnapshot snap;
+  (void)_device.getSettings(snap);
+
+  const LDC1614::Config defaultConfig = makeDefaultConfig();
+  const LDC1614::Config& activeConfig = _device.getConfig();
+  const LDC1614::Config& cfg =
+      (activeConfig.i2cWrite != nullptr && activeConfig.i2cWriteRead != nullptr)
+          ? activeConfig
+          : defaultConfig;
+  const bool liveReads = _device.isOnline();
+  const uint8_t channelCount = cfg.channelCount <= 4U ? cfg.channelCount : 4U;
+
+  printf("  Initialized: %s%s%s  State: %s%s%s  Online: %s%s%s\n",
+         snap.initialized ? COLOR_GREEN : COLOR_YELLOW,
+         boolStr(snap.initialized),
+         COLOR_RESET,
+         stateColor(snap.state, _device.isOnline(), _device.consecutiveFailures()),
+         stateToStr(snap.state),
+         COLOR_RESET,
+         liveReads ? COLOR_GREEN : COLOR_RED,
+         boolStr(liveReads),
+         COLOR_RESET);
+  printf("  I2C address: 0x%02X  timeout=%lu ms  offlineThreshold=%u\n",
+         cfg.i2cAddress,
+         static_cast<unsigned long>(cfg.i2cTimeoutMs),
+         cfg.offlineThreshold);
+  printf("  Callbacks: write=%s read=%s now=%s yield=%s gpio=%s busReset=%s hardReset=%s\n",
+         boolStr(cfg.i2cWrite != nullptr),
+         boolStr(cfg.i2cWriteRead != nullptr),
+         boolStr(cfg.nowMs != nullptr),
+         boolStr(cfg.cooperativeYield != nullptr),
+         boolStr(cfg.gpioRead != nullptr),
+         boolStr(cfg.busReset != nullptr),
+         boolStr(cfg.hardReset != nullptr));
   printf("  Mode: %s  RR sequence: %s  Deglitch: %s\n",
          cfg.autoScan ? "auto-scan" : "single-channel",
          rrSequenceToStr(cfg.rrSequence),
@@ -846,68 +1199,92 @@ void Cli::printConfig() {
   printf("  Cached ERROR_CONFIG: 0x%04X\n", cfg.errorConfig);
 
   uint16_t regVal = 0;
-  LDC1614::Status st = _device.readRegister16(LDC1614::cmd::REG_MUX_CONFIG, regVal);
-  if (st.ok()) {
-    printf("  MUX_CONFIG: 0x%04X\n", regVal);
-  }
-  st = _device.readRegister16(LDC1614::cmd::REG_CONFIG, regVal);
-  if (st.ok()) {
-    printf("  CONFIG: 0x%04X (sleep=%d)\n", regVal, (regVal >> 13) & 1);
-  }
-  st = _device.readRegister16(LDC1614::cmd::REG_ERROR_CONFIG, regVal);
-  if (st.ok()) {
-    printf("  ERROR_CONFIG: 0x%04X\n", regVal);
+  if (liveReads) {
+    LDC1614::Status st = _device.readRegister16(LDC1614::cmd::REG_MUX_CONFIG, regVal);
+    if (st.ok()) {
+      printf("  Live MUX_CONFIG: 0x%04X\n", regVal);
+    }
+    st = _device.readRegister16(LDC1614::cmd::REG_CONFIG, regVal);
+    if (st.ok()) {
+      printf("  Live CONFIG: 0x%04X (sleep=%d)\n", regVal, (regVal >> 13) & 1);
+    }
+    st = _device.readRegister16(LDC1614::cmd::REG_ERROR_CONFIG, regVal);
+    if (st.ok()) {
+      printf("  Live ERROR_CONFIG: 0x%04X\n", regVal);
+    }
+  } else {
+    println("  Live registers: unavailable (driver is not online)");
   }
 
-  printf("  Channel count: %u\n", _device.channelCount());
-  printf("  Active channel: %u\n", _device.getActiveChannel());
+  printf("  Channel count: %u\n", channelCount);
+  printf("  Active channel: %u\n", cfg.activeChan);
   printf("  Sleeping: %s%s%s\n",
          _device.isSleeping() ? COLOR_YELLOW : COLOR_GREEN,
          boolStr(_device.isSleeping()),
          COLOR_RESET);
 
-  for (uint8_t ch = 0; ch < _device.channelCount() && ch < 4; ch++) {
+  for (uint8_t ch = 0; ch < channelCount; ch++) {
+    const auto& cc = cfg.channel[ch];
     printf("  --- Channel %u ---\n", ch);
-    st = _device.readRegister16(LDC1614::cmd::regRcount(ch), regVal);
-    if (st.ok()) {
-      printf("    RCOUNT: 0x%04X (%u)\n", regVal, regVal);
-    }
-    st = _device.readRegister16(LDC1614::cmd::regSettleCount(ch), regVal);
-    if (st.ok()) {
-      printf("    SETTLECOUNT: 0x%04X (%u)\n", regVal, regVal);
-    }
-    st = _device.readRegister16(LDC1614::cmd::regClockDividers(ch), regVal);
-    if (st.ok()) {
-      const uint8_t finDiv = static_cast<uint8_t>((regVal >> 12) & 0x0F);
-      const uint16_t frefDiv = regVal & 0x03FF;
-      printf("    CLOCK_DIV: 0x%04X (FIN=%u, FREF=%u)\n", regVal, finDiv, frefDiv);
-    }
-    st = _device.readRegister16(LDC1614::cmd::regDriveCurrent(ch), regVal);
-    if (st.ok()) {
-      const uint8_t idrive = static_cast<uint8_t>((regVal >> 11) & 0x1F);
-      const uint8_t initIdrive = static_cast<uint8_t>((regVal >> 6) & 0x1F);
-      printf("    DRIVE_CURRENT: 0x%04X (IDRIVE=%u, INIT_IDRIVE=%u)\n",
-             regVal, idrive, initIdrive);
-    }
-    st = _device.readRegister16(LDC1614::cmd::regOffset(ch), regVal);
-    if (st.ok()) {
-      printf("    OFFSET: 0x%04X (%u)\n", regVal, regVal);
+    printf("    Cached: RCOUNT=0x%04X SETTLE=0x%04X CLOCK_DIV(FIN=%u,FREF=%u) "
+           "OFFSET=0x%04X IDRIVE=%u\n",
+           cc.rcount,
+           cc.settleCount,
+           cc.finDivider,
+           cc.frefDivider,
+           cc.offset,
+           cc.idrive);
+    if (liveReads) {
+      LDC1614::Status st = _device.readRegister16(LDC1614::cmd::regRcount(ch), regVal);
+      if (st.ok()) {
+        printf("    Live RCOUNT: 0x%04X (%u)\n", regVal, regVal);
+      }
+      st = _device.readRegister16(LDC1614::cmd::regSettleCount(ch), regVal);
+      if (st.ok()) {
+        printf("    Live SETTLECOUNT: 0x%04X (%u)\n", regVal, regVal);
+      }
+      st = _device.readRegister16(LDC1614::cmd::regClockDividers(ch), regVal);
+      if (st.ok()) {
+        const uint8_t finDiv = static_cast<uint8_t>((regVal >> 12) & 0x0F);
+        const uint16_t frefDiv = regVal & 0x03FF;
+        printf("    Live CLOCK_DIV: 0x%04X (FIN=%u, FREF=%u)\n",
+               regVal, finDiv, frefDiv);
+      }
+      st = _device.readRegister16(LDC1614::cmd::regDriveCurrent(ch), regVal);
+      if (st.ok()) {
+        const uint8_t idrive = static_cast<uint8_t>((regVal >> 11) & 0x1F);
+        const uint8_t initIdrive = static_cast<uint8_t>((regVal >> 6) & 0x1F);
+        printf("    Live DRIVE_CURRENT: 0x%04X (IDRIVE=%u, INIT_IDRIVE=%u)\n",
+               regVal, idrive, initIdrive);
+      }
+      st = _device.readRegister16(LDC1614::cmd::regOffset(ch), regVal);
+      if (st.ok()) {
+        printf("    Live OFFSET: 0x%04X (%u)\n", regVal, regVal);
+      }
     }
   }
 }
 
 void Cli::printIdentity() {
+  if (!_device.isOnline()) {
+    logWarn("Device not online; using raw identity reads.");
+    printRawIdentity(diagnosticAddress());
+    return;
+  }
+
   uint16_t manufacturer = 0;
   uint16_t deviceId = 0;
   LDC1614::Status st = _device.readRegister16(LDC1614::cmd::REG_MANUFACTURER_ID,
                                               manufacturer);
   if (!st.ok()) {
     printStatus(st);
+    printRawIdentity(diagnosticAddress());
     return;
   }
   st = _device.readRegister16(LDC1614::cmd::REG_DEVICE_ID, deviceId);
   if (!st.ok()) {
     printStatus(st);
+    printRawIdentity(diagnosticAddress());
     return;
   }
 
@@ -1209,17 +1586,41 @@ void Cli::processCommand(const char* cmdLine) {
     printVersionInfo();
   } else if (cmd == "scan") {
     scanI2c();
+  } else if (cmd == "bus" || cmd == "i2cdiag") {
+    printBusDiagnostics();
+  } else if (cmd.startsWith("probeaddr ")) {
+    uint32_t addr = 0;
+    if (!parseU32Flexible(cmd.substring(10), addr) || addr > 0x7FU) {
+      logWarn("Usage: probeaddr <addr>");
+      return;
+    }
+    if (!isLdcAddress(static_cast<uint8_t>(addr))) {
+      logWarn("0x%02lX is not an LDC1614 address (expected 0x2A or 0x2B)",
+              static_cast<unsigned long>(addr));
+    }
+    printRawIdentity(static_cast<uint8_t>(addr));
   } else if (cmd == "probe") {
     logInfo("Probing device (no health tracking)...");
+    printRawIdentity(diagnosticAddress());
+    const HealthSnapshot before = captureHealth();
     const LDC1614::Status st = _device.probe();
     printStatus(st);
+    const HealthSnapshot after = captureHealth();
+    println("  Health changes:");
+    printHealthDiff(before, after);
   } else if (cmd == "drv") {
     printDriverHealth();
+  } else if (cmd == "state") {
+    printHealthCompact();
   } else if (cmd == "recover") {
     logInfo("Attempting recovery...");
+    const HealthSnapshot before = captureHealth();
     const LDC1614::Status st = _device.recover();
     printStatus(st);
-    printDriverHealth();
+    const HealthSnapshot after = captureHealth();
+    println("  Health changes:");
+    printHealthDiff(before, after);
+    printHealthCompact();
   } else if (cmd == "online") {
     const bool on = _device.isOnline();
     printf("  Online: %s%s%s\n", on ? COLOR_GREEN : COLOR_RED, boolStr(on), COLOR_RESET);
@@ -1239,6 +1640,9 @@ void Cli::processCommand(const char* cmdLine) {
     if (st.ok()) {
       logInfo("Device initialized in sleep mode. Use 'wake' to start conversions.");
       printDriverHealth();
+    } else {
+      printRawIdentity(diagnosticAddress());
+      printHealthCompact();
     }
   } else if (cmd == "end") {
     logInfo("Shutting down driver...");
@@ -1368,18 +1772,35 @@ void Cli::processCommand(const char* cmdLine) {
       logWarn("Device not online. Run 'init' first.");
       return;
     }
-    const int ch = cmd.substring(5).toInt();
-    if (ch < 0 || ch > 3) {
-      logWarn("Invalid channel (0-3)");
+    uint32_t values[2] = {};
+    size_t count = 0;
+    if (!parseU32FlexibleList(cmd.substring(5), values, 2U, count) ||
+        count < 1U || values[0] > 3U) {
+      logWarn("Usage: read <ch> [count]");
       return;
     }
-    LDC1614::ChannelData data;
-    const LDC1614::Status st = _device.readChannel(static_cast<uint8_t>(ch), data);
-    if (!st.ok()) {
-      printStatus(st);
+    const uint32_t sampleCount = count == 2U ? values[1] : 1U;
+    if (sampleCount == 0U || sampleCount > static_cast<uint32_t>(MAX_DEMO_COUNT)) {
+      logWarn("Invalid count (1-%d)", MAX_DEMO_COUNT);
       return;
     }
-    printChannelData(static_cast<uint8_t>(ch), data);
+    for (uint32_t i = 0; i < sampleCount; ++i) {
+      LDC1614::ChannelData data;
+      const LDC1614::Status st = _device.readChannel(static_cast<uint8_t>(values[0]), data);
+      if (!st.ok()) {
+        printf("  Sample %lu/%lu failed\n",
+               static_cast<unsigned long>(i + 1U),
+               static_cast<unsigned long>(sampleCount));
+        printStatus(st);
+        return;
+      }
+      if (sampleCount > 1U) {
+        printf("  Sample %lu/%lu:\n",
+               static_cast<unsigned long>(i + 1U),
+               static_cast<unsigned long>(sampleCount));
+      }
+      printChannelData(static_cast<uint8_t>(values[0]), data);
+    }
   } else if (cmd == "readblocking") {
     if (!_device.isOnline()) {
       logWarn("Device not online. Run 'init' first.");
@@ -1697,6 +2118,40 @@ void Cli::processCommand(const char* cmdLine) {
       return;
     }
     printStatus(_device.setHighCurrentDriveEnabled(enabled));
+  } else if (cmd.startsWith("rawreg ")) {
+    uint32_t values[2] = {};
+    size_t count = 0;
+    if (!parseU32FlexibleList(cmd.substring(7), values, 2U, count) ||
+        count < 1U || values[0] > 0xFFU ||
+        (count == 2U && (values[1] < 0x08U || values[1] > 0x77U))) {
+      logWarn("Usage: rawreg <reg> [addr]");
+      return;
+    }
+    const uint8_t reg = static_cast<uint8_t>(values[0]);
+    const uint8_t addr =
+        count == 2U ? static_cast<uint8_t>(values[1]) : diagnosticAddress();
+    uint16_t val = 0;
+    const LDC1614::Status st = rawReadRegister16(addr, reg, val);
+    if (!st.ok()) {
+      printStatus(st);
+      return;
+    }
+    printf("  Raw 0x%02X[0x%02X] = 0x%04X (%u)\n", addr, reg, val, val);
+  } else if (cmd.startsWith("rawwreg ")) {
+    uint32_t values[3] = {};
+    size_t count = 0;
+    if (!parseU32FlexibleList(cmd.substring(8), values, 3U, count) ||
+        count < 2U || values[0] > 0xFFU || values[1] > 0xFFFFU ||
+        (count == 3U && (values[2] < 0x08U || values[2] > 0x77U))) {
+      logWarn("Usage: rawwreg <reg> <val> [addr]");
+      return;
+    }
+    const uint8_t reg = static_cast<uint8_t>(values[0]);
+    const uint16_t val = static_cast<uint16_t>(values[1]);
+    const uint8_t addr =
+        count == 3U ? static_cast<uint8_t>(values[2]) : diagnosticAddress();
+    logWarn("Raw register write may desync cached driver config.");
+    printStatus(rawWriteRegister16(addr, reg, val));
   } else if (cmd.startsWith("wreg ")) {
     if (!_device.isOnline()) {
       logWarn("Device not online.");
@@ -1721,7 +2176,7 @@ void Cli::processCommand(const char* cmdLine) {
                                         static_cast<uint16_t>(val)));
   } else if (cmd.startsWith("reg ")) {
     if (!_device.isOnline()) {
-      logWarn("Device not online.");
+      logWarn("Device not online. Use 'rawreg <reg> [addr]' for pre-init diagnostics.");
       return;
     }
     uint32_t addr = 0;
@@ -1738,11 +2193,7 @@ void Cli::processCommand(const char* cmdLine) {
     printf("  Reg 0x%02lX = 0x%04X (%u)\n", static_cast<unsigned long>(addr), val, val);
   } else if (cmd == "selftest") {
     runSelfTest();
-  } else if (cmd == "cfg" || cmd == "settings") {
-    if (!_device.isOnline()) {
-      logWarn("Device not online.");
-      return;
-    }
+  } else if (cmd == "cfg" || cmd == "settings" || cmd == "config") {
     printConfig();
   } else if (cmd == "id") {
     printIdentity();

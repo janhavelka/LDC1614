@@ -10,9 +10,63 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#include "LDC1614/CommandTable.h"
 #include "examples/common/Log.h"
 
 namespace i2c_scanner {
+
+inline bool isLdcAddress(uint8_t addr) {
+  return addr == 0x2A || addr == 0x2B;
+}
+
+inline bool readRegister16(TwoWire& wire, uint8_t addr, uint8_t reg, uint16_t& value) {
+  wire.beginTransmission(addr);
+  if (wire.write(&reg, 1) != 1U) {
+    return false;
+  }
+
+  if (wire.endTransmission(false) != 0U) {
+    return false;
+  }
+
+  const size_t read = wire.requestFrom(addr, static_cast<uint8_t>(2));
+  if (read != 2U) {
+    while (wire.available() > 0) {
+      (void)wire.read();
+    }
+    return false;
+  }
+
+  if (wire.available() < 2) {
+    return false;
+  }
+
+  const int msb = wire.read();
+  const int lsb = wire.read();
+  if (msb < 0 || lsb < 0) {
+    return false;
+  }
+
+  value = (static_cast<uint16_t>(static_cast<uint8_t>(msb)) << 8) |
+          static_cast<uint8_t>(lsb);
+  return true;
+}
+
+inline bool probeLdcAddress(TwoWire& wire, uint8_t addr) {
+  uint16_t manufacturer = 0;
+  if (!readRegister16(wire, addr, LDC1614::cmd::REG_MANUFACTURER_ID, manufacturer)) {
+    return false;
+  }
+  if (manufacturer != LDC1614::cmd::MANUFACTURER_ID_VALUE) {
+    return false;
+  }
+
+  uint16_t device = 0;
+  if (!readRegister16(wire, addr, LDC1614::cmd::REG_DEVICE_ID, device)) {
+    return false;
+  }
+  return device == LDC1614::cmd::DEVICE_ID_VALUE;
+}
 
 /**
  * @brief Attempt to recover a stuck I2C bus by toggling SCL.
@@ -74,13 +128,25 @@ inline void scan(TwoWire& wire, uint16_t timeoutMs = 50) {
         continue;
       }
 
-      wire.beginTransmission(addr);
-      uint8_t error = wire.endTransmission(true);
+      bool ack = false;
+      bool timeout = false;
 
-      if (error == 0) {
+      if (isLdcAddress(addr)) {
+        // LDC1612/LDC1614 does not tolerate early-terminated I2C
+        // transactions. Use a complete register read instead of an
+        // address-only scan probe for the possible LDC addresses.
+        ack = probeLdcAddress(wire, addr);
+      } else {
+        wire.beginTransmission(addr);
+        const uint8_t error = wire.endTransmission(true);
+        ack = error == 0U;
+        timeout = error == 5U;
+      }
+
+      if (ack) {
         LOG_SERIAL.printf("%02X ", addr);
         count++;
-      } else if (error == 5) {
+      } else if (timeout) {
         LOG_SERIAL.print("TO ");
       } else {
         LOG_SERIAL.print("-- ");

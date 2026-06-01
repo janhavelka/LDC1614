@@ -46,7 +46,11 @@ inline LDC1614::Status wireWrite(uint8_t addr, const uint8_t* data, size_t len,
                                   static_cast<int32_t>(len));
   }
 
+#if defined(ARDUINO_ARCH_ESP32)
+  wire->setTimeOut(timeoutMs);
+#else
   (void)timeoutMs;
+#endif
 
   wire->beginTransmission(addr);
   size_t written = wire->write(data, len);
@@ -105,7 +109,11 @@ inline LDC1614::Status wireWriteRead(uint8_t addr, const uint8_t* tx, size_t txL
     return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, "I2C read exceeds buffer");
   }
 
+#if defined(ARDUINO_ARCH_ESP32)
+  wire->setTimeOut(timeoutMs);
+#else
   (void)timeoutMs;
+#endif
 
   wire->beginTransmission(addr);
   size_t written = wire->write(tx, txLen);

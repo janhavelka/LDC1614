@@ -158,6 +158,8 @@ void setup() {
   if (!st.ok()) {
     ldcCli.logError("Failed to initialize device");
     ldcCli.printStatus(st);
+    ldcCli.processCommand("id");
+    ldcCli.processCommand("state");
     ldcCli.logInfo("Type 'begin' or 'init' to retry initialization");
   } else {
     ldcCli.logInfo("Device initialized successfully");

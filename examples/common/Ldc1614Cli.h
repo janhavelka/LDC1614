@@ -13,6 +13,14 @@ enum class I2cProbeResult : uint8_t {
   ERROR,
 };
 
+struct HealthSnapshot {
+  LDC1614::DriverState state = LDC1614::DriverState::UNINIT;
+  bool online = false;
+  uint8_t consecutiveFailures = 0;
+  uint32_t totalFailures = 0;
+  uint32_t totalSuccess = 0;
+};
+
 class Cli {
 public:
   using VPrintfFn = void (*)(void* user, const char* fmt, va_list args);
@@ -55,12 +63,22 @@ private:
   void vprintfToOutput(const char* fmt, va_list args) const;
   void vlog(uint8_t minLevel, const char* color, const char* tag,
             const char* fmt, va_list args) const;
+  HealthSnapshot captureHealth() const;
+  void printHealthCompact() const;
+  void printHealthDiff(const HealthSnapshot& before, const HealthSnapshot& after) const;
   void scanI2c();
+  void printBusDiagnostics();
   void printVersionInfo() const;
   void printDeviceStatus(const LDC1614::DeviceStatus& ds) const;
   void printConfig();
   void printIdentity();
+  void printRawIdentity(uint8_t address) const;
   void printChannelData(uint8_t ch, const LDC1614::ChannelData& data) const;
+  LDC1614::Status rawReadRegister16(uint8_t i2cAddress, uint8_t reg, uint16_t& value) const;
+  LDC1614::Status rawWriteRegister16(uint8_t i2cAddress, uint8_t reg, uint16_t value) const;
+  bool readIdentityRaw(uint8_t address, uint16_t& manufacturer, uint16_t& deviceId,
+                       LDC1614::Status& failure) const;
+  uint8_t diagnosticAddress() const;
   void runSelfTest();
   void runStress(int count);
   void runStressMix(int count);
