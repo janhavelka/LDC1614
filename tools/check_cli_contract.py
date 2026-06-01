@@ -15,6 +15,8 @@ REQUIRED_COMMON = [
     "BusDiag.h",
     "CliShell.h",
     "CliStyle.h",
+    "Ldc1614Cli.h",
+    "Ldc1614Cli.cpp",
     "HealthView.h",
 ]
 
@@ -38,8 +40,13 @@ MANDATORY_COMMANDS = [
     "rpoverride",
     "autoamp",
     "highcurrent",
+    "reg",
+    "wreg",
     "verbose",
     "stress",
+    "stress_mix",
+    "demo",
+    "selftest",
 ]
 
 
@@ -61,9 +68,13 @@ def ensure_missing(path: pathlib.Path, label: str) -> None:
 def main() -> int:
     common_dir = ROOT / "examples" / "common"
     bringup_main = ROOT / "examples" / "01_basic_bringup_cli" / "main.cpp"
+    idf_main = ROOT / "examples" / "esp_idf" / "basic" / "main" / "main.cpp"
+    shared_cli = common_dir / "Ldc1614Cli.cpp"
 
     ensure_exists(common_dir, "common example directory")
     ensure_exists(bringup_main, "bringup CLI example")
+    ensure_exists(idf_main, "ESP-IDF CLI example")
+    ensure_exists(shared_cli, "shared CLI implementation")
 
     ensure_missing(ROOT / "examples" / "00_smoke_boot", "deprecated example 00_smoke_boot")
     ensure_missing(
@@ -74,11 +85,18 @@ def main() -> int:
     for name in REQUIRED_COMMON:
         ensure_exists(common_dir / name, f"common helper {name}")
 
-    text = bringup_main.read_text(encoding="utf-8", errors="replace")
+    arduino_text = bringup_main.read_text(encoding="utf-8", errors="replace")
+    idf_text = idf_main.read_text(encoding="utf-8", errors="replace")
+    text = shared_cli.read_text(encoding="utf-8", errors="replace")
+
+    if "Ldc1614Cli.h" not in arduino_text:
+        fail("Arduino example must use shared Ldc1614Cli.h")
+    if "Ldc1614Cli.h" not in idf_text:
+        fail("ESP-IDF example must use shared Ldc1614Cli.h")
 
     for cmd in MANDATORY_COMMANDS:
         if re.search(rf"\b{re.escape(cmd)}\b", text) is None:
-            fail(f"mandatory command '{cmd}' missing in {bringup_main.as_posix()}")
+            fail(f"mandatory command '{cmd}' missing in {shared_cli.as_posix()}")
 
     if re.search(r"\bcfg\b", text) is None and re.search(r"\bsettings\b", text) is None:
         fail("either 'cfg' or 'settings' command must be present")
