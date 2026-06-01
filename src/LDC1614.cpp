@@ -3,7 +3,6 @@
 
 #include "LDC1614/LDC1614.h"
 
-#include <Arduino.h>
 #include <climits>
 #include <cmath>
 
@@ -1496,7 +1495,7 @@ uint32_t LDC1614::_nowMs() const {
   if (_config.nowMs != nullptr) {
     return _config.nowMs(_config.timeUser);
   }
-  return millis();
+  return 0;
 }
 
 void LDC1614::_cooperativeYield() const {
@@ -1504,7 +1503,6 @@ void LDC1614::_cooperativeYield() const {
     _config.cooperativeYield(_config.timeUser);
     return;
   }
-  yield();
 }
 
 } // namespace LDC1614

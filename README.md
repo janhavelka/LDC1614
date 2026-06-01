@@ -1,11 +1,13 @@
 # LDC1614 Driver Library
 
 Production-grade LDC1614/LDC1612 multi-channel 28-bit inductance-to-digital
-converter I2C driver for ESP32-S2 / ESP32-S3 (Arduino framework, PlatformIO).
+converter I2C driver for ESP32-S2 / ESP32-S3 (Arduino framework, PlatformIO,
+and ESP-IDF component use).
 
 ## Features
 
 - Injected I2C transport (no Wire dependency in library code)
+- Framework-neutral core (`include/` and `src/` do not include Arduino or ESP-IDF driver headers)
 - Health monitoring with READY / DEGRADED / OFFLINE states
 - 4-channel (LDC1614) and 2-channel (LDC1612) support
 - Configurable per-channel RCOUNT, settle count, clock dividers, offset, drive current
@@ -31,6 +33,15 @@ lib_deps =
 ### Manual
 
 Copy `include/LDC1614/` and `src/` into your project.
+
+### ESP-IDF
+
+The repository root is an ESP-IDF component. Add it through `EXTRA_COMPONENT_DIRS`
+or component manager metadata, then provide `Config::i2cWrite`,
+`Config::i2cWriteRead`, `Config::nowMs`, optional `Config::cooperativeYield`,
+optional `Config::gpioRead`, and optional recovery callbacks from your
+application-owned adapter. An interactive ESP-IDF CLI example using the
+`driver/i2c_master.h` API is in `examples/esp_idf/basic`.
 
 ## Quick Start
 
@@ -91,6 +102,8 @@ void setup() {
   cfg.i2cWrite = i2cWrite;
   cfg.i2cWriteRead = i2cWriteRead;
   cfg.i2cUser = &Wire;
+  cfg.nowMs = [](void*) { return millis(); };
+  cfg.cooperativeYield = [](void*) { yield(); };
   cfg.i2cAddress = 0x2A;
   cfg.channelCount = 4;
 
@@ -228,18 +241,27 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 
 ## Examples
 
-- `examples/01_basic_bringup_cli/` - Interactive CLI for LDC1614 features
+- `examples/01_basic_bringup_cli/` - Arduino interactive CLI for LDC1614 features
+- `examples/esp_idf/basic/` - ESP-IDF interactive CLI with native
+  `driver/i2c_master.h` transport glue
 
-The bringup CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid
-register addresses are rejected before I2C, but valid diagnostic writes can still
-desynchronize the cached configuration until a fresh `begin()` or `resetAndReapply()`.
+Both examples use the shared framework-neutral command implementation in
+`examples/common/Ldc1614Cli.cpp`, so command names, aliases, help sections,
+arguments, defaults, output structure, colors, prompts, health reporting, and
+diagnostic workflows stay aligned across Arduino and ESP-IDF.
+
+The CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid register
+addresses are rejected before I2C, but valid diagnostic writes can still
+desynchronize the cached configuration until a fresh `begin()` or
+`resetAndReapply()`.
 
 The CLI also exposes runtime configuration commands for the driver features:
 `single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
 `rpoverride`, `autoamp`, `highcurrent`, `rcount`, `settle`, `clkdiv`,
 `offset`, `idrive`, and `initidrive`. Additional service commands include
 `begin` / `init` for reinitialization, `id` for manufacturer/device identity,
-and `timing <ch> <fRef>` for conversion, settling, and total sample-time
+`demo [N]`, `selftest`, `stress [N]`, `stress_mix [N]`, and
+`timing <ch> <fRef>` for conversion, settling, and total sample-time
 calculations.
 
 ### Example Helpers (`examples/common/`)
@@ -256,6 +278,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | `BusDiag.h` | Bus diagnostics wrapper |
 | `CliShell.h` | Serial command-line shell with line editing |
 | `CliStyle.h` | Shared CLI color and help formatting helpers |
+| `Ldc1614Cli.h/.cpp` | Shared framework-neutral command implementation used by Arduino and ESP-IDF examples |
 | `CommandHandler.h` | Command parsing helpers (`readLine`, `match`, `parseInt`) |
 | `HealthDiag.h` | Verbose driver-health diagnostics and snapshots |
 | `HealthView.h` | Compact health/status formatting helpers |
@@ -266,9 +289,10 @@ Not part of the library. These simulate project-level glue and keep examples sel
 1. **Threading model**: Single-threaded. All calls from one task/loop.
 2. **Timing model**: `tick()` is bounded (currently no-op). Blocking read waits use deadlines and a finite poll cap, so a stalled injected clock cannot spin forever.
 3. **Resource ownership**: I2C bus and GPIO pins owned by the application. Provided via `Config`.
-4. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
-5. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.
-6. **Health behavior**: `OFFLINE` is latched. Normal public I2C operations return `BUSY` with `Driver is offline; call recover()` without touching the bus until `recover()` succeeds.
+4. **Framework boundary**: Core code does not call `Wire`, `Serial`, `delay()`, `yield()`, or `millis()` directly. Arduino examples provide those hooks externally.
+5. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
+6. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.
+7. **Health behavior**: `OFFLINE` is latched. Normal public I2C operations return `BUSY` with `Driver is offline; call recover()` without touching the bus until `recover()` succeeds.
 
 ## Configuration Constraints
 
@@ -288,6 +312,8 @@ Not part of the library. These simulate project-level glue and keep examples sel
 ## Documentation
 
 - `CHANGELOG.md` - Full release history
+- `docs/IDF_PORT.md` - ESP-IDF portability guidance
+- `docs/IDF_PORT_IMPLEMENTATION.md` - ESP-IDF implementation notes and validation status
 - `LDC1614_inductance_converter_implementation_manual.md` - Device documentation
 - `docs/` - Datasheets and application notes
 
