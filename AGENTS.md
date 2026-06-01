@@ -3,7 +3,7 @@
 ## Role and Target
 You are a professional embedded software engineer building a production-grade LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
 
-- Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO, and native ESP-IDF component use.
+- Target: LDC1612/LDC1614 inductance-to-digital converters on ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO, and native ESP-IDF component use.
 - Goals: deterministic behavior, long-term stability, clean API contracts, portability, no surprises in the field.
 - These rules are binding.
 
@@ -39,11 +39,12 @@ Rules:
 
 Framework-boundary rules:
 - Core/public headers and `src/` must remain framework-neutral. Do not include Arduino or ESP-IDF headers there unless the exception is documented in Doxygen and this file.
-- Core/public headers and `src/` must not depend on Arduino, Wire, ESP-IDF, FreeRTOS, logging frameworks, global bus objects, framework delays, or heap-heavy framework types.
+- Core/public headers and `src/` must not depend on Arduino, Wire, ESP-IDF, FreeRTOS, logging frameworks, hidden heap allocation, global bus objects, framework delays, platform timing calls, or heap-heavy framework types.
 - Arduino examples may use Arduino APIs.
 - ESP-IDF examples must be native IDF examples using `app_main`, `driver/i2c_master.h`, native GPIO/timer/task APIs, and fixed C buffers or `esp_console`/argtable.
 - ESP-IDF examples must not include Arduino CLI sources or use `ArduinoCompat`, `IdfArduinoCompat`, `Arduino.h`, `Wire.h`, `String`, `Serial`, `TwoWire`, or equivalent Arduino facades.
 - ESP-IDF examples must not depend on shared Arduino-style CLI code unless explicitly documented as a diagnostic exception and guarded by contract checks.
+- Examples may use platform APIs, but they must be labeled honestly as diagnostic bring-up, safe hardware smoke, or production integration templates.
 - Keep command parity through repo-local command contracts/checkers, not by compiling Arduino sketch sources into ESP-IDF examples.
 
 ---
@@ -203,6 +204,8 @@ Release steps:
 - Do not claim hardware validation unless real LDC1614/LDC1612 hardware logs were captured in the current validation context.
 - Separate software readiness from hardware validation. INTB behavior, SD-pin behavior, fault injection, channel sequencing on real sensors, coil/sensor operating limits, address-pin variants, and long soak/HIL stress require physical evidence.
 - Documentation must label examples honestly: diagnostic bring-up examples are not production bus managers unless they demonstrate application-owned locking, timeout policy, and recovery policy.
+- All readiness claims must be grounded in code, commands, datasheets, or hardware logs.
+- Do not claim industry-grade readiness until tests, ESP-IDF builds, and hardware/fault validation are complete.
 
 ---
 
