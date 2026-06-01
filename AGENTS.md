@@ -3,7 +3,7 @@
 ## Role and Target
 You are a professional embedded software engineer building a production-grade LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
 
-- Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO.
+- Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO, and native ESP-IDF component use.
 - Goals: deterministic behavior, long-term stability, clean API contracts, portability, no surprises in the field.
 - These rules are binding.
 
@@ -39,10 +39,12 @@ Rules:
 
 Framework-boundary rules:
 - Core/public headers and `src/` must remain framework-neutral. Do not include Arduino or ESP-IDF headers there unless the exception is documented in Doxygen and this file.
+- Core/public headers and `src/` must not depend on Arduino, Wire, ESP-IDF, FreeRTOS, logging frameworks, global bus objects, framework delays, or heap-heavy framework types.
 - Arduino examples may use Arduino APIs.
 - ESP-IDF examples must be native IDF examples using `app_main`, `driver/i2c_master.h`, native GPIO/timer/task APIs, and fixed C buffers or `esp_console`/argtable.
 - ESP-IDF examples must not include Arduino CLI sources or use `ArduinoCompat`, `IdfArduinoCompat`, `Arduino.h`, `Wire.h`, `String`, `Serial`, `TwoWire`, or equivalent Arduino facades.
-- Keep command parity through repo-local command contracts/checkers, not by compiling Arduino sources into ESP-IDF examples.
+- ESP-IDF examples must not depend on shared Arduino-style CLI code unless explicitly documented as a diagnostic exception and guarded by contract checks.
+- Keep command parity through repo-local command contracts/checkers, not by compiling Arduino sketch sources into ESP-IDF examples.
 
 ---
 
@@ -54,6 +56,9 @@ Framework-boundary rules:
 - No heap allocation in steady state (no `String`, `std::vector`, `new` in normal ops).
 - No logging in library code; examples may log.
 - No macros for constants; use `static constexpr`. Macros only for conditional compile or logging helpers.
+- Public APIs are not ISR-safe unless explicitly documented and proven.
+- Driver instances are not internally thread-safe unless explicitly protected and documented.
+- Conversion timing, settling timing, and sensor-frequency calculations must be documented and tested against configured counts and dividers.
 
 ---
 
@@ -63,6 +68,8 @@ Framework-boundary rules:
 - `Config` MUST accept a transport adapter (function pointers or abstract interface).
 - Transport errors MUST map to `Status` (no leaking `Wire`, `esp_err_t`, etc.).
 - The library MUST NOT configure bus timeouts or pins.
+- Bus ownership, locking, timeout policy, and recovery policy belong to the application or transport adapter.
+- Transport callbacks are non-owning injections; the library must not retain ownership of framework bus objects.
 
 ---
 
@@ -80,6 +87,8 @@ struct Status {
 
 - Silent failure is unacceptable.
 - No exceptions.
+- Public APIs that write device state must report failed register writes precisely.
+- Multi-register configuration updates must avoid, report, or recover from partial hardware state.
 
 ---
 
@@ -88,6 +97,7 @@ struct Status {
 - I2C address configurable: 0x2A (ADDR->GND), 0x2B (ADDR->VDD).
 - Check device presence in `begin()` by reading MANUFACTURER_ID and DEVICE_ID registers.
 - Support 4 channels (LDC1614) or 2 channels (LDC1612) with configurable channel count.
+- LDC1612 versus LDC1614 variant differences must be explicit. Channels 2 and 3 are LDC1614-only.
 - Per-channel configurable: RCOUNT, SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, DRIVE_CURRENT.
 - Configurable operating modes:
   - **Single-channel continuous**: one channel converting continuously.
@@ -96,6 +106,7 @@ struct Status {
 - Sleep mode / active mode transitions via CONFIG register.
 - Software reset via RESET_DEV register.
 - 28-bit conversion result readout with proper MSB-first coherency.
+- DATAx coherency must follow datasheet ordering: read DATAx_MSB before DATAx_LSB.
 - Sensor frequency calculation from raw data, reference clock, dividers, and offset.
 - Status register readout with error flag parsing.
 - Error reporting configuration (under-range, over-range, watchdog, amplitude, zero count).
@@ -184,6 +195,14 @@ Release steps:
 2. Update `CHANGELOG.md` (Added/Changed/Fixed/Removed).
 3. Update `README.md` if API or examples changed.
 4. Commit and tag: `Release vX.Y.Z`.
+
+---
+
+## Validation Claims
+
+- Do not claim hardware validation unless real LDC1614/LDC1612 hardware logs were captured in the current validation context.
+- Separate software readiness from hardware validation. INTB behavior, SD-pin behavior, fault injection, channel sequencing on real sensors, coil/sensor operating limits, address-pin variants, and long soak/HIL stress require physical evidence.
+- Documentation must label examples honestly: diagnostic bring-up examples are not production bus managers unless they demonstrate application-owned locking, timeout policy, and recovery policy.
 
 ---
 
