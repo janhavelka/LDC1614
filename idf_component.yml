@@ -1,6 +1,9 @@
 version: "1.0.0"
-description: "Production-grade LDC1614/LDC1612 multi-channel inductance-to-digital converter driver."
+description: "Framework-neutral LDC1614/LDC1612 multi-channel inductance-to-digital converter driver."
 license: "MIT"
 url: "https://github.com/janhavelka/LDC1614"
+targets:
+  - esp32s2
+  - esp32s3
 dependencies:
   idf: ">=6.0.0"

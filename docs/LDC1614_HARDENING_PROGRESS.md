@@ -63,3 +63,58 @@
 - Raw register access is still an expert diagnostic escape hatch, not a full metadata-enforced safe register API.
 - H2 clock/divider validation and sleep-before-config sequencing are intentionally left for the next relevant hardening chunk.
 - ESP-IDF pure-build validation and HIL/hardware validation remain unclaimed.
+
+## Prompt 03 - H4/M6/L3 ESP-IDF hardening
+
+### Findings addressed
+
+- H4 ESP-IDF path: native example still compiled the shared heap-capable CLI and had weak build/guard coverage.
+- M6 INTB handling: native IDF example configured INTB with a pull-up despite the documented push-pull device behavior.
+- L3 component metadata: `idf_component.yml` did not state intended ESP-IDF targets.
+- Related documentation: IDF example scope needed explicit diagnostic bring-up labeling and production ownership caveats.
+
+### Implemented changes
+
+- Removed `examples/common/Ldc1614Cli.cpp` from the ESP-IDF example compile path.
+- Added `examples/esp_idf/basic/main/Ldc1614IdfCli.*`, a fixed-buffer native IDF diagnostic CLI with the limited safe command set: `help`, `version`, `probe`, `status`, `drv`, `cfg`, `read`, `readall`, `ready`, `recover`, `timing`, and `selftest`.
+- Replaced blocking `getchar()` with a timed `select()`/`read()` console loop that regularly calls `device.tick()`.
+- Converted IDF GPIO/I2C setup from `ESP_ERROR_CHECK` abort paths to `Status` reporting.
+- Added an example-owned FreeRTOS mutex around native IDF I2C transport operations and reset paths.
+- Kept IDF I2C error mapping bounded and conservative: timeout maps to `I2C_TIMEOUT`; invalid response/NACK stays phase-unspecified with raw `esp_err_t` in `detail`.
+- Configured INTB as a plain input with pull-up disabled and documented that LDC1612/LDC1614 INTB is push-pull active-low/configurable.
+- Added CMake-time `Version.h` generation for pure ESP-IDF builds from clean checkouts.
+
+### IDF example/component changes
+
+- `examples/esp_idf/basic/main/CMakeLists.txt` now compiles only native IDF example sources.
+- `examples/esp_idf/basic/README.md`, `docs/IDF_PORT.md`, and `docs/IDF_PORT_IMPLEMENTATION.md` now label the IDF app as diagnostic bring-up and separate static checks, pure IDF builds, and hardware/HIL validation.
+- `idf_component.yml` now lists intended targets `esp32s2` and `esp32s3` and avoids the previous production-grade wording.
+
+### Tests/guards/CI added
+
+- `tools/check_idf_example_contract.py` now parses the actual IDF `SRCS` list and scans compiled sources plus local headers for Arduino/`std::string` leakage, `getchar()`, and `ESP_ERROR_CHECK`.
+- `tools/check_cli_contract.py` now preserves Arduino shared-CLI checks while enforcing a native fixed-buffer IDF CLI contract.
+- GitHub Actions now runs the IDF source-contract guard and includes a pure ESP-IDF build matrix for `esp32s2` and `esp32s3`.
+
+### Commands run
+
+- `git status --short` -> clean at prompt start.
+- `git branch --show-current` -> `hardening/ldc1614-industry-readiness`.
+- `git checkout hardening/ldc1614-industry-readiness` -> already on branch.
+- `python tools/check_core_timing_guard.py` -> `Core timing guard PASSED`.
+- `python tools/check_cli_contract.py` -> `CLI contract PASSED`.
+- `python tools/check_idf_example_contract.py` -> `IDF example contract PASSED`.
+- `python scripts/generate_version.py check` -> `Up to date: C:\Users\Honza\Documents\Projects\LDC1614\include\LDC1614\Version.h`.
+- `python -m platformio test -e native` -> passed; `84 test cases: 84 succeeded in 00:00:01.054`.
+- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:07.827`.
+- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:07.557`.
+- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`, which was removed after packaging.
+- `idf.py --version` -> failed locally: `idf.py` is not recognized as a cmdlet, function, script file, or operable program.
+- `idf.py -C examples/esp_idf/basic set-target esp32s3 build` -> not run locally because `idf.py` is unavailable.
+- `idf.py -C examples/esp_idf/basic set-target esp32s2 build` -> not run locally because `idf.py` is unavailable.
+
+### Remaining related work
+
+- Pure ESP-IDF build success remains unclaimed locally until `idf.py` or CI logs are available.
+- The example mutex serializes native I2C transactions only; production applications with multiple tasks must still serialize public driver API calls.
+- No hardware/HIL validation is claimed for INTB, SD, address variants, fault injection, sensor behavior, or soak stability.

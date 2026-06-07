@@ -23,14 +23,28 @@ LDC1614::Status mapEspErr(esp_err_t err, const char* context) {
                                   static_cast<int32_t>(err));
   }
   if (err == ESP_ERR_INVALID_RESPONSE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, "I2C invalid response/NACK",
+    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR,
+                                  "I2C invalid response or NACK",
                                   static_cast<int32_t>(err));
   }
-  return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, context, static_cast<int32_t>(err));
+  if (err == ESP_ERR_INVALID_ARG) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, context,
+                                  static_cast<int32_t>(err));
+  }
+  if (err == ESP_ERR_INVALID_STATE) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, "I2C invalid state",
+                                  static_cast<int32_t>(err));
+  }
+  if (err == ESP_ERR_NO_MEM || err == ESP_ERR_NOT_FOUND) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, context,
+                                  static_cast<int32_t>(err));
+  }
+  return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context,
+                                static_cast<int32_t>(err));
 }
 
-LDC1614::Status validateContext(uint8_t addr, const void* user, const Ldc1614IdfI2c*& ctx) {
-  ctx = static_cast<const Ldc1614IdfI2c*>(user);
+LDC1614::Status validateContext(uint8_t addr, void* user, Ldc1614IdfI2c*& ctx) {
+  ctx = static_cast<Ldc1614IdfI2c*>(user);
   if (ctx == nullptr || ctx->dev == nullptr) {
     return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, "IDF I2C device not configured");
   }
@@ -41,17 +55,57 @@ LDC1614::Status validateContext(uint8_t addr, const void* user, const Ldc1614Idf
   return LDC1614::Status::Ok();
 }
 
+class I2cLockGuard {
+ public:
+  explicit I2cLockGuard(Ldc1614IdfI2c* ctx) : _ctx(ctx) {
+    if (_ctx == nullptr || _ctx->mutex == nullptr) {
+      _status = LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                       "IDF I2C mutex not configured");
+      return;
+    }
+
+    const TickType_t waitTicks = pdMS_TO_TICKS(_ctx->lockTimeoutMs);
+    if (xSemaphoreTake(_ctx->mutex, waitTicks) != pdTRUE) {
+      _status = LDC1614::Status::Error(LDC1614::Err::BUSY, "IDF I2C mutex timeout");
+      return;
+    }
+
+    _locked = true;
+  }
+
+  ~I2cLockGuard() {
+    if (_locked) {
+      xSemaphoreGive(_ctx->mutex);
+    }
+  }
+
+  I2cLockGuard(const I2cLockGuard&) = delete;
+  I2cLockGuard& operator=(const I2cLockGuard&) = delete;
+
+  const LDC1614::Status& status() const { return _status; }
+
+ private:
+  Ldc1614IdfI2c* _ctx = nullptr;
+  bool _locked = false;
+  LDC1614::Status _status = LDC1614::Status::Ok();
+};
+
 }  // namespace
 
 LDC1614::Status ldc1614IdfI2cWrite(uint8_t addr, const uint8_t* data, size_t len,
                                    uint32_t timeoutMs, void* user) {
-  const Ldc1614IdfI2c* ctx = nullptr;
+  Ldc1614IdfI2c* ctx = nullptr;
   LDC1614::Status st = validateContext(addr, user, ctx);
   if (!st.ok()) {
     return st;
   }
   if (data == nullptr || len == 0) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, "Invalid I2C write buffer");
+  }
+
+  I2cLockGuard lock(ctx);
+  if (!lock.status().ok()) {
+    return lock.status();
   }
 
   const esp_err_t err =
@@ -63,13 +117,18 @@ LDC1614::Status ldc1614IdfI2cWriteRead(uint8_t addr, const uint8_t* txData,
                                        size_t txLen, uint8_t* rxData,
                                        size_t rxLen, uint32_t timeoutMs,
                                        void* user) {
-  const Ldc1614IdfI2c* ctx = nullptr;
+  Ldc1614IdfI2c* ctx = nullptr;
   LDC1614::Status st = validateContext(addr, user, ctx);
   if (!st.ok()) {
     return st;
   }
   if (txData == nullptr || txLen == 0 || (rxLen > 0 && rxData == nullptr)) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, "Invalid I2C read buffer");
+  }
+
+  I2cLockGuard lock(ctx);
+  if (!lock.status().ok()) {
+    return lock.status();
   }
 
   const esp_err_t err = i2c_master_transmit_receive(
@@ -90,22 +149,39 @@ void ldc1614IdfYield(void*) {
 }
 
 LDC1614::Status ldc1614IdfBusReset(void* user) {
-  const auto* ctx = static_cast<const Ldc1614IdfI2c*>(user);
+  auto* ctx = static_cast<Ldc1614IdfI2c*>(user);
   if (ctx == nullptr || ctx->bus == nullptr) {
     return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, "IDF I2C bus not configured");
   }
+
+  I2cLockGuard lock(ctx);
+  if (!lock.status().ok()) {
+    return lock.status();
+  }
+
   return mapEspErr(i2c_master_bus_reset(ctx->bus), "I2C bus reset failed");
 }
 
 LDC1614::Status ldc1614IdfHardReset(void* user) {
-  const auto* ctx = static_cast<const Ldc1614IdfI2c*>(user);
+  auto* ctx = static_cast<Ldc1614IdfI2c*>(user);
   if (ctx == nullptr || ctx->shdn == GPIO_NUM_NC) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG, "SHDN pin not configured");
   }
 
-  gpio_set_level(ctx->shdn, 1);
+  I2cLockGuard lock(ctx);
+  if (!lock.status().ok()) {
+    return lock.status();
+  }
+
+  LDC1614::Status st = mapEspErr(gpio_set_level(ctx->shdn, 1), "SHDN assert failed");
+  if (!st.ok()) {
+    return st;
+  }
   vTaskDelay(pdMS_TO_TICKS(2));
-  gpio_set_level(ctx->shdn, 0);
+  st = mapEspErr(gpio_set_level(ctx->shdn, 0), "SHDN release failed");
+  if (!st.ok()) {
+    return st;
+  }
   vTaskDelay(pdMS_TO_TICKS(5));
   return LDC1614::Status::Ok();
 }

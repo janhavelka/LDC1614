@@ -88,5 +88,36 @@ jobs:
       - name: Enforce example CLI contract
         run: python tools/check_cli_contract.py
 
+      - name: Enforce ESP-IDF example contract
+        run: python tools/check_idf_example_contract.py
+
+      - name: Generate version header
+        run: python scripts/generate_version.py sync
+
       - name: Validate library package
         run: pio pkg pack
+
+  idf-build:
+    name: ESP-IDF build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - esp32s2
+          - esp32s3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build native ESP-IDF example
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: release-v6.0
+          target: ${{ matrix.target }}
+          path: examples/esp_idf/basic
+          command: |
+            python "$GITHUB_WORKSPACE/scripts/generate_version.py" sync
+            idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" set-target ${{ matrix.target }}
+            idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" build
