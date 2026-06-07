@@ -71,6 +71,9 @@ jobs:
       - name: Run native tests
         run: pio test -e native
 
+      - name: Run native coverage-instrumented tests
+        run: pio test -e native_cov
+
   validate-library:
     runs-on: ubuntu-latest
     steps:
@@ -93,6 +96,9 @@ jobs:
 
       - name: Generate version header
         run: python scripts/generate_version.py sync
+
+      - name: Check generated version header
+        run: python scripts/generate_version.py check
 
       - name: Validate library package
         run: pio pkg pack

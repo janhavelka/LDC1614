@@ -118,3 +118,58 @@
 - Pure ESP-IDF build success remains unclaimed locally until `idf.py` or CI logs are available.
 - The example mutex serializes native I2C transactions only; production applications with multiple tasks must still serialize public driver API calls.
 - No hardware/HIL validation is claimed for INTB, SD, address variants, fault injection, sensor behavior, or soak stability.
+
+## Prompt 04 - M4 tests, fault injection, CI, and guards
+
+### Findings addressed
+
+- M4 native coverage gaps: identity failures, granular transport errors, LDC1612/LDC1614 channel bounds, DATAx ordering, raw diagnostic boundaries, partial configuration failures, and callback recovery paths needed deeper native tests.
+- Prior H2/H3/H4 hardening needed stronger regression coverage around partial hardware state, tracked error preservation, and IDF source-contract enforcement.
+
+### Test harness changes
+
+- Extended `FakeBus` with fail-next read/write, Nth transaction failure, register-specific read/write failure, optional partial-write side effect recording, granular `Status` injection, and a bounded ordered transaction log.
+- Kept existing write-log helpers for older assertions while adding read/write operation logging for order and call-count tests.
+- Extended the native `Wire` stub so Arduino example transport mapping can be tested without real Arduino hardware.
+
+### Tests added
+
+- Identity/begin tests for wrong manufacturer ID, wrong device ID, address/data NACK, timeout, bus error, generic I2C error, and invalid enum casts.
+- LDC1612/LDC1614 variant tests for 2-channel apply writes, high-level channel bounds, default two-channel read-all behavior, and CH2/CH3 positive coverage on 4-channel mode.
+- Register/data tests for DATAx MSB-before-LSB ordering, DATAx error-bit masking, raw diagnostic boundary access, raw variant-unsafe policy, raw write dirty behavior, and partial-write side effects.
+- Partial-state tests for `_applyConfig()` failures across RCOUNT, SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, DRIVE_CURRENT, ERROR_CONFIG, MUX_CONFIG, and CONFIG.
+- Error-preservation tests for tracked read, tracked write, and recover paths across `I2C_NACK_ADDR`, `I2C_NACK_DATA`, `I2C_TIMEOUT`, `I2C_BUS`, and `I2C_ERROR`.
+- Timing/readiness/recovery edge tests for invalid blocking calls returning before wait/I2C, data-ready error preservation, hard-reset callback failure propagation, and existing dirty-state recovery paths.
+- Arduino example transport tests for Wire `endTransmission()` and short-read mapping.
+
+### CI/guard/coverage changes
+
+- Strengthened `tools/check_core_timing_guard.py` into a broader timing/framework guard covering core Arduino/Wire/Serial/String leakage, STL string/vector, allocation, exceptions, printf/logging, ESP-IDF, and FreeRTOS tokens.
+- Strengthened `tools/check_idf_example_contract.py` to reject compiled IDF sources and include dirs outside the native IDF example path or under Arduino/common example paths; it also scans `.hpp` headers and Arduino-like timing calls.
+- Added `native_cov` PlatformIO environment with coverage instrumentation.
+- CI now runs `pio test -e native_cov` and checks generated `Version.h` after sync before packaging.
+
+### Commands run
+
+- `git status --short` -> clean at prompt start.
+- `git branch --show-current` -> `hardening/ldc1614-industry-readiness`.
+- `git checkout hardening/ldc1614-industry-readiness` -> already on branch and up to date.
+- `python tools/check_core_timing_guard.py` -> `Core timing/framework guard PASSED`.
+- `python tools/check_cli_contract.py` -> `CLI contract PASSED`.
+- `python tools/check_idf_example_contract.py` -> `IDF example contract PASSED`.
+- `python scripts/generate_version.py check` -> `Up to date: C:\Users\Honza\Documents\Projects\LDC1614\include\LDC1614\Version.h`.
+- `python -m platformio test -e native` -> passed; `105 test cases: 105 succeeded in 00:00:01.452`.
+- `python -m platformio test -e native_cov` -> initially failed because PlatformIO ignored `link_flags` and libgcov was not linked; fixed by moving `-lgcov` into `build_flags`.
+- `python -m platformio test -e native_cov` -> passed after fix; `105 test cases: 105 succeeded in 00:00:01.528`.
+- `python -m gcovr --version` -> failed locally: `No module named gcovr`.
+- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:09.415`.
+- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:08.935`.
+- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`, which was removed after packaging.
+- `idf.py --version` -> failed locally: `idf.py` is not recognized as a cmdlet, function, script file, or operable program.
+
+### Remaining untested paths
+
+- Pure ESP-IDF build success remains dependent on CI or a local ESP-IDF install; no local `idf.py` build was run.
+- No hardware/HIL validation is claimed.
+- Native coverage now has an instrumented environment, but no local percentage report was produced because `gcovr` is not installed.
+- A claims/metadata wording guard and remaining `library.json` production-grade wording are deferred to the docs/release-readiness prompt.

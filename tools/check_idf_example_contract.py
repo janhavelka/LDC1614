@@ -62,6 +62,9 @@ FORBIDDEN_IDF_PATTERNS = [
     (re.compile(r"\bi2c_driver_install\b"), "legacy i2c_driver_install"),
     (re.compile(r"\bgetchar\s*\("), "blocking getchar"),
     (re.compile(r"\bESP_ERROR_CHECK\s*\("), "abort-style ESP_ERROR_CHECK"),
+    (re.compile(r"\bmillis\s*\("), "Arduino-like millis"),
+    (re.compile(r"\bdelay\s*\("), "Arduino-like delay"),
+    (re.compile(r"\byield\s*\("), "Arduino-like yield"),
 ]
 
 
@@ -76,37 +79,45 @@ def read(path: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def parse_idf_sources(cmake_path: pathlib.Path) -> list[pathlib.Path]:
+def parse_idf_register_lists(cmake_path: pathlib.Path) -> dict[str, list[pathlib.Path]]:
     text = read(cmake_path)
     match = re.search(r"idf_component_register\s*\((.*?)\)", text, re.S)
     if not match:
         fail("missing idf_component_register in ESP-IDF main CMakeLists.txt")
 
     body = match.group(1)
-    srcs: list[pathlib.Path] = []
-    in_srcs = False
-    stop_keys = {
+    keys = {
+        "SRCS",
         "INCLUDE_DIRS",
         "PRIV_INCLUDE_DIRS",
+        "INCLUDE_DIRS",
         "REQUIRES",
         "PRIV_REQUIRES",
         "EMBED_FILES",
         "EMBED_TXTFILES",
     }
+    path_keys = {"SRCS", "INCLUDE_DIRS", "PRIV_INCLUDE_DIRS"}
+    parsed: dict[str, list[pathlib.Path]] = {key: [] for key in path_keys}
+    active_key: str | None = None
     for raw in re.findall(r'"[^"]+"|\S+', body):
         token = raw.strip().strip('"')
-        if token == "SRCS":
-            in_srcs = True
+        if token in keys:
+            active_key = token if token in path_keys else None
             continue
-        if token in stop_keys:
-            in_srcs = False
-            continue
-        if in_srcs:
-            srcs.append((cmake_path.parent / token).resolve())
+        if active_key is not None:
+            parsed[active_key].append((cmake_path.parent / token).resolve())
 
-    if not srcs:
+    if not parsed["SRCS"]:
         fail("ESP-IDF CMake SRCS list is empty")
-    return srcs
+    return parsed
+
+
+def path_is_within(path: pathlib.Path, parent: pathlib.Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def rel(path: pathlib.Path) -> str:
@@ -117,10 +128,25 @@ def main() -> int:
     idf_main = ROOT / "examples" / "esp_idf" / "basic" / "main" / "main.cpp"
     idf_cmake = ROOT / "examples" / "esp_idf" / "basic" / "main" / "CMakeLists.txt"
     idf_cli = ROOT / "examples" / "esp_idf" / "basic" / "main" / "Ldc1614IdfCli.cpp"
+    idf_main_dir = idf_main.parent.resolve()
+    examples_common = (ROOT / "examples" / "common").resolve()
+    arduino_bringup = (ROOT / "examples" / "01_basic_bringup_cli").resolve()
 
     cmake_text = read(idf_cmake)
-    compiled_paths = parse_idf_sources(idf_cmake)
-    header_paths = sorted(idf_main.parent.glob("*.h"))
+    cmake_lists = parse_idf_register_lists(idf_cmake)
+    compiled_paths = cmake_lists["SRCS"]
+    for path in compiled_paths:
+        if not path_is_within(path, idf_main_dir):
+            fail(f"ESP-IDF compiled source must stay under examples/esp_idf/basic/main: {rel(path)}")
+        if path_is_within(path, examples_common) or path_is_within(path, arduino_bringup):
+            fail(f"ESP-IDF compiled source must not use Arduino/common example path: {rel(path)}")
+
+    for key in ("INCLUDE_DIRS", "PRIV_INCLUDE_DIRS"):
+        for path in cmake_lists[key]:
+            if path_is_within(path, examples_common) or path_is_within(path, arduino_bringup):
+                fail(f"ESP-IDF {key} must not include Arduino/common example path: {rel(path)}")
+
+    header_paths = sorted(set(idf_main.parent.glob("*.h")) | set(idf_main.parent.glob("*.hpp")))
     scan_paths = compiled_paths + header_paths
 
     for path in scan_paths:
