@@ -94,6 +94,9 @@ jobs:
       - name: Enforce ESP-IDF example contract
         run: python tools/check_idf_example_contract.py
 
+      - name: Enforce readiness wording contract
+        run: python tools/check_readiness_claims.py
+
       - name: Generate version header
         run: python scripts/generate_version.py sync
 

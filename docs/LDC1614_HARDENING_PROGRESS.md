@@ -173,3 +173,64 @@
 - No hardware/HIL validation is claimed.
 - Native coverage now has an instrumented environment, but no local percentage report was produced because `gcovr` is not installed.
 - A claims/metadata wording guard and remaining `library.json` production-grade wording are deferred to the docs/release-readiness prompt.
+
+## Prompt 05 - H1/M7 docs, HIL, and final report
+
+### Findings addressed
+
+- H1 unsupported readiness wording: maintained metadata/docs now avoid unsupported readiness claims and separate software architecture from hardware validation.
+- M7 example labeling: Arduino and ESP-IDF examples are explicitly diagnostic bring-up, not production bus managers.
+- L1 version metadata reproducibility: `scripts/generate_version.py` supports deterministic metadata via `SOURCE_DATE_EPOCH` or `LDC1614_REPRODUCIBLE_BUILD=1`.
+- L2 `probe()` documentation remained correct and is reinforced in README/final docs.
+- HIL gaps: hardware checklist, HIL procedure, artifact directory README, and a conservative serial runner now exist.
+
+### Documentation changes
+
+- Added `docs/HARDWARE_INTEGRATION.md`.
+- Added `docs/HIL_VALIDATION.md`.
+- Added `docs/hil/README.md`.
+- Added `docs/LDC1614_INDUSTRY_HARDENING_FINAL_REPORT.md`.
+- Added `examples/01_basic_bringup_cli/README.md`.
+- Updated README readiness, example labels, DATAx error-bit notes, raw/frequency caveats, HIL links, and reproducible version metadata notes.
+- Reworded `library.json` and maintained application-note summaries to avoid unsupported readiness claims.
+
+### HIL runner/procedure changes
+
+- Added `tools/ldc1614_hil_runner.py`.
+- Runner profiles distinguish Arduino shared CLI commands from native ESP-IDF CLI commands.
+- Default no-port behavior records `overall_status: NOT_RUN`, not pass.
+- Optional address, stress, SD, INTB, unplug, stuck-bus, long-soak, and drive-tuning items are gated behind explicit flags or marked skipped/manual.
+- Added JSON and Markdown output support.
+
+### Hardware actually run
+
+- No real LDC1614/LDC1612 hardware was run in this prompt.
+- `python tools/ldc1614_hil_runner.py --json-out .pio\hil_not_run.json --markdown-out .pio\hil_not_run.md --quiet` was run only as a no-hardware dry run and produced `overall_status: NOT_RUN`, reason `serial port was not supplied`.
+
+### Commands run
+
+- `git status --short` -> clean at prompt start.
+- `git branch --show-current` -> `hardening/ldc1614-industry-readiness`.
+- `git checkout hardening/ldc1614-industry-readiness` -> already on branch and up to date.
+- `python -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/check_readiness_claims.py` -> passed.
+- `python scripts/generate_version.py sync` -> updated ignored generated `include/LDC1614/Version.h`.
+- `python tools/check_core_timing_guard.py` -> `Core timing/framework guard PASSED`.
+- `python tools/check_cli_contract.py` -> `CLI contract PASSED`.
+- `python tools/check_idf_example_contract.py` -> `IDF example contract PASSED`.
+- `python tools/check_readiness_claims.py` -> `Readiness claims guard PASSED`.
+- `python scripts/generate_version.py check` -> up to date.
+- `python -m platformio test -e native` -> passed; `105 test cases: 105 succeeded in 00:00:01.333`.
+- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:05.889`.
+- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:05.214`.
+- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`, which was removed after packaging.
+- `idf.py --version` -> failed locally: `idf.py` is not recognized as a cmdlet, function, script file, or operable program.
+- `idf.py -C examples/esp_idf/basic set-target esp32s3 build` -> not run locally because `idf.py` is unavailable.
+- `idf.py -C examples/esp_idf/basic set-target esp32s2 build` -> not run locally because `idf.py` is unavailable.
+
+### Remaining work
+
+- No hardware/HIL validation logs exist yet.
+- Pure ESP-IDF build success remains unclaimed locally until `idf.py` or CI logs are available.
+- Original audit clock/divider and sleep-before-configuration concerns remain unresolved on this branch.
+- No Prompt 02 commit/progress entry exists on this branch; timing/status/freshness scope should be reviewed before release.
+- Native coverage is instrumented but still lacks a local percentage report because `gcovr` is unavailable.

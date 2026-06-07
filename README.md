@@ -1,8 +1,10 @@
 # LDC1614 Driver Library
 
-Production-oriented LDC1614/LDC1612 multi-channel 28-bit inductance-to-digital
+Framework-neutral LDC1614/LDC1612 multi-channel 28-bit inductance-to-digital
 converter I2C driver core for ESP32-S2 / ESP32-S3 integration through Arduino
-framework, PlatformIO, or native ESP-IDF component use.
+framework, PlatformIO, or native ESP-IDF component use. The architecture is
+production-oriented, but deployment readiness depends on application hardware,
+calibration, fault testing, and captured validation logs.
 
 ## Features
 
@@ -148,6 +150,13 @@ void loop() {
 }
 ```
 
+The numeric channel values above are example-sensor placeholders. Derive
+RCOUNT, SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, and IDRIVE from the sensor
+frequency, Q/Rp, reference clock, target amplitude, and application timing
+requirements. IDRIVE and coil behavior require board-level evidence; the
+library does not calibrate distance, coating thickness, material identity, or
+inductance for an application.
+
 ## API Reference
 
 ### Lifecycle
@@ -172,6 +181,13 @@ void loop() {
 | `dataReady()` | Convenience wrapper around `readDataReady()`. Returns `false` if the STATUS/INTB path fails. |
 
 `readDeviceStatus()`, `readStatusRaw()`, and STATUS-based data-ready polling read the device STATUS register. Per the device behavior, that read can clear sticky status flags and de-assert INTB.
+
+`readChannel()` reads `DATAx_MSB` before `DATAx_LSB` and masks the 28-bit
+conversion value. The upper DATAx_MSB bits can report under-range, over-range,
+watchdog, and amplitude error flags when the corresponding ERROR_CONFIG
+`*_ERR2OUT` bits are enabled. The amplitude flag is the high/low amplitude
+condition collapsed into `ChannelData::errAmplitude`; zero-count is reported via
+STATUS/INTB, not DATAx_MSB.
 
 ### Sample Cache
 
@@ -229,6 +245,7 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 | `driverState()` | Cross-library alias for the current `DriverState`. |
 | `hasSample(ch)` | Check whether a configured channel has a cached sample. |
 | `calcSettleTimeUs(ch, fRef)` / `calcSampleTimeUs(ch, fRef)` | Calculate configured settling and conversion-plus-settling timing for service diagnostics. |
+| `calcSensorFrequency(ch, rawData, fRef)` / `calcConversionTimeUs(ch, fRef)` | Calculate sensor frequency and conversion timing from raw data, reference clock, dividers, and offset. Frequency is not calibrated inductance or distance. |
 
 `probe()` is intentionally raw and does not affect health. It requires configured
 transport callbacks; a fresh default instance returns `INVALID_CONFIG` because no
@@ -255,9 +272,12 @@ configuration before returning success.
 ## Examples
 
 - `examples/01_basic_bringup_cli/` - Arduino diagnostic bring-up CLI for
-  exercising LDC1614 features.
+  exercising LDC1614 features. This is diagnostic firmware, not a production
+  bus manager or field-readiness certificate.
 - `examples/esp_idf/basic/` - Native ESP-IDF diagnostic bring-up CLI with
-  `driver/i2c_master.h` transport glue.
+  `driver/i2c_master.h` transport glue. This example is diagnostic bring-up
+  code; production applications own lifecycle, locking, recovery, and hardware
+  validation.
 
 The Arduino bring-up example uses the shared example-only command implementation
 in `examples/common/Ldc1614Cli.cpp`. The ESP-IDF example uses its own
@@ -330,10 +350,35 @@ Not part of the library. These simulate project-level glue and keep examples sel
 ## Documentation
 
 - `CHANGELOG.md` - Full release history
+- `docs/HARDWARE_INTEGRATION.md` - LDC1612/LDC1614 hardware integration checklist
+- `docs/HIL_VALIDATION.md` - Hardware-in-the-loop validation procedure and matrix
 - `docs/IDF_PORT.md` - ESP-IDF portability guidance
 - `docs/IDF_PORT_IMPLEMENTATION.md` - ESP-IDF implementation notes and validation status
+- `docs/LDC1614_INDUSTRY_HARDENING_FINAL_REPORT.md` - Hardening summary and remaining release blockers
 - `LDC1614_inductance_converter_implementation_manual.md` - Device documentation
 - `docs/` - Datasheets and application notes
+
+## Readiness and Validation Status
+
+The core has a framework-neutral, injected-transport architecture and native
+software tests/guards. That is not the same as hardware validation. No
+deployment-readiness, certification, or hardware-proven operation claim is made
+until real LDC1614/LDC1612 logs cover the board, address strap, INTB/SD wiring,
+sensor configuration, fault cases, and soak profile for the target application.
+
+Use `tools/ldc1614_hil_runner.py` and `docs/HIL_VALIDATION.md` to collect
+hardware evidence. If the runner is not connected to real firmware and hardware,
+its result is `NOT_RUN`, not pass.
+
+## Reproducible Version Metadata
+
+`scripts/generate_version.py` keeps `Version.h` synchronized with
+`library.json`. PlatformIO builds can inject build timestamp and Git metadata.
+For deterministic build metadata, set `SOURCE_DATE_EPOCH=<unix-seconds>`. If no
+source epoch is available, set `LDC1614_REPRODUCIBLE_BUILD=1` to use
+`1970-01-01 00:00:00` as the injected timestamp. Without injected metadata, the
+generated header falls back to `unknown-date unknown-time` rather than compiler
+`__DATE__` / `__TIME__`.
 
 ## License
 

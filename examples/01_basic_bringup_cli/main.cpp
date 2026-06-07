@@ -1,6 +1,7 @@
 /// @file main.cpp
-/// @brief LDC1614 Arduino bringup CLI example
-/// @note This is an EXAMPLE, not part of the library.
+/// @brief LDC1614 Arduino diagnostic bring-up CLI example.
+/// @note This is diagnostic firmware, not a production bus manager or hardware
+/// validation claim. It is not part of the library core.
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -142,7 +143,8 @@ void setup() {
   board::initSerial();
   delay(100);
 
-  ldcCli.logInfo("=== LDC1614 Bringup Example ===");
+  ldcCli.logInfo("=== LDC1614 Arduino Diagnostic Bring-up Example ===");
+  ldcCli.logInfo("Diagnostic firmware only; production apps own bus policy and validation.");
 
   if (!board::initI2c()) {
     ldcCli.logError("Failed to initialize I2C");

@@ -815,7 +815,7 @@ void Cli::printHelp() const {
 
 void Cli::printVersionInfo() const {
   println("=== Version Info ===");
-  printf("  Example firmware build: %s %s\n", __DATE__, __TIME__);
+  printf("  Example firmware build: not embedded; use HIL transcript timestamp\n");
   printf("  LDC1614 library version: %s\n", LDC1614::VERSION);
   printf("  LDC1614 full version: %s\n", LDC1614::VERSION_FULL);
   printf("  LDC1614 build timestamp: %s\n", LDC1614::BUILD_TIMESTAMP);
