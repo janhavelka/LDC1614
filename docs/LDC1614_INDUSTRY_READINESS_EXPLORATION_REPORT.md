@@ -1,12 +1,12 @@
 # LDC1614 Industry-Readiness Exploration Report
 
-Date: 2026-06-01
+Date: 2026-06-07
 Branch: `audit/ldc1614-industry-readiness-exploration`
 Mode: Exploration / audit-only, no production implementation
 
 ## Executive Summary
 
-The repository has a solid framework-neutral core, transport-injected I2C, a useful managed synchronous health model, and a meaningful native fake-bus test suite. It is not industry-ready today. The main blockers are incomplete latency contracts, partial multi-register hardware-state handling, ESP-IDF example and CI gaps, overconfident production wording, and lack of real hardware/fault validation evidence.
+The repository has a solid framework-neutral core, transport-injected I2C, a useful managed synchronous health model, and a meaningful native fake-bus test suite. It is not industry-ready today. The main blockers are datasheet operating-condition gaps around clock/configuration sequencing, incomplete latency and recovery contracts, partial multi-register hardware-state handling, ESP-IDF clean-build and CI gaps, overconfident production wording, and lack of real hardware/fault validation evidence.
 
 This is not an architecture-blocked driver. It is ready for chunked implementation hardening, but production-readiness and industry-grade claims must wait until software gaps and hardware validation gaps are closed.
 
@@ -14,7 +14,7 @@ This is not an architecture-blocked driver. It is ready for chunked implementati
 
 Engineering-grade with major gaps.
 
-The core design is stronger than a prototype: it is framework-neutral, status-returning, transport-injected, and has 70 native tests. It is still not a pre-production candidate because the ESP-IDF path is not validated by pure `idf.py`, the diagnostic IDF CLI still compiles heap-using shared `std::string` code, latency contracts are not tight enough, multi-register write failures can leave partial hardware state, and no real LDC1612/LDC1614 hardware validation logs were found.
+The core design is stronger than a prototype: it is framework-neutral, status-returning, transport-injected, and has 70 native tests. It is still not a pre-production candidate because some default/example clock settings can violate datasheet limits, warm-start configuration sequencing is not proven safe, the ESP-IDF path is not validated by pure `idf.py`, the diagnostic IDF CLI still compiles heap-using shared `std::string` code, latency/recovery contracts are not tight enough, multi-register write failures can leave partial hardware state, and no real LDC1612/LDC1614 hardware validation logs were found.
 
 ## Scope Reviewed
 
@@ -49,6 +49,7 @@ The core design is stronger than a prototype: it is framework-neutral, status-re
 - `docs/pdf-extracted-md/LDC1614_datasheet.md`
 - `docs/application_notes/*`
 - `docs/howto_guides/*`
+- `LDC1614_inductance_converter_implementation_manual.md`
 - `_txt/datasheet_LDC1614.txt`
 - `prompts/*`
 
@@ -56,6 +57,7 @@ The core design is stronger than a prototype: it is framework-neutral, status-re
 
 - `docs/LDC1614_datasheet.pdf` - primary TI LDC1612/LDC1614 datasheet.
 - `docs/pdf-extracted-md/LDC1614_datasheet.md` - extracted datasheet text. Used for pin descriptions, register map, timing, modes, INTB behavior, and application setup.
+- `LDC1614_inductance_converter_implementation_manual.md` - local implementation manual used as a cross-check for internal oscillator range, sleep-mode configuration, INTB routing, clock limits, and initialization checklist.
 - `_txt/datasheet_LDC1614.txt` - raw extracted datasheet text. Used to confirm sensor range, supply range, address pin behavior, INTB, SD, and DATAx ordering.
 - `docs/extracted-md/00_document_inventory.md` - local datasheet inventory and traceability.
 - `docs/extracted-md/01_chip_overview.md` - 2-channel/4-channel, 28-bit, address, clock, and DATAx overview.
@@ -70,7 +72,7 @@ The core design is stronger than a prototype: it is framework-neutral, status-re
 - `docs/application_notes/sensor_configuration_settings.md` - IDRIVE and oscilloscope/application calibration notes.
 - `docs/application_notes/sensor_design.md` - coil design and 1 kHz to 10 MHz sensor frequency context.
 
-Datasheet references used in findings include: pin descriptions around `docs/pdf-extracted-md/LDC1614_datasheet.md:212`, address behavior around `docs/pdf-extracted-md/LDC1614_datasheet.md:836`, DATAx/register map around `docs/pdf-extracted-md/LDC1614_datasheet.md:913`, STATUS/ERROR_CONFIG around `docs/pdf-extracted-md/LDC1614_datasheet.md:1458`, clock/deglitch around `docs/pdf-extracted-md/LDC1614_datasheet.md:1735` and `docs/pdf-extracted-md/LDC1614_datasheet.md:2600`, and INTB/status behavior around `docs/pdf-extracted-md/LDC1614_datasheet.md:2629`.
+Datasheet references used in findings include: pin descriptions around `docs/pdf-extracted-md/LDC1614_datasheet.md:212`, internal oscillator range around `docs/pdf-extracted-md/LDC1614_datasheet.md:392`, recommended sleep-mode configuration around `docs/pdf-extracted-md/LDC1614_datasheet.md:788`, shutdown/SD behavior around `docs/pdf-extracted-md/LDC1614_datasheet.md:810`, address behavior around `docs/pdf-extracted-md/LDC1614_datasheet.md:836`, DATAx/register map around `docs/pdf-extracted-md/LDC1614_datasheet.md:913`, STATUS/ERROR_CONFIG around `docs/pdf-extracted-md/LDC1614_datasheet.md:1458`, clock/deglitch around `docs/pdf-extracted-md/LDC1614_datasheet.md:1735`, Table 43 clock requirements around `docs/pdf-extracted-md/LDC1614_datasheet.md:2534`, and INTB/status behavior around `docs/pdf-extracted-md/LDC1614_datasheet.md:2629`.
 
 ## Repository Map
 
@@ -94,20 +96,20 @@ Datasheet references used in findings include: pin descriptions around `docs/pdf
 | I2C ownership/injection | Strong | `Config` injects callbacks and opaque context; core does not own Wire, IDF bus, pins, or bus reset policy. |
 | Status/error model | Good | Fallible APIs mostly return `Status`; `dataReady()` is a convenience exception that hides errors as `false`. |
 | Device ID / variant handling | Good | `begin()`/`probe()` read manufacturer/device IDs; high-level channels enforce 2 or 4 channels. |
-| Register map correctness | Good | Constants match local register map; raw diagnostic helpers are not variant/access-type gated. |
+| Register map correctness | Good | Constants mostly match local register map; raw diagnostic helpers are not variant/access-type/reserved-bit gated. |
 | DATAx error-bit handling | Good | `readChannel()` reads MSB before LSB and masks DATAx MSB error bits. |
-| Conversion timing model | Medium | Helpers exist and tests cover nominal cases, but latency contracts and scan-cycle use are incomplete. |
+| Conversion timing model | Medium | Helpers exist and tests cover nominal cases, but `fRef` naming is ambiguous, Table 43 clock constraints are not enforced, and scan-cycle use is incomplete. |
 | Multi-channel sequencing | Medium | Autoscan modes exist; data collection does not use `UNREADCONVx` and can read stale channels after one DRDY. |
 | Partial hardware state handling | Weak | Multi-register sequences can partially reach hardware without dirty/sync state or failed-register context. |
-| Health/recovery behavior | Good | Managed states, tracked wrappers, manual `recover()`, backoff, and fake-bus tests exist. |
+| Health/recovery behavior | Medium | Managed states, tracked wrappers, manual `recover()`, backoff, and fake-bus tests exist; `recover()` can stay `BUSY` indefinitely without an advancing `nowMs`. |
 | Thread/ISR contract | Medium | README says single-threaded, but public Doxygen and type semantics do not strongly enforce or document it. |
-| ESP-IDF component readiness | Medium | Root CMake exists; `idf_component.yml` lacks explicit targets and pure `idf.py` CI validation. |
+| ESP-IDF component readiness | Weak | Root CMake exists, but clean pure-IDF builds are not validated and may depend on ignored/generated `Version.h`. |
 | ESP-IDF example quality | Weak | Native IDF boundary exists, but example compiles shared `std::string` CLI, uses global state, blocking `getchar()`, no locking, and imperfect error mapping. |
 | Arduino example quality | Medium | Useful bring-up CLI, but not clearly labeled as diagnostic only in docs and can run long blocking commands. |
 | Native tests/fault injection | Medium | 70 tests are useful; gaps remain for nth-call failures, NACK/data NACK/bus errors, variant bounds, and begin identity mismatch. |
 | Guard scripts | Medium | Core and CLI guards pass; core guard is narrow and IDF guard is not in CI. |
 | CI/build matrix | Medium | PlatformIO S2/S3 and native tests run; no pure ESP-IDF build, no coverage threshold. |
-| HIL readiness | Weak | No runner or evidence matrix exists yet. |
+| HIL readiness | Weak | No HIL runner, procedure, evidence directory, or timestamped validation logs exist yet. |
 | Documentation honesty | Weak | README, `library.json`, and `idf_component.yml` use production-grade language without hardware evidence. |
 | Hardware validation evidence | Weak | No real hardware logs found for identity, channel sequencing, INTB, SD, addresses, faults, or soak. |
 
@@ -158,7 +160,36 @@ Suggested tests:
 - HIL: operator-approved unplug/replug and NACK tests.
 - HIL: bounded soak with health counters and sample timestamps.
 
-### H2. Multi-register writes can leave partial hardware state without a dirty/sync contract
+### H2. Datasheet clock and configuration-sequence contracts are not enforced
+
+Severity: High
+
+Evidence:
+- Internal oscillator frequency is documented as 35 MHz minimum, 43.4 MHz typical, and 55 MHz maximum around `docs/pdf-extracted-md/LDC1614_datasheet.md:392`.
+- Datasheet Table 43 requires `f_REFx <= 35 MHz` for single-channel continuous mode around `docs/pdf-extracted-md/LDC1614_datasheet.md:2534`.
+- `ChannelConfig::frefDivider` defaults to `1` in `include/LDC1614/Config.h:96`; `sensorActivation` defaults to internal oscillator in `include/LDC1614/Config.h:126` and single-channel continuous mode in `include/LDC1614/Config.h:130`; README/examples copy internal single-channel setup with divider values shown at `README.md:111`, `examples/01_basic_bringup_cli/main.cpp:68`, and `examples/esp_idf/basic/main/main.cpp:79`.
+- `begin()` reads identity and then calls `_applyConfig()` at `src/LDC1614.cpp:192`; `_applyConfig()` writes channel/configuration registers before any explicit sleep transition at `src/LDC1614.cpp:1396`.
+- The datasheet recommends configuring the device in Sleep Mode around `docs/pdf-extracted-md/LDC1614_datasheet.md:788`, and notes that sleep clears conversions/errors/INTB around `docs/pdf-extracted-md/LDC1614_datasheet.md:799`.
+- `calcSensorFrequency(..., fRef)` documents `fRef` as the reference clock around `include/LDC1614/LDC1614.h:431`, but the implementation divides it by `frefDivider` around `src/LDC1614.cpp:1065`; this expects the pre-divider clock, not already-divided `f_REFx`.
+
+Impact:
+- A typical internal oscillator plus `frefDivider = 1` can exceed the single-channel `f_REFx` datasheet limit, causing out-of-spec conversions in copy-paste quick-start configurations.
+- Warm-start `begin()` can write operating registers while the device is already active if a previous application left it running.
+- Users can pass the wrong clock domain into frequency helpers and compute plausible but wrong sensor frequencies.
+
+Recommended remediation:
+- Validate or warn on clock-divider combinations against Table 43 for selected mode and clock source.
+- Change defaults/examples to a divider that is safe for internal-oscillator single-channel operation, or require users to state the measured/external clock and divider choice explicitly.
+- Force sleep before `_applyConfig()` on initialized or probe-success paths unless datasheet evidence proves the current sequence is safe.
+- Rename/document frequency-helper parameters as input clock versus divided reference clock, and add examples for internal and external clock cases.
+
+Suggested tests:
+- Native validation tests for internal-clock single-channel configurations where `frefDivider = 1` is rejected or warned.
+- Tests for mode/divider combinations at Table 43 boundaries.
+- Fake-bus sequence test that `begin()` enters sleep before multi-register configuration when appropriate.
+- Timing/frequency tests demonstrating the expected clock-domain input for `calcSensorFrequency()`.
+
+### H3. Multi-register writes can leave partial hardware state without a dirty/sync contract
 
 Severity: High
 
@@ -185,7 +216,7 @@ Suggested tests:
 - Tests for `resetAndReapply()` where reset succeeds and config reapply fails.
 - Tests asserting dirty/sync state and recovery behavior after partial writes.
 
-### H3. Blocking API latency contracts are incomplete
+### H4. Blocking and recovery latency contracts are incomplete
 
 Severity: High
 
@@ -194,15 +225,18 @@ Evidence:
 - `_nowMs()` returns `0` when no `Config::nowMs` hook exists at `src/LDC1614.cpp:1494`.
 - `readChannelBlocking()` uses deadline logic plus a finite poll cap at `src/LDC1614.cpp:524`; without an advancing clock, the wall-clock bound becomes poll count times transport timeout and yield latency.
 - `readAllChannelsBlocking()` shares the same polling behavior at `src/LDC1614.cpp:563` and validates `count` only later through `readAllChannels()` at `src/LDC1614.cpp:327`.
+- `recover()` applies backoff using `_nowMs()` around `src/LDC1614.cpp:1334`; with `recoverBackoffMs > 0` and no `nowMs`, a failed first attempt can leave later calls returning `BUSY` because time never advances.
 - `recover()` can call injected `busReset` and `hardReset` callbacks whose latency is not bounded by the core at `src/LDC1614.cpp:1349` and `src/LDC1614.cpp:1379`.
 
 Impact:
 - A nominal 200 ms blocking read can be much longer if `nowMs` is absent and the transport timeout is large.
+- Manual recovery can appear permanently unavailable in applications that omit `nowMs` while leaving nonzero backoff enabled.
 - Production loops can miss real-time deadlines when using blocking convenience APIs.
 - Recovery latency may surprise applications if callback budgets are not documented.
 
 Recommended remediation:
 - Require `nowMs` for blocking helpers, or explicitly document the fallback as poll-count bounded rather than wall-clock bounded.
+- Disable time-based recovery backoff when no `nowMs` hook exists, require `nowMs` when backoff is configured, or make the fallback attempt-count based.
 - Validate all input before any blocking wait.
 - Add Doxygen latency tables with I2C transaction counts and callback latency dependencies.
 - Add recommended production pattern: poll `readDataReady()` or INTB, then read one channel or only `UNREADCONVx` channels within an application budget.
@@ -210,9 +244,10 @@ Recommended remediation:
 Suggested tests:
 - Native tests measuring poll count and I2C transaction count when `nowMs` is null.
 - Native tests confirming invalid `count` returns before any I2C or wait.
+- Native tests for repeated `recover()` calls with null `nowMs` and default `recoverBackoffMs`.
 - Tests for callback latency accounting in recovery documentation.
 
-### H4. ESP-IDF path is native but not production-ready
+### H5. ESP-IDF path is native but not clean-checkout or production-ready
 
 Severity: High
 
@@ -220,27 +255,33 @@ Evidence:
 - ESP-IDF example uses native headers and `app_main()` in `examples/esp_idf/basic/main/main.cpp:8` and `examples/esp_idf/basic/main/main.cpp:206`.
 - ESP-IDF example CMake compiles shared CLI implementation at `examples/esp_idf/basic/main/CMakeLists.txt:5`.
 - That shared CLI uses `<string>` and `std::string` at `examples/common/Ldc1614Cli.cpp:8`, `examples/common/Ldc1614Cli.cpp:157`, and `examples/common/Ldc1614Cli.cpp:230`.
+- `include/LDC1614/Version.h` is ignored by `.gitignore:41`; PlatformIO runs version generation hooks in `platformio.ini:8` and `platformio.ini:95`, but root/IDF CMake does not visibly generate that header before compiling `include/LDC1614/LDC1614.h:11`.
 - The IDF main loop calls `getchar()` inside an infinite loop at `examples/esp_idf/basic/main/main.cpp:169`.
 - IDF transport maps `ESP_ERR_INVALID_RESPONSE` to generic `I2C_ERROR` and does not distinguish address/data NACKs at `examples/esp_idf/basic/main/Ldc1614IdfI2cTransport.cpp:17`.
+- The IDF transport rejects raw bus diagnostics for addresses other than the configured device handle at `examples/esp_idf/basic/main/Ldc1614IdfI2cTransport.cpp:37`, so shared CLI address checks cannot validate both `0x2A` and `0x2B` without reconfiguration.
 - CI does not run `idf.py` builds or `tools/check_idf_example_contract.py`; PlatformIO and native CI are visible in `.github/workflows/ci.yml:41`, `.github/workflows/ci.yml:71`, and `.github/workflows/ci.yml:88`.
 
 Impact:
 - The "native fixed-buffer ESP-IDF" claim is weakened: input acquisition is fixed-buffer, but parsing uses heap-backed `std::string`.
 - The example can stop ticking if console input blocks.
 - Users may copy a diagnostic single-task bring-up example into a multi-task production app without locking, timeout, or error-mapping policy.
+- A clean pure-IDF checkout can fail before validating the driver if `Version.h` is absent and CMake does not generate it.
 - Pure ESP-IDF breakage can reach users undetected.
 
 Recommended remediation:
 - Split command contracts from parser implementation so ESP-IDF uses fixed buffers, `esp_console`/argtable, or a C parser without `std::string`.
 - Label the IDF example as diagnostic bring-up until bus ownership, locking, nonblocking input, and error mapping are production-grade.
 - Add `sdkconfig.defaults` if needed and run `idf.py -C examples/esp_idf/basic set-target esp32s3 build` and `esp32s2 build` in CI.
+- Add a pure-IDF-compatible `Version.h` generation path or commit/generated-header policy that works for clean component consumers.
 - Wire `tools/check_idf_example_contract.py` into CI.
 - Improve IDF error mapping and avoid `ESP_ERROR_CHECK` in example paths where a `Status` result is more instructive.
+- Decide whether IDF diagnostics should support multi-address scans through a scanner-specific transport or document the limitation.
 
 Suggested tests:
 - Static test that IDF example CMake does not compile `examples/common/Ldc1614Cli.cpp` if it remains heap-backed.
 - Static test banning `std::string` from ESP-IDF example sources.
 - Pure `idf.py` CI matrix for `esp32s3` and `esp32s2`.
+- Clean-checkout test that removes `include/LDC1614/Version.h` and verifies pure IDF component/example build behavior.
 - Native/unit test for ESP-IDF error mapping if transport is factored for testability.
 
 ## Medium-Severity Findings
@@ -407,6 +448,27 @@ Suggested tests:
 - Documentation checklist that each example has a label and intended use.
 - Static check for raw diagnostics warnings in README/docs.
 
+### M8. Example error-routing defaults can under-report channel error bits
+
+Severity: Medium
+
+Evidence:
+- Datasheet/local implementation guidance distinguishes routing errors to INTB (`ERR2INT`) from routing errors to DATAx output bits (`ERR2OUT`) around `docs/pdf-extracted-md/LDC1614_datasheet.md:1556` and `LDC1614_inductance_converter_implementation_manual.md:394`.
+- Examples enable `cfg.enableErrorToInt = true` at `examples/01_basic_bringup_cli/main.cpp:84` and `examples/esp_idf/basic/main/main.cpp:95`, but do not enable `cfg.enableErrorToOutput`.
+- `readChannel()` parses DATAx MSB error bits at `src/LDC1614.cpp:302`, and the shared CLI displays those per-channel bits.
+
+Impact:
+- Example users may believe per-channel DATAx error bits are being demonstrated when only INTB/status routing is enabled.
+- Fault demos can look cleaner than the actual hardware state unless users also inspect STATUS.
+
+Recommended remediation:
+- Either enable `enableErrorToOutput` in diagnostic examples that display DATAx error fields, or label those fields as meaningful only when ERR2OUT is enabled.
+- Document the distinction between STATUS flags, INTB routing, and DATAx MSB error bits.
+
+Suggested tests:
+- Fake-bus test for ERROR_CONFIG bit packing when `enableErrorToInt` and `enableErrorToOutput` are independently enabled.
+- HIL fault test that captures STATUS, INTB, and DATAx error-bit behavior for the same induced condition.
+
 ## Low-Severity Findings
 
 ### L1. Generated version metadata is not reproducible
@@ -416,6 +478,7 @@ Severity: Low
 Evidence:
 - Generated `include/LDC1614/Version.h` uses `__DATE__` and `__TIME__`.
 - `.gitignore:41` ignores `include/LDC1614/Version.h`, but generated files still affect local builds.
+- The clean pure-IDF build risk from this ignored header is covered separately in H5.
 
 Impact:
 - Builds can vary by timestamp.
@@ -473,18 +536,19 @@ Suggested tests:
 | CLKIN internal-clock tie-to-GND documentation | PARTIAL | Local docs state it in `docs/extracted-md/02_pinout_and_signals.md:19`; README should surface it in hardware notes. |
 | DEVICE_ID / MANUFACTURER_ID checks | PASS | `probe()` reads both at `src/LDC1614.cpp:233`; IDs defined in `include/LDC1614/CommandTable.h:54`. |
 | DATAx_MSB/DATAx_LSB extraction | PASS | `readChannel()` reads MSB then LSB and assembles 28-bit data at `src/LDC1614.cpp:288`. |
-| DATAx error-bit masking and reporting | PASS | Error bits parsed and masked at `src/LDC1614.cpp:302`; channel 0 test exists at `test/test_basic.cpp:742`. |
+| DATAx error-bit masking and reporting | PARTIAL | Error bits parsed and masked at `src/LDC1614.cpp:302`; examples that display DATAx error fields do not enable ERR2OUT by default. |
 | RCOUNTx configuration | PASS | Config validation and writes in `src/LDC1614.cpp:165`, `src/LDC1614.cpp:936`, and `_applyConfig()`. |
 | SETTLECOUNTx configuration | PASS | Setters and `_applyConfig()` write values; timing helper handles 0/1 minimum. |
 | CLOCK_DIVIDERSx configuration | PASS | `finDivider`/`frefDivider` validation and packing in `src/LDC1614.cpp:975`. |
 | DRIVE_CURRENTx configuration | PASS | `idrive` validation and packing in `src/LDC1614.cpp:1020`; Doxygen table reference needs correction. |
 | OFFSETx behavior | PASS | Offset setter and frequency calculation support exist in `src/LDC1614.cpp:1002` and timing/frequency helpers. |
-| MUX_CONFIG / channel sequencing | PASS | Single/autoscan setters exist at `src/LDC1614.cpp:698` and `src/LDC1614.cpp:733`; partial-write risk remains. |
+| MUX_CONFIG / channel sequencing | PARTIAL | Single/autoscan setters exist at `src/LDC1614.cpp:698` and `src/LDC1614.cpp:733`; partial-write and stale-channel/read-freshness risks remain. |
 | ERROR_CONFIG / INTB behavior | PARTIAL | Register masks and parsing exist; real INTB behavior not hardware-validated. |
 | RESET_DEV / soft reset behavior | PARTIAL | `softReset()` and `resetAndReapply()` exist; direct reset timing/hardware evidence missing. |
 | Conversion-ready / unread-conversion behavior | PARTIAL | STATUS parses `UNREADCONVx`; read helpers do not use it to avoid stale autoscan channels. |
-| Internal vs external reference clock | PARTIAL | CONFIG bit support exists; hardware clock source validation and README warnings incomplete. |
-| Conversion timing formula or approximation | PARTIAL | Helpers exist; datasheet has formula ambiguity and scan-cycle/channel-switch overhead is not fully contracted. |
+| Sleep-mode configuration sequence | PARTIAL | Datasheet recommends configuring in Sleep Mode; `begin()` does not explicitly force sleep before `_applyConfig()` on warm-start paths. |
+| Internal vs external reference clock | PARTIAL | CONFIG bit support exists; internal-clock single-channel defaults can exceed Table 43 `f_REFx` limit when `frefDivider = 1`. |
+| Conversion timing formula or approximation | PARTIAL | Helpers exist; `calcSensorFrequency()` parameter naming blurs pre-divider clock versus divided reference clock, and scan-cycle/channel-switch overhead is not fully contracted. |
 | Coil-design / application-calibration disclaimers | PARTIAL | Application notes exist; README and metadata still overclaim generic production readiness. |
 
 ## API Latency / Blocking Model
@@ -495,7 +559,7 @@ Assume `R` is one 16-bit register read via injected `i2cWriteRead`, `W` is one 1
 | --- | ---: | --- | --- | --- |
 | `begin()` | `2R + (5N + 3)W` | none in core | Transport-bound | N=2 => 15 transactions; N=4 => 25 transactions. |
 | `probe()` | `2R` | none | Transport-bound | Raw diagnostic, no health tracking. |
-| `recover()` | min `2R`, default can add `2R + busReset + hardReset + (5N + 3)W` | callback-dependent | Unknown if callbacks are unbounded | Manual recovery ladder. |
+| `recover()` | min `2R`, default can add `2R + busReset + hardReset + (5N + 3)W` | backoff plus callback-dependent waits | Unknown if callbacks are unbounded; can return persistent `BUSY` without `nowMs` | Manual recovery ladder. |
 | `end()` | `0` or `1W` | none | Transport-bound if initialized and awake | Best-effort sleep; errors ignored. |
 | `readChannel(ch)` | `2R` | none | Transport-bound | MSB then LSB; no DRDY wait. |
 | `readAllChannels(out,count)` | `2 * count R` | none | Transport-bound | Default reads all configured channels. |
@@ -525,11 +589,11 @@ The driver should expose a deterministic partial-state contract. Acceptable appr
 
 ## ESP-IDF Port Assessment
 
-- Is there a pure ESP-IDF component? Partially. Root `CMakeLists.txt` registers the core, and `idf_component.yml` exists, but pure `idf.py` build was not available locally and is not in CI.
+- Is there a pure ESP-IDF component? Partially. Root `CMakeLists.txt` registers the core, and `idf_component.yml` exists, but pure `idf.py` build was not available locally, is not in CI, and the pure-CMake path does not visibly generate ignored `include/LDC1614/Version.h`.
 - Is there a pure ESP-IDF example? Partially. It uses native IDF APIs and `app_main()`, but compiles shared CLI code using `std::string`.
 - Does it use native IDF APIs, not Arduino? Yes at the IDF boundary. Searches found no `Arduino.h`, `Wire.h`, `Serial`, `String`, `TwoWire`, or legacy `driver/i2c.h` under `examples/esp_idf`.
 - Does the core stay IDF-free? Yes. `include/` and `src/` searches found no ESP-IDF/FreeRTOS tokens.
-- Does the example own the bus only as diagnostic code? The example owns the bus, but docs should more clearly label it as diagnostic bring-up rather than production shared-bus guidance.
+- Does the example own the bus only as diagnostic code? The example owns the bus, but docs should more clearly label it as diagnostic bring-up rather than production shared-bus guidance. It has no multitask locking contract.
 - Does it map IDF errors precisely? Partially. Timeout maps clearly, but NACK/address/data distinctions are not preserved.
 - Does it lock I2C access if multitask? No. The example is single-task and has no mutex/semaphore.
 - Does CI build it? No pure `idf.py` build was found in CI. PlatformIO Arduino builds pass; this is not equivalent.
@@ -538,7 +602,7 @@ The driver should expose a deterministic partial-state contract. Acceptable appr
 
 Run locally in this pass:
 
-- `git status --short` -> initially clean before branch creation; later `M AGENTS.md`; after report creation expected `M AGENTS.md` and report file.
+- `git status --short` -> clean at the start of this pass; later `M AGENTS.md`; after report update expected `M AGENTS.md` and `M docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md`.
 - `git branch --show-current` -> `audit/ldc1614-industry-readiness-exploration`.
 - `python --version` -> `Python 3.12.10`.
 - `python -m platformio --version` -> `PlatformIO Core, version 6.1.18`.
@@ -560,6 +624,7 @@ Present but not run:
 Missing:
 
 - Pure ESP-IDF CI build.
+- Pure ESP-IDF version-header generation or committed-header policy for clean checkouts.
 - CI invocation of `tools/check_idf_example_contract.py`.
 - Coverage tooling and thresholds.
 - HIL runner and hardware evidence storage.
@@ -597,8 +662,11 @@ Should be added:
 ### P0 - Must fix before production-readiness claim
 
 - Replace unsupported production-grade claims in README, `library.json`, and `idf_component.yml` with honest readiness wording.
+- Enforce or document datasheet clock/divider limits, especially internal-clock single-channel `f_REFx <= 35 MHz`.
+- Force or prove Sleep Mode before multi-register configuration on warm-start paths.
 - Add partial multi-register write contract: dirty/sync state, failed-register detail, and recovery/sync path.
 - Tighten blocking API latency documentation and require/document `nowMs` for wall-clock blocking helpers.
+- Fix `recover()` backoff behavior when `nowMs` is not injected.
 - Add fake-bus nth-call/register-specific failure injection and tests for partial config writes.
 - Remove `std::string` dependency from the ESP-IDF example path or clearly isolate it as temporary diagnostic code.
 - Add pure ESP-IDF build validation for `esp32s3` and `esp32s2`.
@@ -629,6 +697,8 @@ Should be added:
 1. Core contracts and datasheet correctness.
    - Delete/document copy/move.
    - Add thread/ISR Doxygen.
+   - Enforce Table 43 clock/divider constraints.
+   - Force or prove Sleep Mode before configuration writes.
    - Add partial-state contract.
    - Clarify raw register safe/diagnostic behavior.
    - Fix Doxygen table references and datasheet ambiguity notes.
@@ -666,31 +736,33 @@ Do not implement these in this audit pass.
 
 ## Commands Run
 
-- `git status --short` -> clean before branch creation.
-- `git branch --show-current` -> started from `hardening/ldc1614-industry-readiness`.
-- `git checkout -b audit/ldc1614-industry-readiness-exploration` -> `Switched to a new branch 'audit/ldc1614-industry-readiness-exploration'`.
-- `git status --short` -> `M AGENTS.md` after the required guardrail update.
-- `git branch --show-current` -> `audit/ldc1614-industry-readiness-exploration`.
+- `git status --short` -> clean at the start of this pass.
+- `git branch --show-current` -> `audit/ldc1614-industry-readiness-exploration`; the branch already existed and was clearly the intended audit branch.
+- `git status --short` -> `M AGENTS.md` after the required `AGENTS.md` guardrail update.
 - `rg --files` -> succeeded and listed repository files.
-- PowerShell datasheet search using `Get-ChildItem -Path .,.. -Recurse -Depth 5 ...` -> succeeded but included nearby projects; relevant local LDC1614 files were found under `docs/`, `_txt/`, and `docs/extracted-md/`.
-- `rg -n "Arduino\.h|Wire\.h|TwoWire|String|Serial|delay\(|millis\(|micros\(|vTaskDelay|FreeRTOS|driver/i2c|esp_|ESP_LOG|printf|std::string|new |malloc|std::vector" include src` -> only Doxygen text around "new conversion data" matched; no forbidden core dependency usage.
+- PowerShell datasheet search using `Get-ChildItem -Path .,.. -Recurse -Depth 5 ...` -> succeeded but included nearby projects; relevant local LDC1614 files were found under `docs/`, `_txt/`, and local extracted documentation.
+- `rg -n "Arduino\.h|Wire\.h|TwoWire|String|Serial|delay\(|millis\(|micros\(|vTaskDelay|FreeRTOS|driver/i2c|esp_|ESP_LOG|printf|std::string|new |malloc|std::vector" include src` -> only false-positive Doxygen text around "new conversion data" matched; no forbidden core dependency usage found.
 - `rg -n "DATA|RCOUNT|SETTLE|CLOCK|DRIVE|OFFSET|ERROR_CONFIG|MUX_CONFIG|CONFIG|RESET|DEVICE_ID|MANUFACTURER|STATUS|ADDR|INTB|SD|CLKIN|push-pull|open-drain|28-bit|1 kHz|10 MHz|2.7|3.6" include src README.md docs AGENTS.md` -> succeeded.
 - `rg -n "std::string|String|Serial|Arduino|Wire|driver/i2c_master|i2c_master|gpio_|vTaskDelay|esp_|ESP_LOG|console|argtable|while|for \(;;\)|readline" examples\esp_idf examples\common CMakeLists.txt idf_component.yml .github\workflows` -> succeeded.
+- `git status --short` -> `M AGENTS.md`.
+- `git ls-files docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md AGENTS.md` -> both files are tracked.
+- `git diff --stat` -> only `AGENTS.md` changed before report edits.
 - `python --version` -> `Python 3.12.10`.
-- `python -m platformio --version` -> `PlatformIO Core, version 6.1.18`.
+- `python -m platformio --version` -> `PlatformIO Core, version 6.1.18`; PlatformIO also warned that 6.1.18 is obsolete relative to 6.1.19.
 - `python tools/check_core_timing_guard.py` -> `Core timing guard PASSED`.
 - `python tools/check_cli_contract.py` -> `CLI contract PASSED`.
 - `python tools/check_idf_example_contract.py` -> `IDF example contract PASSED`.
 - `python scripts/generate_version.py check` -> `Up to date: C:\Users\Honza\Documents\Projects\LDC1614\include\LDC1614\Version.h`.
-- `python -m platformio test -e native` -> passed; `70 test cases: 70 succeeded in 00:00:01.379`.
-- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:06.804`.
-- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:06.192`.
-- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`; generated tarball was removed.
+- `python -m platformio test -e native` -> passed; `70 test cases: 70 succeeded in 00:00:00.984`.
+- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:05.357`.
+- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:04.840`.
+- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`; generated tarball was removed to keep the audit diff scoped.
 - `idf.py --version` -> failed; `idf.py` is not recognized as the name of a cmdlet, function, script file, or operable program.
 - `idf.py -C examples/esp_idf/basic set-target esp32s3 build` -> not run because `idf.py` is unavailable.
 - `idf.py -C examples/esp_idf/basic set-target esp32s2 build` -> not run because `idf.py` is unavailable.
-- `git diff --check` -> passed; Git emitted only an `AGENTS.md` CRLF conversion warning.
-- `git status --short` -> `M AGENTS.md` and `?? docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md`.
+- `git status --short` -> `M AGENTS.md` and `M docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md`.
+- `git diff --check` -> passed; Git emitted only CRLF conversion warnings for the two changed files.
+- `git diff --name-only` -> `AGENTS.md` and `docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md`.
 
 Subagents:
 
@@ -700,8 +772,8 @@ Subagents:
 - Timing and determinism subagent completed read-only.
 - ESP-IDF port subagent completed read-only.
 - Tests, CI, and tooling subagent completed read-only.
-- Docs/examples/HIL subagent attempt failed due session usage limit; docs/HIL audit was completed locally using repository evidence.
-- Final reviewer subagent was not spawned because the session hit the usage limit; final review was completed locally.
+- Docs/examples/HIL subagent completed read-only.
+- Final reviewer subagent completed read-only and requested stale line-reference corrections; those corrections were applied before commit.
 
 ## Files Changed
 

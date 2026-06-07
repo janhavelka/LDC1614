@@ -148,13 +148,13 @@ All I2C goes through layered wrappers:
 
 ```
 Public API (readChannel, readStatus, etc.)
-    ↓
+    ->
 Register helpers (readRegister16, writeRegister16)
-    ↓
+    ->
 TRACKED wrappers (_i2cWriteReadTracked, _i2cWriteTracked)
-    ↓  <- _updateHealth() called here ONLY
+    ->  <- _updateHealth() called here ONLY
 RAW wrappers (_i2cWriteReadRaw, _i2cWriteRaw)
-    ↓
+    ->
 Transport callbacks (Config::i2cWrite, i2cWriteRead)
 ```
 
