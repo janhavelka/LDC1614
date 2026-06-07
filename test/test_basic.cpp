@@ -7,6 +7,7 @@
 #include "Wire.h"
 
 #include <limits>
+#include <type_traits>
 
 SerialClass Serial;
 TwoWire Wire;
@@ -33,6 +34,15 @@ struct FakeBus {
   uint16_t reg[128] = {};
   uint8_t lastWriteReg = 0;
   uint16_t lastWriteValue = 0;
+  uint32_t failWriteCall = 0;
+  uint8_t failWriteReg = 0xFF;
+  Status failWriteStatus = Status::Error(Err::I2C_ERROR, "forced write failure", -42);
+  struct WriteEvent {
+    uint8_t reg = 0;
+    uint16_t value = 0;
+  };
+  WriteEvent writeLog[96] = {};
+  uint8_t writeLogCount = 0;
   bool gpioLevel = true;
   bool busResetCalled = false;
 
@@ -54,6 +64,15 @@ Status fakeWrite(uint8_t, const uint8_t* data, size_t len, uint32_t, void* user)
   }
   bus->lastWriteReg = data[0];
   bus->lastWriteValue = (static_cast<uint16_t>(data[1]) << 8) | data[2];
+  if (bus->writeLogCount < 96) {
+    bus->writeLog[bus->writeLogCount].reg = bus->lastWriteReg;
+    bus->writeLog[bus->writeLogCount].value = bus->lastWriteValue;
+    bus->writeLogCount++;
+  }
+  if ((bus->failWriteCall != 0 && bus->writeCalls == bus->failWriteCall) ||
+      (bus->failWriteReg != 0xFF && bus->lastWriteReg == bus->failWriteReg)) {
+    return bus->failWriteStatus;
+  }
   if (data[0] < 128) {
     bus->reg[data[0]] = bus->lastWriteValue;
   }
@@ -128,6 +147,43 @@ Config makeConfig(FakeBus& bus) {
   return cfg;
 }
 
+void resetIoCounters(FakeBus& bus) {
+  bus.writeCalls = 0;
+  bus.readCalls = 0;
+  bus.yieldCalls = 0;
+  bus.lastWriteReg = 0;
+  bus.lastWriteValue = 0;
+  bus.writeLogCount = 0;
+  bus.failWriteCall = 0;
+  bus.failWriteReg = 0xFF;
+  bus.writeStatus = Status::Ok();
+  bus.readStatus = Status::Ok();
+}
+
+void failNthWrite(FakeBus& bus, uint32_t call, Status st) {
+  bus.failWriteCall = call;
+  bus.failWriteReg = 0xFF;
+  bus.failWriteStatus = st;
+}
+
+void failWriteToReg(FakeBus& bus, uint8_t reg, Status st) {
+  bus.failWriteCall = 0;
+  bus.failWriteReg = reg;
+  bus.failWriteStatus = st;
+}
+
+uint8_t dirtyDetailPhase(const LDC1614::LDC1614& dev) {
+  return static_cast<uint8_t>((static_cast<uint32_t>(dev.hardwareConfigDirtyError().detail) >> 24) & 0xFFU);
+}
+
+uint8_t dirtyDetailReg(const LDC1614::LDC1614& dev) {
+  return static_cast<uint8_t>((static_cast<uint32_t>(dev.hardwareConfigDirtyError().detail) >> 16) & 0xFFU);
+}
+
+uint8_t dirtyDetailIndex(const LDC1614::LDC1614& dev) {
+  return static_cast<uint8_t>((static_cast<uint32_t>(dev.hardwareConfigDirtyError().detail) >> 8) & 0xFFU);
+}
+
 } // namespace
 
 void setUp() {}
@@ -155,6 +211,18 @@ void test_status_in_progress() {
   Status st{Err::IN_PROGRESS, 0, "In progress"};
   TEST_ASSERT_FALSE(st.ok());
   TEST_ASSERT_TRUE(st.inProgress());
+}
+
+void test_type_traits_delete_copy_and_move() {
+  static_assert(!std::is_copy_constructible<LDC1614::LDC1614>::value,
+                "LDC1614 must not be copy constructible");
+  static_assert(!std::is_copy_assignable<LDC1614::LDC1614>::value,
+                "LDC1614 must not be copy assignable");
+  static_assert(!std::is_move_constructible<LDC1614::LDC1614>::value,
+                "LDC1614 must not be move constructible");
+  static_assert(!std::is_move_assignable<LDC1614::LDC1614>::value,
+                "LDC1614 must not be move assignable");
+  TEST_ASSERT_TRUE(true);
 }
 
 // ============================================================================
@@ -191,6 +259,13 @@ void test_channel_config_defaults() {
   TEST_ASSERT_EQUAL_UINT16(1, cc.frefDivider);
   TEST_ASSERT_EQUAL_UINT16(0x0000, cc.offset);
   TEST_ASSERT_EQUAL_UINT8(0, cc.idrive);
+}
+
+void test_deglitch_enum_matches_datasheet_mux_values() {
+  TEST_ASSERT_EQUAL_UINT8(1u, static_cast<uint8_t>(Deglitch::BW_1MHZ));
+  TEST_ASSERT_EQUAL_UINT8(4u, static_cast<uint8_t>(Deglitch::BW_3MHZ));
+  TEST_ASSERT_EQUAL_UINT8(5u, static_cast<uint8_t>(Deglitch::BW_10MHZ));
+  TEST_ASSERT_EQUAL_UINT8(7u, static_cast<uint8_t>(Deglitch::BW_33MHZ));
 }
 
 // ============================================================================
@@ -344,9 +419,40 @@ void test_begin_with_2channels() {
   TEST_ASSERT_EQUAL_UINT32(0u, dev.totalSuccess());
 }
 
+void test_begin_applyConfig_partial_failure_sets_dirty_with_register_detail() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  const Status forced = Status::Error(Err::I2C_ERROR, "forced apply failure", -42);
+  failWriteToReg(bus, cmd::regSettleCount(1), forced);
+
+  LDC1614::LDC1614 dev;
+  Status st = dev.begin(cfg);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_FALSE(dev.isInitialized());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(dev.hardwareConfigDirtyError().code));
+  TEST_ASSERT_EQUAL_UINT8(0x01u, dirtyDetailPhase(dev));
+  TEST_ASSERT_EQUAL_HEX8(cmd::regSettleCount(1), dirtyDetailReg(dev));
+  TEST_ASSERT_EQUAL_UINT8(1u, dirtyDetailIndex(dev));
+}
+
 // ============================================================================
 // probe() and recover() Tests
 // ============================================================================
+
+void test_probe_missing_callbacks_returns_invalid_config_without_health() {
+  LDC1614::LDC1614 dev;
+  Status st = dev.probe();
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_CONFIG),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::UNINIT),
+                          static_cast<uint8_t>(dev.state()));
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.totalSuccess());
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.totalFailures());
+  TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
+}
 
 void test_probe_failure_does_not_update_health() {
   FakeBus bus;
@@ -441,6 +547,75 @@ void test_recover_reaches_offline_when_threshold_is_one() {
   TEST_ASSERT_FALSE(dev.isOnline());
 }
 
+void test_syncConfig_success_clears_dirty() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  resetIoCounters(bus);
+  Status st = dev.syncConfig();
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirtyError().ok());
+  TEST_ASSERT_TRUE(dev.isSleeping());
+}
+
+void test_syncConfig_failure_keeps_dirty() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  resetIoCounters(bus);
+  failWriteToReg(bus, cmd::REG_MUX_CONFIG,
+                 Status::Error(Err::I2C_ERROR, "forced sync failure", -12));
+  Status st = dev.syncConfig();
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+}
+
+void test_recover_success_clears_dirty_after_reapply() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  cfg.recoverBackoffMs = 0;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  resetIoCounters(bus);
+  Status st = dev.recover();
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
+                          static_cast<uint8_t>(dev.state()));
+}
+
+void test_recover_reapply_failure_keeps_dirty() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  cfg.recoverBackoffMs = 0;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  resetIoCounters(bus);
+  failWriteToReg(bus, cmd::REG_MUX_CONFIG,
+                 Status::Error(Err::I2C_ERROR, "forced recover sync failure", -13));
+
+  Status st = dev.recover();
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+}
+
 // ============================================================================
 // Transport Validation Tests
 // ============================================================================
@@ -495,6 +670,37 @@ void test_invalid_register_address_does_not_touch_bus() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_PARAM),
                           static_cast<uint8_t>(st.code));
   TEST_ASSERT_EQUAL_UINT32(writesBefore, bus.writeCalls);
+}
+
+void test_raw_diagnostic_write_marks_dirty_on_success() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
+
+  Status st = dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::CONFIG_DIRTY),
+                          static_cast<uint8_t>(dev.hardwareConfigDirtyError().code));
+  TEST_ASSERT_EQUAL_UINT8(0x06u, dirtyDetailPhase(dev));
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_CONFIG, dirtyDetailReg(dev));
+}
+
+void test_raw_diagnostic_write_failure_does_not_clear_existing_dirty() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  const int32_t firstDetail = dev.hardwareConfigDirtyError().detail;
+
+  bus.writeStatus = Status::Error(Err::I2C_ERROR, "forced raw write failure", -31);
+  Status st = dev.writeRegister16(cmd::REG_MUX_CONFIG, cmd::MUX_CONFIG_DEFAULT);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_INT32(firstDetail, dev.hardwareConfigDirtyError().detail);
 }
 
 // ============================================================================
@@ -836,6 +1042,8 @@ void test_getSettings_captures_state() {
   TEST_ASSERT_FALSE(snap.hasSample[0]);
   TEST_ASSERT_TRUE(snap.sleeping);
   TEST_ASSERT_TRUE(snap.autoScan);
+  TEST_ASSERT_FALSE(snap.hardwareConfigDirty);
+  TEST_ASSERT_TRUE(snap.hardwareConfigDirtyError.ok());
   TEST_ASSERT_EQUAL_UINT8(2u, snap.activeChan);
   TEST_ASSERT_EQUAL_UINT8(4u, snap.channelCount);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(RefClkSrc::EXT_CLK),
@@ -861,6 +1069,8 @@ void test_setRcount_does_not_commit_cache_on_write_failure() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
                           static_cast<uint8_t>(st.code));
   TEST_ASSERT_EQUAL_UINT16(before, dev.getConfig().channel[0].rcount);
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_HEX8(cmd::regRcount(0), dirtyDetailReg(dev));
 }
 
 void test_setErrorConfig_rejects_reserved_bits() {
@@ -929,6 +1139,28 @@ void test_setSingleChannelMode_writes_mux_and_config() {
   TEST_ASSERT_EQUAL_UINT16(2u,
                            (bus.reg[cmd::REG_CONFIG] & cmd::MASK_CFG_ACTIVE_CHAN) >>
                                cmd::BIT_CFG_ACTIVE_CHAN);
+}
+
+void test_setSingleChannelMode_config_write_failure_marks_dirty() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.autoScan = true;
+  cfg.rrSequence = RRSequence::CH0_CH1_CH2;
+
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  resetIoCounters(bus);
+  failNthWrite(bus, 2, Status::Error(Err::I2C_ERROR, "forced config failure", -14));
+
+  Status st = dev.setSingleChannelMode(2);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_TRUE(dev.getConfig().autoScan);
+  TEST_ASSERT_EQUAL_UINT8(0u, dev.getConfig().activeChan);
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(0x05u, dirtyDetailPhase(dev));
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_CONFIG, dirtyDetailReg(dev));
+  TEST_ASSERT_TRUE((bus.reg[cmd::REG_MUX_CONFIG] & cmd::MASK_MUX_AUTOSCAN_EN) == 0u);
 }
 
 void test_setAutoScanMode_writes_mux_and_commits() {
@@ -1209,6 +1441,24 @@ void test_resetAndReapply_not_initialized() {
                           static_cast<uint8_t>(st.code));
 }
 
+void test_softReset_success_keeps_dirty_until_reinit() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  Status st = dev.softReset();
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.isInitialized());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  st = dev.begin(cfg);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
+}
+
 void test_resetAndReapply_success_keeps_ready() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -1219,6 +1469,39 @@ void test_resetAndReapply_success_keeps_ready() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
                           static_cast<uint8_t>(dev.state()));
   TEST_ASSERT_TRUE(dev.isSleeping());  // Re-applies config in sleep mode
+}
+
+void test_resetAndReapply_partial_failure_sets_dirty_with_register_detail() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
+  failWriteToReg(bus, cmd::REG_MUX_CONFIG,
+                 Status::Error(Err::I2C_ERROR, "forced reapply failure", -15));
+
+  Status st = dev.resetAndReapply();
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_FALSE(dev.isInitialized());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(0x02u, dirtyDetailPhase(dev));
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_MUX_CONFIG, dirtyDetailReg(dev));
+  TEST_ASSERT_EQUAL_UINT8(0xFFu, dirtyDetailIndex(dev));
+}
+
+void test_resetAndReapply_success_clears_dirty() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  Status st = dev.resetAndReapply();
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirtyError().ok());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
+                          static_cast<uint8_t>(dev.state()));
 }
 
 // ============================================================================
@@ -1284,10 +1567,12 @@ int main() {
   RUN_TEST(test_status_ok);
   RUN_TEST(test_status_error);
   RUN_TEST(test_status_in_progress);
+  RUN_TEST(test_type_traits_delete_copy_and_move);
 
   // Config
   RUN_TEST(test_config_defaults);
   RUN_TEST(test_channel_config_defaults);
+  RUN_TEST(test_deglitch_enum_matches_datasheet_mux_values);
 
   // begin()
   RUN_TEST(test_begin_rejects_missing_callbacks);
@@ -1301,17 +1586,25 @@ int main() {
   RUN_TEST(test_begin_normalizes_offline_threshold_on_stored_copy);
   RUN_TEST(test_begin_success_sets_ready);
   RUN_TEST(test_begin_with_2channels);
+  RUN_TEST(test_begin_applyConfig_partial_failure_sets_dirty_with_register_detail);
 
   // probe/recover
+  RUN_TEST(test_probe_missing_callbacks_returns_invalid_config_without_health);
   RUN_TEST(test_probe_failure_does_not_update_health);
   RUN_TEST(test_recover_failure_updates_health);
   RUN_TEST(test_recover_success_returns_ready);
   RUN_TEST(test_recover_rejects_wrong_device_id);
   RUN_TEST(test_recover_reaches_offline_when_threshold_is_one);
+  RUN_TEST(test_syncConfig_success_clears_dirty);
+  RUN_TEST(test_syncConfig_failure_keeps_dirty);
+  RUN_TEST(test_recover_success_clears_dirty_after_reapply);
+  RUN_TEST(test_recover_reapply_failure_keeps_dirty);
 
   // Transport
   RUN_TEST(test_raw_transport_rejects_invalid_buffers);
   RUN_TEST(test_invalid_register_address_does_not_touch_bus);
+  RUN_TEST(test_raw_diagnostic_write_marks_dirty_on_success);
+  RUN_TEST(test_raw_diagnostic_write_failure_does_not_clear_existing_dirty);
 
   // Preconditions
   RUN_TEST(test_readChannel_not_initialized);
@@ -1352,6 +1645,7 @@ int main() {
   RUN_TEST(test_setAutoScanMode_rejects_ldc1612_invalid_sequence);
   RUN_TEST(test_setDeglitch_writes_mux_config);
   RUN_TEST(test_setSingleChannelMode_writes_mux_and_config);
+  RUN_TEST(test_setSingleChannelMode_config_write_failure_marks_dirty);
   RUN_TEST(test_setAutoScanMode_writes_mux_and_commits);
   RUN_TEST(test_setHighCurrentDrive_rejects_autoscan);
   RUN_TEST(test_config_bit_setters_write_config_and_commit);
@@ -1378,7 +1672,10 @@ int main() {
 
   // resetAndReapply
   RUN_TEST(test_resetAndReapply_not_initialized);
+  RUN_TEST(test_softReset_success_keeps_dirty_until_reinit);
   RUN_TEST(test_resetAndReapply_success_keeps_ready);
+  RUN_TEST(test_resetAndReapply_partial_failure_sets_dirty_with_register_detail);
+  RUN_TEST(test_resetAndReapply_success_clears_dirty);
 
   // Recovery ladder
   RUN_TEST(test_recover_backoff_prevents_rapid_retry);

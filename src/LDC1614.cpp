@@ -89,6 +89,32 @@ bool isValidRegisterAddress(uint8_t reg) {
          reg == cmd::REG_DEVICE_ID;
 }
 
+static constexpr uint8_t DIRTY_PHASE_APPLY_CHANNEL = 0x01;
+static constexpr uint8_t DIRTY_PHASE_APPLY_GLOBAL = 0x02;
+static constexpr uint8_t DIRTY_PHASE_SETTER_SINGLE = 0x03;
+static constexpr uint8_t DIRTY_PHASE_SETTER_MULTI_FIRST = 0x04;
+static constexpr uint8_t DIRTY_PHASE_SETTER_MULTI_SECOND = 0x05;
+static constexpr uint8_t DIRTY_PHASE_RAW_WRITE = 0x06;
+static constexpr uint8_t DIRTY_PHASE_RESET = 0x07;
+static constexpr uint8_t DIRTY_INDEX_GLOBAL = 0xFF;
+
+int32_t packDirtyDetail(uint8_t phase, uint8_t reg, uint8_t index, int32_t originalDetail) {
+  const uint32_t packed = (static_cast<uint32_t>(phase) << 24) |
+                          (static_cast<uint32_t>(reg) << 16) |
+                          (static_cast<uint32_t>(index) << 8) |
+                          (static_cast<uint32_t>(originalDetail) & 0xFFU);
+  return static_cast<int32_t>(packed);
+}
+
+Status dirtyStatusFrom(const Status& cause, uint8_t phase, uint8_t reg, uint8_t index) {
+  if (cause.ok()) {
+    return Status::Error(Err::CONFIG_DIRTY,
+                         "Hardware config dirty after diagnostic write",
+                         packDirtyDetail(phase, reg, index, cause.detail));
+  }
+  return Status{cause.code, packDirtyDetail(phase, reg, index, cause.detail), cause.msg};
+}
+
 } // namespace
 
 // ============================================================================
@@ -103,6 +129,7 @@ Status LDC1614::begin(const Config& config) {
   _sleeping = true;
   _driverState = DriverState::UNINIT;
   _allowOfflineI2c = false;
+  _clearHardwareConfigDirty();
 
   _lastOkMs = 0;
   _lastErrorMs = 0;
@@ -435,7 +462,8 @@ Status LDC1614::sleep() {
   }
 
   uint16_t configReg = _buildConfigRegister(true);
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (!st.ok()) {
     return st;
   }
@@ -453,7 +481,8 @@ Status LDC1614::wake() {
   }
 
   uint16_t configReg = _buildConfigRegister(false);
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (!st.ok()) {
     return st;
   }
@@ -468,7 +497,8 @@ Status LDC1614::softReset() {
   }
 
   ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
-  Status st = writeRegister16(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
+  Status st = _writeConfigRegister(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV,
+                                   DIRTY_PHASE_RESET, DIRTY_INDEX_GLOBAL);
   if (!st.ok()) {
     return st;
   }
@@ -489,8 +519,10 @@ Status LDC1614::resetAndReapply() {
 
   ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
   Status st = [this, &savedConfig]() -> Status {
-    Status inner = writeRegister16(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
+    Status inner = _writeRegister16Tracked(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
     if (!inner.ok()) {
+      _markHardwareConfigDirty(inner, DIRTY_PHASE_RESET, cmd::REG_RESET_DEV,
+                               DIRTY_INDEX_GLOBAL);
       return inner;
     }
 
@@ -507,6 +539,24 @@ Status LDC1614::resetAndReapply() {
     }
     return Status::Ok();
   }();
+  if (!st.ok()) {
+    return st;
+  }
+
+  _initialized = true;
+  _driverState = DriverState::READY;
+  _consecutiveFailures = 0;
+  _clearHardwareConfigDirty();
+  return Status::Ok();
+}
+
+Status LDC1614::syncConfig() {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+
+  ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
+  Status st = _applyConfig();
   if (!st.ok()) {
     return st;
   }
@@ -657,6 +707,8 @@ Status LDC1614::getSettings(SettingsSnapshot& out) const {
   out.autoAmpDis = _config.autoAmpDis;
   out.highCurrentDrv = _config.highCurrentDrv;
   out.intbEnabled = (_config.intbPin >= 0 && !_config.intbDisable);
+  out.hardwareConfigDirty = _hardwareConfigDirty;
+  out.hardwareConfigDirtyError = _hardwareConfigDirtyError;
   for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
     out.hasSample[i] = _sampleTimestampMs[i] != 0;
     out.sampleTimestampMs[i] = _sampleTimestampMs[i];
@@ -688,7 +740,8 @@ Status LDC1614::setActiveChannel(uint8_t ch) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.activeChan = oldActive;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.activeChan = ch;
   }
@@ -718,11 +771,15 @@ Status LDC1614::setSingleChannelMode(uint8_t ch) {
   _config.autoScan = oldAutoScan;
   _config.activeChan = oldActive;
 
-  Status st = writeRegister16(cmd::REG_MUX_CONFIG, muxReg);
+  Status st = _writeConfigRegister(cmd::REG_MUX_CONFIG, muxReg,
+                                   DIRTY_PHASE_SETTER_MULTI_FIRST,
+                                   DIRTY_INDEX_GLOBAL);
   if (!st.ok()) {
     return st;
   }
-  st = writeRegister16(cmd::REG_CONFIG, configReg);
+  st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                            DIRTY_PHASE_SETTER_MULTI_SECOND,
+                            DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.autoScan = false;
     _config.activeChan = ch;
@@ -752,7 +809,8 @@ Status LDC1614::setAutoScanMode(RRSequence sequence) {
   _config.autoScan = oldAutoScan;
   _config.rrSequence = oldSequence;
 
-  Status st = writeRegister16(cmd::REG_MUX_CONFIG, muxReg);
+  Status st = _writeConfigRegister(cmd::REG_MUX_CONFIG, muxReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.autoScan = true;
     _config.rrSequence = sequence;
@@ -776,7 +834,8 @@ Status LDC1614::setDeglitch(Deglitch deglitch) {
   const uint16_t muxReg = _buildMuxConfigRegister();
   _config.deglitch = oldDeglitch;
 
-  Status st = writeRegister16(cmd::REG_MUX_CONFIG, muxReg);
+  Status st = _writeConfigRegister(cmd::REG_MUX_CONFIG, muxReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.deglitch = deglitch;
   }
@@ -794,7 +853,8 @@ Status LDC1614::setErrorConfig(uint16_t errorConfig) {
     return Status::Error(Err::INVALID_PARAM, "ERROR_CONFIG has reserved bits set");
   }
 
-  Status st = writeRegister16(cmd::REG_ERROR_CONFIG, errorConfig);
+  Status st = _writeConfigRegister(cmd::REG_ERROR_CONFIG, errorConfig,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.errorConfig = errorConfig;
   }
@@ -814,7 +874,8 @@ Status LDC1614::setIntbDisabled(bool disabled) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.intbDisable = oldValue;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.intbDisable = disabled;
   }
@@ -837,7 +898,8 @@ Status LDC1614::setReferenceClockSource(RefClkSrc source) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.refClkSrc = oldSource;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.refClkSrc = source;
   }
@@ -860,7 +922,8 @@ Status LDC1614::setSensorActivation(SensorActivation activation) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.sensorActivation = oldActivation;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.sensorActivation = activation;
   }
@@ -880,7 +943,8 @@ Status LDC1614::setRpOverrideEnabled(bool enabled) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.rpOverrideEn = oldValue;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.rpOverrideEn = enabled;
   }
@@ -900,7 +964,8 @@ Status LDC1614::setAutoAmplitudeCorrectionEnabled(bool enabled) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.autoAmpDis = oldValue;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.autoAmpDis = !enabled;
   }
@@ -926,7 +991,8 @@ Status LDC1614::setHighCurrentDriveEnabled(bool enabled) {
   const uint16_t configReg = _buildConfigRegister(true);
   _config.highCurrentDrv = oldValue;
 
-  Status st = writeRegister16(cmd::REG_CONFIG, configReg);
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, configReg,
+                                   DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.highCurrentDrv = enabled;
   }
@@ -947,7 +1013,8 @@ Status LDC1614::setRcount(uint8_t ch, uint16_t rcount) {
     return Status::Error(Err::INVALID_PARAM, "RCOUNT below minimum (0x0005)");
   }
 
-  Status st = writeRegister16(cmd::regRcount(ch), rcount);
+  Status st = _writeConfigRegister(cmd::regRcount(ch), rcount,
+                                   DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].rcount = rcount;
   }
@@ -965,7 +1032,8 @@ Status LDC1614::setSettleCount(uint8_t ch, uint16_t count) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
 
-  Status st = writeRegister16(cmd::regSettleCount(ch), count);
+  Status st = _writeConfigRegister(cmd::regSettleCount(ch), count,
+                                   DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].settleCount = count;
   }
@@ -991,7 +1059,8 @@ Status LDC1614::setClockDividers(uint8_t ch, uint8_t finDiv, uint16_t frefDiv) {
 
   uint16_t regVal = (static_cast<uint16_t>(finDiv) << cmd::BIT_FIN_DIVIDER) |
                     (frefDiv & cmd::MASK_FREF_DIVIDER);
-  Status st = writeRegister16(cmd::regClockDividers(ch), regVal);
+  Status st = _writeConfigRegister(cmd::regClockDividers(ch), regVal,
+                                   DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].finDivider = finDiv;
     _config.channel[ch].frefDivider = frefDiv;
@@ -1010,7 +1079,8 @@ Status LDC1614::setOffset(uint8_t ch, uint16_t offset) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
 
-  Status st = writeRegister16(cmd::regOffset(ch), offset);
+  Status st = _writeConfigRegister(cmd::regOffset(ch), offset,
+                                   DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].offset = offset;
   }
@@ -1033,7 +1103,8 @@ Status LDC1614::setDriveCurrent(uint8_t ch, uint8_t idrive) {
 
   // INIT_IDRIVE (bits 10:6) must be written as 0; reserved bits (5:0) must be 0
   uint16_t regVal = static_cast<uint16_t>(idrive) << cmd::BIT_IDRIVE;
-  Status st = writeRegister16(cmd::regDriveCurrent(ch), regVal);
+  Status st = _writeConfigRegister(cmd::regDriveCurrent(ch), regVal,
+                                   DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].idrive = idrive;
   }
@@ -1186,7 +1257,16 @@ Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
   if (!isValidRegisterAddress(reg)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid register address");
   }
-  return _writeRegister16Tracked(reg, value);
+  Status st = _writeRegister16Tracked(reg, value);
+  if (st.ok()) {
+    _markHardwareConfigDirty(Status::Ok(), DIRTY_PHASE_RAW_WRITE, reg,
+                             DIRTY_INDEX_GLOBAL);
+  } else if (st.code != Err::BUSY && st.code != Err::INVALID_CONFIG &&
+             st.code != Err::INVALID_PARAM) {
+    _markHardwareConfigDirty(st, DIRTY_PHASE_RAW_WRITE, reg,
+                             DIRTY_INDEX_GLOBAL);
+  }
+  return st;
 }
 
 Status LDC1614::_readRegister16Tracked(uint8_t reg, uint16_t& value) {
@@ -1206,6 +1286,16 @@ Status LDC1614::_writeRegister16Tracked(uint8_t reg, uint16_t value) {
     static_cast<uint8_t>(value & 0xFF)
   };
   return _i2cWriteTracked(tx, sizeof(tx));
+}
+
+Status LDC1614::_writeConfigRegister(uint8_t reg, uint16_t value,
+                                     uint8_t phase, uint8_t index) {
+  Status st = _writeRegister16Tracked(reg, value);
+  if (!st.ok() && st.code != Err::BUSY && st.code != Err::INVALID_CONFIG &&
+      st.code != Err::INVALID_PARAM) {
+    _markHardwareConfigDirty(st, phase, reg, index);
+  }
+  return st;
 }
 
 Status LDC1614::_readRegister16Raw(uint8_t reg, uint16_t& value) {
@@ -1331,6 +1421,13 @@ Status LDC1614::_performRecoveryLadder() {
     return Status::Ok();
   };
 
+  auto syncIfDirty = [this]() -> Status {
+    if (!_hardwareConfigDirty) {
+      return Status::Ok();
+    }
+    return _applyConfig();
+  };
+
   // Enforce recovery backoff
   if (_config.recoverBackoffMs > 0 && _lastRecoverValid &&
       (now - _lastRecoverMs) < _config.recoverBackoffMs) {
@@ -1342,7 +1439,13 @@ Status LDC1614::_performRecoveryLadder() {
   // Step 1: Identity probe via tracked reads (updates health on I2C access)
   Status last = readIdentityTracked();
   if (last.ok()) {
-    return Status::Ok();
+    Status st = syncIfDirty();
+    if (st.ok()) {
+      _consecutiveFailures = 0;
+      _driverState = DriverState::READY;
+      return Status::Ok();
+    }
+    last = st;
   }
 
   // Step 2: Bus reset (SCL recovery) if callback provided
@@ -1351,9 +1454,16 @@ Status LDC1614::_performRecoveryLadder() {
     if (st.ok()) {
       st = readIdentityTracked();
       if (st.ok()) {
-        return Status::Ok();
+        st = syncIfDirty();
+        if (st.ok()) {
+          _consecutiveFailures = 0;
+          _driverState = DriverState::READY;
+          return Status::Ok();
+        }
+        last = st;
+      } else {
+        last = st;
       }
-      last = st;
     } else {
       last = st;
     }
@@ -1362,7 +1472,8 @@ Status LDC1614::_performRecoveryLadder() {
   // Step 3: Soft reset + re-apply config
   if (_config.recoverUseSoftReset) {
     // Attempt soft reset regardless of current sleep state
-    Status st = writeRegister16(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV);
+    Status st = _writeConfigRegister(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV,
+                                     DIRTY_PHASE_RESET, DIRTY_INDEX_GLOBAL);
     if (st.ok()) {
       _sleeping = true;
       st = _applyConfig();
@@ -1393,49 +1504,73 @@ Status LDC1614::_performRecoveryLadder() {
   return last;
 }
 
+void LDC1614::_markHardwareConfigDirty(const Status& cause, uint8_t phase,
+                                       uint8_t reg, uint8_t index) {
+  if (_hardwareConfigDirty) {
+    return;
+  }
+  _hardwareConfigDirty = true;
+  _hardwareConfigDirtyError = dirtyStatusFrom(cause, phase, reg, index);
+}
+
+void LDC1614::_clearHardwareConfigDirty() {
+  _hardwareConfigDirty = false;
+  _hardwareConfigDirtyError = Status::Ok();
+}
+
 Status LDC1614::_applyConfig() {
   // Write per-channel registers (in sleep mode after POR / probe)
   for (uint8_t ch = 0; ch < _config.channelCount; ch++) {
     const auto& cc = _config.channel[ch];
 
     // RCOUNT
-    Status st = _writeRegister16Tracked(cmd::regRcount(ch), cc.rcount);
+    Status st = _writeConfigRegister(cmd::regRcount(ch), cc.rcount,
+                                     DIRTY_PHASE_APPLY_CHANNEL, ch);
     if (!st.ok()) return st;
 
     // SETTLECOUNT
-    st = _writeRegister16Tracked(cmd::regSettleCount(ch), cc.settleCount);
+    st = _writeConfigRegister(cmd::regSettleCount(ch), cc.settleCount,
+                              DIRTY_PHASE_APPLY_CHANNEL, ch);
     if (!st.ok()) return st;
 
     // CLOCK_DIVIDERS: FIN_DIVIDER[15:12], reserved[11:10]=0, FREF_DIVIDER[9:0]
     uint16_t clkDiv = (static_cast<uint16_t>(cc.finDivider) << cmd::BIT_FIN_DIVIDER) |
                       (cc.frefDivider & cmd::MASK_FREF_DIVIDER);
-    st = _writeRegister16Tracked(cmd::regClockDividers(ch), clkDiv);
+    st = _writeConfigRegister(cmd::regClockDividers(ch), clkDiv,
+                              DIRTY_PHASE_APPLY_CHANNEL, ch);
     if (!st.ok()) return st;
 
     // OFFSET
-    st = _writeRegister16Tracked(cmd::regOffset(ch), cc.offset);
+    st = _writeConfigRegister(cmd::regOffset(ch), cc.offset,
+                              DIRTY_PHASE_APPLY_CHANNEL, ch);
     if (!st.ok()) return st;
 
     // DRIVE_CURRENT: IDRIVE[15:11], INIT_IDRIVE[10:6]=0, reserved[5:0]=0
     uint16_t drv = static_cast<uint16_t>(cc.idrive) << cmd::BIT_IDRIVE;
-    st = _writeRegister16Tracked(cmd::regDriveCurrent(ch), drv);
+    st = _writeConfigRegister(cmd::regDriveCurrent(ch), drv,
+                              DIRTY_PHASE_APPLY_CHANNEL, ch);
     if (!st.ok()) return st;
   }
 
   // ERROR_CONFIG
-  Status st = _writeRegister16Tracked(cmd::REG_ERROR_CONFIG, _config.errorConfig);
+  Status st = _writeConfigRegister(cmd::REG_ERROR_CONFIG, _config.errorConfig,
+                                   DIRTY_PHASE_APPLY_GLOBAL,
+                                   DIRTY_INDEX_GLOBAL);
   if (!st.ok()) return st;
 
   // MUX_CONFIG
-  st = _writeRegister16Tracked(cmd::REG_MUX_CONFIG, _buildMuxConfigRegister());
+  st = _writeConfigRegister(cmd::REG_MUX_CONFIG, _buildMuxConfigRegister(),
+                            DIRTY_PHASE_APPLY_GLOBAL, DIRTY_INDEX_GLOBAL);
   if (!st.ok()) return st;
 
   // CONFIG (must be written last — starts conversions if SLEEP_MODE_EN=0)
   // After _applyConfig(), device remains in sleep mode. Caller uses wake() to start.
-  st = _writeRegister16Tracked(cmd::REG_CONFIG, _buildConfigRegister(true));
+  st = _writeConfigRegister(cmd::REG_CONFIG, _buildConfigRegister(true),
+                            DIRTY_PHASE_APPLY_GLOBAL, DIRTY_INDEX_GLOBAL);
   if (!st.ok()) return st;
 
   _sleeping = true;
+  _clearHardwareConfigDirty();
   return Status::Ok();
 }
 

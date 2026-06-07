@@ -23,7 +23,8 @@ enum class Err : uint8_t {
   I2C_NACK_DATA,             ///< I2C data phase was not acknowledged
   I2C_TIMEOUT,               ///< I2C transaction timed out
   I2C_BUS,                   ///< I2C bus or arbitration error
-  SENSOR_ERROR               ///< Sensor error reported by device (check status flags)
+  SENSOR_ERROR,              ///< Sensor error reported by device (check status flags)
+  CONFIG_DIRTY               ///< Cached configuration may not match hardware
 };
 
 /// @brief Status structure returned by all fallible operations.

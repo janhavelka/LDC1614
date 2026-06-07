@@ -187,6 +187,7 @@ void loop() {
 | `wake()` | Wake and start conversions. |
 | `softReset()` | Reset device to defaults. Requires `begin()` to reinitialize. |
 | `resetAndReapply()` | Reset the device and re-apply the cached configuration, returning to READY on success. |
+| `syncConfig()` | Re-apply the cached configuration without a reset. Leaves the device in sleep mode on success. |
 
 ### Runtime Configuration (requires sleep mode)
 
@@ -218,7 +219,7 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 |--------|-------------|
 | `probe()` | Verify device identity (no health tracking). |
 | `recover()` | Manual recovery ladder. Uses tracked identity reads, then optional bus reset, optional soft reset/reapply, and optional hard reset/reapply. |
-| `readRegister16()` / `writeRegister16()` | Raw tracked register access for diagnostics and service operations. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. |
+| `readRegister16()` / `writeRegister16()` | Diagnostic-only tracked register access. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. Raw access is not variant/access-type safe. |
 | `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
 | `getSettings(snap)` | Populate an expanded RAM-only snapshot of active settings, hook presence, cached samples, timestamps, and health. |
 | `settings()` | Return the same snapshot by value for compact diagnostics. |
@@ -226,7 +227,14 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 | `hasSample(ch)` | Check whether a configured channel has a cached sample. |
 | `calcSettleTimeUs(ch, fRef)` / `calcSampleTimeUs(ch, fRef)` | Calculate configured settling and conversion-plus-settling timing for service diagnostics. |
 
-`recover()` honors `Config::recoverBackoffMs` and validates both `MANUFACTURER_ID` and `DEVICE_ID` before reporting success. Transport failures update health counters; `probe()` is intentionally raw and does not affect health.
+`probe()` is intentionally raw and does not affect health. It requires configured
+transport callbacks; a fresh default instance returns `INVALID_CONFIG` because no
+transport has been supplied.
+
+`recover()` honors `Config::recoverBackoffMs` and validates both `MANUFACTURER_ID`
+and `DEVICE_ID` before reporting success. Transport failures update health
+counters. If `hardwareConfigDirty()` is true, recovery also re-applies the cached
+configuration before returning success.
 
 ### Health
 
@@ -238,6 +246,8 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 | `totalSuccess()` / `totalFailures()` | Lifetime counters. |
 | `lastOkMs()` / `lastErrorMs()` | Timestamps of last events. |
 | `lastError()` | Most recent error Status. |
+| `hardwareConfigDirty()` | True when cached configuration may not match hardware. |
+| `hardwareConfigDirtyError()` | First status/detail that made the dirty state true. |
 
 ## Examples
 
@@ -251,9 +261,10 @@ arguments, defaults, output structure, colors, prompts, health reporting, and
 diagnostic workflows stay aligned across Arduino and ESP-IDF.
 
 The CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid register
-addresses are rejected before I2C, but valid diagnostic writes can still
-desynchronize the cached configuration until a fresh `begin()` or
-`resetAndReapply()`.
+addresses are rejected before I2C, but valid diagnostic writes mark
+`hardwareConfigDirty()` because they can desynchronize the cached configuration.
+Use `syncConfig()`, `recover()`, `resetAndReapply()`, or a fresh `begin()` before
+trusting cached configuration-dependent behavior again.
 
 The CLI also exposes runtime configuration commands for the driver features:
 `single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
@@ -286,13 +297,14 @@ Not part of the library. These simulate project-level glue and keep examples sel
 
 ## Behavioral Contracts
 
-1. **Threading model**: Single-threaded. All calls from one task/loop.
+1. **Threading model**: Instances are not internally thread-safe, and public APIs are not ISR-safe. Serialize all driver calls and I2C access in the application or injected transport. Transport callbacks must not recursively call into the same driver instance.
 2. **Timing model**: `tick()` is bounded (currently no-op). Blocking read waits use deadlines and a finite poll cap, so a stalled injected clock cannot spin forever.
 3. **Resource ownership**: I2C bus and GPIO pins owned by the application. Provided via `Config`.
 4. **Framework boundary**: Core code does not call `Wire`, `Serial`, `delay()`, `yield()`, or `millis()` directly. Arduino examples provide those hooks externally.
 5. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
 6. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.
 7. **Health behavior**: `OFFLINE` is latched. Normal public I2C operations return `BUSY` with `Driver is offline; call recover()` without touching the bus until `recover()` succeeds.
+8. **Dirty hardware config behavior**: failed configuration writes and diagnostic raw writes can leave hardware and cache diverged. Check `hardwareConfigDirty()` / `hardwareConfigDirtyError()`, stop trusting cached configuration, then call `syncConfig()`, `recover()`, `resetAndReapply()`, or `begin()`. Trust the cache again only after dirty state is clear.
 
 ## Configuration Constraints
 

@@ -77,6 +77,8 @@ struct SettingsSnapshot {
   bool autoAmpDis = true;                       ///< AUTO_AMP_DIS bit state
   bool highCurrentDrv = false;                  ///< High-current drive mode enabled
   bool intbEnabled = false;                     ///< INTB pin enabled for DRDY/error signaling
+  bool hardwareConfigDirty = false;             ///< Cached config may not match hardware registers
+  Status hardwareConfigDirtyError = Status::Ok(); ///< First status that made config dirty
   bool hasSample[4] = {};                       ///< Per-channel cached-sample flags
   uint32_t sampleTimestampMs[4] = {};   ///< Per-channel last sample timestamp (0 = never)
   ChannelConfig channel[4] = {};        ///< Per-channel config at snapshot time
@@ -87,8 +89,20 @@ struct SettingsSnapshot {
 /// Managed synchronous model with 4-state health tracking.
 /// All public I2C operations are blocking. Transport is injected via Config.
 /// The application controls retry strategy via recover().
+///
+/// Instances are not internally thread-safe. Public APIs are not ISR-safe.
+/// Applications must serialize all calls that can touch shared driver state or
+/// I2C. Transport callbacks must not recursively call into the same instance;
+/// locking, task ownership, and bus arbitration belong in the injected
+/// transport/application bus manager.
 class LDC1614 {
 public:
+  LDC1614() = default;
+  LDC1614(const LDC1614&) = delete;
+  LDC1614& operator=(const LDC1614&) = delete;
+  LDC1614(LDC1614&&) = delete;
+  LDC1614& operator=(LDC1614&&) = delete;
+
   // === Lifecycle ===
 
   /// @brief Initialize the driver with the given configuration.
@@ -117,7 +131,9 @@ public:
 
   /// @brief Probe device presence by reading MANUFACTURER_ID and DEVICE_ID.
   /// Uses raw I2C — does NOT update health counters.
-  /// Safe to call before or after begin().
+  /// Safe to call before or after a successful begin(), but it requires
+  /// configured transport callbacks. A fresh instance with no prior begin()
+  /// attempt returns INVALID_CONFIG because no transport has been supplied.
   /// @return Status (OK if device responds with expected IDs)
   Status probe();
 
@@ -164,6 +180,17 @@ public:
 
   /// @brief Lifetime count of successful I2C operations (wraps at UINT32_MAX).
   uint32_t totalSuccess() const { return _totalSuccess; }
+
+  /// @brief True when cached configuration may not match hardware registers.
+  /// Set after raw diagnostic writes or failed configuration writes that may
+  /// have reached the device. Cleared only after a full successful sync,
+  /// recover/reapply, resetAndReapply(), or begin().
+  bool hardwareConfigDirty() const { return _hardwareConfigDirty; }
+
+  /// @brief First status that made hardwareConfigDirty() true.
+  /// The stored detail packs diagnostic context as
+  /// phase[31:24] | register[23:16] | index[15:8] | originalDetailLow8.
+  Status hardwareConfigDirtyError() const { return _hardwareConfigDirtyError; }
 
   // === Data Readback ===
 
@@ -272,8 +299,25 @@ public:
 
   /// @brief Software reset followed by re-applying the stored configuration.
   /// Unlike softReset(), the driver re-enters READY state on success.
+  /// The datasheet evidence in this repository does not require an arbitrary
+  /// post-RESET_DEV delay before I2C reconfiguration. If board hardware needs
+  /// reset timing, keep it in the injected hardReset callback or a bounded
+  /// application-owned recovery policy.
   /// @return Status (OK if reset and reconfiguration succeed)
   Status resetAndReapply();
+
+  /// @brief Re-apply the cached configuration to hardware.
+  ///
+  /// Recovery recipe for dirty hardware state:
+  /// 1. Check hardwareConfigDirty().
+  /// 2. Stop trusting cached configuration-dependent behavior.
+  /// 3. Call syncConfig(), recover(), resetAndReapply(), or begin().
+  /// 4. Trust the cache again only after hardwareConfigDirty() is false.
+  ///
+  /// On success the device remains in sleep mode. On failure the original
+  /// transport/status error is returned and the dirty state remains set.
+  /// @return Status
+  Status syncConfig();
 
   // === Runtime Configuration ===
 
@@ -394,18 +438,23 @@ public:
 
   // === Raw Register Access ===
 
-  /// @brief Read a 16-bit register.
+  /// @brief Diagnostic-only read of a 16-bit register.
   /// Uses tracked I2C — updates health counters.
   /// Rejects access before begin() and register addresses outside the LDC1614 map.
+  /// This escape hatch is intentionally not variant/access-type safe: typed
+  /// APIs remain the safe path for normal operation. STATUS and DATAx reads can
+  /// have datasheet-defined side effects.
   /// @param reg Register address
   /// @param value Output: register value
   /// @return Status
   Status readRegister16(uint8_t reg, uint16_t& value);
 
-  /// @brief Write a 16-bit register.
+  /// @brief Diagnostic-only write of a 16-bit register.
   /// Uses tracked I2C — updates health counters.
   /// Rejects access before begin() and register addresses outside the LDC1614 map.
-  /// @warning Diagnostic writes can still desynchronize cached configuration. Use with care.
+  /// @warning Any successful diagnostic write marks hardwareConfigDirty()
+  /// because it can desynchronize cached configuration. Call syncConfig(),
+  /// recover(), resetAndReapply(), or begin() before trusting the cache.
   /// @param reg Register address
   /// @param value Value to write
   /// @return Status
@@ -470,6 +519,8 @@ private:
   Status _readRegister16Raw(uint8_t reg, uint16_t& value);
   Status _readRegister16Tracked(uint8_t reg, uint16_t& value);
   Status _writeRegister16Tracked(uint8_t reg, uint16_t value);
+  Status _writeConfigRegister(uint8_t reg, uint16_t value,
+                              uint8_t phase, uint8_t index);
 
   // === Health Tracking ===
   Status _updateHealth(const Status& st);
@@ -480,6 +531,9 @@ private:
   // === Internal ===
   Status _applyConfig();
   Status _performRecoveryLadder();
+  void _markHardwareConfigDirty(const Status& cause, uint8_t phase,
+                                uint8_t reg, uint8_t index);
+  void _clearHardwareConfigDirty();
   uint16_t _buildConfigRegister(bool sleepMode) const;
   uint16_t _buildMuxConfigRegister() const;
   uint32_t _nowMs() const;
@@ -490,6 +544,8 @@ private:
   bool _initialized = false;
   bool _sleeping = true;
   DriverState _driverState = DriverState::UNINIT;
+  bool _hardwareConfigDirty = false;
+  Status _hardwareConfigDirtyError = Status::Ok();
 
   // === Health Counters ===
   uint32_t _lastOkMs = 0;

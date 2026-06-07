@@ -78,6 +78,8 @@ enum class Deglitch : uint8_t {
   BW_1MHZ  = 1,   ///< 1.0 MHz
   BW_3MHZ  = 4,   ///< 3.3 MHz
   BW_10MHZ = 5,   ///< 10 MHz
+  /// 33 MHz. Uses b111 to match MUX_CONFIG field text and reset default;
+  /// TI application Table 45 also shows a conflicting b011 value.
   BW_33MHZ = 7    ///< 33 MHz
 };
 
@@ -95,7 +97,7 @@ struct ChannelConfig {
   uint8_t  finDivider = 1;           ///< Sensor frequency divider (1-15). Must be >=2 if fSensor >= 8.75 MHz.
   uint16_t frefDivider = 1;          ///< Reference clock divider (1-1023).
   uint16_t offset = 0x0000;          ///< Conversion offset (subtracted from measurement).
-  uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See datasheet Table 11.
+  uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See DRIVE_CURRENTx register table.
 };
 
 /// @brief Configuration for LDC1614 driver.

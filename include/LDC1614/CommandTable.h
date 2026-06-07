@@ -209,6 +209,10 @@ static constexpr uint8_t BIT_INIT_IDRIVE = 6;
 // ============================================================================
 // Deglitch Filter Values
 // ============================================================================
+// Datasheet note: the MUX_CONFIG field description and reset default encode
+// 33 MHz as b111, while the application deglitch table has a conflicting b011
+// entry. The driver follows MUX_CONFIG field text/default until TI errata or
+// hardware validation proves otherwise.
 
 static constexpr uint16_t DEGLITCH_1MHZ  = 0x0001;  ///< 1.0 MHz bandwidth
 static constexpr uint16_t DEGLITCH_3MHZ  = 0x0004;  ///< 3.3 MHz bandwidth
