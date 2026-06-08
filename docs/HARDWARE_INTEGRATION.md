@@ -68,6 +68,9 @@ Local sources used:
   `syncConfig()`, `recover()`, `resetAndReapply()`, or `begin()` before trusting
   cached configuration again.
 - Read conversion data in datasheet order: `DATAx_MSB` before `DATAx_LSB`.
+- In autoscan mode, one DRDY event is not a per-channel freshness bitmap. Use
+  `readFreshChannels()` / `readDeviceStatus()` and the STATUS `UNREADCONVx`
+  bits when production logic must process only newly converted channels.
 - Use `readDataReady()` when the caller needs precise failure status.
   `dataReady()` is a convenience wrapper that returns `false` on transport or
   status-read failure.

@@ -1258,10 +1258,10 @@ void test_end_resets_to_uninit() {
 }
 
 // ============================================================================
-// Millis Fallback Tests
+// Missing nowMs Nonblocking Tests
 // ============================================================================
 
-void test_begin_without_now_ms_uses_millis_fallback() {
+void test_begin_without_now_ms_keeps_nonblocking_paths_available() {
   FakeBus bus;
   Config cfg = makeConfig(bus);
   cfg.nowMs = nullptr;
@@ -1270,7 +1270,8 @@ void test_begin_without_now_ms_uses_millis_fallback() {
   LDC1614::LDC1614 dev;
   Status st = dev.begin(cfg);
   TEST_ASSERT_TRUE(st.ok());
-  // Missing nowMs hook returns 0; lastOkMs should stay 0.
+  // Missing nowMs hook returns 0 for health timestamps; blocking helpers reject
+  // the config before polling.
   TEST_ASSERT_EQUAL_UINT32(0u, dev.lastOkMs());
 }
 
@@ -1440,6 +1441,33 @@ void test_readChannel_caches_data_and_timestamp() {
   TEST_ASSERT_EQUAL_UINT32(500u, dev.sampleAgeMs(0, 5500));
 }
 
+void test_readChannel_cache_valid_when_timestamp_is_zero() {
+  FakeBus bus;
+  bus.nowMs = 0;
+  Config cfg = makeConfig(bus);
+  cfg.nowMs = nullptr;
+  cfg.timeUser = nullptr;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+  ChannelData data;
+  TEST_ASSERT_TRUE(dev.readChannel(0, data).ok());
+
+  TEST_ASSERT_TRUE(dev.hasSample(0));
+  TEST_ASSERT_EQUAL_UINT32(0u, dev.sampleTimestampMs(0));
+
+  ChannelData cached;
+  TEST_ASSERT_TRUE(dev.getLastSample(0, cached).ok());
+  TEST_ASSERT_EQUAL_HEX32(0x00010002u, cached.rawData);
+
+  SettingsSnapshot snapshot;
+  TEST_ASSERT_TRUE(dev.getSettings(snapshot).ok());
+  TEST_ASSERT_TRUE(snapshot.hasSample[0]);
+  TEST_ASSERT_EQUAL_UINT32(0u, snapshot.sampleTimestampMs[0]);
+}
+
 void test_readChannel_reconstructs_28bit_data_and_error_flags() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -1477,6 +1505,98 @@ void test_readChannel_reads_data_msb_before_lsb() {
                           static_cast<uint8_t>(bus.transactionLog[1].op));
   TEST_ASSERT_EQUAL_HEX8(cmd::REG_DATA0_LSB, bus.transactionLog[1].reg);
   TEST_ASSERT_EQUAL_HEX32(0x01234567u, data.rawData);
+}
+
+void test_readFreshChannels_reads_only_unread_channels_and_marks_freshness() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  bus.reg[cmd::REG_DATA1_MSB] = 0x0003;
+  bus.reg[cmd::REG_DATA1_LSB] = 0x0004;
+  ChannelData cached;
+  TEST_ASSERT_TRUE(dev.readChannel(1, cached).ok());
+  resetIoCounters(bus);
+
+  bus.reg[cmd::REG_STATUS] = cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_UNREADCONV0 |
+                              cmd::MASK_STATUS_ERR_ALE;
+  bus.reg[cmd::REG_DATA0_MSB] = cmd::MASK_DATA_ERR_UR | cmd::MASK_DATA_ERR_AE | 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+  FreshChannelData fresh[4] = {};
+  DeviceStatus status;
+  Status st = dev.readFreshChannels(fresh, status, 0);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_TRUE(status.dataReady);
+  TEST_ASSERT_TRUE(status.unreadConv[0]);
+  TEST_ASSERT_TRUE(status.errAmplitudeLow);
+  TEST_ASSERT_TRUE(status.hasError());
+
+  TEST_ASSERT_TRUE(fresh[0].valid);
+  TEST_ASSERT_TRUE(fresh[0].fresh);
+  TEST_ASSERT_EQUAL_HEX32(0x00010002u, fresh[0].data.rawData);
+  TEST_ASSERT_TRUE(fresh[0].data.errUnderRange);
+  TEST_ASSERT_TRUE(fresh[0].data.errAmplitude);
+
+  TEST_ASSERT_TRUE(fresh[1].valid);
+  TEST_ASSERT_FALSE(fresh[1].fresh);
+  TEST_ASSERT_EQUAL_HEX32(0x00030004u, fresh[1].data.rawData);
+
+  TEST_ASSERT_FALSE(fresh[2].valid);
+  TEST_ASSERT_FALSE(fresh[2].fresh);
+  TEST_ASSERT_FALSE(fresh[3].valid);
+  TEST_ASSERT_FALSE(fresh[3].fresh);
+
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedReadsToReg(bus, cmd::REG_STATUS));
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedReadsToReg(bus, cmd::REG_DATA0_MSB));
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedReadsToReg(bus, cmd::REG_DATA0_LSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA1_MSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA2_MSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA3_MSB));
+}
+
+void test_readFreshChannels_validates_before_status_read() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.channelCount = 2;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  resetIoCounters(bus);
+
+  FreshChannelData fresh[4] = {};
+  assertStatusCode(Err::INVALID_PARAM, dev.readFreshChannels(nullptr, 0));
+  assertStatusCode(Err::INVALID_PARAM, dev.readFreshChannels(fresh, 3));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+}
+
+void test_readFreshChannels_ldc1612_ignores_unread_bits_for_channels_2_3() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.channelCount = 2;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  resetIoCounters(bus);
+
+  bus.reg[cmd::REG_STATUS] = cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_UNREADCONV2 |
+                              cmd::MASK_STATUS_UNREADCONV3;
+  bus.reg[cmd::REG_DATA2_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA2_LSB] = 0x0002;
+  bus.reg[cmd::REG_DATA3_MSB] = 0x0003;
+  bus.reg[cmd::REG_DATA3_LSB] = 0x0004;
+
+  FreshChannelData fresh[4] = {};
+  DeviceStatus status;
+  Status st = dev.readFreshChannels(fresh, status, 0);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_TRUE(status.unreadConv[2]);
+  TEST_ASSERT_TRUE(status.unreadConv[3]);
+  TEST_ASSERT_FALSE(fresh[0].valid);
+  TEST_ASSERT_FALSE(fresh[1].valid);
+  TEST_ASSERT_FALSE(fresh[2].valid);
+  TEST_ASSERT_FALSE(fresh[3].valid);
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedReadsToReg(bus, cmd::REG_STATUS));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA2_MSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA3_MSB));
 }
 
 void test_readAllChannels_rejects_count_above_channel_count() {
@@ -1922,11 +2042,22 @@ void test_readChannelBlocking_rejects_sleeping() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
   TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
 
-  ChannelData data;
-  Status st = dev.readChannelBlocking(0, data);
+  ChannelData data[4] = {};
+  Status st = dev.readChannelBlocking(0, data[0]);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::BUSY),
                           static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+
+  st = dev.readAllChannelsBlocking(data);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::BUSY),
+                          static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
 }
 
 void test_invalid_blocking_calls_return_before_wait_or_i2c() {
@@ -1947,6 +2078,67 @@ void test_invalid_blocking_calls_return_before_wait_or_i2c() {
 
   st = dev.readAllChannelsBlocking(nullptr, 50, 0);
   assertStatusCode(Err::INVALID_PARAM, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+
+  st = dev.readAllChannelsBlocking(data, 50, 3);
+  assertStatusCode(Err::INVALID_PARAM, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+}
+
+void test_blocking_helpers_require_now_ms_before_polling() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.nowMs = nullptr;
+  cfg.timeUser = nullptr;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  resetIoCounters(bus);
+
+  ChannelData data[4] = {};
+  assertStatusCode(Err::INVALID_CONFIG, dev.readChannelBlocking(0, data[0], 50));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+
+  assertStatusCode(Err::INVALID_CONFIG, dev.readAllChannelsBlocking(data, 50, 0));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+}
+
+void test_blocking_helpers_return_busy_offline_before_gpio_poll() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.offlineThreshold = 1;
+  cfg.intbPin = 4;
+  cfg.gpioRead = fakeGpioRead;
+  cfg.gpioUser = &bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+
+  bus.readStatus = Status::Error(Err::I2C_TIMEOUT, "force offline");
+  DeviceStatus deviceStatus;
+  assertStatusCode(Err::I2C_TIMEOUT, dev.readDeviceStatus(deviceStatus));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
+                          static_cast<uint8_t>(dev.state()));
+
+  bus.readStatus = Status::Ok();
+  bus.gpioLevel = true;  // INTB not asserted; old behavior could spin here.
+  resetIoCounters(bus);
+
+  ChannelData data[4] = {};
+  assertStatusCode(Err::BUSY, dev.readChannelBlocking(0, data[0], 50));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+
+  assertStatusCode(Err::BUSY, dev.readAllChannelsBlocking(data, 50, 0));
   TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
   TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
   TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
@@ -1986,13 +2178,46 @@ void test_readDataReady_propagates_i2c_failure() {
   TEST_ASSERT_EQUAL_UINT8(1u, dev.consecutiveFailures());
 }
 
+void test_readDataReady_preserves_granular_i2c_failures() {
+  struct Case {
+    Err code;
+    int32_t detail;
+  };
+  const Case cases[] = {
+      {Err::I2C_NACK_ADDR, -10},
+      {Err::I2C_NACK_DATA, -11},
+      {Err::I2C_TIMEOUT, -12},
+      {Err::I2C_BUS, -13},
+      {Err::I2C_ERROR, -14},
+  };
+
+  for (const auto& item : cases) {
+    FakeBus bus;
+    LDC1614::LDC1614 dev;
+    TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+    resetIoCounters(bus);
+
+    bus.readStatus = Status::Error(item.code, "forced data-ready failure", item.detail);
+    bool ready = true;
+    Status st = dev.readDataReady(ready);
+    assertStatusCode(item.code, st);
+    TEST_ASSERT_EQUAL_INT32(item.detail, st.detail);
+    TEST_ASSERT_FALSE(ready);
+    TEST_ASSERT_EQUAL_UINT32(1u, bus.readCalls);
+    assertStatusCode(item.code, dev.lastError());
+  }
+}
+
 void test_dataReady_convenience_returns_false_on_failure() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
   TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
 
-  bus.readStatus = Status::Error(Err::I2C_TIMEOUT, "forced data-ready timeout");
+  bus.readStatus = Status::Error(Err::I2C_TIMEOUT, "forced data-ready timeout", -55);
   TEST_ASSERT_FALSE(dev.dataReady());
+  assertStatusCode(Err::I2C_TIMEOUT, dev.lastError());
+  TEST_ASSERT_EQUAL_INT32(-55, dev.lastError().detail);
+  TEST_ASSERT_EQUAL_UINT8(1u, dev.consecutiveFailures());
 }
 
 void test_readDataReady_intb_reads_status_to_distinguish_error() {
@@ -2010,7 +2235,30 @@ void test_readDataReady_intb_reads_status_to_distinguish_error() {
   Status st = dev.readDataReady(ready);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::SENSOR_ERROR),
                           static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_INT32(cmd::MASK_STATUS_ERR_OR, st.detail);
   TEST_ASSERT_FALSE(ready);
+}
+
+void test_readDataReady_intb_asserted_preserves_status_read_failure() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  cfg.intbPin = 4;
+  cfg.gpioRead = fakeGpioRead;
+  cfg.gpioUser = &bus;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  resetIoCounters(bus);
+
+  bus.gpioLevel = false;
+  bus.readStatus = Status::Error(Err::I2C_NACK_DATA, "forced INTB status failure", -77);
+  bool ready = true;
+  Status st = dev.readDataReady(ready);
+  assertStatusCode(Err::I2C_NACK_DATA, st);
+  TEST_ASSERT_EQUAL_INT32(-77, st.detail);
+  TEST_ASSERT_FALSE(ready);
+  TEST_ASSERT_EQUAL_UINT32(1u, bus.readCalls);
+  assertStatusCode(Err::I2C_NACK_DATA, dev.lastError());
+  TEST_ASSERT_EQUAL_INT32(-77, dev.lastError().detail);
 }
 
 void test_readChannelBlocking_propagates_dataReady_failure() {
@@ -2024,6 +2272,25 @@ void test_readChannelBlocking_propagates_dataReady_failure() {
   Status st = dev.readChannelBlocking(0, data, 10);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_TIMEOUT),
                           static_cast<uint8_t>(st.code));
+}
+
+void test_readAllChannelsBlocking_propagates_dataReady_failure_before_data_reads() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  resetIoCounters(bus);
+
+  bus.readStatus = Status::Error(Err::I2C_BUS, "forced all-channel ready failure", -88);
+  ChannelData data[4] = {};
+  Status st = dev.readAllChannelsBlocking(data, 10);
+  assertStatusCode(Err::I2C_BUS, st);
+  TEST_ASSERT_EQUAL_INT32(-88, st.detail);
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedReadsToReg(bus, cmd::REG_STATUS));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA0_MSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA1_MSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA2_MSB));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA3_MSB));
 }
 
 void test_readChannelBlocking_times_out_with_stalled_clock() {
@@ -2271,8 +2538,8 @@ int main() {
   // end()
   RUN_TEST(test_end_resets_to_uninit);
 
-  // Millis fallback
-  RUN_TEST(test_begin_without_now_ms_uses_millis_fallback);
+  // Missing nowMs nonblocking behavior
+  RUN_TEST(test_begin_without_now_ms_keeps_nonblocking_paths_available);
 
   // Offline threshold
   RUN_TEST(test_multiple_failures_reach_offline);
@@ -2286,8 +2553,12 @@ int main() {
   RUN_TEST(test_getLastSample_before_any_read);
   RUN_TEST(test_sampleTimestampMs_before_read);
   RUN_TEST(test_readChannel_caches_data_and_timestamp);
+  RUN_TEST(test_readChannel_cache_valid_when_timestamp_is_zero);
   RUN_TEST(test_readChannel_reconstructs_28bit_data_and_error_flags);
   RUN_TEST(test_readChannel_reads_data_msb_before_lsb);
+  RUN_TEST(test_readFreshChannels_reads_only_unread_channels_and_marks_freshness);
+  RUN_TEST(test_readFreshChannels_validates_before_status_read);
+  RUN_TEST(test_readFreshChannels_ldc1612_ignores_unread_bits_for_channels_2_3);
   RUN_TEST(test_readAllChannels_rejects_count_above_channel_count);
   RUN_TEST(test_ldc1612_readAll_default_reads_only_two_channels);
   RUN_TEST(test_ldc1612_rejects_channels_2_3_for_high_level_apis);
@@ -2323,12 +2594,17 @@ int main() {
   RUN_TEST(test_readChannelBlocking_not_initialized);
   RUN_TEST(test_readChannelBlocking_rejects_sleeping);
   RUN_TEST(test_invalid_blocking_calls_return_before_wait_or_i2c);
+  RUN_TEST(test_blocking_helpers_require_now_ms_before_polling);
+  RUN_TEST(test_blocking_helpers_return_busy_offline_before_gpio_poll);
   RUN_TEST(test_readAllChannelsBlocking_not_initialized);
   RUN_TEST(test_readDataReady_status_polling_success);
   RUN_TEST(test_readDataReady_propagates_i2c_failure);
+  RUN_TEST(test_readDataReady_preserves_granular_i2c_failures);
   RUN_TEST(test_dataReady_convenience_returns_false_on_failure);
   RUN_TEST(test_readDataReady_intb_reads_status_to_distinguish_error);
+  RUN_TEST(test_readDataReady_intb_asserted_preserves_status_read_failure);
   RUN_TEST(test_readChannelBlocking_propagates_dataReady_failure);
+  RUN_TEST(test_readAllChannelsBlocking_propagates_dataReady_failure_before_data_reads);
   RUN_TEST(test_readChannelBlocking_times_out_with_stalled_clock);
   RUN_TEST(test_readAllChannelsBlocking_times_out_with_stalled_clock);
 

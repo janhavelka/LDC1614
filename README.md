@@ -174,11 +174,12 @@ inductance for an application.
 | Method | Description |
 |--------|-------------|
 | `readChannel(ch, data)` | Read conversion data for a single channel. |
-| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. |
-| `readChannelBlocking(ch, data, timeoutMs)` | Wait for DRDY and then read one channel with a bounded timeout. |
-| `readAllChannelsBlocking(data, timeoutMs, count)` | Wait for DRDY and then call `readAllChannels()` with a bounded timeout. |
+| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. Returns latest register values, not guaranteed-fresh autoscan samples for every channel. |
+| `readFreshChannels(data, count)` | Read STATUS once, then read only channels with `UNREADCONVx` set. Reports per-channel `fresh` / `valid` flags and cached stale samples where available. The overload with `DeviceStatus&` returns the STATUS snapshot that drove freshness. |
+| `readChannelBlocking(ch, data, timeoutMs)` | Require `Config::nowMs`, wait for DRDY with a wall-clock timeout, then read one channel. |
+| `readAllChannelsBlocking(data, timeoutMs, count)` | Require `Config::nowMs`, wait for one DRDY event, then call `readAllChannels()`. |
 | `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. |
-| `dataReady()` | Convenience wrapper around `readDataReady()`. Returns `false` if the STATUS/INTB path fails. |
+| `dataReady()` | Convenience wrapper around `readDataReady()`. `false` can mean not ready, not initialized, OFFLINE/BUSY, or hidden transport/status failure. |
 
 `readDeviceStatus()`, `readStatusRaw()`, and STATUS-based data-ready polling read the device STATUS register. Per the device behavior, that read can clear sticky status flags and de-assert INTB.
 
@@ -189,12 +190,28 @@ watchdog, and amplitude error flags when the corresponding ERROR_CONFIG
 condition collapsed into `ChannelData::errAmplitude`; zero-count is reported via
 STATUS/INTB, not DATAx_MSB.
 
+In autoscan mode, `DRDY` means the selected conversion sequence reached its
+documented data-ready condition; it is not a per-channel freshness bitmap.
+`readAllChannels()` intentionally preserves backward-compatible latest-register
+semantics. Production autoscan loops that must avoid stale channel data should
+use `readDeviceStatus()` / `readFreshChannels()` and the `UNREADCONVx` bits,
+then process only entries where `FreshChannelData::fresh` is true. Entries with
+`valid=true` and `fresh=false` are cached samples from an earlier successful
+read, not new conversions. Use the `readFreshChannels(..., DeviceStatus&, ...)`
+overload when STATUS error flags must be captured before the STATUS read clears
+sticky flags or de-asserts INTB.
+
+Blocking helpers validate parameters and `Config::nowMs` before polling,
+touching I2C, or calling `cooperativeYield`. Without a monotonic `nowMs`
+callback, they return `INVALID_CONFIG`; nonblocking reads, status checks, and
+cache access remain available.
+
 ### Sample Cache
 
 | Method | Description |
 |--------|-------------|
 | `getLastSample(ch, data)` | Return the last successfully read sample for a channel without I2C. |
-| `sampleTimestampMs(ch)` | Timestamp of the last successful sample for a channel (`0` if none). |
+| `sampleTimestampMs(ch)` | Timestamp of the last successful sample for a channel. Check `hasSample(ch)` first; timestamp `0` can be a valid sample time when no timebase is configured or the monotonic clock is at zero. |
 | `sampleAgeMs(ch, nowMs)` | Age of the cached sample for a channel. |
 | `isMeasuring()` | True when the device is awake and conversions are running. |
 
@@ -324,7 +341,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 ## Behavioral Contracts
 
 1. **Threading model**: Instances are not internally thread-safe, and public APIs are not ISR-safe. Serialize all driver calls and I2C access in the application or injected transport. Transport callbacks must not recursively call into the same driver instance.
-2. **Timing model**: `tick()` is bounded (currently no-op). Blocking read waits use deadlines and a finite poll cap, so a stalled injected clock cannot spin forever.
+2. **Timing model**: `tick()` is bounded (currently no-op). Blocking read waits require a monotonic `Config::nowMs`, use explicit deadlines, and keep a saturated finite poll cap so a stalled injected clock cannot spin forever.
 3. **Resource ownership**: I2C bus, locking/serialization, GPIO pins, timeouts, task ownership, INTB integration, and recovery/backoff policy are owned by the application or injected transport. Provided via `Config`.
 4. **Framework boundary**: Core code does not call `Wire`, `Serial`, `delay()`, `yield()`, `millis()`, ESP-IDF, FreeRTOS, or logging APIs directly. Arduino and ESP-IDF examples provide those hooks externally.
 5. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
@@ -338,6 +355,9 @@ Not part of the library. These simulate project-level glue and keep examples sel
 |---------|------------|
 | `i2cWrite`, `i2cWriteRead` | Required. The library never touches `Wire` directly. |
 | `i2cAddress` | `0x2A` or `0x2B`. |
+| `i2cTimeoutMs` | Passed through to the injected transport; the core does not configure bus hardware timeouts. |
+| `nowMs` | Required for wall-clock blocking reads and recovery backoff timing. Nonblocking reads and status APIs can run without it, but timestamps are then `0`. |
+| `cooperativeYield` | Optional application callback between blocking-read polls. It must be bounded and must not recursively call into the same driver instance. |
 | `channelCount` | `2` for LDC1612 or `4` for LDC1614. |
 | Channel indexes | Must be less than `channelCount`. |
 | `rrSequence` | LDC1612 accepts only `CH0_CH1`; LDC1614 accepts all defined sequences. |
@@ -346,6 +366,52 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | INTB | If `intbPin >= 0`, `gpioRead` is required. |
 | `highCurrentDrv` | Valid only in single-channel mode on Ch0. |
 | Recovery | `recoverBackoffMs` gates repeated `recover()` attempts; bus/hard reset callbacks are optional. |
+
+## API Latency and Transaction Model
+
+Notation: `R` = 16-bit register read transaction, `W` = 16-bit register write
+transaction, `N` = configured channel count/effective `count`, `T` = readiness
+poll count until ready/timeout. Each transaction latency is controlled by the
+injected transport and `Config::i2cTimeoutMs`; callback latency for `busReset`,
+`hardReset`, and `cooperativeYield` is application-owned.
+
+| API | I2C transactions | Other waits | Bound / notes |
+| --- | ---: | --- | --- |
+| `begin()` | `2R + N*5W + 3W` | none in core | Probe identity, apply channel registers plus ERROR_CONFIG/MUX_CONFIG/CONFIG. Leaves device asleep. |
+| `probe()` | `2R` | none | Raw identity reads, no health tracking. Requires configured callbacks. |
+| `recover()` | `2R` minimum | optional bus/hard reset callbacks | May add bus reset, RESET_DEV write, hard reset, and full config reapply. Backoff depends on `nowMs` when configured. |
+| `readChannel(ch)` | `2R` | none | DATAx_MSB then DATAx_LSB. |
+| `readAllChannels(out, N)` | `2N R` | none | Latest-register semantics; not per-channel freshness proof. |
+| `readFreshChannels(out, N)` | `1R + 2F R` | none | `F` is channels with `UNREADCONVx` set. Non-fresh channels return cached data if available. |
+| `readDataReady(ready)` | `0R` or `1R` | none | INTB high path uses no I2C; polling or asserted INTB reads STATUS. Returns `BUSY` while OFFLINE. |
+| `dataReady()` | `0R` or `1R` | none | Convenience only; false can mean not ready or hidden error. |
+| `readDeviceStatus()` / `readStatusRaw()` | `1R` | none | STATUS read can clear sticky status and de-assert INTB. |
+| `sleep()` / `wake()` | `0W` or `1W` | none | No write if already in requested state. |
+| `softReset()` | `1W` | none in core | Writes RESET_DEV and transitions UNINIT on success. |
+| `resetAndReapply()` | `1W + N*5W + 3W` | none in core | RESET_DEV plus full config reapply. |
+| `readChannelBlocking()` | `T*ready + 2R` | `cooperativeYield` between polls | Requires `nowMs`; `ready` is `0R` or `1R` per poll. |
+| `readAllChannelsBlocking(N)` | `T*ready + 2N R` | `cooperativeYield` between polls | Requires `nowMs`; waits for one DRDY, then latest-register readout. |
+| Major setters | usually `1W`, `setSingleChannelMode()` `2W` | none | Setters require sleep mode and commit cache after successful writes. |
+| Raw register access | `1R` or `1W` | none | Diagnostic only; raw writes mark hardware config dirty. |
+
+## Conversion Timing Model
+
+The helper methods use the local datasheet approximation:
+
+- Channel reference clock: `fREFx = fRef / FREF_DIVIDERx`.
+- Conversion time: approximately `(RCOUNTx * 16 + 4) / fREFx`.
+- Settling time: `32 / fREFx` for SETTLECOUNT 0 or 1, otherwise
+  `(SETTLECOUNTx * 16) / fREFx`.
+- `calcSampleTimeUs()` returns conversion plus settling time for one channel.
+- In autoscan, estimate the nominal frame time by summing enabled channel sample
+  times, then validate the observed cadence on hardware.
+
+The `fRef` argument is the pre-divider reference clock supplied to the LDC
+channel, not already-divided `fREFx`. Internal versus external clock accuracy,
+multi-channel sequencing overhead/switching behavior, I2C readout time,
+interrupt latency, and sensor restart/error behavior are not included in the
+helper result. Treat the result as an estimate for scheduling and validation,
+not a hardware-proven sample-rate guarantee.
 
 ## Documentation
 

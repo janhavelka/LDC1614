@@ -231,6 +231,86 @@
 
 - No hardware/HIL validation logs exist yet.
 - Pure ESP-IDF build success remains unclaimed locally until `idf.py` or CI logs are available.
-- Original audit clock/divider and sleep-before-configuration concerns remain unresolved on this branch.
-- No Prompt 02 commit/progress entry exists on this branch; timing/status/freshness scope should be reviewed before release.
+- Original audit clock/divider and sleep-before-configuration concerns remain outside the Prompt 02 timing/freshness fix and should be reviewed before release.
 - Native coverage is instrumented but still lacks a local percentage report because `gcovr` is unavailable.
+
+## Prompt 02 - H3/M2 timing and freshness
+
+### Findings addressed
+
+- H3 blocking latency contracts: blocking read helpers now require an injected
+  monotonic `Config::nowMs` for wall-clock timeouts, validate parameters before
+  polling/I2C/yield, and return `INVALID_CONFIG` when the timebase is absent.
+- M2 `dataReady()` convenience behavior: documentation now states that `false`
+  can mean not ready or hidden error; production docs prefer `readDataReady()`.
+- Freshness/autoscan gap: added STATUS/`UNREADCONVx`-driven fresh-channel
+  readout so autoscan code can avoid treating latest-register values as fresh.
+- Cache timestamp gap: cached sample validity no longer depends on timestamp
+  being nonzero, so nonblocking reads remain cacheable without `nowMs`.
+
+### Implemented changes
+
+- Added `FreshChannelData` and `readFreshChannels()` overloads.
+- `readFreshChannels()` reads STATUS once, preserves the caller-visible
+  `DeviceStatus` snapshot when requested, reads only channels with
+  `UNREADCONVx`, and returns cached stale samples with `valid=true/fresh=false`.
+- `readDataReady()` now checks OFFLINE/BUSY state before the INTB no-I2C fast
+  path so blocking waits cannot spin on a latched offline driver.
+- `readChannelBlocking()` and `readAllChannelsBlocking()` reject missing
+  `nowMs` before polling and use a saturated finite poll cap.
+- `readAllChannelsBlocking()` validates `out`, effective `count`, and channel
+  count before readiness polling or yield.
+- Replaced timestamp-as-cache-sentinel behavior with explicit per-channel
+  sample-valid flags.
+- Updated README, public Doxygen, and hardware integration docs with latency,
+  freshness, data-ready, and conversion-timing contracts.
+
+### Public API changes
+
+- Added `FreshChannelData`.
+- Added `Status readFreshChannels(FreshChannelData* out, uint8_t count = 0)`.
+- Added `Status readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut, uint8_t count = 0)`.
+- `sampleTimestampMs(ch)` can now return `0` for a valid cached sample; callers
+  should use `hasSample(ch)` to test validity.
+
+### Tests added
+
+- Blocking helpers reject missing `nowMs` before I2C/yield.
+- Invalid `readAllChannelsBlocking()` calls return before wait/I2C/yield.
+- Blocking helpers return `BUSY` while OFFLINE before GPIO/INTB polling.
+- Sleeping blocking preconditions do not touch I2C or yield.
+- `readDataReady()` preserves granular I2C error codes/details.
+- `dataReady()` collapses failures to `false` while preserving health detail.
+- INTB asserted by sensor error returns `SENSOR_ERROR` with STATUS raw detail.
+- INTB asserted plus STATUS read failure preserves granular transport detail.
+- All-channel blocking propagates readiness failure before DATAx reads.
+- `readFreshChannels()` reads only `UNREADCONVx` channels, returns stale cached
+  data as non-fresh, preserves the STATUS snapshot, validates before STATUS
+  read, and ignores LDC1614-only unread bits when `channelCount=2`.
+- Cached samples remain valid when timestamp is zero or no `nowMs` hook exists.
+
+### Commands run
+
+- `git status --short` -> clean at prompt start.
+- `git branch --show-current` -> `hardening/ldc1614-industry-readiness`.
+- `git checkout hardening/ldc1614-industry-readiness` -> already on branch and up to date.
+- `python tools/check_core_timing_guard.py` -> `Core timing/framework guard PASSED`.
+- `python tools/check_cli_contract.py` -> `CLI contract PASSED`.
+- `python tools/check_idf_example_contract.py` -> `IDF example contract PASSED`.
+- `python tools/check_readiness_claims.py` -> `Readiness claims guard PASSED`.
+- `python scripts/generate_version.py check` -> `Up to date: C:\Users\Honza\Documents\Projects\LDC1614\include\LDC1614\Version.h`.
+- `python -m platformio test -e native` -> passed; `114 test cases: 114 succeeded in 00:00:02.124`.
+- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:06.950`.
+- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:05.348`.
+- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`, which was removed after packaging.
+- `git diff --check` -> passed; Git reported only local LF-to-CRLF normalization warnings.
+
+### Remaining related work
+
+- Pure ESP-IDF build success remains unclaimed locally until `idf.py` or CI logs
+  are available; Prompt 02 did not run pure IDF builds.
+- No hardware/HIL validation is claimed.
+- Conversion timing helpers remain estimates and still need board-level timing
+  evidence for release claims.
+- Native tests do not model hardware side effects where reading DATAx or STATUS
+  clears `UNREADCONVx`; hardware/HIL should cover that behavior.

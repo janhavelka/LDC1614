@@ -142,6 +142,7 @@ Status LDC1614::begin(const Config& config) {
 
   for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
     _lastChannelData[i] = ChannelData{};
+    _hasSample[i] = false;
     _sampleTimestampMs[i] = 0;
   }
 
@@ -234,7 +235,7 @@ void LDC1614::tick(uint32_t nowMs) {
   }
   // LDC1614 has no state machine work needed in tick().
   // Data readback is synchronous via readChannel() / readAllChannels().
-  // Application polls dataReady() or uses INTB pin for notification.
+  // Application polls readDataReady() or uses INTB pin for notification.
 }
 
 void LDC1614::end() {
@@ -338,6 +339,7 @@ Status LDC1614::readChannel(uint8_t ch, ChannelData& out) {
 
   // Cache the result with timestamp
   _lastChannelData[ch] = out;
+  _hasSample[ch] = true;
   _sampleTimestampMs[ch] = _nowMs();
 
   return Status::Ok();
@@ -366,6 +368,55 @@ Status LDC1614::readAllChannels(ChannelData* out, uint8_t count) {
   return Status::Ok();
 }
 
+Status LDC1614::readFreshChannels(FreshChannelData* out, uint8_t count) {
+  DeviceStatus status;
+  return readFreshChannels(out, status, count);
+}
+
+Status LDC1614::readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut,
+                                  uint8_t count) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (out == nullptr) {
+    return Status::Error(Err::INVALID_PARAM, "Output buffer is null");
+  }
+
+  const uint8_t n = (count > 0) ? count : _config.channelCount;
+  if (n > _config.channelCount) {
+    return Status::Error(Err::INVALID_PARAM, "Count exceeds channelCount");
+  }
+
+  for (uint8_t ch = 0; ch < n; ++ch) {
+    out[ch] = FreshChannelData{};
+  }
+
+  statusOut = DeviceStatus{};
+  Status st = readDeviceStatus(statusOut);
+  if (!st.ok()) {
+    return st;
+  }
+
+  for (uint8_t ch = 0; ch < n; ++ch) {
+    if (statusOut.unreadConv[ch]) {
+      ChannelData data;
+      st = readChannel(ch, data);
+      if (!st.ok()) {
+        return st;
+      }
+      out[ch].data = data;
+      out[ch].valid = true;
+      out[ch].fresh = true;
+    } else if (hasSample(ch)) {
+      out[ch].data = _lastChannelData[ch];
+      out[ch].valid = true;
+      out[ch].fresh = false;
+    }
+  }
+
+  return Status::Ok();
+}
+
 bool LDC1614::dataReady() {
   bool ready = false;
   (void)readDataReady(ready);
@@ -376,6 +427,10 @@ Status LDC1614::readDataReady(bool& ready) {
   ready = false;
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
   }
 
   // Check INTB pin if configured (active low)
@@ -578,12 +633,15 @@ Status LDC1614::readChannelBlocking(uint8_t ch, ChannelData& out, uint32_t timeo
   if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
+  if (_config.nowMs == nullptr) {
+    return Status::Error(Err::INVALID_CONFIG, "nowMs callback required for blocking reads");
+  }
   if (_sleeping) {
     return Status::Error(Err::BUSY, "Device is sleeping; wake first");
   }
 
   const uint32_t startMs = _nowMs();
-  const uint32_t maxPolls = timeoutMs + 2U;
+  const uint32_t maxPolls = (timeoutMs > (UINT32_MAX - 2U)) ? UINT32_MAX : (timeoutMs + 2U);
   uint32_t polls = 0;
   bool readySeen = false;
   while (polls < maxPolls) {
@@ -617,12 +675,19 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
   if (out == nullptr) {
     return Status::Error(Err::INVALID_PARAM, "Output buffer is null");
   }
+  const uint8_t n = (count > 0) ? count : _config.channelCount;
+  if (n > _config.channelCount) {
+    return Status::Error(Err::INVALID_PARAM, "Count exceeds channelCount");
+  }
+  if (_config.nowMs == nullptr) {
+    return Status::Error(Err::INVALID_CONFIG, "nowMs callback required for blocking reads");
+  }
   if (_sleeping) {
     return Status::Error(Err::BUSY, "Device is sleeping; wake first");
   }
 
   const uint32_t startMs = _nowMs();
-  const uint32_t maxPolls = timeoutMs + 2U;
+  const uint32_t maxPolls = (timeoutMs > (UINT32_MAX - 2U)) ? UINT32_MAX : (timeoutMs + 2U);
   uint32_t polls = 0;
   bool readySeen = false;
   while (polls < maxPolls) {
@@ -646,7 +711,7 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
     return Status::Error(Err::TIMEOUT, "Data ready timeout");
   }
 
-  return readAllChannels(out, count);
+  return readAllChannels(out, n);
 }
 
 // ============================================================================
@@ -657,7 +722,7 @@ Status LDC1614::getLastSample(uint8_t ch, ChannelData& out) const {
   if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
-  if (_sampleTimestampMs[ch] == 0) {
+  if (!_hasSample[ch]) {
     return Status::Error(Err::CONVERSION_NOT_READY, "No cached sample for channel");
   }
   out = _lastChannelData[ch];
@@ -665,7 +730,7 @@ Status LDC1614::getLastSample(uint8_t ch, ChannelData& out) const {
 }
 
 bool LDC1614::hasSample(uint8_t ch) const {
-  return isValidChannel(ch, _config.channelCount) && _sampleTimestampMs[ch] != 0;
+  return isValidChannel(ch, _config.channelCount) && _hasSample[ch];
 }
 
 uint32_t LDC1614::sampleTimestampMs(uint8_t ch) const {
@@ -676,7 +741,7 @@ uint32_t LDC1614::sampleTimestampMs(uint8_t ch) const {
 }
 
 uint32_t LDC1614::sampleAgeMs(uint8_t ch, uint32_t nowMs) const {
-  if (!isValidChannel(ch, _config.channelCount) || _sampleTimestampMs[ch] == 0) {
+  if (!isValidChannel(ch, _config.channelCount) || !_hasSample[ch]) {
     return 0;
   }
   return nowMs - _sampleTimestampMs[ch];
@@ -710,7 +775,7 @@ Status LDC1614::getSettings(SettingsSnapshot& out) const {
   out.hardwareConfigDirty = _hardwareConfigDirty;
   out.hardwareConfigDirtyError = _hardwareConfigDirtyError;
   for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
-    out.hasSample[i] = _sampleTimestampMs[i] != 0;
+    out.hasSample[i] = _hasSample[i];
     out.sampleTimestampMs[i] = _sampleTimestampMs[i];
     out.channel[i] = _config.channel[i];
   }

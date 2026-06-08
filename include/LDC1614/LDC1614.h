@@ -54,6 +54,13 @@ struct ChannelData {
   }
 };
 
+/// @brief Per-channel result from readFreshChannels().
+struct FreshChannelData {
+  ChannelData data = {}; ///< Fresh data if fresh=true; cached data if valid=true and fresh=false
+  bool valid = false;    ///< true when data contains either fresh or cached sample data
+  bool fresh = false;    ///< true only when STATUS.UNREADCONVx was set and DATAx was read now
+};
+
 /// @brief Snapshot of driver configuration and operational state.
 /// Returned by getSettings() for diagnostics without further I2C.
 struct SettingsSnapshot {
@@ -80,7 +87,7 @@ struct SettingsSnapshot {
   bool hardwareConfigDirty = false;             ///< Cached config may not match hardware registers
   Status hardwareConfigDirtyError = Status::Ok(); ///< First status that made config dirty
   bool hasSample[4] = {};                       ///< Per-channel cached-sample flags
-  uint32_t sampleTimestampMs[4] = {};   ///< Per-channel last sample timestamp (0 = never)
+  uint32_t sampleTimestampMs[4] = {};   ///< Per-channel last sample timestamp; check hasSample first
   ChannelConfig channel[4] = {};        ///< Per-channel config at snapshot time
 };
 
@@ -202,15 +209,41 @@ public:
   Status readChannel(uint8_t ch, ChannelData& out);
 
   /// @brief Read conversion data for channels starting at channel 0.
+  /// Returns latest DATAx register values. In autoscan mode, one DRDY does not
+  /// prove every channel has a fresh unread conversion; use readFreshChannels()
+  /// when per-channel freshness matters.
   /// @param out Array of ChannelData, must have at least count elements
   ///            (or channelCount elements when count is 0)
   /// @param count Number of channels to read (0 = use config channelCount)
   /// @return Status (first error encountered, or OK)
   Status readAllChannels(ChannelData* out, uint8_t count = 0);
 
+  /// @brief Read STATUS.UNREADCONVx and then read only fresh channels.
+  /// Reads STATUS once, then reads DATAx only for channels whose unread flag is
+  /// set. Channels without unread data return the cached sample when available
+  /// with valid=true/fresh=false; otherwise valid=false/fresh=false.
+  /// STATUS reads can clear sticky error flags and de-assert INTB.
+  /// @param out Array of FreshChannelData, must have at least count elements
+  ///            (or channelCount elements when count is 0)
+  /// @param count Number of channels to evaluate (0 = use config channelCount)
+  /// @return Status (first STATUS/DATAx error encountered, or OK)
+  Status readFreshChannels(FreshChannelData* out, uint8_t count = 0);
+
+  /// @brief Read fresh channels and return the STATUS snapshot that drove freshness.
+  /// Use this overload when STATUS error flags matter; reading STATUS can clear
+  /// sticky flags and de-assert INTB, so the snapshot is the caller's evidence.
+  /// @param out Array of FreshChannelData, must have at least count elements
+  /// @param statusOut STATUS snapshot read before DATAx accesses
+  /// @param count Number of channels to evaluate (0 = use config channelCount)
+  /// @return Status (first STATUS/DATAx error encountered, or OK)
+  Status readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut,
+                           uint8_t count = 0);
+
   /// @brief Check if data is ready (poll DRDY flag or INTB pin).
   /// Convenience wrapper around readDataReady(). Returns false if the driver is
-  /// not initialized or if the underlying STATUS read fails.
+  /// not initialized or if the underlying STATUS/INTB path fails. False can
+  /// mean "not ready" or "hidden error"; use readDataReady() for production
+  /// status handling.
   /// @return true if new conversion data is available
   bool dataReady();
 
@@ -221,7 +254,8 @@ public:
   Status readDataReady(bool& ready);
 
   /// @brief Read a channel with blocking wait for data ready.
-  /// Polls readDataReady() with cooperative yield until timeout.
+  /// Polls readDataReady() with cooperative yield until timeout. Requires a
+  /// monotonic Config::nowMs callback; returns INVALID_CONFIG if it is absent.
   /// @param ch Channel index (0-3)
   /// @param out Parsed channel data result
   /// @param timeoutMs Maximum wait time in milliseconds (default 200)
@@ -229,6 +263,9 @@ public:
   Status readChannelBlocking(uint8_t ch, ChannelData& out, uint32_t timeoutMs = 200);
 
   /// @brief Read channels starting at channel 0 with blocking wait.
+  /// Waits for one DRDY event, then calls readAllChannels(); the returned
+  /// channel values are latest-register semantics, not guaranteed fresh for all
+  /// autoscan channels. Requires a monotonic Config::nowMs callback.
   /// @param out Array of ChannelData, at least count elements
   ///            (or channelCount elements when count is 0)
   /// @param timeoutMs Maximum wait time for data ready (default 200)
@@ -477,30 +514,40 @@ public:
 
   // === Utility ===
 
-  /// @brief Calculate sensor frequency from raw 28-bit data value.
+  /// @brief Estimate sensor frequency from raw 28-bit data value.
+  /// Uses fSENSOR = rawData * fREFx / 2^28, where
+  /// fREFx = fRef / CLOCK_DIVIDERSx.FREF_DIVIDER. The fRef argument is the
+  /// pre-divider reference clock at the device, not already divided fREFx.
   /// @param ch Channel index (used for divider/offset config)
   /// @param rawData 28-bit conversion result
-  /// @param fRef Reference clock frequency in Hz
-  /// @return Sensor frequency in Hz
+  /// @param fRef Reference clock frequency in Hz before FREF_DIVIDER
+  /// @return Estimated sensor frequency in Hz, or 0 on invalid input
   float calcSensorFrequency(uint8_t ch, uint32_t rawData, float fRef) const;
 
   /// @brief Calculate conversion time for a channel in microseconds.
+  /// Uses the datasheet approximation (RCOUNTx * 16 + 4) / fREFx. This does
+  /// not include settling, host readout, interrupt latency, or sequencing
+  /// overhead.
   /// @param ch Channel index
-  /// @param fRef Reference clock frequency in Hz
-  /// @return Conversion time in microseconds
+  /// @param fRef Reference clock frequency in Hz before FREF_DIVIDER
+  /// @return Estimated conversion time in microseconds, or 0 on invalid input
   float calcConversionTimeUs(uint8_t ch, float fRef) const;
 
   /// @brief Calculate sensor settling time for a channel in microseconds.
+  /// SETTLECOUNT 0 and 1 use the datasheet minimum of 32 fREFx cycles;
+  /// otherwise this uses SETTLECOUNTx * 16 cycles.
   /// @param ch Channel index
-  /// @param fRef Reference clock frequency in Hz
-  /// @return Settling time in microseconds
+  /// @param fRef Reference clock frequency in Hz before FREF_DIVIDER
+  /// @return Estimated settling time in microseconds, or 0 on invalid input
   float calcSettleTimeUs(uint8_t ch, float fRef) const;
 
   /// @brief Calculate conversion plus settling time for a channel in microseconds.
-  /// Does not include host readout time or multi-channel switching overhead.
+  /// Does not include host readout time, INTB/STATUS polling latency, or
+  /// multi-channel switching/sequencing overhead. For autoscan, estimate the
+  /// frame time by summing enabled channels and then validate on hardware.
   /// @param ch Channel index
-  /// @param fRef Reference clock frequency in Hz
-  /// @return Nominal per-channel sample time in microseconds
+  /// @param fRef Reference clock frequency in Hz before FREF_DIVIDER
+  /// @return Nominal per-channel sample time in microseconds, or 0 on invalid input
   float calcSampleTimeUs(uint8_t ch, float fRef) const;
 
   /// @brief Get the configured channel count.
@@ -558,6 +605,7 @@ private:
 
   // === Sample Cache (per channel) ===
   ChannelData _lastChannelData[4] = {};
+  bool _hasSample[4] = {};
   uint32_t _sampleTimestampMs[4] = {};
 
   // === Recovery Backoff ===

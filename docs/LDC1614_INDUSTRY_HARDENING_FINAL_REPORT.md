@@ -1,8 +1,8 @@
 # LDC1614 Industry Hardening Final Report
 
-Date: 2026-06-07
+Date: 2026-06-08
 Branch: `hardening/ldc1614-industry-readiness`
-Mode: Sequential hardening prompts through Prompt 05
+Mode: Sequential hardening prompts through Prompt 05, with Prompt 02 backfilled
 
 ## Starting Audit Summary
 
@@ -26,12 +26,12 @@ where practical and calls out deferred original-audit items explicitly.
 | --- | --- | --- |
 | H1 unsupported readiness claims | Partially fixed; validation deferred | `library.json`, README, IDF docs, and examples now avoid unsupported production/industry wording. HIL docs and runner exist. No hardware logs are present. |
 | H2 partial hardware-state handling | Fixed | `hardwareConfigDirty()`, `hardwareConfigDirtyError()`, `syncConfig()`, recovery dirty handling, and partial-write tests were added in Prompt 01. |
-| H3 timing/status/freshness contracts | Partially deferred | Blocking helpers and data-ready behavior have tests/docs, but no Prompt 02 commit/progress section exists on this branch. Original audit clock/divider and sequencing concerns remain P0/P1 work. |
+| H3 timing/status/freshness contracts | Fixed for software contract; hardware timing validation deferred | Blocking helpers require `Config::nowMs`, validate before polling/I2C/yield, and preserve readiness errors. `readFreshChannels()` provides STATUS/`UNREADCONVx`-driven freshness. Conversion timing remains an estimate until hardware evidence exists. |
 | H4 ESP-IDF path | Fixed for source/build configuration; local IDF build deferred | IDF example now uses native fixed-buffer CLI, native I2C path, mutex, plain INTB input, guarded source list, and CI IDF build job. Local `idf.py` is unavailable. |
 | M1 raw register diagnostics | Fixed by contract | Raw helpers are documented as diagnostic, not variant/access-type safe, and raw writes mark dirty. Native tests cover boundaries and policy. |
-| M2 `dataReady()` convenience error collapse | Fixed by documentation/tests | README prefers `readDataReady()` for precise status. `dataReady()` remains documented convenience behavior returning false on failures. |
+| M2 `dataReady()` convenience error collapse | Fixed by documentation/tests | README prefers `readDataReady()` for precise status. `dataReady()` remains documented convenience behavior returning false for not-ready or hidden errors while health retains tracked failure detail. |
 | M3 copy/move/thread/ISR contracts | Fixed | Copy/move deleted; Doxygen/README state no internal thread safety, no ISR safety, external serialization required. |
-| M4 native tests/fault injection | Mostly fixed | Native fake bus now supports granular failure injection and transaction logs. Native test count is 105. Coverage instrumentation exists, but no local percentage report because `gcovr` is unavailable. |
+| M4 native tests/fault injection | Mostly fixed | Native fake bus now supports granular failure injection and transaction logs. Native test count is 114 after Prompt 02. Coverage instrumentation exists, but no local percentage report because `gcovr` is unavailable. |
 | M5 datasheet notes/nits | Fixed | Deglitch ambiguity, IDRIVE docs, reset timing assumptions, and `probe()` caveat are documented and tested where practical. |
 | M6 INTB IDF handling | Fixed | IDF example configures INTB as plain input and documents push-pull active-low behavior. |
 | M7 example labels/docs honesty | Fixed | Arduino and IDF examples are labeled diagnostic bring-up; README separates software architecture from hardware validation. |
@@ -48,8 +48,14 @@ Prompt 01:
 - Documented raw diagnostic write cache desynchronization.
 
 Prompt 02:
-- No commit/progress entry exists on this branch. Timing/status/freshness work
-  must be treated as incomplete unless implemented in a later branch.
+- Added `FreshChannelData` and `readFreshChannels()` overloads for
+  STATUS/`UNREADCONVx`-driven autoscan freshness.
+- Required `Config::nowMs` for blocking read wall-clock timeouts.
+- Validated blocking helper arguments before polling/I2C/yield.
+- Preserved granular readiness and INTB STATUS errors.
+- Replaced timestamp-as-cache-sentinel behavior with explicit sample-valid
+  state.
+- Added README/Doxygen latency, freshness, and conversion-timing contracts.
 
 Prompt 03:
 - Replaced the ESP-IDF shared CLI path with native fixed-buffer CLI sources.
@@ -81,14 +87,21 @@ Public API changes came from earlier hardening prompts, not Prompt 05:
 - `SettingsSnapshot::hardwareConfigDirty`
 - `SettingsSnapshot::hardwareConfigDirtyError`
 - Deleted copy/move construction and assignment for `LDC1614`
+- `FreshChannelData`
+- `readFreshChannels(FreshChannelData* out, uint8_t count = 0)`
+- `readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut, uint8_t count = 0)`
+- `sampleTimestampMs(ch)` can now return `0` for a valid cached sample; callers
+  should use `hasSample(ch)` to test validity.
 
-Prompt 05 adds no core public API.
+Prompt 05 added no core public API.
 
 ## Tests and Guards Added
 
 - Native tests now cover partial config failures, raw diagnostic dirty policy,
   LDC1612/LDC1614 variant bounds, DATAx ordering, granular transport errors,
-  Wire adapter mapping, and recovery callback edge cases.
+  Wire adapter mapping, readiness/freshness semantics, blocking precondition
+  ordering, explicit zero-timestamp cache validity, and recovery callback edge
+  cases.
 - `tools/check_core_timing_guard.py` now bans broader framework/timing/allocation
   leakage from `include/` and `src/`.
 - `tools/check_idf_example_contract.py` now parses actual IDF CMake sources and
@@ -120,6 +133,24 @@ Prompt 05 adds no core public API.
 | `idf.py -C examples/esp_idf/basic set-target esp32s2 build` | Not run locally because `idf.py` is unavailable |
 | `python tools/ldc1614_hil_runner.py --json-out .pio\\hil_not_run.json --markdown-out .pio\\hil_not_run.md --quiet` | Produced ignored dry-run artifact with `overall_status: NOT_RUN`, reason `serial port was not supplied` |
 
+## Commands Run in Prompt 02 Backfill
+
+| Command | Result |
+| --- | --- |
+| `git status --short` | Clean at prompt start |
+| `git branch --show-current` | `hardening/ldc1614-industry-readiness` |
+| `git checkout hardening/ldc1614-industry-readiness` | Already on branch; up to date |
+| `python tools/check_core_timing_guard.py` | `Core timing/framework guard PASSED` |
+| `python tools/check_cli_contract.py` | `CLI contract PASSED` |
+| `python tools/check_idf_example_contract.py` | `IDF example contract PASSED` |
+| `python tools/check_readiness_claims.py` | `Readiness claims guard PASSED` |
+| `python scripts/generate_version.py check` | `Up to date: ... include\\LDC1614\\Version.h` |
+| `python -m platformio test -e native` | Passed; 114/114 tests in 00:00:02.124 |
+| `python -m platformio run -e esp32s3dev` | Passed; SUCCESS in 00:00:06.950 |
+| `python -m platformio run -e esp32s2dev` | Passed; SUCCESS in 00:00:05.348 |
+| `python -m platformio pkg pack` | Passed; wrote `LDC1614-1.0.0.tar.gz`, then tarball removed |
+| `git diff --check` | Passed; only LF-to-CRLF normalization warnings |
+
 ## CI / IDF Status
 
 - GitHub Actions has PlatformIO ESP32-S2/S3 Arduino builds.
@@ -146,15 +177,16 @@ Prompt 05 adds no core public API.
 
 P0 before any release/readiness claim:
 - Capture real hardware/HIL logs for the target board and sensor.
-- Resolve original audit clock/divider constraints and configuration sequencing
-  around Table 43 and sleep-before-configuration.
+- Resolve original audit clock/divider configuration constraints and any
+  remaining sleep-before-configuration sequencing questions outside Prompt 02's
+  timing/freshness scope.
 - Run or obtain CI logs for pure ESP-IDF `esp32s2` and `esp32s3` builds.
 
 P1 before merge/release:
-- Implement or explicitly schedule the missing Prompt 02 timing/status/freshness
-  work if it belongs in this hardening branch.
 - Add coverage percentage reporting once `gcovr` or an equivalent tool is
   available.
+- Add hardware/HIL coverage for STATUS/DATAx side effects such as `UNREADCONVx`
+  clearing behavior after reads.
 - Review package consumer behavior around ignored generated `Version.h` in clean
   component/library usage.
 
@@ -188,6 +220,7 @@ Forbidden release wording until evidence exists:
 
 ## Final Verdict
 
-Ready for review and the next focused hardening prompt. Blocked from release by
-missing hardware/fault validation and by unresolved original-audit timing/clock
-configuration concerns. Not blocked by core architecture.
+Ready for review as a software hardening branch. Blocked from release by
+missing hardware/fault validation, missing local pure ESP-IDF build evidence,
+and unresolved original-audit clock/configuration constraints outside Prompt
+02's timing/freshness scope. Not blocked by core architecture.
