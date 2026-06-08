@@ -21,6 +21,12 @@ Native boundaries:
   tick can run while waiting for console input.
 - Timing/yield/reset: ESP-IDF timer, GPIO, and FreeRTOS APIs are injected
   through the example adapter.
+- CLI: `examples/esp_idf/basic/main/Ldc1614IdfCli.*` uses fixed buffers and a
+  limited diagnostic command set. It does not compile the shared Arduino
+  diagnostic CLI.
+- Transport: `Ldc1614IdfI2cTransport.*` maps native I2C/GPIO/timing/reset APIs
+  to the framework-neutral driver callbacks and uses an example-owned mutex for
+  I2C operations.
 - Forbidden in IDF examples: `Arduino.h`, `Wire.h`, `String`, `Serial`,
   `TwoWire`, `ArduinoCompat`, `IdfArduinoCompat`, and including
   `examples/01_basic_bringup_cli/main.cpp`.
@@ -37,7 +43,9 @@ python tools/check_idf_example_contract.py
 python tools/check_core_timing_guard.py
 ```
 
-Those checks validate source contracts only. Pure ESP-IDF build success is
-claimed only when `idf.py` or CI build logs record it. Hardware behavior,
-including INTB, SD, address variants, fault injection, sensor behavior, and soak
-stability, requires captured logs from real LDC1614/LDC1612 hardware.
+The IDF checker parses the actual ESP-IDF `SRCS` list and scans compiled
+sources plus local headers. Those checks validate source contracts only. Pure
+ESP-IDF build success is claimed only when `idf.py` or CI build logs record it.
+Hardware behavior, including INTB, SD, address variants, fault injection, sensor
+behavior, and soak stability, requires captured logs from real
+LDC1614/LDC1612 hardware.

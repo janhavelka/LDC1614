@@ -8,4 +8,4 @@ Expected generated files:
 - Markdown summary from `tools/ldc1614_hil_runner.py --markdown-out ...`
 - Optional logic-analyzer, oscilloscope, or bench notes referenced by the run
 
-No hardware logs are committed in this prompt.
+No hardware logs are currently committed.

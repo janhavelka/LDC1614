@@ -87,7 +87,7 @@ Local sources used:
   registers and leave the device asleep. Runtime setters still require the
   application to call `sleep()` first.
 
-## Hardware Evidence Required Before Release Claims
+## Recommended Hardware Validation Before Release
 
 Capture logs for the exact board and sensor configuration:
 - Device identity at `0x2A` and/or `0x2B`, depending on ADDR strap.

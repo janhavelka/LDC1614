@@ -292,7 +292,7 @@ configuration before returning success.
 
 - `examples/01_basic_bringup_cli/` - Arduino diagnostic bring-up CLI for
   exercising LDC1614 features. This is diagnostic firmware, not a production
-  bus manager or field-readiness certificate.
+  application bus manager.
 - `examples/esp_idf/basic/` - Native ESP-IDF diagnostic bring-up CLI with
   `driver/i2c_master.h` transport glue. This example is diagnostic bring-up
   code; production applications own lifecycle, locking, recovery, and hardware
@@ -438,18 +438,16 @@ or bench measurements before making timing/readiness claims.
 - `docs/HARDWARE_INTEGRATION.md` - LDC1612/LDC1614 hardware integration checklist
 - `docs/HIL_VALIDATION.md` - Hardware-in-the-loop validation procedure and matrix
 - `docs/IDF_PORT.md` - ESP-IDF portability guidance
-- `docs/IDF_PORT_IMPLEMENTATION.md` - ESP-IDF implementation notes and validation status
-- `docs/LDC1614_INDUSTRY_HARDENING_FINAL_REPORT.md` - Hardening summary and remaining release blockers
+- `docs/VALIDATION_STATUS.md` - Software check status and hardware validation requirements
 - `LDC1614_inductance_converter_implementation_manual.md` - Device documentation
 - `docs/` - Datasheets and application notes
 
-## Readiness and Validation Status
+## Validation Status
 
 The core has a framework-neutral, injected-transport architecture and native
-software tests/guards. That is not the same as hardware validation. No
-deployment-readiness, certification, or hardware-proven operation claim is made
-until real LDC1614/LDC1612 logs cover the board, address strap, INTB/SD wiring,
-sensor configuration, fault cases, and soak profile for the target application.
+software tests/guards. Hardware behavior must still be validated on the target
+board and sensor setup, including address strap, INTB/SD wiring, sensor
+configuration, fault cases, and soak profile.
 
 Use `tools/ldc1614_hil_runner.py` and `docs/HIL_VALIDATION.md` to collect
 hardware evidence. If the runner is not connected to real firmware and hardware,

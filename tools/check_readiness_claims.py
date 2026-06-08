@@ -30,13 +30,6 @@ EXCLUDED_DIR_PARTS = {
     "extracted-md",
 }
 
-EXCLUDED_FILENAMES = {
-    "LDC1614_INDUSTRY_READINESS_IMPLEMENTATION_PLAN.md",
-    "LDC1614_HARDENING_PROGRESS.md",
-    "LDC1614_INDUSTRY_HARDENING_FINAL_REPORT.md",
-    "LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md",
-}
-
 
 def maintained_files() -> Iterable[Path]:
     explicit = [
@@ -45,9 +38,9 @@ def maintained_files() -> Iterable[Path]:
         ROOT / "idf_component.yml",
         ROOT / ".github" / "workflows" / "ci.yml",
         ROOT / "docs" / "IDF_PORT.md",
-        ROOT / "docs" / "IDF_PORT_IMPLEMENTATION.md",
         ROOT / "docs" / "HARDWARE_INTEGRATION.md",
         ROOT / "docs" / "HIL_VALIDATION.md",
+        ROOT / "docs" / "VALIDATION_STATUS.md",
         ROOT / "docs" / "hil" / "README.md",
     ]
     for path in explicit:
@@ -69,8 +62,6 @@ def maintained_files() -> Iterable[Path]:
 def should_scan(path: Path) -> bool:
     rel_parts = set(path.relative_to(ROOT).parts)
     if rel_parts & EXCLUDED_DIR_PARTS:
-        return False
-    if path.name in EXCLUDED_FILENAMES:
         return False
     return True
 

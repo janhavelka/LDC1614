@@ -55,7 +55,7 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | Not run in this prompt | Runner JSON/Markdown transcript showing expected IDs |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Not yet run | Runner JSON/Markdown transcript showing expected IDs |
 | Address `0x2A` | Yes | ADDR strapped low | Not run | Probe/read logs at `0x2A` |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
