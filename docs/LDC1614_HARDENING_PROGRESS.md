@@ -231,7 +231,10 @@
 
 - No hardware/HIL validation logs exist yet.
 - Pure ESP-IDF build success remains unclaimed locally until `idf.py` or CI logs are available.
-- Original audit clock/divider and sleep-before-configuration concerns remain outside the Prompt 02 timing/freshness fix and should be reviewed before release.
+- Original audit clock/divider and sleep-before-configuration concerns were
+  reopened in the reconciliation pass; software-enforceable items are now
+  covered by code/tests, while physical clock-plan limits remain board/HIL
+  validation work.
 - Native coverage is instrumented but still lacks a local percentage report because `gcovr` is unavailable.
 
 ## Prompt 02 - H3/M2 timing and freshness
@@ -314,3 +317,118 @@
   evidence for release claims.
 - Native tests do not model hardware side effects where reading DATAx or STATUS
   clears `UNREADCONVx`; hardware/HIL should cover that behavior.
+
+## Prompt 02 Reconciliation / Timing and Freshness Closure
+
+### Evidence reviewed
+
+- Local git history shows Prompt 02 was already implemented on this branch in
+  commit `68b380e` (`Tighten LDC1614 timing and data-ready semantics`), after
+  Prompt 05 had initially been committed.
+- Reviewed `include/LDC1614/LDC1614.h`, `include/LDC1614/Config.h`,
+  `include/LDC1614/CommandTable.h`, `src/LDC1614.cpp`, `test/test_basic.cpp`,
+  README timing/freshness docs, `docs/HARDWARE_INTEGRATION.md`, and the final
+  hardening report.
+- Subagent read-only findings confirmed Prompt 02 was not missing, but found
+  two closure items: STATUS sensor errors could be hidden when DRDY was also
+  set, and full configuration apply should force device sleep before writing
+  channel/global registers.
+- Datasheet extracts reviewed locally:
+  `docs/pdf-extracted-md/LDC1614_datasheet.md` and `_txt/datasheet_LDC1614.txt`
+  for RCOUNTx, SETTLECOUNTx, CLOCK_DIVIDERSx, CONFIG.SLEEP_MODE_EN,
+  MUX_CONFIG/deglitch, and Table 43 multi-channel requirements.
+
+### What was already implemented
+
+- Blocking read helpers validate parameters and `Config::nowMs` before waiting,
+  touching I2C, or calling `cooperativeYield`.
+- Blocking read helpers require injected monotonic time for wall-clock
+  readiness waits and keep a finite saturated poll cap.
+- `readFreshChannels()` and `FreshChannelData` provide STATUS/`UNREADCONVx`
+  driven autoscan freshness while preserving latest-register read semantics for
+  `readAllChannels()`.
+- `dataReady()` remains a documented convenience wrapper, and production docs
+  prefer `readDataReady()`.
+- Conversion timing helpers and README docs describe the datasheet timing
+  approximation and avoid hardware-proven sample-rate claims.
+
+### What was missing and fixed now
+
+- `readDataReady()` now returns `SENSOR_ERROR` when STATUS contains sensor error
+  flags, even if DRDY is also set. The `ready` output still reflects DRDY so a
+  caller can distinguish "ready with sensor error" from transport failure.
+- `dataReady()` now returns `false` for the DRDY-plus-sensor-error case because
+  it intentionally collapses all non-OK readiness results.
+- Autoscan Table 43 minima are now explicit driver constraints:
+  selected autoscan channels require `RCOUNTx >= 0x0009` and
+  `SETTLECOUNTx >= 0x0004`.
+- `begin()`, `syncConfig()`, recovery reapply, and `resetAndReapply()` now share
+  `_applyConfig()` behavior that writes a sleeping CONFIG image before channel
+  and global configuration writes, then writes the final sleeping CONFIG image.
+- Public Doxygen, README, and hardware integration docs now document the
+  sleep-first full-apply sequence and the board-owned clock-plan limits.
+
+### What was documented instead of changed
+
+- The core still does not accept actual reference-clock frequency, sensor
+  frequency range, coil tolerance, or deglitch margin as configuration inputs.
+  Therefore it cannot enforce `fINx < fREFx/4`, the actual 1 kHz to 10 MHz
+  sensor operating range, internal/external clock accuracy, or
+  `FIN_DIVIDERx >= 2` when the actual sensor frequency is at least 8.75 MHz.
+- Those constraints are documented as application clock-plan and HIL/bench
+  validation duties rather than silently guessed by the driver.
+- Conversion helper outputs remain estimates for scheduling and diagnostics, not
+  hardware validation evidence.
+
+### Datasheet references
+
+- `docs/pdf-extracted-md/LDC1614_datasheet.md`: RCOUNTx valid range
+  `0x0005..0xFFFF`, SETTLECOUNTx `0/1` minimum behavior, CLOCK_DIVIDERSx field
+  ranges/reserved bits, CONFIG.SLEEP_MODE_EN polarity, and MUX_CONFIG deglitch
+  field text.
+- `_txt/datasheet_LDC1614.txt`: Table 43 multi-channel requirements including
+  `SETTLECOUNTx > 3`, `RCOUNTx > 8`, valid `fREFx`, and `fINx < fREFx/4`.
+
+### Tests added
+
+- Begin rejects autoscan selected-channel `RCOUNTx < 0x0009` or
+  `SETTLECOUNTx < 0x0004` before any I2C.
+- Runtime autoscan setters reject selected-channel Table 43 minima before I2C.
+- Begin and runtime clock-divider tests cover FIN/FREF reserved values and
+  reserved-bit-clear encoding.
+- Runtime `setClockDividers()` requires sleep before I2C.
+- `readDataReady()` reports `SENSOR_ERROR` for STATUS DRDY plus error flags on
+  both STATUS polling and INTB asserted paths.
+- `dataReady()` collapses DRDY plus sensor error to `false`.
+- `begin()` and `syncConfig()` write CONFIG sleep before channel registers.
+
+### Commands run
+
+- `git status --short` -> clean at reconciliation start.
+- `git branch --show-current` -> `hardening/ldc1614-industry-readiness`.
+- `python -m platformio test -e native` -> initially failed once due to a local
+  redeclared `Status st` while editing `_applyConfig()`, then passed with
+  `126 test cases: 126 succeeded in 00:00:01.210`.
+- `python tools/check_core_timing_guard.py` -> `Core timing/framework guard PASSED`.
+- `python tools/check_cli_contract.py` -> `CLI contract PASSED`.
+- `python tools/check_idf_example_contract.py` -> `IDF example contract PASSED`.
+- `python tools/check_readiness_claims.py` -> `Readiness claims guard PASSED`.
+- `python scripts/generate_version.py check` -> `Up to date: C:\Users\Honza\Documents\Projects\LDC1614\include\LDC1614\Version.h`.
+- `python -m platformio test -e native` -> passed; `126 test cases: 126 succeeded in 00:00:01.151`.
+- `python -m platformio run -e esp32s3dev` -> passed; `esp32s3dev SUCCESS 00:00:05.389`.
+- `python -m platformio run -e esp32s2dev` -> passed; `esp32s2dev SUCCESS 00:00:04.977`.
+- `python -m platformio pkg pack` -> passed; wrote `LDC1614-1.0.0.tar.gz`, which was removed after packaging.
+- `python -m platformio test -e native_cov` -> passed; `126 test cases: 126 succeeded in 00:00:01.484`.
+- `python -m gcovr --version` -> failed; `No module named gcovr`.
+- `idf.py --version` -> failed; `idf.py` is not recognized as a cmdlet/function/script/program.
+- Pure ESP-IDF `esp32s3`/`esp32s2` builds were not run locally because `idf.py`
+  is unavailable.
+- `git diff --check` -> passed; Git reported only local LF-to-CRLF normalization warnings.
+
+### Remaining blockers
+
+- No real LDC1612/LDC1614 hardware/HIL logs are present on this branch.
+- Pure ESP-IDF local build evidence remains unavailable until `idf.py` is
+  installed or CI logs are reviewed.
+- Board-specific clock-plan validation, STATUS/DATAx side effects, INTB/SD
+  wiring, fault injection, and soak evidence remain release blockers.

@@ -36,6 +36,14 @@ bool isValidRcount(uint16_t rcount) {
   return rcount >= cmd::RCOUNT_MIN;
 }
 
+bool isValidMultiChannelRcount(uint16_t rcount) {
+  return rcount >= cmd::MULTI_RCOUNT_MIN;
+}
+
+bool isValidMultiChannelSettleCount(uint16_t settleCount) {
+  return settleCount >= cmd::MULTI_SETTLE_MIN;
+}
+
 bool isValidFinDivider(uint8_t finDiv) {
   return finDiv >= cmd::FIN_DIVIDER_MIN && finDiv <= cmd::FIN_DIVIDER_MAX;
 }
@@ -68,6 +76,39 @@ bool isRRSequenceAllowed(RRSequence seq, uint8_t channelCount) {
     return true;
   }
   return false;
+}
+
+uint8_t rrSequenceChannelCount(RRSequence seq) {
+  switch (seq) {
+    case RRSequence::CH0_CH1:
+      return 2;
+    case RRSequence::CH0_CH1_CH2:
+      return 3;
+    case RRSequence::CH0_CH1_CH2_CH3:
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+bool isInAutoscanSequence(uint8_t ch, RRSequence seq) {
+  return ch < rrSequenceChannelCount(seq);
+}
+
+Status validateMultiChannelTiming(const Config& config, RRSequence seq, Err errCode) {
+  const uint8_t n = rrSequenceChannelCount(seq);
+  if (n == 0 || n > config.channelCount) {
+    return Status::Error(errCode, "Invalid RR sequence for channelCount");
+  }
+  for (uint8_t ch = 0; ch < n; ++ch) {
+    if (!isValidMultiChannelRcount(config.channel[ch].rcount)) {
+      return Status::Error(errCode, "RCOUNT below multi-channel minimum (0x0009)", ch);
+    }
+    if (!isValidMultiChannelSettleCount(config.channel[ch].settleCount)) {
+      return Status::Error(errCode, "SETTLECOUNT below multi-channel minimum (0x0004)", ch);
+    }
+  }
+  return Status::Ok();
 }
 
 bool isValidRefClkSrc(RefClkSrc src) {
@@ -166,6 +207,14 @@ Status LDC1614::begin(const Config& config) {
   }
   if (!isRRSequenceAllowed(requestedConfig.rrSequence, requestedConfig.channelCount)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid RR sequence for channelCount");
+  }
+  if (requestedConfig.autoScan) {
+    Status multiTiming = validateMultiChannelTiming(requestedConfig,
+                                                   requestedConfig.rrSequence,
+                                                   Err::INVALID_CONFIG);
+    if (!multiTiming.ok()) {
+      return multiTiming;
+    }
   }
   if (!isValidRefClkSrc(requestedConfig.refClkSrc)) {
     return Status::Error(Err::INVALID_CONFIG, "Invalid reference clock source");
@@ -419,8 +468,8 @@ Status LDC1614::readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut
 
 bool LDC1614::dataReady() {
   bool ready = false;
-  (void)readDataReady(ready);
-  return ready;
+  Status st = readDataReady(ready);
+  return st.ok() && ready;
 }
 
 Status LDC1614::readDataReady(bool& ready) {
@@ -448,7 +497,7 @@ Status LDC1614::readDataReady(bool& ready) {
       return st;
     }
     ready = status.dataReady;
-    if (!ready && status.hasError()) {
+    if (status.hasError()) {
       return Status::Error(Err::SENSOR_ERROR, "INTB asserted by sensor error",
                            static_cast<int32_t>(status.raw));
     }
@@ -456,12 +505,16 @@ Status LDC1614::readDataReady(bool& ready) {
   }
 
   // Fall back to polling STATUS register DRDY bit
-  uint16_t status = 0;
-  Status st = readRegister16(cmd::REG_STATUS, status);
+  DeviceStatus status;
+  Status st = readDeviceStatus(status);
   if (!st.ok()) {
     return st;
   }
-  ready = (status & cmd::MASK_STATUS_DRDY) != 0;
+  ready = status.dataReady;
+  if (status.hasError()) {
+    return Status::Error(Err::SENSOR_ERROR, "STATUS reported sensor error",
+                         static_cast<int32_t>(status.raw));
+  }
   return Status::Ok();
 }
 
@@ -865,6 +918,10 @@ Status LDC1614::setAutoScanMode(RRSequence sequence) {
   if (_config.highCurrentDrv) {
     return Status::Error(Err::INVALID_PARAM, "Disable HIGH_CURRENT_DRV before auto-scan");
   }
+  Status multiTiming = validateMultiChannelTiming(_config, sequence, Err::INVALID_PARAM);
+  if (!multiTiming.ok()) {
+    return multiTiming;
+  }
 
   const bool oldAutoScan = _config.autoScan;
   const RRSequence oldSequence = _config.rrSequence;
@@ -1077,6 +1134,10 @@ Status LDC1614::setRcount(uint8_t ch, uint16_t rcount) {
   if (!isValidRcount(rcount)) {
     return Status::Error(Err::INVALID_PARAM, "RCOUNT below minimum (0x0005)");
   }
+  if (_config.autoScan && isInAutoscanSequence(ch, _config.rrSequence) &&
+      !isValidMultiChannelRcount(rcount)) {
+    return Status::Error(Err::INVALID_PARAM, "RCOUNT below multi-channel minimum (0x0009)");
+  }
 
   Status st = _writeConfigRegister(cmd::regRcount(ch), rcount,
                                    DIRTY_PHASE_SETTER_SINGLE, ch);
@@ -1095,6 +1156,10 @@ Status LDC1614::setSettleCount(uint8_t ch, uint16_t count) {
   }
   if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
+  }
+  if (_config.autoScan && isInAutoscanSequence(ch, _config.rrSequence) &&
+      !isValidMultiChannelSettleCount(count)) {
+    return Status::Error(Err::INVALID_PARAM, "SETTLECOUNT below multi-channel minimum (0x0004)");
   }
 
   Status st = _writeConfigRegister(cmd::regSettleCount(ch), count,
@@ -1584,13 +1649,22 @@ void LDC1614::_clearHardwareConfigDirty() {
 }
 
 Status LDC1614::_applyConfig() {
-  // Write per-channel registers (in sleep mode after POR / probe)
+  // Datasheet configuration changes are made while the device is in sleep mode.
+  // Probe does not prove the previous application left the device asleep, so
+  // full apply/reapply paths first force a cached sleep-mode CONFIG image.
+  Status st = _writeConfigRegister(cmd::REG_CONFIG, _buildConfigRegister(true),
+                                   DIRTY_PHASE_APPLY_GLOBAL,
+                                   DIRTY_INDEX_GLOBAL);
+  if (!st.ok()) return st;
+  _sleeping = true;
+
+  // Write per-channel registers while asleep.
   for (uint8_t ch = 0; ch < _config.channelCount; ch++) {
     const auto& cc = _config.channel[ch];
 
     // RCOUNT
-    Status st = _writeConfigRegister(cmd::regRcount(ch), cc.rcount,
-                                     DIRTY_PHASE_APPLY_CHANNEL, ch);
+    st = _writeConfigRegister(cmd::regRcount(ch), cc.rcount,
+                              DIRTY_PHASE_APPLY_CHANNEL, ch);
     if (!st.ok()) return st;
 
     // SETTLECOUNT
@@ -1618,9 +1692,9 @@ Status LDC1614::_applyConfig() {
   }
 
   // ERROR_CONFIG
-  Status st = _writeConfigRegister(cmd::REG_ERROR_CONFIG, _config.errorConfig,
-                                   DIRTY_PHASE_APPLY_GLOBAL,
-                                   DIRTY_INDEX_GLOBAL);
+  st = _writeConfigRegister(cmd::REG_ERROR_CONFIG, _config.errorConfig,
+                            DIRTY_PHASE_APPLY_GLOBAL,
+                            DIRTY_INDEX_GLOBAL);
   if (!st.ok()) return st;
 
   // MUX_CONFIG

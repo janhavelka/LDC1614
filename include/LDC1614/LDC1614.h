@@ -242,13 +242,16 @@ public:
   /// @brief Check if data is ready (poll DRDY flag or INTB pin).
   /// Convenience wrapper around readDataReady(). Returns false if the driver is
   /// not initialized or if the underlying STATUS/INTB path fails. False can
-  /// mean "not ready" or "hidden error"; use readDataReady() for production
-  /// status handling.
+  /// mean "not ready" or "hidden transport/status/sensor error"; use
+  /// readDataReady() for production status handling.
   /// @return true if new conversion data is available
   bool dataReady();
 
   /// @brief Check if data is ready with explicit error reporting.
   /// Uses INTB pin if configured and enabled; otherwise reads STATUS.DRDY.
+  /// If STATUS reports both DRDY and a sensor error, ready is set true and the
+  /// return Status is SENSOR_ERROR with the raw STATUS value in detail. Reading
+  /// STATUS can clear sticky flags and de-assert INTB.
   /// @param ready Output: true if new conversion data is available
   /// @return Status from the underlying GPIO/STATUS path
   Status readDataReady(bool& ready);
@@ -256,6 +259,8 @@ public:
   /// @brief Read a channel with blocking wait for data ready.
   /// Polls readDataReady() with cooperative yield until timeout. Requires a
   /// monotonic Config::nowMs callback; returns INVALID_CONFIG if it is absent.
+  /// The timeout bounds the readiness wait; the final DATAx readout still uses
+  /// injected I2C transaction timeouts and callback latency.
   /// @param ch Channel index (0-3)
   /// @param out Parsed channel data result
   /// @param timeoutMs Maximum wait time in milliseconds (default 200)
@@ -266,6 +271,8 @@ public:
   /// Waits for one DRDY event, then calls readAllChannels(); the returned
   /// channel values are latest-register semantics, not guaranteed fresh for all
   /// autoscan channels. Requires a monotonic Config::nowMs callback.
+  /// The timeout bounds the readiness wait; the final DATAx readout still uses
+  /// injected I2C transaction timeouts and callback latency.
   /// @param out Array of ChannelData, at least count elements
   ///            (or channelCount elements when count is 0)
   /// @param timeoutMs Maximum wait time for data ready (default 200)
@@ -351,6 +358,8 @@ public:
   /// 3. Call syncConfig(), recover(), resetAndReapply(), or begin().
   /// 4. Trust the cache again only after hardwareConfigDirty() is false.
   ///
+  /// Full reapply first writes CONFIG with SLEEP_MODE_EN=1, then writes
+  /// channel/global configuration, then writes the final sleeping CONFIG image.
   /// On success the device remains in sleep mode. On failure the original
   /// transport/status error is returned and the dirty state remains set.
   /// @return Status
@@ -434,21 +443,23 @@ public:
   /// @brief Set RCOUNT for a channel.
   /// Device must be in sleep mode.
   /// @param ch Channel index (0-3)
-  /// @param rcount Reference count value (0x0005-0xFFFF)
+  /// @param rcount Reference count value (0x0005-0xFFFF; autoscan selected
+  /// channels require >=0x0009)
   /// @return Status
   Status setRcount(uint8_t ch, uint16_t rcount);
 
   /// @brief Set SETTLECOUNT for a channel.
   /// Device must be in sleep mode.
   /// @param ch Channel index (0-3)
-  /// @param count Settle count value
+  /// @param count Settle count value (autoscan selected channels require >=0x0004)
   /// @return Status
   Status setSettleCount(uint8_t ch, uint16_t count);
 
   /// @brief Set CLOCK_DIVIDERS for a channel.
   /// Device must be in sleep mode.
   /// @param ch Channel index (0-3)
-  /// @param finDiv Sensor frequency divider (1-15)
+  /// @param finDiv Sensor frequency divider (1-15; application must use >=2
+  /// when the actual sensor frequency is >=8.75 MHz)
   /// @param frefDiv Reference clock divider (1-1023)
   /// @return Status
   Status setClockDividers(uint8_t ch, uint8_t finDiv, uint16_t frefDiv);

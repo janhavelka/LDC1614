@@ -92,9 +92,9 @@ enum class RRSequence : uint8_t {
 
 /// @brief Per-channel configuration.
 struct ChannelConfig {
-  uint16_t rcount = 0x0080;          ///< Reference count (0x0005-0xFFFF). Higher = longer conversion, more resolution.
-  uint16_t settleCount = 0x0000;     ///< Settling reference count. 0 = minimum (32/fREF).
-  uint8_t  finDivider = 1;           ///< Sensor frequency divider (1-15). Must be >=2 if fSensor >= 8.75 MHz.
+  uint16_t rcount = 0x0080;          ///< Reference count (0x0005-0xFFFF). Autoscan selected channels require >=0x0009.
+  uint16_t settleCount = 0x0000;     ///< Settling reference count. 0/1 = minimum (32/fREF); autoscan selected channels require >=0x0004.
+  uint8_t  finDivider = 1;           ///< Sensor frequency divider (1-15). Application must use >=2 when fSensor >= 8.75 MHz.
   uint16_t frefDivider = 1;          ///< Reference clock divider (1-1023).
   uint16_t offset = 0x0000;          ///< Conversion offset (subtracted from measurement).
   uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See DRIVE_CURRENTx register table.

@@ -45,6 +45,14 @@ Local sources used:
 - RCOUNTx, SETTLECOUNTx, CLOCK_DIVIDERSx, and reference clock/dividers determine
   conversion and settling timing. Validate the sample interval for every enabled
   channel and auto-scan sequence.
+- The driver enforces register-field ranges it can know from `Config`: RCOUNTx
+  `0x0005..0xFFFF`, FIN_DIVIDERx `1..15`, FREF_DIVIDERx `1..1023`, reserved
+  CLOCK_DIVIDERSx bits clear, and autoscan selected-channel minima of
+  `RCOUNTx >= 0x0009` and `SETTLECOUNTx >= 0x0004`.
+- The application clock plan must still validate physical constraints the core
+  cannot infer: actual `fCLK` and `fREFx`, `fINx < fREFx/4`, `FIN_DIVIDERx >= 2`
+  when actual sensor frequency is at least 8.75 MHz, deglitch bandwidth above
+  maximum sensor frequency, and internal/external clock tolerance.
 - DRIVE_CURRENTx / IDRIVE tuning is application-specific. It may require an
   oscilloscope or a board-specific amplitude procedure, plus monitoring of
   amplitude warning/error flags.
@@ -73,7 +81,11 @@ Local sources used:
   bits when production logic must process only newly converted channels.
 - Use `readDataReady()` when the caller needs precise failure status.
   `dataReady()` is a convenience wrapper that returns `false` on transport or
-  status-read failure.
+  status-read/sensor failure.
+- Full configuration apply paths (`begin()`, `syncConfig()`, recovery reapply,
+  and `resetAndReapply()`) force CONFIG sleep before writing channel/global
+  registers and leave the device asleep. Runtime setters still require the
+  application to call `sleep()` first.
 
 ## Hardware Evidence Required Before Release Claims
 

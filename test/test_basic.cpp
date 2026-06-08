@@ -227,6 +227,13 @@ Config makeConfig(FakeBus& bus) {
   return cfg;
 }
 
+void makeMultiChannelTimingValid(Config& cfg, uint8_t count = 4) {
+  for (uint8_t ch = 0; ch < count; ++ch) {
+    cfg.channel[ch].rcount = cmd::MULTI_RCOUNT_MIN;
+    cfg.channel[ch].settleCount = cmd::MULTI_SETTLE_MIN;
+  }
+}
+
 void resetIoCounters(FakeBus& bus) {
   bus.transactionCalls = 0;
   bus.writeCalls = 0;
@@ -488,6 +495,92 @@ void test_begin_rejects_rcount_below_minimum() {
   Status st = dev.begin(cfg);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_CONFIG),
                           static_cast<uint8_t>(st.code));
+}
+
+void test_begin_rejects_autoscan_table43_minimums_before_i2c() {
+  {
+    FakeBus bus;
+    Config cfg = makeConfig(bus);
+    cfg.autoScan = true;
+    cfg.rrSequence = RRSequence::CH0_CH1;
+    makeMultiChannelTimingValid(cfg, 2);
+    cfg.channel[1].rcount = static_cast<uint16_t>(cmd::MULTI_RCOUNT_MIN - 1u);
+
+    LDC1614::LDC1614 dev;
+    Status st = dev.begin(cfg);
+    assertStatusCode(Err::INVALID_CONFIG, st);
+    TEST_ASSERT_EQUAL_INT32(1, st.detail);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  }
+  {
+    FakeBus bus;
+    Config cfg = makeConfig(bus);
+    cfg.autoScan = true;
+    cfg.rrSequence = RRSequence::CH0_CH1_CH2;
+    makeMultiChannelTimingValid(cfg, 3);
+    cfg.channel[2].settleCount = static_cast<uint16_t>(cmd::MULTI_SETTLE_MIN - 1u);
+
+    LDC1614::LDC1614 dev;
+    Status st = dev.begin(cfg);
+    assertStatusCode(Err::INVALID_CONFIG, st);
+    TEST_ASSERT_EQUAL_INT32(2, st.detail);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  }
+}
+
+void test_begin_rejects_clock_divider_bounds_before_i2c() {
+  struct Case {
+    uint8_t finDivider;
+    uint16_t frefDivider;
+  };
+  const Case cases[] = {
+      {0, 1},
+      {16, 1},
+      {1, 0},
+      {1, 0x0400},
+  };
+
+  for (const auto& item : cases) {
+    FakeBus bus;
+    Config cfg = makeConfig(bus);
+    cfg.channel[0].finDivider = item.finDivider;
+    cfg.channel[0].frefDivider = item.frefDivider;
+
+    LDC1614::LDC1614 dev;
+    Status st = dev.begin(cfg);
+    assertStatusCode(Err::INVALID_CONFIG, st);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  }
+}
+
+void test_begin_encodes_clock_dividers_with_reserved_bits_clear() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.channel[0].finDivider = 15;
+  cfg.channel[0].frefDivider = 0x03FF;
+
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  TEST_ASSERT_EQUAL_HEX16(0xF3FF, bus.reg[cmd::REG_CLOCK_DIVIDERS0]);
+}
+
+void test_begin_forces_sleep_config_before_channel_registers() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.autoScan = true;
+  cfg.rrSequence = RRSequence::CH0_CH1;
+  makeMultiChannelTimingValid(cfg, 2);
+
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  TEST_ASSERT_GREATER_OR_EQUAL_UINT8(2u, bus.writeLogCount);
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_CONFIG, bus.writeLog[0].reg);
+  TEST_ASSERT_TRUE((bus.writeLog[0].value & cmd::MASK_CFG_SLEEP_MODE_EN) != 0u);
+  TEST_ASSERT_EQUAL_HEX8(cmd::regRcount(0), bus.writeLog[1].reg);
+  TEST_ASSERT_TRUE(dev.isSleeping());
 }
 
 void test_begin_rejects_idrive_above_maximum() {
@@ -826,6 +919,23 @@ void test_syncConfig_success_clears_dirty() {
   TEST_ASSERT_TRUE(st.ok());
   TEST_ASSERT_FALSE(dev.hardwareConfigDirty());
   TEST_ASSERT_TRUE(dev.hardwareConfigDirtyError().ok());
+  TEST_ASSERT_TRUE(dev.isSleeping());
+}
+
+void test_syncConfig_forces_sleep_before_reapply_when_awake() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  TEST_ASSERT_FALSE(dev.isSleeping());
+
+  resetIoCounters(bus);
+  Status st = dev.syncConfig();
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_GREATER_OR_EQUAL_UINT8(2u, bus.writeLogCount);
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_CONFIG, bus.writeLog[0].reg);
+  TEST_ASSERT_TRUE((bus.writeLog[0].value & cmd::MASK_CFG_SLEEP_MODE_EN) != 0u);
+  TEST_ASSERT_EQUAL_HEX8(cmd::regRcount(0), bus.writeLog[1].reg);
   TEST_ASSERT_TRUE(dev.isSleeping());
 }
 
@@ -1730,6 +1840,8 @@ void test_getSettings_captures_state() {
   cfg.channelCount = 4;
   cfg.refClkSrc = RefClkSrc::EXT_CLK;
   cfg.channel[0].rcount = 0x1000;
+  makeMultiChannelTimingValid(cfg, 2);
+  cfg.channel[0].rcount = 0x1000;
 
   TEST_ASSERT_TRUE(dev.begin(cfg).ok());
 
@@ -1848,6 +1960,7 @@ void test_setSingleChannelMode_writes_mux_and_config() {
   Config cfg = makeConfig(bus);
   cfg.autoScan = true;
   cfg.rrSequence = RRSequence::CH0_CH1_CH2;
+  makeMultiChannelTimingValid(cfg, 3);
 
   LDC1614::LDC1614 dev;
   TEST_ASSERT_TRUE(dev.begin(cfg).ok());
@@ -1867,6 +1980,7 @@ void test_setSingleChannelMode_config_write_failure_marks_dirty() {
   Config cfg = makeConfig(bus);
   cfg.autoScan = true;
   cfg.rrSequence = RRSequence::CH0_CH1_CH2;
+  makeMultiChannelTimingValid(cfg, 3);
 
   LDC1614::LDC1614 dev;
   TEST_ASSERT_TRUE(dev.begin(cfg).ok());
@@ -1886,8 +2000,10 @@ void test_setSingleChannelMode_config_write_failure_marks_dirty() {
 
 void test_setAutoScanMode_writes_mux_and_commits() {
   FakeBus bus;
+  Config cfg = makeConfig(bus);
+  makeMultiChannelTimingValid(cfg, 4);
   LDC1614::LDC1614 dev;
-  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
 
   Status st = dev.setAutoScanMode(RRSequence::CH0_CH1_CH2_CH3);
   TEST_ASSERT_TRUE(st.ok());
@@ -1900,11 +2016,98 @@ void test_setAutoScanMode_writes_mux_and_commits() {
                                cmd::BIT_MUX_RR_SEQUENCE);
 }
 
+void test_setAutoScanMode_rejects_table43_minimums_before_i2c() {
+  {
+    FakeBus bus;
+    Config cfg = makeConfig(bus);
+    makeMultiChannelTimingValid(cfg, 4);
+    cfg.channel[2].rcount = static_cast<uint16_t>(cmd::MULTI_RCOUNT_MIN - 1u);
+    LDC1614::LDC1614 dev;
+    TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+    resetIoCounters(bus);
+
+    Status st = dev.setAutoScanMode(RRSequence::CH0_CH1_CH2);
+    assertStatusCode(Err::INVALID_PARAM, st);
+    TEST_ASSERT_EQUAL_INT32(2, st.detail);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  }
+  {
+    FakeBus bus;
+    Config cfg = makeConfig(bus);
+    makeMultiChannelTimingValid(cfg, 4);
+    cfg.channel[3].settleCount = static_cast<uint16_t>(cmd::MULTI_SETTLE_MIN - 1u);
+    LDC1614::LDC1614 dev;
+    TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+    resetIoCounters(bus);
+
+    Status st = dev.setAutoScanMode(RRSequence::CH0_CH1_CH2_CH3);
+    assertStatusCode(Err::INVALID_PARAM, st);
+    TEST_ASSERT_EQUAL_INT32(3, st.detail);
+    TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  }
+}
+
+void test_autoscan_timing_setters_reject_table43_minimums_before_i2c() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.autoScan = true;
+  cfg.rrSequence = RRSequence::CH0_CH1;
+  makeMultiChannelTimingValid(cfg, 2);
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  resetIoCounters(bus);
+
+  Status st = dev.setRcount(1, static_cast<uint16_t>(cmd::MULTI_RCOUNT_MIN - 1u));
+  assertStatusCode(Err::INVALID_PARAM, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+
+  st = dev.setSettleCount(1, static_cast<uint16_t>(cmd::MULTI_SETTLE_MIN - 1u));
+  assertStatusCode(Err::INVALID_PARAM, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+
+  TEST_ASSERT_TRUE(dev.setRcount(1, cmd::MULTI_RCOUNT_MIN).ok());
+  TEST_ASSERT_TRUE(dev.setSettleCount(1, cmd::MULTI_SETTLE_MIN).ok());
+}
+
+void test_setClockDividers_encodes_and_rejects_bounds_before_i2c() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
+
+  Status st = dev.setClockDividers(0, 15, 0x03FF);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_CLOCK_DIVIDERS0, bus.lastWriteReg);
+  TEST_ASSERT_EQUAL_HEX16(0xF3FF, bus.lastWriteValue);
+  TEST_ASSERT_EQUAL_UINT8(15u, dev.getConfig().channel[0].finDivider);
+  TEST_ASSERT_EQUAL_UINT16(0x03FF, dev.getConfig().channel[0].frefDivider);
+
+  resetIoCounters(bus);
+  assertStatusCode(Err::INVALID_PARAM, dev.setClockDividers(0, 0, 1));
+  assertStatusCode(Err::INVALID_PARAM, dev.setClockDividers(0, 16, 1));
+  assertStatusCode(Err::INVALID_PARAM, dev.setClockDividers(0, 1, 0));
+  assertStatusCode(Err::INVALID_PARAM, dev.setClockDividers(0, 1, 0x0400));
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+}
+
+void test_setClockDividers_requires_sleep_before_i2c() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  resetIoCounters(bus);
+
+  Status st = dev.setClockDividers(0, 2, 2);
+  assertStatusCode(Err::BUSY, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+}
+
 void test_setHighCurrentDrive_rejects_autoscan() {
   FakeBus bus;
   Config cfg = makeConfig(bus);
   cfg.autoScan = true;
   cfg.rrSequence = RRSequence::CH0_CH1;
+  makeMultiChannelTimingValid(cfg, 2);
   LDC1614::LDC1614 dev;
   TEST_ASSERT_TRUE(dev.begin(cfg).ok());
 
@@ -2220,6 +2423,15 @@ void test_dataReady_convenience_returns_false_on_failure() {
   TEST_ASSERT_EQUAL_UINT8(1u, dev.consecutiveFailures());
 }
 
+void test_dataReady_convenience_returns_false_on_sensor_error_with_drdy() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  bus.reg[cmd::REG_STATUS] = cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_ERR_OR;
+  TEST_ASSERT_FALSE(dev.dataReady());
+}
+
 void test_readDataReady_intb_reads_status_to_distinguish_error() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -2237,6 +2449,37 @@ void test_readDataReady_intb_reads_status_to_distinguish_error() {
                           static_cast<uint8_t>(st.code));
   TEST_ASSERT_EQUAL_INT32(cmd::MASK_STATUS_ERR_OR, st.detail);
   TEST_ASSERT_FALSE(ready);
+}
+
+void test_readDataReady_reports_sensor_error_even_when_drdy_set() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  bus.reg[cmd::REG_STATUS] = cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_ERR_ALE;
+  bool ready = false;
+  Status st = dev.readDataReady(ready);
+  assertStatusCode(Err::SENSOR_ERROR, st);
+  TEST_ASSERT_EQUAL_INT32(cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_ERR_ALE, st.detail);
+  TEST_ASSERT_TRUE(ready);
+}
+
+void test_readDataReady_intb_reports_sensor_error_even_when_drdy_set() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  cfg.intbPin = 4;
+  cfg.gpioRead = fakeGpioRead;
+  cfg.gpioUser = &bus;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  bus.gpioLevel = false;
+  bus.reg[cmd::REG_STATUS] = cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_ERR_OR;
+  bool ready = false;
+  Status st = dev.readDataReady(ready);
+  assertStatusCode(Err::SENSOR_ERROR, st);
+  TEST_ASSERT_EQUAL_INT32(cmd::MASK_STATUS_DRDY | cmd::MASK_STATUS_ERR_OR, st.detail);
+  TEST_ASSERT_TRUE(ready);
 }
 
 void test_readDataReady_intb_asserted_preserves_status_read_failure() {
@@ -2488,6 +2731,10 @@ int main() {
   RUN_TEST(test_begin_rejects_bad_address);
   RUN_TEST(test_begin_rejects_bad_channel_count);
   RUN_TEST(test_begin_rejects_rcount_below_minimum);
+  RUN_TEST(test_begin_rejects_autoscan_table43_minimums_before_i2c);
+  RUN_TEST(test_begin_rejects_clock_divider_bounds_before_i2c);
+  RUN_TEST(test_begin_encodes_clock_dividers_with_reserved_bits_clear);
+  RUN_TEST(test_begin_forces_sleep_config_before_channel_registers);
   RUN_TEST(test_begin_rejects_idrive_above_maximum);
   RUN_TEST(test_begin_rejects_invalid_enum_casts);
   RUN_TEST(test_begin_rejects_wrong_manufacturer_id);
@@ -2510,6 +2757,7 @@ int main() {
   RUN_TEST(test_recover_rejects_wrong_device_id);
   RUN_TEST(test_recover_reaches_offline_when_threshold_is_one);
   RUN_TEST(test_syncConfig_success_clears_dirty);
+  RUN_TEST(test_syncConfig_forces_sleep_before_reapply_when_awake);
   RUN_TEST(test_syncConfig_failure_keeps_dirty);
   RUN_TEST(test_recover_success_clears_dirty_after_reapply);
   RUN_TEST(test_recover_reapply_failure_keeps_dirty);
@@ -2579,6 +2827,10 @@ int main() {
   RUN_TEST(test_setSingleChannelMode_writes_mux_and_config);
   RUN_TEST(test_setSingleChannelMode_config_write_failure_marks_dirty);
   RUN_TEST(test_setAutoScanMode_writes_mux_and_commits);
+  RUN_TEST(test_setAutoScanMode_rejects_table43_minimums_before_i2c);
+  RUN_TEST(test_autoscan_timing_setters_reject_table43_minimums_before_i2c);
+  RUN_TEST(test_setClockDividers_encodes_and_rejects_bounds_before_i2c);
+  RUN_TEST(test_setClockDividers_requires_sleep_before_i2c);
   RUN_TEST(test_setHighCurrentDrive_rejects_autoscan);
   RUN_TEST(test_config_bit_setters_write_config_and_commit);
   RUN_TEST(test_calc_helpers_use_channel_config);
@@ -2601,7 +2853,10 @@ int main() {
   RUN_TEST(test_readDataReady_propagates_i2c_failure);
   RUN_TEST(test_readDataReady_preserves_granular_i2c_failures);
   RUN_TEST(test_dataReady_convenience_returns_false_on_failure);
+  RUN_TEST(test_dataReady_convenience_returns_false_on_sensor_error_with_drdy);
   RUN_TEST(test_readDataReady_intb_reads_status_to_distinguish_error);
+  RUN_TEST(test_readDataReady_reports_sensor_error_even_when_drdy_set);
+  RUN_TEST(test_readDataReady_intb_reports_sensor_error_even_when_drdy_set);
   RUN_TEST(test_readDataReady_intb_asserted_preserves_status_read_failure);
   RUN_TEST(test_readChannelBlocking_propagates_dataReady_failure);
   RUN_TEST(test_readAllChannelsBlocking_propagates_dataReady_failure_before_data_reads);

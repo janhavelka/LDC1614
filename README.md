@@ -178,8 +178,8 @@ inductance for an application.
 | `readFreshChannels(data, count)` | Read STATUS once, then read only channels with `UNREADCONVx` set. Reports per-channel `fresh` / `valid` flags and cached stale samples where available. The overload with `DeviceStatus&` returns the STATUS snapshot that drove freshness. |
 | `readChannelBlocking(ch, data, timeoutMs)` | Require `Config::nowMs`, wait for DRDY with a wall-clock timeout, then read one channel. |
 | `readAllChannelsBlocking(data, timeoutMs, count)` | Require `Config::nowMs`, wait for one DRDY event, then call `readAllChannels()`. |
-| `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. |
-| `dataReady()` | Convenience wrapper around `readDataReady()`. `false` can mean not ready, not initialized, OFFLINE/BUSY, or hidden transport/status failure. |
+| `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. If STATUS contains DRDY plus sensor error flags, `ready` is true and the returned status is `SENSOR_ERROR`. |
+| `dataReady()` | Convenience wrapper around `readDataReady()`. `false` can mean not ready, not initialized, OFFLINE/BUSY, or hidden transport/status/sensor failure. |
 
 `readDeviceStatus()`, `readStatusRaw()`, and STATUS-based data-ready polling read the device STATUS register. Per the device behavior, that read can clear sticky status flags and de-assert INTB.
 
@@ -204,7 +204,9 @@ sticky flags or de-asserts INTB.
 Blocking helpers validate parameters and `Config::nowMs` before polling,
 touching I2C, or calling `cooperativeYield`. Without a monotonic `nowMs`
 callback, they return `INVALID_CONFIG`; nonblocking reads, status checks, and
-cache access remain available.
+cache access remain available. `timeoutMs` bounds the readiness wait. The final
+DATAx readout still uses injected I2C transaction timeouts and bounded
+application callback latency.
 
 ### Sample Cache
 
@@ -223,7 +225,7 @@ cache access remain available.
 | `wake()` | Wake and start conversions. |
 | `softReset()` | Reset device to defaults. Requires `begin()` to reinitialize. |
 | `resetAndReapply()` | Reset the device and re-apply the cached configuration, returning to READY on success. |
-| `syncConfig()` | Re-apply the cached configuration without a reset. Leaves the device in sleep mode on success. |
+| `syncConfig()` | Re-apply the cached configuration without a reset. Forces CONFIG sleep first, then applies channel/global registers, and leaves the device in sleep mode on success. |
 
 ### Runtime Configuration (requires sleep mode)
 
@@ -231,7 +233,7 @@ cache access remain available.
 |--------|-------------|
 | `setActiveChannel(ch)` | Set active channel for single-channel mode. |
 | `setSingleChannelMode(ch)` | Disable autoscan and select the active single channel. |
-| `setAutoScanMode(sequence)` | Enable autoscan using `CH0_CH1`, `CH0_CH1_CH2`, or `CH0_CH1_CH2_CH3`. |
+| `setAutoScanMode(sequence)` | Enable autoscan using `CH0_CH1`, `CH0_CH1_CH2`, or `CH0_CH1_CH2_CH3`. Selected channels must meet the datasheet Table 43 multi-channel minima. |
 | `setDeglitch(deglitch)` | Set the input deglitch filter bandwidth. |
 | `setErrorConfig(mask)` / `getErrorConfig()` | Set/read cached `ERROR_CONFIG`. Reserved bits are rejected. |
 | `setIntbDisabled(disabled)` | Enable or disable INTB output in `CONFIG.INTB_DIS`. |
@@ -240,14 +242,14 @@ cache access remain available.
 | `setRpOverrideEnabled(enabled)` | Enable/disable fixed drive current override. |
 | `setAutoAmplitudeCorrectionEnabled(enabled)` | Enable/disable automatic amplitude correction. |
 | `setHighCurrentDriveEnabled(enabled)` | Enable high-current drive. Valid only for single-channel Ch0. |
-| `setRcount(ch, rcount)` | Set reference count for channel. |
-| `setSettleCount(ch, count)` | Set settling reference count. |
-| `setClockDividers(ch, fin, fref)` | Set frequency dividers. |
+| `setRcount(ch, rcount)` | Set reference count for channel. Autoscan selected channels require `>=0x0009`. |
+| `setSettleCount(ch, count)` | Set settling reference count. Autoscan selected channels require `>=0x0004`. |
+| `setClockDividers(ch, fin, fref)` | Set frequency dividers. Register-field ranges are enforced; physical clock-plan limits remain application-owned. |
 | `setOffset(ch, offset)` | Set conversion offset. |
 | `setDriveCurrent(ch, idrive)` | Set sensor drive current (0-31). |
 | `readInitIdrive(ch, out)` | Read auto-calibrated INIT_IDRIVE value. |
 
-Runtime setters require the device to be in sleep mode. Call `sleep()`, apply the changes, then call `wake()` when conversions should resume. Cached configuration is committed only after the corresponding register write succeeds.
+Runtime setters require the device to be in sleep mode. Call `sleep()`, apply the changes, then call `wake()` when conversions should resume. Cached configuration is committed only after the corresponding register write succeeds. Full apply paths (`begin()`, `syncConfig()`, recovery reapply, and `resetAndReapply()`) write a sleep-mode CONFIG image before channel/global registers so reconfiguration is performed while asleep.
 
 ### Diagnostics
 
@@ -361,36 +363,44 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | `channelCount` | `2` for LDC1612 or `4` for LDC1614. |
 | Channel indexes | Must be less than `channelCount`. |
 | `rrSequence` | LDC1612 accepts only `CH0_CH1`; LDC1614 accepts all defined sequences. |
+| `RCOUNTx` | Register value must be `0x0005..0xFFFF`; channels selected by autoscan require `>=0x0009` per datasheet Table 43. |
+| `SETTLECOUNTx` | Single-channel mode accepts the register-defined values; channels selected by autoscan require `>=0x0004` per datasheet Table 43. |
+| `FIN_DIVIDERx` | Register field must be `1..15`. The application clock plan must choose `>=2` when actual sensor frequency is `>=8.75 MHz`. |
+| `FREF_DIVIDERx` | Register field must be `1..1023`; reserved bits in CLOCK_DIVIDERSx are kept clear. |
+| Physical clock plan | The driver does not know actual `fCLK`, `fREFx`, sensor frequency, coil tolerance, or deglitch margin. Validate `fINx < fREFx/4`, external/internal clock accuracy, 1 kHz to 10 MHz sensor range, and deglitch selection on the target board. |
 | `deglitch` | Must be one of 1 MHz, 3.3 MHz, 10 MHz, or 33 MHz. |
 | `errorConfig` | Only `cmd::MASK_ERRCFG_*` bits in `cmd::MASK_ERRCFG_ALLOWED` may be set. |
 | INTB | If `intbPin >= 0`, `gpioRead` is required. |
 | `highCurrentDrv` | Valid only in single-channel mode on Ch0. |
+| Full configuration apply | `begin()`, `syncConfig()`, `recover()` reapply, and `resetAndReapply()` force CONFIG sleep before writing channel/global configuration and leave the device asleep. |
 | Recovery | `recoverBackoffMs` gates repeated `recover()` attempts; bus/hard reset callbacks are optional. |
 
 ## API Latency and Transaction Model
 
 Notation: `R` = 16-bit register read transaction, `W` = 16-bit register write
-transaction, `N` = configured channel count/effective `count`, `T` = readiness
-poll count until ready/timeout. Each transaction latency is controlled by the
-injected transport and `Config::i2cTimeoutMs`; callback latency for `busReset`,
-`hardReset`, and `cooperativeYield` is application-owned.
+transaction, `N` = configured channel count/effective `count`, `F` = channels
+with `UNREADCONVx` set, `P` = readiness poll count until ready/timeout, and
+`T` = injected per-transaction timeout (`Config::i2cTimeoutMs`). Callback
+latency for `gpioRead`, `busReset`, `hardReset`, and `cooperativeYield` is
+application-owned and must be bounded by the injected implementation.
 
 | API | I2C transactions | Other waits | Bound / notes |
 | --- | ---: | --- | --- |
-| `begin()` | `2R + N*5W + 3W` | none in core | Probe identity, apply channel registers plus ERROR_CONFIG/MUX_CONFIG/CONFIG. Leaves device asleep. |
+| `begin()` | `2R + N*5W + 4W` | none in core | Probe identity, force CONFIG sleep, apply channel registers plus ERROR_CONFIG/MUX_CONFIG/final CONFIG. Leaves device asleep. |
 | `probe()` | `2R` | none | Raw identity reads, no health tracking. Requires configured callbacks. |
-| `recover()` | `2R` minimum | optional bus/hard reset callbacks | May add bus reset, RESET_DEV write, hard reset, and full config reapply. Backoff depends on `nowMs` when configured. |
+| `recover()` | `1R..2R` before optional recovery steps | optional bus/hard reset callbacks | Identity failure can return after MANUFACTURER_ID. May add bus reset, RESET_DEV write, hard reset, and full config reapply. Backoff depends on `nowMs` when configured. |
 | `readChannel(ch)` | `2R` | none | DATAx_MSB then DATAx_LSB. |
 | `readAllChannels(out, N)` | `2N R` | none | Latest-register semantics; not per-channel freshness proof. |
 | `readFreshChannels(out, N)` | `1R + 2F R` | none | `F` is channels with `UNREADCONVx` set. Non-fresh channels return cached data if available. |
-| `readDataReady(ready)` | `0R` or `1R` | none | INTB high path uses no I2C; polling or asserted INTB reads STATUS. Returns `BUSY` while OFFLINE. |
-| `dataReady()` | `0R` or `1R` | none | Convenience only; false can mean not ready or hidden error. |
+| `readDataReady(ready)` | `0R` or `1R` | optional `gpioRead` | INTB high path uses no I2C; polling or asserted INTB reads STATUS. STATUS sensor errors return `SENSOR_ERROR`, with `ready` still reflecting DRDY. |
+| `dataReady()` | `0R` or `1R` | optional `gpioRead` | Convenience only; false can mean not ready or hidden transport/status/sensor error. |
 | `readDeviceStatus()` / `readStatusRaw()` | `1R` | none | STATUS read can clear sticky status and de-assert INTB. |
 | `sleep()` / `wake()` | `0W` or `1W` | none | No write if already in requested state. |
 | `softReset()` | `1W` | none in core | Writes RESET_DEV and transitions UNINIT on success. |
-| `resetAndReapply()` | `1W + N*5W + 3W` | none in core | RESET_DEV plus full config reapply. |
-| `readChannelBlocking()` | `T*ready + 2R` | `cooperativeYield` between polls | Requires `nowMs`; `ready` is `0R` or `1R` per poll. |
-| `readAllChannelsBlocking(N)` | `T*ready + 2N R` | `cooperativeYield` between polls | Requires `nowMs`; waits for one DRDY, then latest-register readout. |
+| `syncConfig()` | `N*5W + 4W` | none in core | Force CONFIG sleep, apply cached config, final sleeping CONFIG. |
+| `resetAndReapply()` | `1W + N*5W + 4W` | none in core | RESET_DEV plus full config reapply. |
+| `readChannelBlocking()` | `P*ready + 2R` | `cooperativeYield` between polls | Requires `nowMs`; `ready` is `0R` or `1R` per poll. Timeout bounds readiness wait only. |
+| `readAllChannelsBlocking(N)` | `P*ready + 2N R` | `cooperativeYield` between polls | Requires `nowMs`; waits for one DRDY, then latest-register readout. Timeout bounds readiness wait only. |
 | Major setters | usually `1W`, `setSingleChannelMode()` `2W` | none | Setters require sleep mode and commit cache after successful writes. |
 | Raw register access | `1R` or `1W` | none | Diagnostic only; raw writes mark hardware config dirty. |
 
@@ -405,6 +415,9 @@ The helper methods use the local datasheet approximation:
 - `calcSampleTimeUs()` returns conversion plus settling time for one channel.
 - In autoscan, estimate the nominal frame time by summing enabled channel sample
   times, then validate the observed cadence on hardware.
+- The driver enforces register-field ranges and the datasheet Table 43
+  multi-channel minima it can check from configuration: selected autoscan
+  channels require `RCOUNTx >= 0x0009` and `SETTLECOUNTx >= 0x0004`.
 
 The `fRef` argument is the pre-divider reference clock supplied to the LDC
 channel, not already-divided `fREFx`. Internal versus external clock accuracy,
@@ -412,6 +425,12 @@ multi-channel sequencing overhead/switching behavior, I2C readout time,
 interrupt latency, and sensor restart/error behavior are not included in the
 helper result. Treat the result as an estimate for scheduling and validation,
 not a hardware-proven sample-rate guarantee.
+
+The application clock plan must still validate facts the core cannot infer:
+actual `fCLK`/`fREFx`, `fINx < fREFx/4`, the 1 kHz to 10 MHz sensor operating
+range, `FIN_DIVIDERx >= 2` when actual sensor frequency is at least 8.75 MHz,
+and deglitch bandwidth above the maximum sensor frequency. Capture board logs
+or bench measurements before making timing/readiness claims.
 
 ## Documentation
 
