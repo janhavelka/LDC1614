@@ -13,13 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dirty-state fields in `SettingsSnapshot`.
 - Freshness APIs: `FreshChannelData` and `readFreshChannels()` for
   STATUS/`UNREADCONVx`-driven latest-versus-unread conversion handling.
+- Poll-chunked I2C APIs for selected channel reads, cached config apply, and
+  reset/reapply with one active job per driver instance.
+- Clean package consumer compile guard that packs the library, extracts the
+  archive, and compiles a consumer against the packaged public headers and
+  source.
 - HIL procedure and conservative runner: `docs/HIL_VALIDATION.md`,
   `docs/hil/README.md`, and `tools/ldc1614_hil_runner.py`. A no-hardware run is
   `NOT_RUN`, not a pass.
 - Reproducible version metadata controls through `SOURCE_DATE_EPOCH` and
   `LDC1614_REPRODUCIBLE_BUILD=1`.
-- Merge/release review documentation that separates software hardening evidence
-  from hardware validation limitations.
+- Maintained docs index and validation status pages that separate software
+  hardening evidence from hardware validation limitations.
 - ESP-IDF component metadata, root `CMakeLists.txt`, and an interactive
   `examples/esp_idf/basic` CLI application using the ESP-IDF new I2C master
   driver, `esp_timer`, FreeRTOS yield hook, optional INTB GPIO hook, and
@@ -29,8 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   subset.
 - `tools/check_idf_example_contract.py` to guard ESP-IDF CLI parity, native I2C
   driver usage, and absence of Arduino compatibility facades.
-- IDF port implementation notes documenting the framework-neutral core boundary
-  and validation status.
+- IDF port notes documenting the framework-neutral core boundary and validation
+  status.
 - Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
 - Expanded settings snapshot API: `getSettings(SettingsSnapshot&)`, by-value `settings()`, `driverState()`, and per-channel `hasSample()`.
 - Public timing helpers `calcSettleTimeUs()` and `calcSampleTimeUs()`.
@@ -53,6 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   partially reach the device.
 - ESP-IDF diagnostic CLI path now uses native fixed-buffer sources and is guarded
   against Arduino facade/shared Arduino CLI leakage.
+- Active poll-chunked jobs block other public I2C APIs with `BUSY` until
+  `poll()` completes or fails the job.
+- `probe()` now preserves non-address transport failures instead of collapsing
+  all I2C failures into `DEVICE_NOT_FOUND`.
+- Recovery backoff is enforced only when `Config::nowMs` is configured, avoiding
+  permanent `BUSY` recovery behavior in no-timebase integrations.
+- Package export contents are explicit in `library.json`, and ESP-IDF CMake now
+  checks generated `Version.h` consistency instead of mutating source trees.
 - Readiness wording was tightened across maintained docs and metadata. Hardware
   validation remains pending for target boards and sensors.
 - Removed Arduino `millis()` and `yield()` fallbacks from the driver core.
@@ -64,7 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explicit recovery/reset bypass internals now use the shared `ScopedOfflineI2cAllowance` / `_reassertOfflineLatch()` procedure so failed recovery attempts that begin from `OFFLINE` keep the latch asserted.
 - Doxyfile inputs now focus generated API docs on public headers and top-level
   project docs, avoiding extracted application-note math warnings.
-- Reference documentation now uses human-readable vendor PDF names and separates compact inductance-converter notes from full PDF/application-note extractions under `docs/extracted-md/` and `docs/pdf-extracted-md/`.
+- Reference documentation now uses human-readable vendor PDF names and keeps
+  compact notes, application notes, how-to guides, and raw PDF markdown under
+  `docs/reference/`.
 - Blocking read helpers now propagate `readDataReady()` failures instead of converting I2C errors into timeouts.
 - Blocking read helpers now have a finite poll cap even if the injected clock callback stops advancing.
 - Runtime setters now commit cached configuration only after successful register writes.
@@ -85,6 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failures, and expose fresh unread conversions explicitly.
 - Expanded native tests and fake-bus fault injection now cover 126 native test
   cases when the current local test run confirms that count.
+- Poll-chunked budget and first-failure tests bring the native suite to 139 test
+  cases in this pass.
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
 - Channel cache and calculation helpers now reject channels outside the configured LDC1612/LDC1614 channel count.
 - Recovery identity mismatches now update health counters/state instead of returning a semantic failure with a healthy driver state.

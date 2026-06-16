@@ -49,7 +49,7 @@ def maintained_files() -> Iterable[Path]:
 
     for base, patterns in (
         (ROOT / "examples", ("*.md", "*.cpp", "*.h", "*.hpp")),
-        (ROOT / "docs" / "application_notes", ("*.md",)),
+        (ROOT / "docs" / "reference" / "application_notes", ("*.md",)),
     ):
         if not base.exists():
             continue

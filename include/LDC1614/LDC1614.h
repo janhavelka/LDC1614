@@ -115,6 +115,9 @@ public:
   /// @brief Initialize the driver with the given configuration.
   /// Validates config, probes the device (MFG_ID + DEV_ID), and applies
   /// register settings. On success, driver enters READY state in sleep mode.
+  /// If validation passes but probe/apply fails, the normalized requested
+  /// configuration is retained for diagnostics while initialized remains false.
+  /// Failed apply paths can also set hardwareConfigDirty().
   /// @param config Driver configuration (transport, channel settings, etc.)
   /// @return Status (OK on success, INVALID_CONFIG/DEVICE_NOT_FOUND/I2C_ERROR on failure)
   Status begin(const Config& config);
@@ -279,6 +282,52 @@ public:
   /// @param count Number of channels (0 = use config channelCount)
   /// @return Status
   Status readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs = 200, uint8_t count = 0);
+
+  // === Poll-chunked operations ===
+
+  /// @brief Start a poll-driven selected-channel read job.
+  ///
+  /// The job reads only DATAx registers for channels selected in mask bits 0..3.
+  /// It does not read STATUS, so it does not clear STATUS sticky flags or
+  /// de-assert INTB as a hidden side effect. Each DATAx_MSB or DATAx_LSB
+  /// register read consumes one poll instruction, but a channel sample is not
+  /// exposed through getChannelSample() until both registers have been read.
+  /// Only one poll-chunked job may be active per driver instance.
+  /// @param mask Channel bit mask; bit 0 selects channel 0.
+  /// @return IN_PROGRESS when scheduled, or an error precondition status
+  Status startReadChannels(uint8_t mask);
+
+  /// @brief Advance the active poll-chunked job.
+  ///
+  /// A register write or write-read consumes one instruction. CPU-only state
+  /// transitions and delay/ready checks consume zero instructions. Passing
+  /// maxInstructions=0 never touches I2C and returns IN_PROGRESS while a job is
+  /// active.
+  /// @param nowMs Current monotonic time in milliseconds for delay gates
+  /// @param maxInstructions Maximum I2C instructions to execute this call
+  /// @return OK when no job remains, IN_PROGRESS while work remains, or first failure
+  Status poll(uint32_t nowMs, uint8_t maxInstructions = 1);
+
+  /// @brief True after the most recent startReadChannels() job completed.
+  bool readChannelsReady() const;
+
+  /// @brief Get a sample produced by the most recent completed channel-read job.
+  /// @param ch Channel index
+  /// @param out Output sample
+  /// @return OK if the requested channel was selected and read by the last job
+  Status getChannelSample(uint8_t ch, ChannelData& out) const;
+
+  /// @brief Start a poll-driven cached configuration apply job.
+  ///
+  /// This mirrors syncConfig() but writes one register per poll instruction.
+  /// The device is forced asleep before channel/global config writes and remains
+  /// asleep on success.
+  /// @return IN_PROGRESS when scheduled, or an error precondition status
+  Status startApplyConfig();
+
+  /// @brief Start a poll-driven RESET_DEV plus cached configuration reapply job.
+  /// @return IN_PROGRESS when scheduled, or an error precondition status
+  Status startResetAndReapply();
 
   // === Sample Cache ===
 
@@ -565,6 +614,18 @@ public:
   uint8_t channelCount() const { return _config.channelCount; }
 
 private:
+  enum class ChunkedJobKind : uint8_t {
+    NONE,
+    READ_CHANNELS,
+    APPLY_CONFIG,
+    RESET_AND_REAPPLY
+  };
+
+  enum class ChunkedReadPhase : uint8_t {
+    MSB,
+    LSB
+  };
+
   // === Transport Wrappers ===
   Status _i2cWriteReadRaw(const uint8_t* txBuf, size_t txLen,
                           uint8_t* rxBuf, size_t rxLen);
@@ -589,6 +650,18 @@ private:
   // === Internal ===
   Status _applyConfig();
   Status _performRecoveryLadder();
+  Status _pollReadChannels(uint8_t& remainingInstructions);
+  Status _pollApplyConfig(uint8_t& remainingInstructions);
+  Status _pollResetAndReapply(uint8_t& remainingInstructions);
+  Status _startChunkedJob(ChunkedJobKind kind);
+  Status _finishChunkedJob(const Status& st);
+  void _storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
+                         ChannelData& out);
+  bool _configStep(uint8_t step, uint8_t& reg, uint16_t& value,
+                   uint8_t& phase, uint8_t& index) const;
+  uint8_t _configStepCount() const;
+  uint8_t _firstSelectedChannel(uint8_t mask) const;
+  uint8_t _nextSelectedChannel(uint8_t after, uint8_t mask) const;
   void _markHardwareConfigDirty(const Status& cause, uint8_t phase,
                                 uint8_t reg, uint8_t index);
   void _clearHardwareConfigDirty();
@@ -622,6 +695,16 @@ private:
   // === Recovery Backoff ===
   uint32_t _lastRecoverMs = 0;
   bool _lastRecoverValid = false;
+
+  // === Poll-chunked job state ===
+  ChunkedJobKind _chunkedJob = ChunkedJobKind::NONE;
+  uint8_t _chunkedConfigStep = 0;
+  uint8_t _chunkedReadMask = 0;
+  uint8_t _chunkedReadReadyMask = 0;
+  uint8_t _chunkedReadChannel = 0;
+  ChunkedReadPhase _chunkedReadPhase = ChunkedReadPhase::MSB;
+  uint16_t _chunkedReadMsb = 0;
+  bool _chunkedPollExecuting = false;
 };
 
 } // namespace LDC1614

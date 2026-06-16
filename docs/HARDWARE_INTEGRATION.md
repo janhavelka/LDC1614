@@ -5,16 +5,16 @@ validation evidence. Use the datasheet and captured board logs for release
 decisions.
 
 Local sources used:
-- `docs/LDC1614_datasheet.pdf`
-- `docs/extracted-md/01_chip_overview.md`
-- `docs/extracted-md/02_pinout_and_signals.md`
-- `docs/extracted-md/03_electrical_and_timing.md`
-- `docs/extracted-md/04_protocol_commands_and_transactions.md`
-- `docs/extracted-md/05_register_map.md`
-- `docs/extracted-md/06_modes_interrupts_status_and_faults.md`
-- `docs/extracted-md/07_initialization_reset_and_operational_notes.md`
-- `docs/application_notes/sensor_configuration_settings.md`
-- `docs/application_notes/sensor_status_monitoring.md`
+- `docs/reference/LDC1614_datasheet.pdf`
+- `docs/reference/extracted-md/01_chip_overview.md`
+- `docs/reference/extracted-md/02_pinout_and_signals.md`
+- `docs/reference/extracted-md/03_electrical_and_timing.md`
+- `docs/reference/extracted-md/04_protocol_commands_and_transactions.md`
+- `docs/reference/extracted-md/05_register_map.md`
+- `docs/reference/extracted-md/06_modes_interrupts_status_and_faults.md`
+- `docs/reference/extracted-md/07_initialization_reset_and_operational_notes.md`
+- `docs/reference/application_notes/sensor_configuration_settings.md`
+- `docs/reference/application_notes/sensor_status_monitoring.md`
 
 ## Device Selection
 

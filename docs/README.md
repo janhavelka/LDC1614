@@ -1,51 +1,37 @@
-# LDC1614 Documentation Index
+# LDC1614 Docs
 
-Use this index to avoid confusing historical planning artifacts with the current
-merge/release review state.
+This directory is the maintained documentation surface for the library. It is
+kept intentionally small: usage and API contracts live in the repository
+`README.md`; these files cover integration, validation, and supporting source
+material.
 
-## Current Authoritative Docs
+## Maintained Docs
 
-- `../README.md` - public API, examples, contracts, and validation status
-  summary.
-- `../AGENTS.md` - repository engineering rules for agents and contributors.
-- `LDC1614_INDUSTRY_HARDENING_FINAL_REPORT.md` - current software hardening
-  status, Prompt 02 reconciliation, deferred evidence, and conservative
-  merge/release recommendation.
-- `LDC1614_MERGE_RELEASE_CLEANUP_REPORT.md` - final documentation cleanup, local
-  command evidence, artifact cleanup, sync status, and remaining blockers for
-  this merge/release review pass.
-- `LDC1614_HARDENING_PROGRESS.md` - chronological hardening log. Use the final
-  report and cleanup report for current status.
-- `VALIDATION_STATUS.md` - maintained validation expectations and evidence
-  boundaries.
+- `HARDWARE_INTEGRATION.md` - board, sensor, timing, INTB, SD, and I2C
+  integration checklist.
+- `I2C_INTEGRATION.md` - injected-transport, error-taxonomy, dirty-config, and
+  bounded poll-integration notes for application-owned I2C managers.
+- `IDF_PORT.md` - native ESP-IDF component and diagnostic example boundaries.
+- `HIL_VALIDATION.md` - hardware-in-the-loop procedure and evidence matrix.
+- `VALIDATION_STATUS.md` - current software checks, local evidence boundaries,
+  and hardware evidence still required.
+- `hil/README.md` - location and rules for real HIL output artifacts.
 
-## Hardware/HIL Docs
+## Reference Material
 
-- `HARDWARE_INTEGRATION.md` - board/application integration checklist.
-- `HIL_VALIDATION.md` - HIL procedure and evidence matrix.
-- `hil/README.md` - location for real HIL output artifacts; currently no
-  hardware logs are committed.
+- `reference/LDC1614_datasheet.pdf` - primary device datasheet.
+- `reference/extracted-md/` - compact curated device notes used while
+  implementing and reviewing the driver.
+- `reference/application_notes/` - vendor application-note PDFs and concise
+  local summaries.
+- `reference/howto_guides/` - vendor how-to PDFs and concise local summaries.
+- `reference/pdf-extracted-md/` - raw generated markdown from source PDFs. This
+  is trace material, not implementation guidance.
 
-## ESP-IDF Docs
+## What Was Removed From Active Docs
 
-- `IDF_PORT.md` - maintained ESP-IDF component and diagnostic example status.
-- `IDF_PORT_IMPLEMENTATION.md` - historical ESP-IDF hardening record.
-- `../examples/esp_idf/basic/README.md` - native ESP-IDF diagnostic bring-up
-  example notes.
-
-## Application Notes / Datasheet Extractions
-
-- `extracted-md/` - compact device facts extracted for implementation review.
-- `pdf-extracted-md/` - markdown generated from source PDFs.
-- `application_notes/` and `howto_guides/` - vendor reference material and
-  derived notes. These are design aids, not validation evidence.
-- `LDC1614_datasheet.pdf` - source datasheet reference.
-
-## Historical Reports/Plans
-
-- `LDC1614_INDUSTRY_READINESS_IMPLEMENTATION_PLAN.md` - baseline plan from the
-  start of the hardening sequence.
-- `../prompts/` - historical prompt set used to drive the hardening sequence.
-  See `../prompts/README.md` before reusing any prompt text.
-- `prompts/` - additional exploratory prompt artifacts retained for
-  traceability.
+Prompt-era reports, hardening progress logs, implementation plans, cleanup
+reports, and prompt files are not part of the maintained docs surface. Current
+status is represented by `VALIDATION_STATUS.md`, the changelog, and the root
+`README.md`; hardware evidence still has to be captured with the HIL procedure
+before target deployment decisions.

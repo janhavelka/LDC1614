@@ -180,6 +180,14 @@ Status LDC1614::begin(const Config& config) {
   _totalSuccess = 0;
   _lastRecoverMs = 0;
   _lastRecoverValid = false;
+  _chunkedJob = ChunkedJobKind::NONE;
+  _chunkedConfigStep = 0;
+  _chunkedReadMask = 0;
+  _chunkedReadReadyMask = 0;
+  _chunkedReadChannel = 0;
+  _chunkedReadPhase = ChunkedReadPhase::MSB;
+  _chunkedReadMsb = 0;
+  _chunkedPollExecuting = false;
 
   for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
     _lastChannelData[i] = ChannelData{};
@@ -301,6 +309,14 @@ void LDC1614::end() {
   _initialized = false;
   _sleeping = true;
   _driverState = DriverState::UNINIT;
+  _chunkedJob = ChunkedJobKind::NONE;
+  _chunkedConfigStep = 0;
+  _chunkedReadMask = 0;
+  _chunkedReadReadyMask = 0;
+  _chunkedReadChannel = 0;
+  _chunkedReadPhase = ChunkedReadPhase::MSB;
+  _chunkedReadMsb = 0;
+  _chunkedPollExecuting = false;
 }
 
 // ============================================================================
@@ -308,13 +324,20 @@ void LDC1614::end() {
 // ============================================================================
 
 Status LDC1614::probe() {
+  auto probeReadFailure = [](const Status& failure) -> Status {
+    if (failure.code == Err::INVALID_CONFIG || failure.code == Err::INVALID_PARAM) {
+      return failure;
+    }
+    if (failure.code == Err::I2C_NACK_ADDR) {
+      return Status::Error(Err::DEVICE_NOT_FOUND, "LDC1614 not responding", failure.detail);
+    }
+    return failure;
+  };
+
   uint16_t mfgId = 0;
   Status st = _readRegister16Raw(cmd::REG_MANUFACTURER_ID, mfgId);
   if (!st.ok()) {
-    if (st.code == Err::INVALID_CONFIG || st.code == Err::INVALID_PARAM) {
-      return st;
-    }
-    return Status::Error(Err::DEVICE_NOT_FOUND, "LDC1614 not responding", st.detail);
+    return probeReadFailure(st);
   }
   if (mfgId != cmd::MANUFACTURER_ID_VALUE) {
     return Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
@@ -324,10 +347,7 @@ Status LDC1614::probe() {
   uint16_t devId = 0;
   st = _readRegister16Raw(cmd::REG_DEVICE_ID, devId);
   if (!st.ok()) {
-    if (st.code == Err::INVALID_CONFIG || st.code == Err::INVALID_PARAM) {
-      return st;
-    }
-    return Status::Error(Err::DEVICE_NOT_FOUND, "LDC1614 not responding", st.detail);
+    return probeReadFailure(st);
   }
   if (devId != cmd::DEVICE_ID_VALUE) {
     return Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
@@ -376,20 +396,7 @@ Status LDC1614::readChannel(uint8_t ch, ChannelData& out) {
     return st;
   }
 
-  // Parse error flags from MSB
-  out.errUnderRange = (msb & cmd::MASK_DATA_ERR_UR) != 0;
-  out.errOverRange  = (msb & cmd::MASK_DATA_ERR_OR) != 0;
-  out.errWatchdog   = (msb & cmd::MASK_DATA_ERR_WD) != 0;
-  out.errAmplitude  = (msb & cmd::MASK_DATA_ERR_AE) != 0;
-
-  // Reconstruct 28-bit data: DATAx_MSB[11:0] << 16 | DATAx_LSB[15:0]
-  out.rawData = (static_cast<uint32_t>(msb & cmd::MASK_DATA_MSB_DATA) << 16) |
-                static_cast<uint32_t>(lsb);
-
-  // Cache the result with timestamp
-  _lastChannelData[ch] = out;
-  _hasSample[ch] = true;
-  _sampleTimestampMs[ch] = _nowMs();
+  _storeChannelData(ch, msb, lsb, out);
 
   return Status::Ok();
 }
@@ -765,6 +772,126 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
   }
 
   return readAllChannels(out, n);
+}
+
+// ============================================================================
+// Poll-chunked operations
+// ============================================================================
+
+Status LDC1614::startReadChannels(uint8_t mask) {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (_chunkedJob != ChunkedJobKind::NONE) {
+    return Status::Error(Err::BUSY, "Poll-chunked job already active");
+  }
+  const uint8_t validMask = static_cast<uint8_t>((1U << _config.channelCount) - 1U);
+  if (mask == 0 || (mask & ~validMask) != 0) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid channel mask");
+  }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+
+  _chunkedReadReadyMask = 0;
+  _chunkedReadMask = mask;
+  _chunkedReadChannel = _firstSelectedChannel(mask);
+  _chunkedReadPhase = ChunkedReadPhase::MSB;
+  _chunkedReadMsb = 0;
+  return _startChunkedJob(ChunkedJobKind::READ_CHANNELS);
+}
+
+Status LDC1614::poll(uint32_t nowMs, uint8_t maxInstructions) {
+  (void)nowMs;
+  if (_chunkedJob == ChunkedJobKind::NONE) {
+    return Status::Ok();
+  }
+  if (maxInstructions == 0) {
+    return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+  }
+
+  const bool oldPollExecuting = _chunkedPollExecuting;
+  _chunkedPollExecuting = true;
+  uint8_t remaining = maxInstructions;
+  Status st = Status::Ok();
+  while (remaining > 0 && _chunkedJob != ChunkedJobKind::NONE) {
+    switch (_chunkedJob) {
+      case ChunkedJobKind::READ_CHANNELS:
+        st = _pollReadChannels(remaining);
+        break;
+      case ChunkedJobKind::APPLY_CONFIG:
+        st = _pollApplyConfig(remaining);
+        break;
+      case ChunkedJobKind::RESET_AND_REAPPLY:
+        st = _pollResetAndReapply(remaining);
+        break;
+      case ChunkedJobKind::NONE:
+        st = Status::Ok();
+        break;
+    }
+    if (!st.ok() && !st.inProgress()) {
+      _chunkedPollExecuting = oldPollExecuting;
+      return st;
+    }
+    if (st.inProgress() && remaining == 0) {
+      break;
+    }
+  }
+
+  if (_chunkedJob == ChunkedJobKind::NONE) {
+    _chunkedPollExecuting = oldPollExecuting;
+    return Status::Ok();
+  }
+  _chunkedPollExecuting = oldPollExecuting;
+  return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+}
+
+bool LDC1614::readChannelsReady() const {
+  return _chunkedJob == ChunkedJobKind::NONE &&
+         _chunkedReadMask != 0 &&
+         _chunkedReadReadyMask == _chunkedReadMask;
+}
+
+Status LDC1614::getChannelSample(uint8_t ch, ChannelData& out) const {
+  if (!isValidChannel(ch, _config.channelCount)) {
+    return Status::Error(Err::INVALID_PARAM, "Invalid channel");
+  }
+  if (!readChannelsReady() || (_chunkedReadReadyMask & (1U << ch)) == 0) {
+    return Status::Error(Err::CONVERSION_NOT_READY, "Chunked channel sample not ready");
+  }
+  out = _lastChannelData[ch];
+  return Status::Ok();
+}
+
+Status LDC1614::startApplyConfig() {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (_chunkedJob != ChunkedJobKind::NONE) {
+    return Status::Error(Err::BUSY, "Poll-chunked job already active");
+  }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+  _chunkedConfigStep = 0;
+  return _startChunkedJob(ChunkedJobKind::APPLY_CONFIG);
+}
+
+Status LDC1614::startResetAndReapply() {
+  if (!_initialized) {
+    return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  if (_chunkedJob != ChunkedJobKind::NONE) {
+    return Status::Error(Err::BUSY, "Poll-chunked job already active");
+  }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+  _chunkedConfigStep = 0;
+  return _startChunkedJob(ChunkedJobKind::RESET_AND_REAPPLY);
 }
 
 // ============================================================================
@@ -1517,7 +1644,256 @@ Status LDC1614::_ensureNormalI2cAllowed() const {
   if (_initialized && _driverState == DriverState::OFFLINE && !_allowOfflineI2c) {
     return Status::Error(Err::BUSY, "Driver is offline; call recover()");
   }
+  if (_initialized && _chunkedJob != ChunkedJobKind::NONE && !_chunkedPollExecuting) {
+    return Status::Error(Err::BUSY, "Poll-chunked job already active");
+  }
   return Status::Ok();
+}
+
+Status LDC1614::_pollReadChannels(uint8_t& remainingInstructions) {
+  while (remainingInstructions > 0) {
+    if (_chunkedReadChannel >= _config.channelCount) {
+      return _finishChunkedJob(Status::Ok());
+    }
+
+    if (_chunkedReadPhase == ChunkedReadPhase::MSB) {
+      uint16_t msb = 0;
+      Status st = readRegister16(cmd::regDataMsb(_chunkedReadChannel), msb);
+      remainingInstructions--;
+      if (!st.ok()) {
+        return _finishChunkedJob(st);
+      }
+      _chunkedReadMsb = msb;
+      _chunkedReadPhase = ChunkedReadPhase::LSB;
+      if (remainingInstructions == 0) {
+        return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+      }
+    } else {
+      uint16_t lsb = 0;
+      Status st = readRegister16(cmd::regDataLsb(_chunkedReadChannel), lsb);
+      remainingInstructions--;
+      if (!st.ok()) {
+        return _finishChunkedJob(st);
+      }
+
+      ChannelData data;
+      _storeChannelData(_chunkedReadChannel, _chunkedReadMsb, lsb, data);
+      _chunkedReadReadyMask |= static_cast<uint8_t>(1U << _chunkedReadChannel);
+
+      const uint8_t next = _nextSelectedChannel(_chunkedReadChannel, _chunkedReadMask);
+      if (next >= _config.channelCount) {
+        return _finishChunkedJob(Status::Ok());
+      }
+      _chunkedReadChannel = next;
+      _chunkedReadPhase = ChunkedReadPhase::MSB;
+      _chunkedReadMsb = 0;
+    }
+  }
+  return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+}
+
+Status LDC1614::_pollApplyConfig(uint8_t& remainingInstructions) {
+  while (remainingInstructions > 0) {
+    uint8_t reg = 0;
+    uint16_t value = 0;
+    uint8_t phase = DIRTY_PHASE_APPLY_GLOBAL;
+    uint8_t index = DIRTY_INDEX_GLOBAL;
+    if (!_configStep(_chunkedConfigStep, reg, value, phase, index)) {
+      _clearHardwareConfigDirty();
+      _sleeping = true;
+      _consecutiveFailures = 0;
+      _driverState = DriverState::READY;
+      return _finishChunkedJob(Status::Ok());
+    }
+
+    Status st = _writeConfigRegister(reg, value, phase, index);
+    remainingInstructions--;
+    if (!st.ok()) {
+      return _finishChunkedJob(st);
+    }
+    const bool finalStep = _chunkedConfigStep + 1U >= _configStepCount();
+    if (_chunkedConfigStep == 0 || finalStep) {
+      _sleeping = true;
+    }
+    _chunkedConfigStep++;
+    if (finalStep) {
+      _clearHardwareConfigDirty();
+      _consecutiveFailures = 0;
+      _driverState = DriverState::READY;
+      return _finishChunkedJob(Status::Ok());
+    }
+  }
+  return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+}
+
+Status LDC1614::_pollResetAndReapply(uint8_t& remainingInstructions) {
+  while (remainingInstructions > 0) {
+    if (_chunkedConfigStep == 0) {
+      Status st = _writeConfigRegister(cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV,
+                                       DIRTY_PHASE_RESET, DIRTY_INDEX_GLOBAL);
+      remainingInstructions--;
+      if (!st.ok()) {
+        return _finishChunkedJob(st);
+      }
+      _sleeping = true;
+      _chunkedConfigStep = 1;
+      if (remainingInstructions == 0) {
+        return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+      }
+    } else {
+      const uint8_t applyStep = static_cast<uint8_t>(_chunkedConfigStep - 1U);
+      uint8_t reg = 0;
+      uint16_t value = 0;
+      uint8_t phase = DIRTY_PHASE_APPLY_GLOBAL;
+      uint8_t index = DIRTY_INDEX_GLOBAL;
+      if (!_configStep(applyStep, reg, value, phase, index)) {
+        _clearHardwareConfigDirty();
+        _sleeping = true;
+        _consecutiveFailures = 0;
+        _driverState = DriverState::READY;
+        return _finishChunkedJob(Status::Ok());
+      }
+
+      Status st = _writeConfigRegister(reg, value, phase, index);
+      remainingInstructions--;
+      if (!st.ok()) {
+        _initialized = false;
+        _driverState = DriverState::UNINIT;
+        _sleeping = true;
+        return _finishChunkedJob(st);
+      }
+      const bool finalStep = applyStep + 1U >= _configStepCount();
+      if (applyStep == 0 || finalStep) {
+        _sleeping = true;
+      }
+      _chunkedConfigStep++;
+      if (finalStep) {
+        _clearHardwareConfigDirty();
+        _consecutiveFailures = 0;
+        _driverState = DriverState::READY;
+        return _finishChunkedJob(Status::Ok());
+      }
+    }
+  }
+  return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+}
+
+Status LDC1614::_startChunkedJob(ChunkedJobKind kind) {
+  if (kind != ChunkedJobKind::READ_CHANNELS) {
+    _chunkedReadMask = 0;
+  }
+  _chunkedReadReadyMask = 0;
+  _chunkedJob = kind;
+  return Status::Error(Err::IN_PROGRESS, "Poll-chunked job scheduled");
+}
+
+Status LDC1614::_finishChunkedJob(const Status& st) {
+  if (!st.ok() && !st.inProgress()) {
+    _chunkedReadReadyMask = 0;
+  }
+  _chunkedJob = ChunkedJobKind::NONE;
+  _chunkedConfigStep = 0;
+  _chunkedReadPhase = ChunkedReadPhase::MSB;
+  _chunkedReadMsb = 0;
+  return st;
+}
+
+void LDC1614::_storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
+                                ChannelData& out) {
+  out.errUnderRange = (msb & cmd::MASK_DATA_ERR_UR) != 0;
+  out.errOverRange  = (msb & cmd::MASK_DATA_ERR_OR) != 0;
+  out.errWatchdog   = (msb & cmd::MASK_DATA_ERR_WD) != 0;
+  out.errAmplitude  = (msb & cmd::MASK_DATA_ERR_AE) != 0;
+  out.rawData = (static_cast<uint32_t>(msb & cmd::MASK_DATA_MSB_DATA) << 16) |
+                static_cast<uint32_t>(lsb);
+
+  _lastChannelData[ch] = out;
+  _hasSample[ch] = true;
+  _sampleTimestampMs[ch] = _nowMs();
+}
+
+bool LDC1614::_configStep(uint8_t step, uint8_t& reg, uint16_t& value,
+                          uint8_t& phase, uint8_t& index) const {
+  if (step >= _configStepCount()) {
+    return false;
+  }
+
+  if (step == 0) {
+    reg = cmd::REG_CONFIG;
+    value = _buildConfigRegister(true);
+    phase = DIRTY_PHASE_APPLY_GLOBAL;
+    index = DIRTY_INDEX_GLOBAL;
+    return true;
+  }
+
+  const uint8_t channelStepCount = static_cast<uint8_t>(_config.channelCount * 5U);
+  const uint8_t channelStep = static_cast<uint8_t>(step - 1U);
+  if (channelStep < channelStepCount) {
+    const uint8_t ch = static_cast<uint8_t>(channelStep / 5U);
+    const uint8_t field = static_cast<uint8_t>(channelStep % 5U);
+    const auto& cc = _config.channel[ch];
+    phase = DIRTY_PHASE_APPLY_CHANNEL;
+    index = ch;
+    switch (field) {
+      case 0:
+        reg = cmd::regRcount(ch);
+        value = cc.rcount;
+        return true;
+      case 1:
+        reg = cmd::regSettleCount(ch);
+        value = cc.settleCount;
+        return true;
+      case 2:
+        reg = cmd::regClockDividers(ch);
+        value = (static_cast<uint16_t>(cc.finDivider) << cmd::BIT_FIN_DIVIDER) |
+                (cc.frefDivider & cmd::MASK_FREF_DIVIDER);
+        return true;
+      case 3:
+        reg = cmd::regOffset(ch);
+        value = cc.offset;
+        return true;
+      default:
+        reg = cmd::regDriveCurrent(ch);
+        value = static_cast<uint16_t>(cc.idrive) << cmd::BIT_IDRIVE;
+        return true;
+    }
+  }
+
+  const uint8_t globalStep = static_cast<uint8_t>(channelStep - channelStepCount);
+  phase = DIRTY_PHASE_APPLY_GLOBAL;
+  index = DIRTY_INDEX_GLOBAL;
+  switch (globalStep) {
+    case 0:
+      reg = cmd::REG_ERROR_CONFIG;
+      value = _config.errorConfig;
+      return true;
+    case 1:
+      reg = cmd::REG_MUX_CONFIG;
+      value = _buildMuxConfigRegister();
+      return true;
+    default:
+      reg = cmd::REG_CONFIG;
+      value = _buildConfigRegister(true);
+      return true;
+  }
+}
+
+uint8_t LDC1614::_configStepCount() const {
+  return static_cast<uint8_t>(1U + (_config.channelCount * 5U) + 3U);
+}
+
+uint8_t LDC1614::_firstSelectedChannel(uint8_t mask) const {
+  return _nextSelectedChannel(0xFF, mask);
+}
+
+uint8_t LDC1614::_nextSelectedChannel(uint8_t after, uint8_t mask) const {
+  const uint8_t start = (after == 0xFF) ? 0 : static_cast<uint8_t>(after + 1U);
+  for (uint8_t ch = start; ch < _config.channelCount; ++ch) {
+    if ((mask & (1U << ch)) != 0) {
+      return ch;
+    }
+  }
+  return _config.channelCount;
 }
 
 // ============================================================================
@@ -1558,13 +1934,14 @@ Status LDC1614::_performRecoveryLadder() {
     return _applyConfig();
   };
 
-  // Enforce recovery backoff
-  if (_config.recoverBackoffMs > 0 && _lastRecoverValid &&
+  // Enforce recovery backoff only when the application supplied a timebase.
+  const bool enforceBackoff = _config.recoverBackoffMs > 0 && _config.nowMs != nullptr;
+  if (enforceBackoff && _lastRecoverValid &&
       (now - _lastRecoverMs) < _config.recoverBackoffMs) {
     return Status::Error(Err::BUSY, "Recovery backoff active");
   }
   _lastRecoverMs = now;
-  _lastRecoverValid = true;
+  _lastRecoverValid = enforceBackoff;
 
   // Step 1: Identity probe via tracked reads (updates health on I2C access)
   Status last = readIdentityTracked();

@@ -103,6 +103,9 @@ jobs:
       - name: Check generated version header
         run: python scripts/generate_version.py check
 
+      - name: Check clean consumer compile
+        run: python tools/check_clean_consumer_compile.py
+
       - name: Validate library package
         run: pio pkg pack
 

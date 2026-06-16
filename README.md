@@ -187,6 +187,28 @@ inductance for an application.
 | `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. If STATUS contains DRDY plus sensor error flags, `ready` is true and the returned status is `SENSOR_ERROR`. |
 | `dataReady()` | Convenience wrapper around `readDataReady()`. `false` can mean not ready, not initialized, OFFLINE/BUSY, or hidden transport/status/sensor failure. |
 
+### Poll-Chunked I2C Execution
+
+For application-owned I2C managers that advance work in bounded polls, the
+driver also exposes one-active-job poll APIs:
+
+| Method | Description |
+|--------|-------------|
+| `startReadChannels(mask)` | Schedule selected DATAx reads without reading STATUS. Mask bits 0..3 select channels. |
+| `poll(nowMs, maxInstructions)` | Advance the active job by at most `maxInstructions` register transfers. `maxInstructions=0` performs no I2C. |
+| `readChannelsReady()` | True after the most recent channel-read job completed successfully. |
+| `getChannelSample(ch, data)` | Return a sample from the completed channel-read job. |
+| `startApplyConfig()` | Schedule cached config apply, one register write per instruction. |
+| `startResetAndReapply()` | Schedule `RESET_DEV` followed by cached config apply. |
+
+One 16-bit register read or register write is one instruction. A DATAx sample
+requires DATAx_MSB then DATAx_LSB, so it consumes two register-read instructions,
+but `getChannelSample()` does not expose a half sample. While a chunked job is
+active, other public I2C APIs return `BUSY`; only `poll()` advances that job.
+`startReadChannels()` intentionally does not read STATUS because STATUS reads can
+clear sticky flags and de-assert INTB. Use `readFreshChannels()` or
+`readDeviceStatus()` when STATUS evidence is required.
+
 `readDeviceStatus()`, `readStatusRaw()`, and STATUS-based data-ready polling read the device STATUS register. Per the device behavior, that read can clear sticky status flags and de-assert INTB.
 
 `readChannel()` reads `DATAx_MSB` before `DATAx_LSB` and masks the 28-bit
@@ -274,12 +296,15 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 
 `probe()` is intentionally raw and does not affect health. It requires configured
 transport callbacks; a fresh default instance returns `INVALID_CONFIG` because no
-transport has been supplied.
+transport has been supplied. Address NACK maps to `DEVICE_NOT_FOUND`; data NACK,
+timeout, bus, and generic transport errors preserve their original `Err` code,
+detail, and static message.
 
-`recover()` honors `Config::recoverBackoffMs` and validates both `MANUFACTURER_ID`
-and `DEVICE_ID` before reporting success. Transport failures update health
-counters. If `hardwareConfigDirty()` is true, recovery also re-applies the cached
-configuration before returning success.
+`recover()` honors `Config::recoverBackoffMs` when `Config::nowMs` is supplied
+and validates both `MANUFACTURER_ID` and `DEVICE_ID` before reporting success.
+Without a timebase, recovery backoff is not enforced. Transport failures update
+health counters. If `hardwareConfigDirty()` is true, recovery also re-applies
+the cached configuration before returning success.
 
 ### Health
 
@@ -364,7 +389,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | `i2cWrite`, `i2cWriteRead` | Required. The library never touches `Wire` directly. |
 | `i2cAddress` | `0x2A` or `0x2B`. |
 | `i2cTimeoutMs` | Passed through to the injected transport; the core does not configure bus hardware timeouts. |
-| `nowMs` | Required for wall-clock blocking reads and recovery backoff timing. Nonblocking reads and status APIs can run without it, but timestamps are then `0`. |
+| `nowMs` | Required for wall-clock blocking reads and recovery backoff timing. Nonblocking reads and status APIs can run without it, timestamps are then `0`, and recovery backoff is not enforced. |
 | `cooperativeYield` | Optional application callback between blocking-read polls. It must be bounded and must not recursively call into the same driver instance. |
 | `channelCount` | `2` for LDC1612 or `4` for LDC1614. |
 | Channel indexes | Must be less than `channelCount`. |
@@ -379,7 +404,7 @@ Not part of the library. These simulate project-level glue and keep examples sel
 | INTB | If `intbPin >= 0`, `gpioRead` is required. |
 | `highCurrentDrv` | Valid only in single-channel mode on Ch0. |
 | Full configuration apply | `begin()`, `syncConfig()`, `recover()` reapply, and `resetAndReapply()` force CONFIG sleep before writing channel/global configuration and leave the device asleep. |
-| Recovery | `recoverBackoffMs` gates repeated `recover()` attempts; bus/hard reset callbacks are optional. |
+| Recovery | `recoverBackoffMs` gates repeated `recover()` attempts only when `nowMs` is configured; bus/hard reset callbacks are optional. |
 
 ## API Latency and Transaction Model
 
@@ -409,6 +434,12 @@ application-owned and must be bounded by the injected implementation.
 | `readAllChannelsBlocking(N)` | `P*ready + 2N R` | `cooperativeYield` between polls | Requires `nowMs`; waits for one DRDY, then latest-register readout. Timeout bounds readiness wait only. |
 | Major setters | usually `1W`, `setSingleChannelMode()` `2W` | none | Setters require sleep mode and commit cache after successful writes. |
 | Raw register access | `1R` or `1W` | none | Diagnostic only; raw writes mark hardware config dirty. |
+
+For blocking helpers, `timeoutMs` bounds the readiness wait, not the total
+wall-clock duration of the public call. Total latency also includes each
+readiness-poll transaction or GPIO callback, the optional `cooperativeYield`
+callback, and the final DATA register reads, each subject to the injected
+transport's own bounded behavior and `i2cTimeoutMs`.
 
 ## Conversion Timing Model
 
@@ -441,12 +472,13 @@ or bench measurements before making timing/readiness claims.
 ## Documentation
 
 - `CHANGELOG.md` - Full release history
+- `docs/README.md` - Maintained docs index
 - `docs/HARDWARE_INTEGRATION.md` - LDC1612/LDC1614 hardware integration checklist
+- `docs/I2C_INTEGRATION.md` - Application-owned I2C integration and bounded poll notes
 - `docs/HIL_VALIDATION.md` - Hardware-in-the-loop validation procedure and matrix
 - `docs/IDF_PORT.md` - ESP-IDF portability guidance
 - `docs/VALIDATION_STATUS.md` - Software check status and hardware validation requirements
-- `LDC1614_inductance_converter_implementation_manual.md` - Device documentation
-- `docs/` - Datasheets and application notes
+- `docs/reference/` - Datasheet, compact extracts, vendor application notes, and how-to guides
 
 ## Validation Status
 

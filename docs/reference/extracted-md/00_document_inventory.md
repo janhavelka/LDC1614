@@ -2,20 +2,20 @@
 
 This directory contains curated engineering notes for the LDC1612/LDC1614
 driver. These files are not raw PDF dumps. Raw page-delimited extracts remain in
-`docs/pdf-extracted-md/`; source PDFs remain under `docs/`.
+`docs/reference/pdf-extracted-md/`; source PDFs remain under `docs/reference/`.
 
 ## Source Set
 
 | Source PDF | Raw extract | Pages | Role |
 |---|---|---:|---|
-| `docs/LDC1614_datasheet.pdf` | `docs/pdf-extracted-md/LDC1614_datasheet.md` | 67 | Primary source for pinout, I2C protocol, register map, timing, conversion modes, status, reset, and electrical limits. |
-| `docs/application_notes/sensor_configuration_settings.pdf` | `docs/pdf-extracted-md/sensor_configuration_settings.md` | 8 | Supplemental source for drive-current selection and fixed-current recommendations. |
-| `docs/application_notes/sensor_status_monitoring.pdf` | `docs/pdf-extracted-md/sensor_status_monitoring.md` | 14 | Supplemental source for status, unread conversion, and INTB monitoring behavior. |
-| `docs/application_notes/configuring_rp.pdf` | `docs/pdf-extracted-md/configuring_rp.md` | 11 | Supplemental source for RP variation and drive-current implications. |
-| `docs/application_notes/measuring_rp.pdf` | `docs/pdf-extracted-md/measuring_rp.md` | 4 | Supplemental source for estimating sensor RP. |
-| `docs/application_notes/sensor_design.pdf` | `docs/pdf-extracted-md/sensor_design.md` | 23 | Supplemental source for coil and target design constraints. |
-| `docs/application_notes/emi_considerations.pdf` | `docs/pdf-extracted-md/emi_considerations.md` | 6 | Supplemental source for EMI and deglitch/filter context. |
-| Other PDFs under `docs/application_notes/` and `docs/howto_guides/` | Matching files in `docs/pdf-extracted-md/` | varies | Background only when the note names LDC1612/LDC1614 or gives numeric LDC sensor constraints used in the notes. |
+| `docs/reference/LDC1614_datasheet.pdf` | `docs/reference/pdf-extracted-md/LDC1614_datasheet.md` | 67 | Primary source for pinout, I2C protocol, register map, timing, conversion modes, status, reset, and electrical limits. |
+| `docs/reference/application_notes/sensor_configuration_settings.pdf` | `docs/reference/pdf-extracted-md/sensor_configuration_settings.md` | 8 | Supplemental source for drive-current selection and fixed-current recommendations. |
+| `docs/reference/application_notes/sensor_status_monitoring.pdf` | `docs/reference/pdf-extracted-md/sensor_status_monitoring.md` | 14 | Supplemental source for status, unread conversion, and INTB monitoring behavior. |
+| `docs/reference/application_notes/configuring_rp.pdf` | `docs/reference/pdf-extracted-md/configuring_rp.md` | 11 | Supplemental source for RP variation and drive-current implications. |
+| `docs/reference/application_notes/measuring_rp.pdf` | `docs/reference/pdf-extracted-md/measuring_rp.md` | 4 | Supplemental source for estimating sensor RP. |
+| `docs/reference/application_notes/sensor_design.pdf` | `docs/reference/pdf-extracted-md/sensor_design.md` | 23 | Supplemental source for coil and target design constraints. |
+| `docs/reference/application_notes/emi_considerations.pdf` | `docs/reference/pdf-extracted-md/emi_considerations.md` | 6 | Supplemental source for EMI and deglitch/filter context. |
+| Other PDFs under `docs/reference/application_notes/` and `docs/reference/howto_guides/` | Matching files in `docs/reference/pdf-extracted-md/` | varies | Background only when the note names LDC1612/LDC1614 or gives numeric LDC sensor constraints used in the notes. |
 
 ## Compact Notes
 
@@ -43,4 +43,4 @@ states applicability to LDC1612/LDC1614.
 The previous compact files contained raw page extracts, notices, OCR artifacts,
 and unrelated supplemental-document text. Those dumps were removed from the
 compact notes. Raw extraction artifacts are intentionally isolated in
-`docs/pdf-extracted-md/` for traceability.
+`docs/reference/pdf-extracted-md/` for traceability.

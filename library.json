@@ -44,5 +44,33 @@
   "build": {
     "includeDir": "include",
     "srcDir": "src"
+  },
+  "export": {
+    "include": [
+      "include/**",
+      "src/**",
+      "examples/**",
+      "scripts/generate_version.py",
+      "CMakeLists.txt",
+      "idf_component.yml",
+      "library.json",
+      "README.md",
+      "CHANGELOG.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      ".git/**",
+      ".github/**",
+      ".pio/**",
+      ".vscode/**",
+      "docs/**",
+      "test/**",
+      "tools/**",
+      "_txt/**",
+      "prompts/**",
+      "*.tar.gz",
+      "*.tgz",
+      "*.zip"
+    ]
   }
 }
