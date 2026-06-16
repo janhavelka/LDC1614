@@ -1,7 +1,7 @@
 # AGENTS.md - LDC1614 Production Embedded Guidelines
 
 ## Role and Target
-You are a professional embedded software engineer building a production-grade LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
+You are a professional embedded software engineer building a production-oriented LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
 
 - Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO, and native ESP-IDF component use.
 - Goals: deterministic behavior, long-term stability, clean API contracts, portability, no surprises in the field.

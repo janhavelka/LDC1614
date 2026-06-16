@@ -6,6 +6,12 @@ framework, PlatformIO, or native ESP-IDF component use. The architecture is
 production-oriented, but deployment readiness depends on application hardware,
 calibration, fault testing, and captured validation logs.
 
+Current readiness status: the software architecture, native tests, Arduino
+ESP32-S2/S3 builds, and diagnostic ESP-IDF path have been hardened. Real
+hardware/HIL validation, pure ESP-IDF evidence review, board clock-plan
+validation, and soak/fault evidence are still required before deployment
+readiness claims for a target product.
+
 ## Features
 
 - Injected I2C transport (no Wire dependency in library code)
@@ -462,6 +468,14 @@ source epoch is available, set `LDC1614_REPRODUCIBLE_BUILD=1` to use
 `1970-01-01 00:00:00` as the injected timestamp. Without injected metadata, the
 generated header falls back to `unknown-date unknown-time` rather than compiler
 `__DATE__` / `__TIME__`.
+
+Before packaging or tagging, run `python scripts/generate_version.py check`.
+Release version changes should use `python scripts/generate_version.py set
+X.Y.Z` or the `bump` command so `library.json` and generated `Version.h` stay
+consistent. `Version.h` is generated but tracked because it is a public header
+included by `LDC1614/LDC1614.h`. Package archives created by
+`python -m platformio pkg pack` are local artifacts and should not remain in the
+worktree after review.
 
 ## License
 
