@@ -152,7 +152,7 @@ struct Config {
   // === Recovery Strategy ===
   uint32_t recoverBackoffMs = 100;       ///< Minimum time between recover() attempts (0 = no limit)
   bool recoverUseBusReset = true;        ///< Use bus reset in recover() if callback provided
-  bool recoverUseSoftReset = false;      ///< Use soft reset in recover() (requires re-begin)
+  bool recoverUseSoftReset = false;      ///< Use soft reset in recover(), verify identity, then reapply config
   bool recoverUseHardReset = true;       ///< Use hard reset in recover() if callback provided
 };
 

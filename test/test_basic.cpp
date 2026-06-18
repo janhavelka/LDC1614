@@ -861,6 +861,20 @@ void test_probe_failure_does_not_update_health() {
                           static_cast<uint8_t>(dev.state()));
 }
 
+void test_probe_returns_busy_without_i2c_during_active_poll_job() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
+
+  TEST_ASSERT_TRUE(dev.startReadChannels(0x01).inProgress());
+  Status st = dev.probe();
+  assertStatusCode(Err::BUSY, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.transactionCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+}
+
 void test_recover_failure_updates_health() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -1090,6 +1104,26 @@ void test_recover_reapply_failure_keeps_dirty() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::I2C_ERROR),
                           static_cast<uint8_t>(st.code));
   TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+}
+
+void test_recover_soft_reset_requires_identity_before_reapply() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  Config cfg = makeConfig(bus);
+  cfg.recoverBackoffMs = 0;
+  cfg.recoverUseBusReset = false;
+  cfg.recoverUseSoftReset = true;
+  cfg.recoverUseHardReset = false;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  resetIoCounters(bus);
+  bus.reg[cmd::REG_MANUFACTURER_ID] = 0x1234;
+
+  Status st = dev.recover();
+  assertStatusCode(Err::DEVICE_NOT_FOUND, st);
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedWritesToReg(bus, cmd::REG_RESET_DEV));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedWritesToReg(bus, cmd::REG_RCOUNT0));
 }
 
 // ============================================================================
@@ -1813,6 +1847,32 @@ void test_poll_readChannels_one_instruction_reads_one_register_no_half_sample() 
   TEST_ASSERT_EQUAL_HEX32(0x00030004u, sample.rawData);
 }
 
+void test_normal_read_invalidates_ready_chunked_samples() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
+
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+
+  TEST_ASSERT_TRUE(dev.startReadChannels(0x01).inProgress());
+  TEST_ASSERT_TRUE(dev.poll(bus.nowMs, 2).ok());
+  TEST_ASSERT_TRUE(dev.readChannelsReady());
+
+  ChannelData sample;
+  TEST_ASSERT_TRUE(dev.getChannelSample(0, sample).ok());
+  TEST_ASSERT_EQUAL_HEX32(0x00010002u, sample.rawData);
+
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0003;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0004;
+  TEST_ASSERT_TRUE(dev.readChannel(0, sample).ok());
+  TEST_ASSERT_EQUAL_HEX32(0x00030004u, sample.rawData);
+  TEST_ASSERT_FALSE(dev.readChannelsReady());
+  assertStatusCode(Err::CONVERSION_NOT_READY, dev.getChannelSample(0, sample));
+  TEST_ASSERT_TRUE(dev.hasSample(0));
+}
+
 void test_poll_readChannels_large_budget_stops_at_remaining_work() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -2117,6 +2177,35 @@ void test_getSettings_captures_state() {
 
   SettingsSnapshot byValue = dev.settings();
   TEST_ASSERT_EQUAL_UINT8(4u, byValue.channelCount);
+}
+
+void test_getSettings_is_cache_only_and_bus_silent() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+
+  const uint32_t totalSuccessBefore = dev.totalSuccess();
+  const uint32_t totalFailuresBefore = dev.totalFailures();
+  const uint8_t consecutiveFailuresBefore = dev.consecutiveFailures();
+  resetIoCounters(bus);
+
+  SettingsSnapshot snap;
+  TEST_ASSERT_TRUE(dev.getSettings(snap).ok());
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.transactionCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+  TEST_ASSERT_EQUAL_UINT32(totalSuccessBefore, dev.totalSuccess());
+  TEST_ASSERT_EQUAL_UINT32(totalFailuresBefore, dev.totalFailures());
+  TEST_ASSERT_EQUAL_UINT8(consecutiveFailuresBefore, dev.consecutiveFailures());
+
+  (void)dev.settings();
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.transactionCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.writeCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.readCalls);
+  TEST_ASSERT_EQUAL_UINT32(0u, bus.yieldCalls);
+  TEST_ASSERT_EQUAL_UINT32(totalSuccessBefore, dev.totalSuccess());
+  TEST_ASSERT_EQUAL_UINT32(totalFailuresBefore, dev.totalFailures());
 }
 
 // ============================================================================
@@ -2870,6 +2959,23 @@ void test_resetAndReapply_partial_failure_sets_dirty_with_register_detail() {
   TEST_ASSERT_EQUAL_UINT8(0xFFu, dirtyDetailIndex(dev));
 }
 
+void test_resetAndReapply_requires_identity_before_reapply() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
+  bus.reg[cmd::REG_DEVICE_ID] = 0x2222;
+
+  Status st = dev.resetAndReapply();
+  assertStatusCode(Err::DEVICE_NOT_FOUND, st);
+  TEST_ASSERT_FALSE(dev.isInitialized());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::UNINIT),
+                          static_cast<uint8_t>(dev.state()));
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedWritesToReg(bus, cmd::REG_RESET_DEV));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedWritesToReg(bus, cmd::REG_RCOUNT0));
+}
+
 void test_resetAndReapply_success_clears_dirty() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -2898,9 +3004,9 @@ void test_poll_resetAndReapply_budget_and_sequence() {
   TEST_ASSERT_EQUAL_HEX8(cmd::REG_RESET_DEV, bus.transactionLog[0].reg);
   TEST_ASSERT_EQUAL_HEX16(cmd::MASK_RESET_DEV, bus.transactionLog[0].value);
 
-  st = dev.poll(bus.nowMs, 24);
+  st = dev.poll(bus.nowMs, 26);
   TEST_ASSERT_TRUE(st.ok());
-  TEST_ASSERT_EQUAL_UINT32(25u, bus.transactionCalls);
+  TEST_ASSERT_EQUAL_UINT32(27u, bus.transactionCalls);
   TEST_ASSERT_TRUE(dev.isInitialized());
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::READY),
                           static_cast<uint8_t>(dev.state()));
@@ -2916,12 +3022,31 @@ void test_poll_resetAndReapply_stops_on_reapply_failure() {
   failWriteToReg(bus, cmd::REG_MUX_CONFIG,
                  Status::Error(Err::I2C_ERROR, "forced chunked reset reapply", -521));
   TEST_ASSERT_TRUE(dev.startResetAndReapply().inProgress());
-  Status st = dev.poll(bus.nowMs, 25);
+  Status st = dev.poll(bus.nowMs, 26);
   assertStatusCode(Err::I2C_ERROR, st);
   TEST_ASSERT_EQUAL_INT32(-521, st.detail);
-  TEST_ASSERT_EQUAL_UINT32(24u, bus.transactionCalls);
+  TEST_ASSERT_EQUAL_UINT32(26u, bus.transactionCalls);
   TEST_ASSERT_EQUAL_UINT8(1u, countLoggedWritesToReg(bus, cmd::REG_MUX_CONFIG));
   TEST_ASSERT_EQUAL_UINT8(1u, countLoggedWritesToReg(bus, cmd::REG_CONFIG));
+  TEST_ASSERT_FALSE(dev.isInitialized());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::UNINIT),
+                          static_cast<uint8_t>(dev.state()));
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+}
+
+void test_poll_resetAndReapply_requires_identity_before_reapply() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  resetIoCounters(bus);
+  bus.reg[cmd::REG_MANUFACTURER_ID] = 0x1111;
+
+  TEST_ASSERT_TRUE(dev.startResetAndReapply().inProgress());
+  Status st = dev.poll(bus.nowMs, 2);
+  assertStatusCode(Err::DEVICE_NOT_FOUND, st);
+  TEST_ASSERT_EQUAL_UINT32(2u, bus.transactionCalls);
+  TEST_ASSERT_EQUAL_UINT8(1u, countLoggedWritesToReg(bus, cmd::REG_RESET_DEV));
+  TEST_ASSERT_EQUAL_UINT8(0u, countLoggedWritesToReg(bus, cmd::REG_RCOUNT0));
   TEST_ASSERT_FALSE(dev.isInitialized());
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::UNINIT),
                           static_cast<uint8_t>(dev.state()));
@@ -3043,6 +3168,7 @@ int main() {
   // probe/recover
   RUN_TEST(test_probe_missing_callbacks_returns_invalid_config_without_health);
   RUN_TEST(test_probe_failure_does_not_update_health);
+  RUN_TEST(test_probe_returns_busy_without_i2c_during_active_poll_job);
   RUN_TEST(test_recover_failure_updates_health);
   RUN_TEST(test_recover_success_returns_ready);
   RUN_TEST(test_recover_rejects_wrong_device_id);
@@ -3056,6 +3182,7 @@ int main() {
   RUN_TEST(test_poll_active_job_blocks_other_public_i2c);
   RUN_TEST(test_recover_success_clears_dirty_after_reapply);
   RUN_TEST(test_recover_reapply_failure_keeps_dirty);
+  RUN_TEST(test_recover_soft_reset_requires_identity_before_reapply);
 
   // Transport
   RUN_TEST(test_raw_transport_rejects_invalid_buffers);
@@ -3103,6 +3230,7 @@ int main() {
   RUN_TEST(test_readChannel_reads_data_msb_before_lsb);
   RUN_TEST(test_poll_readChannels_zero_budget_does_no_i2c);
   RUN_TEST(test_poll_readChannels_one_instruction_reads_one_register_no_half_sample);
+  RUN_TEST(test_normal_read_invalidates_ready_chunked_samples);
   RUN_TEST(test_poll_readChannels_large_budget_stops_at_remaining_work);
   RUN_TEST(test_poll_readChannels_stops_on_first_failed_register);
   RUN_TEST(test_readFreshChannels_reads_only_unread_channels_and_marks_freshness);
@@ -3117,6 +3245,7 @@ int main() {
 
   // Settings snapshot
   RUN_TEST(test_getSettings_captures_state);
+  RUN_TEST(test_getSettings_is_cache_only_and_bus_silent);
 
   // Runtime setters
   RUN_TEST(test_setRcount_does_not_commit_cache_on_write_failure);
@@ -3169,9 +3298,11 @@ int main() {
   RUN_TEST(test_softReset_success_keeps_dirty_until_reinit);
   RUN_TEST(test_resetAndReapply_success_keeps_ready);
   RUN_TEST(test_resetAndReapply_partial_failure_sets_dirty_with_register_detail);
+  RUN_TEST(test_resetAndReapply_requires_identity_before_reapply);
   RUN_TEST(test_resetAndReapply_success_clears_dirty);
   RUN_TEST(test_poll_resetAndReapply_budget_and_sequence);
   RUN_TEST(test_poll_resetAndReapply_stops_on_reapply_failure);
+  RUN_TEST(test_poll_resetAndReapply_requires_identity_before_reapply);
 
   // Recovery ladder
   RUN_TEST(test_recover_backoff_prevents_rapid_retry);

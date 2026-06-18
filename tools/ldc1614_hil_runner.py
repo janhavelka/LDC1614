@@ -51,18 +51,31 @@ IDF_DEFAULT_COMMANDS = [
     "selftest",
 ]
 
-INFO_COMMANDS = {"help", "version", "scan", "drv", "cfg", "timing"}
+INFO_COMMANDS = {
+    "help",
+    "version",
+    "scan",
+    "drv",
+    "cfg",
+    "config",
+    "settings",
+    "state",
+    "health",
+    "timing",
+}
 FAIL_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
+        r"\bunknown command\b",
         r"\bDEVICE_NOT_FOUND\b",
         r"\bI2C_(?:ERROR|TIMEOUT|NACK_ADDR|NACK_DATA|BUS)\b",
         r"\bINVALID_(?:CONFIG|PARAM)\b",
         r"\bNOT_INITIALIZED\b",
         r"\bTIMEOUT\b",
         r"\bBUSY\b",
-        r"\bfailed\b",
-        r"\berror\b",
+        r"\b(?:begin|init|probe|read|write|recover|selftest|command)\s+failed\b",
+        r"\bfailed\s*[:=]\s*[1-9][0-9]*\b",
+        r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
         r"not online",
         r"not initialized",
         r"code=[1-9][0-9]*",
@@ -71,6 +84,18 @@ FAIL_PATTERNS = [
 OK_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (r"\bOK\b", r"code=0", r"status:\s*0")
+]
+ADDRESS_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\b(?:i2c\s+)?addr(?:ess)?\s*[=:]\s*(0x[0-9a-f]+|\d+)",
+    )
+]
+CHANNEL_COUNT_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\bchannel(?:\s+count|s)?\s*[=:]\s*(\d+)",
+    )
 ]
 
 
@@ -131,6 +156,60 @@ def classify_command(command: str, output: str, timed_out: bool) -> Tuple[str, s
             return "PASS", "status output indicates OK"
 
     return "REVIEW", "no explicit failure found, but no OK status was parsed"
+
+
+def parse_int_token(value: object) -> Optional[int]:
+    try:
+        return int(str(value).strip(), 0)
+    except (TypeError, ValueError):
+        return None
+
+
+def first_transcript_int(patterns: List[re.Pattern[str]], transcript: str) -> Optional[int]:
+    for pattern in patterns:
+        match = pattern.search(transcript)
+        if match:
+            return parse_int_token(match.group(1))
+    return None
+
+
+def append_expectation_results(
+    args: argparse.Namespace,
+    command_results: List[Dict[str, object]],
+    transcript: str,
+) -> None:
+    if not transcript.strip():
+        return
+
+    expected_address = parse_int_token(args.address)
+    actual_address = first_transcript_int(ADDRESS_PATTERNS, transcript)
+    if expected_address is not None and actual_address is not None and actual_address != expected_address:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-address",
+                "status": "FAIL",
+                "reason": (
+                    f"transcript address 0x{actual_address:02X} "
+                    f"does not match expected 0x{expected_address:02X}"
+                ),
+            }
+        )
+
+    expected_channel_count = int(args.channel_count)
+    actual_channel_count = first_transcript_int(CHANNEL_COUNT_PATTERNS, transcript)
+    if actual_channel_count is not None and actual_channel_count != expected_channel_count:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-channel-count",
+                "status": "FAIL",
+                "reason": (
+                    f"transcript channel count {actual_channel_count} "
+                    f"does not match expected {expected_channel_count}"
+                ),
+            }
+        )
 
 
 def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Iterable[str]) -> Tuple[str, bool]:
@@ -253,10 +332,14 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
             )
 
 
-def overall_status(command_results: List[Dict[str, object]], not_run_reason: Optional[str]) -> str:
+def overall_status(command_results: List[Dict[str, object]],
+                   not_run_reason: Optional[str],
+                   transcript: str = "") -> str:
     if not_run_reason:
         return "NOT_RUN"
     if not command_results:
+        return "NOT_RUN"
+    if not transcript.strip():
         return "NOT_RUN"
     if any(result["status"] == "FAIL" for result in command_results):
         return "FAIL"
@@ -281,6 +364,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     else:
         try:
             command_results, transcript, firmware_version = run_serial_commands(args, commands)
+            append_expectation_results(args, command_results, transcript)
         except Exception as exc:
             not_run_reason = str(exc)
 
@@ -305,7 +389,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "not_run_reason": not_run_reason,
         "transcript": transcript,
     }
-    result["overall_status"] = overall_status(command_results, not_run_reason)
+    result["overall_status"] = overall_status(command_results, not_run_reason, transcript)
     return result
 
 

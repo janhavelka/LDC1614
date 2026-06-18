@@ -283,12 +283,12 @@ Runtime setters require the device to be in sleep mode. Call `sleep()`, apply th
 
 | Method | Description |
 |--------|-------------|
-| `probe()` | Verify device identity (no health tracking). |
+| `probe()` | I2C-active raw identity probe (no health tracking). |
 | `recover()` | Manual recovery ladder. Uses tracked identity reads, then optional bus reset, optional soft reset/reapply, and optional hard reset/reapply. |
-| `readRegister16()` / `writeRegister16()` | Diagnostic-only tracked register access. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. Raw access is not variant/access-type safe. |
+| `readRegister16()` / `writeRegister16()` | I2C-active diagnostic-only tracked register access. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. Raw access is not variant/access-type safe. |
 | `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
-| `getSettings(snap)` | Populate an expanded RAM-only snapshot of active settings, hook presence, cached samples, timestamps, and health. |
-| `settings()` | Return the same snapshot by value for compact diagnostics. |
+| `getSettings(snap)` | Populate an expanded cache-only, bus-silent snapshot of active settings, hook presence, cached samples, timestamps, and health. |
+| `settings()` | Return the same cache-only snapshot by value for compact diagnostics. |
 | `driverState()` | Cross-library alias for the current `DriverState`. |
 | `hasSample(ch)` | Check whether a configured channel has a cached sample. |
 | `calcSettleTimeUs(ch, fRef)` / `calcSampleTimeUs(ch, fRef)` | Calculate configured settling and conversion-plus-settling timing for service diagnostics. |

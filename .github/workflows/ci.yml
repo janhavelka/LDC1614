@@ -97,8 +97,8 @@ jobs:
       - name: Enforce readiness wording contract
         run: python tools/check_readiness_claims.py
 
-      - name: Generate version header
-        run: python scripts/generate_version.py sync
+      - name: Run HIL runner host tests
+        run: python tools/test_ldc1614_hil_runner.py
 
       - name: Check generated version header
         run: python scripts/generate_version.py check
@@ -130,6 +130,6 @@ jobs:
           target: ${{ matrix.target }}
           path: examples/esp_idf/basic
           command: |
-            python "$GITHUB_WORKSPACE/scripts/generate_version.py" sync
+            python "$GITHUB_WORKSPACE/scripts/generate_version.py" check
             idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" set-target ${{ matrix.target }}
             idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" build

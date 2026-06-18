@@ -139,7 +139,7 @@ public:
 
   // === Diagnostics (no health tracking) ===
 
-  /// @brief Probe device presence by reading MANUFACTURER_ID and DEVICE_ID.
+  /// @brief I2C-active probe of device presence by reading MANUFACTURER_ID and DEVICE_ID.
   /// Uses raw I2C — does NOT update health counters.
   /// Safe to call before or after a successful begin(), but it requires
   /// configured transport callbacks. A fresh instance with no prior begin()
@@ -185,10 +185,10 @@ public:
   /// @brief Number of consecutive I2C failures since last success.
   uint8_t consecutiveFailures() const { return _consecutiveFailures; }
 
-  /// @brief Lifetime count of failed I2C operations (wraps at UINT32_MAX).
+  /// @brief Lifetime count of failed I2C operations (saturates at UINT32_MAX).
   uint32_t totalFailures() const { return _totalFailures; }
 
-  /// @brief Lifetime count of successful I2C operations (wraps at UINT32_MAX).
+  /// @brief Lifetime count of successful I2C operations (saturates at UINT32_MAX).
   uint32_t totalSuccess() const { return _totalSuccess; }
 
   /// @brief True when cached configuration may not match hardware registers.
@@ -535,7 +535,7 @@ public:
 
   // === Raw Register Access ===
 
-  /// @brief Diagnostic-only read of a 16-bit register.
+  /// @brief I2C-active diagnostic-only read of a 16-bit register.
   /// Uses tracked I2C — updates health counters.
   /// Rejects access before begin() and register addresses outside the LDC1614 map.
   /// This escape hatch is intentionally not variant/access-type safe: typed
@@ -546,7 +546,7 @@ public:
   /// @return Status
   Status readRegister16(uint8_t reg, uint16_t& value);
 
-  /// @brief Diagnostic-only write of a 16-bit register.
+  /// @brief I2C-active diagnostic-only write of a 16-bit register.
   /// Uses tracked I2C — updates health counters.
   /// Rejects access before begin() and register addresses outside the LDC1614 map.
   /// @warning Any successful diagnostic write marks hardwareConfigDirty()
@@ -559,13 +559,13 @@ public:
 
   // === Settings Snapshot ===
 
-  /// @brief Get a snapshot of current driver configuration and state (no I2C).
-  /// Captures driver state, mode, channel config, and sample timestamps.
+  /// @brief Get a cache-only snapshot of current driver configuration and state.
+  /// Captures driver state, mode, channel config, and sample timestamps without I2C.
   /// @param out Settings snapshot
   /// @return Status::Ok() always
   Status getSettings(SettingsSnapshot& out) const;
 
-  /// @brief Return a by-value settings snapshot.
+  /// @brief Return a by-value cache-only settings snapshot.
   SettingsSnapshot settings() const {
     SettingsSnapshot out;
     (void)getSettings(out);
@@ -646,6 +646,7 @@ private:
   Status _recordFailure(const Status& st);
   void _reassertOfflineLatch();
   Status _ensureNormalI2cAllowed() const;
+  Status _verifyIdentityTracked();
 
   // === Internal ===
   Status _applyConfig();

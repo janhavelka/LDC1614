@@ -113,17 +113,23 @@ ldc1614_cli::Cli ldcCli(
 void readCliInput() {
   static char inputBuffer[128];
   static size_t inputLen = 0;
+  static bool overflow = false;
 
   while (Serial.available() > 0) {
     const char c = static_cast<char>(Serial.read());
     if (c == '\b' || c == 0x7F) {
-      if (inputLen > 0U) {
+      if (!overflow && inputLen > 0U) {
         inputLen--;
       }
       continue;
     }
     if (c == '\n' || c == '\r') {
-      if (inputLen > 0U) {
+      if (overflow) {
+        inputLen = 0;
+        overflow = false;
+        ldcCli.println("input too long");
+        ldcCli.printPrompt();
+      } else if (inputLen > 0U) {
         inputBuffer[inputLen] = '\0';
         ldcCli.processCommand(inputBuffer);
         inputLen = 0;
@@ -131,8 +137,14 @@ void readCliInput() {
       }
       continue;
     }
+    if (overflow) {
+      continue;
+    }
     if (inputLen < sizeof(inputBuffer) - 1U) {
       inputBuffer[inputLen++] = c;
+    } else {
+      inputLen = 0;
+      overflow = true;
     }
   }
 }

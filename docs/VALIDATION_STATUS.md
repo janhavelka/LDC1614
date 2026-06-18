@@ -9,12 +9,13 @@ The current working branch has software hardening evidence for:
 
 - Native PlatformIO tests in `native` and `native_cov` environments, including
   fault-injection and poll-budget coverage. The latest local run in this working
-  branch passed 139 test cases in each environment.
+  branch passed 145 test cases in each environment.
 - Arduino-framework PlatformIO builds for ESP32-S2 and ESP32-S3.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
+- HIL runner host parser/no-port artifact tests.
 - Generated `Version.h` consistency check.
 - Clean package consumer compile guard.
 - PlatformIO package creation, with generated package archives removed after
@@ -26,11 +27,12 @@ output or CI logs for `examples/esp_idf/basic`.
 ## Checks To Run Before Merge Review
 
 ```sh
-python -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
+python -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
 python tools/check_core_timing_guard.py
 python tools/check_cli_contract.py
 python tools/check_idf_example_contract.py
 python tools/check_readiness_claims.py
+python tools/test_ldc1614_hil_runner.py
 python scripts/generate_version.py check
 python tools/check_clean_consumer_compile.py
 python -m platformio test -e native

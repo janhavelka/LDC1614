@@ -513,7 +513,7 @@ void Cli::printDriverHealth() const {
   const uint32_t now = nowMs();
   const uint32_t totalOk = _device.totalSuccess();
   const uint32_t totalFail = _device.totalFailures();
-  const uint32_t total = totalOk + totalFail;
+  const uint64_t total = static_cast<uint64_t>(totalOk) + totalFail;
   const float successRate = (total > 0U)
                                 ? (100.0f * static_cast<float>(totalOk) /
                                    static_cast<float>(total))

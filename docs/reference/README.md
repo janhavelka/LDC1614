@@ -13,5 +13,12 @@ is intentionally separated from the maintained integration docs in `docs/`.
   preserve extraction traceability and can contain encoding artifacts, legal
   notices, and table/figure noise.
 
+The `extracted-md/00_document_inventory.md` through
+`extracted-md/08_variant_differences_and_open_questions.md` files are curated
+chip notes, not disposable raw extracts. They preserve driver-relevant facts for
+device identity, pinout, electrical limits, I2C transactions, register map,
+status/interrupt behavior, reset/bring-up, timing, variant differences, and
+known source ambiguities.
+
 For normal integration and review, start with `../README.md`,
 `../HARDWARE_INTEGRATION.md`, and `../VALIDATION_STATUS.md`.

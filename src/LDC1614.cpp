@@ -324,6 +324,10 @@ void LDC1614::end() {
 // ============================================================================
 
 Status LDC1614::probe() {
+  if (_initialized && _chunkedJob != ChunkedJobKind::NONE) {
+    return Status::Error(Err::BUSY, "Poll-chunked job already active");
+  }
+
   auto probeReadFailure = [](const Status& failure) -> Status {
     if (failure.code == Err::INVALID_CONFIG || failure.code == Err::INVALID_PARAM) {
       return failure;
@@ -638,6 +642,15 @@ Status LDC1614::resetAndReapply() {
     if (!inner.ok()) {
       _markHardwareConfigDirty(inner, DIRTY_PHASE_RESET, cmd::REG_RESET_DEV,
                                DIRTY_INDEX_GLOBAL);
+      return inner;
+    }
+    inner = _verifyIdentityTracked();
+    if (!inner.ok()) {
+      _markHardwareConfigDirty(inner, DIRTY_PHASE_RESET,
+                               cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+      _initialized = false;
+      _driverState = DriverState::UNINIT;
+      _sleeping = true;
       return inner;
     }
 
@@ -1632,6 +1645,30 @@ Status LDC1614::_recordFailure(const Status& st) {
   return st;
 }
 
+Status LDC1614::_verifyIdentityTracked() {
+  uint16_t mfgId = 0;
+  Status st = readRegister16(cmd::REG_MANUFACTURER_ID, mfgId);
+  if (!st.ok()) {
+    return st;
+  }
+  if (mfgId != cmd::MANUFACTURER_ID_VALUE) {
+    return _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
+                                        static_cast<int32_t>(mfgId)));
+  }
+
+  uint16_t devId = 0;
+  st = readRegister16(cmd::REG_DEVICE_ID, devId);
+  if (!st.ok()) {
+    return st;
+  }
+  if (devId != cmd::DEVICE_ID_VALUE) {
+    return _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
+                                        static_cast<int32_t>(devId)));
+  }
+
+  return Status::Ok();
+}
+
 void LDC1614::_reassertOfflineLatch() {
   _driverState = DriverState::OFFLINE;
   const uint8_t threshold = _config.offlineThreshold == 0 ? 1 : _config.offlineThreshold;
@@ -1740,8 +1777,60 @@ Status LDC1614::_pollResetAndReapply(uint8_t& remainingInstructions) {
       if (remainingInstructions == 0) {
         return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
       }
+    } else if (_chunkedConfigStep == 1) {
+      uint16_t mfgId = 0;
+      Status st = readRegister16(cmd::REG_MANUFACTURER_ID, mfgId);
+      remainingInstructions--;
+      if (!st.ok()) {
+        _markHardwareConfigDirty(st, DIRTY_PHASE_RESET,
+                                 cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+        _initialized = false;
+        _driverState = DriverState::UNINIT;
+        _sleeping = true;
+        return _finishChunkedJob(st);
+      }
+      if (mfgId != cmd::MANUFACTURER_ID_VALUE) {
+        _initialized = false;
+        _driverState = DriverState::UNINIT;
+        _sleeping = true;
+        st = _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
+                                          static_cast<int32_t>(mfgId)));
+        _markHardwareConfigDirty(st, DIRTY_PHASE_RESET,
+                                 cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+        return _finishChunkedJob(st);
+      }
+      _chunkedConfigStep = 2;
+      if (remainingInstructions == 0) {
+        return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+      }
+    } else if (_chunkedConfigStep == 2) {
+      uint16_t devId = 0;
+      Status st = readRegister16(cmd::REG_DEVICE_ID, devId);
+      remainingInstructions--;
+      if (!st.ok()) {
+        _markHardwareConfigDirty(st, DIRTY_PHASE_RESET,
+                                 cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+        _initialized = false;
+        _driverState = DriverState::UNINIT;
+        _sleeping = true;
+        return _finishChunkedJob(st);
+      }
+      if (devId != cmd::DEVICE_ID_VALUE) {
+        _initialized = false;
+        _driverState = DriverState::UNINIT;
+        _sleeping = true;
+        st = _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
+                                          static_cast<int32_t>(devId)));
+        _markHardwareConfigDirty(st, DIRTY_PHASE_RESET,
+                                 cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+        return _finishChunkedJob(st);
+      }
+      _chunkedConfigStep = 3;
+      if (remainingInstructions == 0) {
+        return Status::Error(Err::IN_PROGRESS, "Poll-chunked job in progress");
+      }
     } else {
-      const uint8_t applyStep = static_cast<uint8_t>(_chunkedConfigStep - 1U);
+      const uint8_t applyStep = static_cast<uint8_t>(_chunkedConfigStep - 3U);
       uint8_t reg = 0;
       uint16_t value = 0;
       uint8_t phase = DIRTY_PHASE_APPLY_GLOBAL;
@@ -1800,6 +1889,11 @@ Status LDC1614::_finishChunkedJob(const Status& st) {
 
 void LDC1614::_storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
                                 ChannelData& out) {
+  if (!_chunkedPollExecuting && _chunkedReadReadyMask != 0U) {
+    _chunkedReadMask = 0;
+    _chunkedReadReadyMask = 0;
+  }
+
   out.errUnderRange = (msb & cmd::MASK_DATA_ERR_UR) != 0;
   out.errOverRange  = (msb & cmd::MASK_DATA_ERR_OR) != 0;
   out.errWatchdog   = (msb & cmd::MASK_DATA_ERR_WD) != 0;
@@ -1903,30 +1997,6 @@ uint8_t LDC1614::_nextSelectedChannel(uint8_t after, uint8_t mask) const {
 Status LDC1614::_performRecoveryLadder() {
   const uint32_t now = _nowMs();
 
-  auto readIdentityTracked = [this]() -> Status {
-    uint16_t mfgId = 0;
-    Status st = readRegister16(cmd::REG_MANUFACTURER_ID, mfgId);
-    if (!st.ok()) {
-      return st;
-    }
-    if (mfgId != cmd::MANUFACTURER_ID_VALUE) {
-      return _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong MANUFACTURER_ID",
-                                          static_cast<int32_t>(mfgId)));
-    }
-
-    uint16_t devId = 0;
-    st = readRegister16(cmd::REG_DEVICE_ID, devId);
-    if (!st.ok()) {
-      return st;
-    }
-    if (devId != cmd::DEVICE_ID_VALUE) {
-      return _recordFailure(Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID",
-                                          static_cast<int32_t>(devId)));
-    }
-
-    return Status::Ok();
-  };
-
   auto syncIfDirty = [this]() -> Status {
     if (!_hardwareConfigDirty) {
       return Status::Ok();
@@ -1944,7 +2014,7 @@ Status LDC1614::_performRecoveryLadder() {
   _lastRecoverValid = enforceBackoff;
 
   // Step 1: Identity probe via tracked reads (updates health on I2C access)
-  Status last = readIdentityTracked();
+  Status last = _verifyIdentityTracked();
   if (last.ok()) {
     Status st = syncIfDirty();
     if (st.ok()) {
@@ -1959,7 +2029,7 @@ Status LDC1614::_performRecoveryLadder() {
   if (_config.recoverUseBusReset && _config.busReset != nullptr) {
     Status st = _config.busReset(_config.i2cUser);
     if (st.ok()) {
-      st = readIdentityTracked();
+      st = _verifyIdentityTracked();
       if (st.ok()) {
         st = syncIfDirty();
         if (st.ok()) {
@@ -1983,7 +2053,14 @@ Status LDC1614::_performRecoveryLadder() {
                                      DIRTY_PHASE_RESET, DIRTY_INDEX_GLOBAL);
     if (st.ok()) {
       _sleeping = true;
-      st = _applyConfig();
+      st = _verifyIdentityTracked();
+      if (!st.ok()) {
+        _markHardwareConfigDirty(st, DIRTY_PHASE_RESET,
+                                 cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+      }
+      if (st.ok()) {
+        st = _applyConfig();
+      }
       if (st.ok()) {
         _consecutiveFailures = 0;
         _driverState = DriverState::READY;
@@ -1998,7 +2075,14 @@ Status LDC1614::_performRecoveryLadder() {
     Status st = _config.hardReset(_config.i2cUser);
     if (st.ok()) {
       _sleeping = true;
-      st = _applyConfig();
+      st = _verifyIdentityTracked();
+      if (!st.ok()) {
+        _markHardwareConfigDirty(st, DIRTY_PHASE_RESET,
+                                 cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
+      }
+      if (st.ok()) {
+        st = _applyConfig();
+      }
       if (st.ok()) {
         _consecutiveFailures = 0;
         _driverState = DriverState::READY;
