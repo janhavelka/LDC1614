@@ -206,6 +206,9 @@ public:
 
   /// @brief Read conversion data for a single channel.
   /// Reads DATAx_MSB first (latches both), then DATAx_LSB.
+  /// Requires the device to be awake; call wake() before conversion readout.
+  /// If DATAx reports ERR_WD, returns SENSOR_ERROR and does not update the
+  /// cached sample because watchdog data is invalid.
   /// @param ch Channel index (0-3)
   /// @param out Parsed channel data result
   /// @return Status
@@ -215,6 +218,7 @@ public:
   /// Returns latest DATAx register values. In autoscan mode, one DRDY does not
   /// prove every channel has a fresh unread conversion; use readFreshChannels()
   /// when per-channel freshness matters.
+  /// Requires the device to be awake; call wake() before conversion readout.
   /// @param out Array of ChannelData, must have at least count elements
   ///            (or channelCount elements when count is 0)
   /// @param count Number of channels to read (0 = use config channelCount)
@@ -226,6 +230,7 @@ public:
   /// set. Channels without unread data return the cached sample when available
   /// with valid=true/fresh=false; otherwise valid=false/fresh=false.
   /// STATUS reads can clear sticky error flags and de-assert INTB.
+  /// Requires the device to be awake; call wake() before conversion readout.
   /// @param out Array of FreshChannelData, must have at least count elements
   ///            (or channelCount elements when count is 0)
   /// @param count Number of channels to evaluate (0 = use config channelCount)
@@ -252,6 +257,8 @@ public:
 
   /// @brief Check if data is ready with explicit error reporting.
   /// Uses INTB pin if configured and enabled; otherwise reads STATUS.DRDY.
+  /// The no-I2C INTB-high fast path is used only when ERROR_CONFIG.DRDY_2INT
+  /// is enabled; otherwise STATUS is polled because DRDY may not drive INTB.
   /// If STATUS reports both DRDY and a sensor error, ready is set true and the
   /// return Status is SENSOR_ERROR with the raw STATUS value in detail. Reading
   /// STATUS can clear sticky flags and de-assert INTB.
@@ -292,6 +299,7 @@ public:
   /// de-assert INTB as a hidden side effect. Each DATAx_MSB or DATAx_LSB
   /// register read consumes one poll instruction, but a channel sample is not
   /// exposed through getChannelSample() until both registers have been read.
+  /// Requires the device to be awake; call wake() before scheduling the job.
   /// Only one poll-chunked job may be active per driver instance.
   /// @param mask Channel bit mask; bit 0 selects channel 0.
   /// @return IN_PROGRESS when scheduled, or an error precondition status
@@ -386,6 +394,8 @@ public:
 
   /// @brief Software reset. All registers return to defaults.
   /// After reset, the driver transitions to UNINIT state.
+  /// A successful reset marks hardwareConfigDirty() until begin() reinitializes
+  /// the hardware/cache contract.
   /// Call begin() again to reinitialize.
   /// @return Status
   Status softReset();
@@ -656,8 +666,8 @@ private:
   Status _pollResetAndReapply(uint8_t& remainingInstructions);
   Status _startChunkedJob(ChunkedJobKind kind);
   Status _finishChunkedJob(const Status& st);
-  void _storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
-                         ChannelData& out);
+  Status _storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
+                           ChannelData& out);
   bool _configStep(uint8_t step, uint8_t& reg, uint16_t& value,
                    uint8_t& phase, uint8_t& index) const;
   uint8_t _configStepCount() const;

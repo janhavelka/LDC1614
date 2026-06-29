@@ -179,9 +179,9 @@ inductance for an application.
 
 | Method | Description |
 |--------|-------------|
-| `readChannel(ch, data)` | Read conversion data for a single channel. |
-| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. Returns latest register values, not guaranteed-fresh autoscan samples for every channel. |
-| `readFreshChannels(data, count)` | Read STATUS once, then read only channels with `UNREADCONVx` set. Reports per-channel `fresh` / `valid` flags and cached stale samples where available. The overload with `DeviceStatus&` returns the STATUS snapshot that drove freshness. |
+| `readChannel(ch, data)` | Read conversion data for a single channel. Requires `wake()` first; watchdog-marked DATAx returns `SENSOR_ERROR` and is not cached. |
+| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. Requires `wake()` first. Returns latest register values, not guaranteed-fresh autoscan samples for every channel. |
+| `readFreshChannels(data, count)` | Read STATUS once, then read only channels with `UNREADCONVx` set. Requires `wake()` first. Reports per-channel `fresh` / `valid` flags and cached stale samples where available. The overload with `DeviceStatus&` returns the STATUS snapshot that drove freshness. |
 | `readChannelBlocking(ch, data, timeoutMs)` | Require `Config::nowMs`, wait for DRDY with a wall-clock timeout, then read one channel. |
 | `readAllChannelsBlocking(data, timeoutMs, count)` | Require `Config::nowMs`, wait for one DRDY event, then call `readAllChannels()`. |
 | `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. If STATUS contains DRDY plus sensor error flags, `ready` is true and the returned status is `SENSOR_ERROR`. |
@@ -194,7 +194,7 @@ driver also exposes one-active-job poll APIs:
 
 | Method | Description |
 |--------|-------------|
-| `startReadChannels(mask)` | Schedule selected DATAx reads without reading STATUS. Mask bits 0..3 select channels. |
+| `startReadChannels(mask)` | Schedule selected DATAx reads without reading STATUS. Requires `wake()` first. Mask bits 0..3 select channels. |
 | `poll(nowMs, maxInstructions)` | Advance the active job by at most `maxInstructions` register transfers. `maxInstructions=0` performs no I2C. |
 | `readChannelsReady()` | True after the most recent channel-read job completed successfully. |
 | `getChannelSample(ch, data)` | Return a sample from the completed channel-read job. |
@@ -217,6 +217,14 @@ watchdog, and amplitude error flags when the corresponding ERROR_CONFIG
 `*_ERR2OUT` bits are enabled. The amplitude flag is the high/low amplitude
 condition collapsed into `ChannelData::errAmplitude`; zero-count is reported via
 STATUS/INTB, not DATAx_MSB.
+Watchdog-marked DATAx is treated as invalid: the call returns `SENSOR_ERROR`,
+fills the output flags/value for diagnostics, and leaves the cached sample
+unchanged. High-level DATAx reads return `BUSY` while the device is asleep; raw
+`readRegister16()` remains available for diagnostics.
+
+When INTB is configured, `readDataReady()` uses the no-I2C INTB-high fast path
+only if `ERROR_CONFIG.DRDY_2INT` is enabled. If DRDY is not routed to INTB, the
+driver polls STATUS so a high INTB level does not hide ready data.
 
 In autoscan mode, `DRDY` means the selected conversion sequence reached its
 documented data-ready condition; it is not a per-channel freshness bitmap.
@@ -427,7 +435,7 @@ application-owned and must be bounded by the injected implementation.
 | `dataReady()` | `0R` or `1R` | optional `gpioRead` | Convenience only; false can mean not ready or hidden transport/status/sensor error. |
 | `readDeviceStatus()` / `readStatusRaw()` | `1R` | none | STATUS read can clear sticky status and de-assert INTB. |
 | `sleep()` / `wake()` | `0W` or `1W` | none | No write if already in requested state. |
-| `softReset()` | `1W` | none in core | Writes RESET_DEV and transitions UNINIT on success. |
+| `softReset()` | `1W` | none in core | Writes RESET_DEV, marks hardware config dirty, and transitions UNINIT on success. |
 | `syncConfig()` | `N*5W + 4W` | none in core | Force CONFIG sleep, apply cached config, final sleeping CONFIG. |
 | `resetAndReapply()` | `1W + N*5W + 4W` | none in core | RESET_DEV plus full config reapply. |
 | `readChannelBlocking()` | `P*ready + 2R` | `cooperativeYield` between polls | Requires `nowMs`; `ready` is `0R` or `1R` per poll. Timeout bounds readiness wait only. |

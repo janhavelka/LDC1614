@@ -61,12 +61,42 @@ class HilRunnerParserTests(unittest.TestCase):
             "unknown command: health\n> ",
             "read failed\n> ",
             "errors=2\n> ",
+            "[FAIL] readRegister16(DEV_ID)\nstatus: code=0\n> ",
+            "Selftest result: pass=4 fail=1 skip=0\nstatus: code=0\n> ",
+            "Demo result: ready=1/5 read_ok=4 read_fail=1\nstatus: code=0\n> ",
+            "Value: 0x1234 expected=0x5449 match=NO\nstatus: code=0\n> ",
+            "ch0 raw=0x0000000 errUR=1 errOR=0 errWD=0 errAmp=0\nstatus: code=0\n> ",
+            "raw=0x2140 drdy=1 err=1 ur=1 or=0 wd=0 ah=0 al=0 zc=0\nstatus: code=0\n> ",
+            "\x1b[31m[ERR: UR=1 OR=0 WD=0 AE=0]\x1b[0m\nstatus: code=0\n> ",
         )
 
         for output in failure_outputs:
             with self.subTest(output=output):
                 status, reason = runner.classify_command("probe", output, False)
                 self.assertEqual("FAIL", status, reason)
+
+    def test_classifier_supports_configured_tokens(self) -> None:
+        expected = runner.compile_token_patterns(["fixture ready"])
+        failure = runner.compile_token_patterns(["fixture unsafe"])
+        expected_failure = runner.compile_token_patterns(["INVALID_PARAM"])
+
+        status, _ = runner.classify_command(
+            "fixture", "fixture ready\n> ", False, expected_patterns=expected
+        )
+        self.assertEqual("PASS", status)
+
+        status, _ = runner.classify_command(
+            "fixture", "fixture unsafe\n> ", False, failure_patterns=failure
+        )
+        self.assertEqual("FAIL", status)
+
+        status, _ = runner.classify_command(
+            "negative",
+            "status: INVALID_PARAM code=5\n> ",
+            False,
+            expected_failure_patterns=expected_failure,
+        )
+        self.assertEqual("PASS", status)
 
     def test_classifier_allows_benign_error_words_without_failure_tokens(self) -> None:
         status, reason = runner.classify_command(
@@ -124,10 +154,54 @@ class HilRunnerParserTests(unittest.TestCase):
 
             self.assertEqual("NOT_RUN", result["overall_status"])
             self.assertEqual("serial port was not supplied", result["not_run_reason"])
+            self.assertFalse(result["hardware_attached"])
+            self.assertEqual("no_hardware_audit", result["evidence_type"])
             self.assertEqual("", result["transcript"])
             self.assertEqual([], result["command_results"])
             self.assertIn("Overall status: `NOT_RUN`", markdown)
+            self.assertIn("Evidence type: `no_hardware_audit`", markdown)
             self.assertIn("No serial command transcript captured", markdown)
+
+    def test_dry_run_lists_bounded_not_run_command_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            json_out = Path(temp_dir) / "hil.json"
+            markdown_out = Path(temp_dir) / "hil.md"
+
+            exit_code = runner.main(
+                [
+                    "--dry-run",
+                    "--json-out",
+                    str(json_out),
+                    "--markdown-out",
+                    str(markdown_out),
+                    "--quiet",
+                    "--sample-rate-count",
+                    "50",
+                ]
+            )
+
+            self.assertEqual(0, exit_code)
+            result = json.loads(json_out.read_text(encoding="utf-8"))
+            markdown = markdown_out.read_text(encoding="utf-8")
+
+            self.assertEqual("NOT_RUN", result["overall_status"])
+            self.assertEqual("no_hardware_audit", result["evidence_type"])
+            self.assertGreater(len(result["command_results"]), 0)
+            self.assertIn("read 0 50", result["commands"])
+            self.assertTrue(
+                all(item["status"] == "NOT_RUN" for item in result["command_results"])
+            )
+            self.assertIn("| # | Command | Status | Elapsed s | Reason |", markdown)
+
+    def test_sample_rate_idf_is_skipped_without_parallel_framework(self) -> None:
+        args = runner.parse_args(["--profile", "idf", "--dry-run", "--sample-rate-count", "10"])
+        result = runner.make_result(args)
+
+        self.assertNotIn("read 0 10", result["commands"])
+        self.assertEqual("sample_rate_benchmark", result["skipped_optional_tests"][0]["name"])
+
+    def test_parser_self_test_passes(self) -> None:
+        self.assertEqual(0, runner.main(["--parser-self-test", "--quiet"]))
 
     def test_no_port_require_run_exits_nonzero(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

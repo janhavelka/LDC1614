@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
+MAX_SAMPLE_RATE_COUNT = 5000
 
 ARDUINO_DEFAULT_COMMANDS = [
     "help",
@@ -74,8 +75,15 @@ FAIL_PATTERNS = [
         r"\bTIMEOUT\b",
         r"\bBUSY\b",
         r"\b(?:begin|init|probe|read|write|recover|selftest|command)\s+failed\b",
+        r"\[FAIL\]",
+        r"\[ERR:",
+        r"\bmatch=(?:\x1b\[[0-9;]*m)*NO\b",
+        r"\bfail=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
+        r"\bread_fail=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
         r"\bfailed\s*[:=]\s*[1-9][0-9]*\b",
         r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
+        r"\berr=1\b",
+        r"\b(?:errUR|errOR|errWD|errAmp|ur|or|wd|ah|al|zc)=1\b",
         r"not online",
         r"not initialized",
         r"code=[1-9][0-9]*",
@@ -137,11 +145,34 @@ def command_name(command: str) -> str:
     return command.strip().split(" ", 1)[0].lower()
 
 
-def classify_command(command: str, output: str, timed_out: bool) -> Tuple[str, str]:
+def compile_token_patterns(tokens: Iterable[str]) -> List[re.Pattern[str]]:
+    return [
+        re.compile(re.escape(token), re.IGNORECASE)
+        for token in tokens
+        if token.strip()
+    ]
+
+
+def classify_command(
+    command: str,
+    output: str,
+    timed_out: bool,
+    expected_patterns: Optional[List[re.Pattern[str]]] = None,
+    failure_patterns: Optional[List[re.Pattern[str]]] = None,
+    expected_failure_patterns: Optional[List[re.Pattern[str]]] = None,
+) -> Tuple[str, str]:
     if timed_out:
         return "FAIL", "command response timed out"
     if not output.strip():
         return "FAIL", "no response captured"
+
+    for pattern in failure_patterns or []:
+        if pattern.search(output):
+            return "FAIL", f"matched configured failure token: {pattern.pattern}"
+
+    for pattern in expected_failure_patterns or []:
+        if pattern.search(output):
+            return "PASS", f"matched configured expected-failure token: {pattern.pattern}"
 
     for pattern in FAIL_PATTERNS:
         if pattern.search(output):
@@ -154,6 +185,10 @@ def classify_command(command: str, output: str, timed_out: bool) -> Tuple[str, s
     for pattern in OK_PATTERNS:
         if pattern.search(output):
             return "PASS", "status output indicates OK"
+
+    for pattern in expected_patterns or []:
+        if pattern.search(output):
+            return "PASS", f"matched configured expected token: {pattern.pattern}"
 
     return "REVIEW", "no explicit failure found, but no OK status was parsed"
 
@@ -242,27 +277,52 @@ def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Ite
     return "".join(chunks), timed_out
 
 
-def run_serial_commands(args: argparse.Namespace, commands: List[str]) -> Tuple[List[Dict[str, object]], str, str]:
+def not_run_command_results(commands: List[str], reason: str) -> List[Dict[str, object]]:
+    return [
+        {
+            "index": index,
+            "command": command,
+            "status": "NOT_RUN",
+            "reason": reason,
+            "timed_out": False,
+            "elapsed_s": 0.0,
+            "output": "",
+        }
+        for index, command in enumerate(commands, start=1)
+    ]
+
+
+def run_serial_commands(
+    args: argparse.Namespace,
+    commands: List[str],
+) -> Tuple[List[Dict[str, object]], str, str, float]:
     try:
         import serial  # type: ignore[import-not-found]
     except Exception as exc:
         raise RuntimeError(f"pyserial is required for serial HIL runs: {exc}") from exc
 
     prompt_patterns = [r">\s*$", r"ldc1614-idf>\s*$"]
+    expected_patterns = compile_token_patterns(args.expect_token)
+    failure_patterns = compile_token_patterns(args.failure_token)
+    expected_failure_patterns = compile_token_patterns(args.expected_failure_token)
     transcript_parts: List[str] = []
     results: List[Dict[str, object]] = []
+    startup_elapsed_s = 0.0
 
     with serial.Serial(args.port, args.baud, timeout=0.05, write_timeout=args.write_timeout_s) as ser:
         time.sleep(args.startup_delay_s)
+        startup_start = time.monotonic()
         startup, _ = read_available(
             ser,
             time.monotonic() + args.command_timeout_s,
             args.idle_gap_s,
             prompt_patterns,
         )
+        startup_elapsed_s = time.monotonic() - startup_start
         transcript_parts.append("### startup\n" + startup)
 
         for index, command in enumerate(commands, start=1):
+            command_start = time.monotonic()
             ser.write((command + "\n").encode("utf-8"))
             ser.flush()
             output, timed_out = read_available(
@@ -271,8 +331,18 @@ def run_serial_commands(args: argparse.Namespace, commands: List[str]) -> Tuple[
                 args.idle_gap_s,
                 prompt_patterns,
             )
-            status, reason = classify_command(command, output, timed_out)
+            elapsed_s = time.monotonic() - command_start
+            status, reason = classify_command(
+                command,
+                output,
+                timed_out,
+                expected_patterns,
+                failure_patterns,
+                expected_failure_patterns,
+            )
             transcript_parts.append(f"### command {index}: {command}\n{output}")
+            if args.verbose:
+                print(f"[{index}/{len(commands)}] {command}: {status} ({elapsed_s:.3f}s)")
             results.append(
                 {
                     "index": index,
@@ -280,6 +350,7 @@ def run_serial_commands(args: argparse.Namespace, commands: List[str]) -> Tuple[
                     "status": status,
                     "reason": reason,
                     "timed_out": timed_out,
+                    "elapsed_s": elapsed_s,
                     "output": output,
                 }
             )
@@ -289,7 +360,7 @@ def run_serial_commands(args: argparse.Namespace, commands: List[str]) -> Tuple[
     version_match = re.search(r"(?:version|library version):\s*([^\r\n]+)", full_transcript, re.IGNORECASE)
     if version_match:
         firmware_version = version_match.group(1).strip()
-    return results, full_transcript, firmware_version
+    return results, full_transcript, firmware_version, startup_elapsed_s
 
 
 def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped: List[Dict[str, str]]) -> None:
@@ -312,6 +383,31 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
                 {
                     "name": "stress",
                     "reason": "IDF diagnostic CLI has no stress command",
+                }
+            )
+
+    if args.sample_rate_count != 0:
+        if args.sample_rate_count < 0 or args.sample_rate_count > MAX_SAMPLE_RATE_COUNT:
+            skipped.append(
+                {
+                    "name": "sample_rate_benchmark",
+                    "reason": f"--sample-rate-count must be 1..{MAX_SAMPLE_RATE_COUNT}",
+                }
+            )
+        elif args.sample_rate_channel < 0 or args.sample_rate_channel > 3:
+            skipped.append(
+                {
+                    "name": "sample_rate_benchmark",
+                    "reason": "--sample-rate-channel must be 0..3",
+                }
+            )
+        elif args.profile == "arduino":
+            commands.append(f"read {args.sample_rate_channel} {args.sample_rate_count}")
+        else:
+            skipped.append(
+                {
+                    "name": "sample_rate_benchmark",
+                    "reason": "IDF diagnostic CLI has no counted read command",
                 }
             )
 
@@ -358,12 +454,19 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     command_results: List[Dict[str, object]] = []
     transcript = ""
     firmware_version = "unknown"
+    startup_elapsed_s = 0.0
 
-    if not args.port:
+    if args.dry_run:
+        not_run_reason = "dry-run requested; no serial commands were sent"
+        command_results = not_run_command_results(commands, not_run_reason)
+    elif not args.port:
         not_run_reason = "serial port was not supplied"
     else:
         try:
-            command_results, transcript, firmware_version = run_serial_commands(args, commands)
+            command_results, transcript, firmware_version, startup_elapsed_s = run_serial_commands(
+                args,
+                commands,
+            )
             append_expectation_results(args, command_results, transcript)
         except Exception as exc:
             not_run_reason = str(exc)
@@ -383,6 +486,19 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "operator": args.operator,
         "board": args.board,
         "notes": args.note,
+        "dry_run": args.dry_run,
+        "hardware_attached": bool(args.port and not args.dry_run),
+        "evidence_type": "hardware_hil" if args.port and not args.dry_run else "no_hardware_audit",
+        "startup_delay_s": args.startup_delay_s,
+        "startup_elapsed_s": startup_elapsed_s,
+        "command_timeout_s": args.command_timeout_s,
+        "write_timeout_s": args.write_timeout_s,
+        "idle_gap_s": args.idle_gap_s,
+        "expect_tokens": args.expect_token,
+        "failure_tokens": args.failure_token,
+        "expected_failure_tokens": args.expected_failure_token,
+        "sample_rate_count": args.sample_rate_count,
+        "sample_rate_channel": args.sample_rate_channel,
         "commands": commands,
         "command_results": command_results,
         "skipped_optional_tests": skipped,
@@ -410,19 +526,27 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Expected channel count: `{result['expected_channel_count']}`",
         f"Operator: `{result['operator']}`",
         f"Board: `{result['board']}`",
+        f"Dry run: `{result['dry_run']}`",
+        f"Hardware attached: `{result['hardware_attached']}`",
+        f"Evidence type: `{result['evidence_type']}`",
+        f"Startup delay: `{result['startup_delay_s']}` s",
+        f"Startup read elapsed: `{float(result['startup_elapsed_s']):.3f}` s",
+        f"Command timeout: `{result['command_timeout_s']}` s",
+        f"Idle gap: `{result['idle_gap_s']}` s",
     ]
     if result.get("not_run_reason"):
         lines.append(f"Not-run reason: `{result['not_run_reason']}`")
     if result.get("notes"):
         lines.append(f"Notes: {result['notes']}")
 
-    lines.extend(["", "## Commands", "", "| # | Command | Status | Reason |", "| ---: | --- | --- | --- |"])
+    lines.extend(["", "## Commands", "", "| # | Command | Status | Elapsed s | Reason |", "| ---: | --- | --- | ---: | --- |"])
     for item in result["command_results"]:
         lines.append(
-            f"| {item['index']} | `{item['command']}` | `{item['status']}` | {item['reason']} |"
+            f"| {item['index']} | `{item['command']}` | `{item['status']}` | "
+            f"{float(item.get('elapsed_s', 0.0)):.3f} | {item['reason']} |"
         )
     if not result["command_results"]:
-        lines.append("| - | - | `NOT_RUN` | No serial command transcript captured |")
+        lines.append("| - | - | `NOT_RUN` | 0.000 | No serial command transcript captured |")
 
     lines.extend(["", "## Skipped Optional Tests", "", "| Test | Reason |", "| --- | --- |"])
     skipped = result["skipped_optional_tests"]
@@ -463,6 +587,13 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--command-timeout-s", type=float, default=4.0)
     parser.add_argument("--write-timeout-s", type=float, default=1.0)
     parser.add_argument("--idle-gap-s", type=float, default=0.35)
+    parser.add_argument("--dry-run", action="store_true", help="List planned commands without opening serial")
+    parser.add_argument("--parser-self-test", action="store_true", help="Run built-in parser/classifier checks")
+    parser.add_argument("--verbose", action="store_true", help="Print per-command progress during serial runs")
+    parser.add_argument("--expect-token", action="append", default=[], help="Additional token that can classify output as PASS")
+    parser.add_argument("--failure-token", action="append", default=[], help="Additional token that classifies output as FAIL")
+    parser.add_argument("--expected-failure-token", action="append", default=[],
+                        help="Token that classifies an intentional negative-test error as PASS")
     parser.add_argument("--skip-default-commands", action="store_true")
     parser.add_argument("--command", action="append", default=[], help="Additional command to send")
     parser.add_argument("--include-address-0x2b", action="store_true")
@@ -474,6 +605,9 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--include-stuck-bus", action="store_true")
     parser.add_argument("--include-long-soak", action="store_true")
     parser.add_argument("--include-drive-tuning", action="store_true")
+    parser.add_argument("--sample-rate-count", type=int, default=0,
+                        help=f"Arduino profile only: append a bounded counted read (1..{MAX_SAMPLE_RATE_COUNT})")
+    parser.add_argument("--sample-rate-channel", type=int, default=0)
     parser.add_argument("--json-out", default="")
     parser.add_argument("--markdown-out", default="")
     parser.add_argument("--quiet", action="store_true")
@@ -481,8 +615,73 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def parser_self_test() -> Tuple[bool, List[str]]:
+    failures: List[str] = []
+    if "version" not in default_commands("arduino"):
+        failures.append("arduino default commands missing version")
+    if "ready" not in default_commands("idf"):
+        failures.append("idf default commands missing ready")
+
+    status, _ = classify_command("version", "version: 1.0.0\n> ", False)
+    if status != "PASS":
+        failures.append("version informational output did not pass")
+
+    status, _ = classify_command("probe", "status: code=0\n> ", False)
+    if status != "PASS":
+        failures.append("code=0 output did not pass")
+
+    status, _ = classify_command("probe", "status: I2C_TIMEOUT code=7\n> ", False)
+    if status != "FAIL":
+        failures.append("I2C_TIMEOUT output did not fail")
+
+    status, _ = classify_command(
+        "custom",
+        "fixture ready\n> ",
+        False,
+        expected_patterns=compile_token_patterns(["fixture ready"]),
+    )
+    if status != "PASS":
+        failures.append("configured expected token did not pass")
+
+    status, _ = classify_command(
+        "custom",
+        "fixture unsafe\n> ",
+        False,
+        failure_patterns=compile_token_patterns(["fixture unsafe"]),
+    )
+    if status != "FAIL":
+        failures.append("configured failure token did not fail")
+
+    status, _ = classify_command(
+        "invalid-channel",
+        "status: INVALID_PARAM code=5\n> ",
+        False,
+        expected_failure_patterns=compile_token_patterns(["INVALID_PARAM"]),
+    )
+    if status != "PASS":
+        failures.append("configured expected-failure token did not pass")
+
+    dry_args = parse_args(["--dry-run"])
+    dry_result = make_result(dry_args)
+    if dry_result["overall_status"] != "NOT_RUN" or not dry_result["command_results"]:
+        failures.append("dry-run result did not produce NOT_RUN command rows")
+
+    return not failures, failures
+
+
 def main(argv: List[str]) -> int:
     args = parse_args(argv)
+    if args.parser_self_test:
+        ok, failures = parser_self_test()
+        if not args.quiet:
+            if ok:
+                print("parser self-test PASSED")
+            else:
+                print("parser self-test FAILED")
+                for failure in failures:
+                    print(f"- {failure}")
+        return 0 if ok else 1
+
     result = make_result(args)
     write_outputs(args, result)
 

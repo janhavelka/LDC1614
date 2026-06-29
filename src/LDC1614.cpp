@@ -365,6 +365,9 @@ Status LDC1614::recover() {
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
+  if (_chunkedJob != ChunkedJobKind::NONE) {
+    return Status::Error(Err::BUSY, "Poll-chunked job already active");
+  }
   const bool startedOffline = _driverState == DriverState::OFFLINE;
   ScopedOfflineI2cAllowance allowOfflineI2c(_allowOfflineI2c, true);
   Status st = _performRecoveryLadder();
@@ -385,6 +388,13 @@ Status LDC1614::readChannel(uint8_t ch, ChannelData& out) {
   if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+  if (_sleeping) {
+    return Status::Error(Err::BUSY, "Device is sleeping; wake first");
+  }
 
   // Read MSB first (latches both MSB and LSB from shadow register)
   uint16_t msb = 0;
@@ -400,9 +410,7 @@ Status LDC1614::readChannel(uint8_t ch, ChannelData& out) {
     return st;
   }
 
-  _storeChannelData(ch, msb, lsb, out);
-
-  return Status::Ok();
+  return _storeChannelData(ch, msb, lsb, out);
 }
 
 Status LDC1614::readAllChannels(ChannelData* out, uint8_t count) {
@@ -445,6 +453,13 @@ Status LDC1614::readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut
   const uint8_t n = (count > 0) ? count : _config.channelCount;
   if (n > _config.channelCount) {
     return Status::Error(Err::INVALID_PARAM, "Count exceeds channelCount");
+  }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+  if (_sleeping) {
+    return Status::Error(Err::BUSY, "Device is sleeping; wake first");
   }
 
   for (uint8_t ch = 0; ch < n; ++ch) {
@@ -493,26 +508,31 @@ Status LDC1614::readDataReady(bool& ready) {
     return allowed;
   }
 
-  // Check INTB pin if configured (active low)
+  // Check INTB pin if configured (active low). The no-I2C high-level fast path
+  // is valid only when DRDY is routed to INTB; otherwise poll STATUS for DRDY.
   if (_config.intbPin >= 0 && _config.gpioRead != nullptr && !_config.intbDisable) {
     const bool level = _config.gpioRead(_config.intbPin, _config.gpioUser);
-    if (level) {
+    const bool drdyRoutedToIntb =
+        (_config.errorConfig & cmd::MASK_ERRCFG_DRDY_2INT) != 0U;
+    if (level && drdyRoutedToIntb) {
       return Status::Ok();
     }
-
-    // INTB can be asserted by DRDY or by enabled error conditions. Read STATUS
-    // to distinguish the source instead of treating every interrupt as data.
-    DeviceStatus status;
-    Status st = readDeviceStatus(status);
-    if (!st.ok()) {
-      return st;
+    if (!level) {
+      // INTB can be asserted by DRDY or by enabled error conditions. Read
+      // STATUS to distinguish the source instead of treating every interrupt
+      // as data.
+      DeviceStatus status;
+      Status st = readDeviceStatus(status);
+      if (!st.ok()) {
+        return st;
+      }
+      ready = status.dataReady;
+      if (status.hasError()) {
+        return Status::Error(Err::SENSOR_ERROR, "INTB asserted by sensor error",
+                             static_cast<int32_t>(status.raw));
+      }
+      return Status::Ok();
     }
-    ready = status.dataReady;
-    if (status.hasError()) {
-      return Status::Error(Err::SENSOR_ERROR, "INTB asserted by sensor error",
-                           static_cast<int32_t>(status.raw));
-    }
-    return Status::Ok();
   }
 
   // Fall back to polling STATUS register DRDY bit
@@ -622,6 +642,8 @@ Status LDC1614::softReset() {
     return st;
   }
 
+  _markHardwareConfigDirty(Status::Ok(), DIRTY_PHASE_RESET,
+                           cmd::REG_RESET_DEV, DIRTY_INDEX_GLOBAL);
   _initialized = false;
   _sleeping = true;
   _driverState = DriverState::UNINIT;
@@ -805,6 +827,9 @@ Status LDC1614::startReadChannels(uint8_t mask) {
   Status allowed = _ensureNormalI2cAllowed();
   if (!allowed.ok()) {
     return allowed;
+  }
+  if (_sleeping) {
+    return Status::Error(Err::BUSY, "Device is sleeping; wake first");
   }
 
   _chunkedReadReadyMask = 0;
@@ -1714,7 +1739,10 @@ Status LDC1614::_pollReadChannels(uint8_t& remainingInstructions) {
       }
 
       ChannelData data;
-      _storeChannelData(_chunkedReadChannel, _chunkedReadMsb, lsb, data);
+      st = _storeChannelData(_chunkedReadChannel, _chunkedReadMsb, lsb, data);
+      if (!st.ok()) {
+        return _finishChunkedJob(st);
+      }
       _chunkedReadReadyMask |= static_cast<uint8_t>(1U << _chunkedReadChannel);
 
       const uint8_t next = _nextSelectedChannel(_chunkedReadChannel, _chunkedReadMask);
@@ -1887,8 +1915,8 @@ Status LDC1614::_finishChunkedJob(const Status& st) {
   return st;
 }
 
-void LDC1614::_storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
-                                ChannelData& out) {
+Status LDC1614::_storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
+                                  ChannelData& out) {
   if (!_chunkedPollExecuting && _chunkedReadReadyMask != 0U) {
     _chunkedReadMask = 0;
     _chunkedReadReadyMask = 0;
@@ -1901,9 +1929,15 @@ void LDC1614::_storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
   out.rawData = (static_cast<uint32_t>(msb & cmd::MASK_DATA_MSB_DATA) << 16) |
                 static_cast<uint32_t>(lsb);
 
+  if (out.errWatchdog) {
+    return Status::Error(Err::SENSOR_ERROR, "DATAx watchdog error; sample invalid",
+                         static_cast<int32_t>(msb));
+  }
+
   _lastChannelData[ch] = out;
   _hasSample[ch] = true;
   _sampleTimestampMs[ch] = _nowMs();
+  return Status::Ok();
 }
 
 bool LDC1614::_configStep(uint8_t step, uint8_t& reg, uint16_t& value,

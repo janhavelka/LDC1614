@@ -12,6 +12,22 @@ python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 -
 If no serial port and real LDC1614/LDC1612 hardware are supplied, the runner
 reports `NOT_RUN`. It must not be interpreted as a pass.
 
+## No Hardware Attached Audit
+
+When no board with an LDC1614/LDC1612 is attached, do not run hardware commands
+against an arbitrary serial port. Use the runner in no-port or dry-run mode to
+produce software audit artifacts only:
+
+```sh
+python tools/ldc1614_hil_runner.py --profile arduino --dry-run --baud 115200 --operator "<name>" --board "no LDC1614/LDC1612 fixture attached" --note "no hardware audit only" --json-out docs/reports/hil-validation-COM8-YYYYMMDD.runner.json --markdown-out docs/reports/hil-validation-COM8-YYYYMMDD.runner.md --quiet
+```
+
+Dry-run artifacts list the planned bounded command sequence and are marked
+`overall_status=NOT_RUN`, `hardware_attached=false`, and
+`evidence_type=no_hardware_audit`. They are useful for review setup, parser
+self-tests, and report traceability, but they are not HIL evidence and must not
+be stored or described as pass logs.
+
 ## Firmware Profiles
 
 | Profile | Intended firmware | Default safe commands |
@@ -21,6 +37,10 @@ reports `NOT_RUN`. It must not be interpreted as a pass.
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
+Use `--expect-token`, `--failure-token`, and `--expected-failure-token` only for
+documented fixture-specific cases. Expected-failure tokens are intended for
+negative tests such as proving an invalid channel is rejected; default failure
+classification remains strict.
 
 The IDF diagnostic CLI does not currently expose `wake`, `sleep`, `scan`,
 `probeaddr`, or stress commands. Its `read` / `readall` commands are useful as
@@ -43,6 +63,8 @@ Run these only when hardware and operator setup explicitly support them:
 - Address `0x2B` strap/probe with `--include-address-0x2b`.
 - Short diagnostic stress/soak with `--include-stress --stress-count N` on the
   Arduino profile.
+- Bounded sample-rate smoke command with `--sample-rate-count N` on the Arduino
+  profile; the runner appends `read <channel> <N>` and records elapsed time.
 - SD shutdown/wake if SD is wired and controlled.
 - INTB observation if INTB is wired to a host GPIO or analyzer.
 - Unplug/replug or induced NACK.

@@ -1,0 +1,192 @@
+{
+  "baud": 115200,
+  "board": "No LDC1614/LDC1612 fixture attached",
+  "command_results": [
+    {
+      "command": "help",
+      "elapsed_s": 0.0,
+      "index": 1,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.0,
+      "index": 2,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "scan",
+      "elapsed_s": 0.0,
+      "index": 3,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "probe",
+      "elapsed_s": 0.0,
+      "index": 4,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "id",
+      "elapsed_s": 0.0,
+      "index": 5,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drv",
+      "elapsed_s": 0.0,
+      "index": 6,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.0,
+      "index": 7,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "status",
+      "elapsed_s": 0.0,
+      "index": 8,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drdy",
+      "elapsed_s": 0.0,
+      "index": 9,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "read",
+      "elapsed_s": 0.0,
+      "index": 10,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "recover",
+      "elapsed_s": 0.0,
+      "index": 11,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timing 0 43000000",
+      "elapsed_s": 0.0,
+      "index": 12,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "selftest",
+      "elapsed_s": 0.0,
+      "index": 13,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "stress 50",
+      "elapsed_s": 0.0,
+      "index": 14,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "read 0 50",
+      "elapsed_s": 0.0,
+      "index": 15,
+      "output": "",
+      "reason": "dry-run requested; no serial commands were sent",
+      "status": "NOT_RUN",
+      "timed_out": false
+    }
+  ],
+  "command_timeout_s": 4.0,
+  "commands": [
+    "help",
+    "version",
+    "scan",
+    "probe",
+    "id",
+    "drv",
+    "cfg",
+    "status",
+    "drdy",
+    "read",
+    "recover",
+    "timing 0 43000000",
+    "selftest",
+    "stress 50",
+    "read 0 50"
+  ],
+  "dry_run": true,
+  "evidence_type": "no_hardware_audit",
+  "expect_tokens": [],
+  "expected_address": "0x2A",
+  "expected_channel_count": 4,
+  "expected_failure_tokens": [],
+  "failure_tokens": [],
+  "firmware_version": "unknown",
+  "git_commit": "337186d",
+  "git_status": "dirty",
+  "hardware_attached": false,
+  "idle_gap_s": 0.35,
+  "library_version": "1.0.0",
+  "not_run_reason": "dry-run requested; no serial commands were sent",
+  "notes": "No hardware attached; command plan only; all HIL steps NOT_RUN",
+  "operator": "Codex",
+  "overall_status": "NOT_RUN",
+  "port": "COM8",
+  "profile": "arduino",
+  "sample_rate_channel": 0,
+  "sample_rate_count": 50,
+  "skipped_optional_tests": [
+    {
+      "name": "long_soak",
+      "reason": "manual/fixture evidence required; no safe automatic firmware command is defined"
+    }
+  ],
+  "startup_delay_s": 1.0,
+  "startup_elapsed_s": 0.0,
+  "timestamp_utc": "2026-06-29T14:52:09+00:00",
+  "tool": "ldc1614_hil_runner",
+  "transcript": "",
+  "write_timeout_s": 1.0
+}
