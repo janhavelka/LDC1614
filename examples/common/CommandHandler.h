@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include <cstdlib>
+#include <cstring>
+
 #include <Arduino.h>
 
 #include "examples/common/Log.h"
@@ -22,6 +25,10 @@ namespace cmd {
 inline bool readLine(char* buffer, size_t bufSize) {
   static char cmdBuf[128];
   static size_t cmdLen = 0;
+
+  if (buffer == nullptr || bufSize == 0U) {
+    return false;
+  }
 
   while (LOG_SERIAL.available()) {
     int c = LOG_SERIAL.read();
@@ -51,15 +58,24 @@ inline bool readLine(char* buffer, size_t bufSize) {
  * @return true if keyword matched and value parsed.
  */
 inline bool parseInt(const char* cmd, const char* keyword, int* outValue) {
+  if (cmd == nullptr || keyword == nullptr || outValue == nullptr || keyword[0] == '\0') {
+    return false;
+  }
+
   size_t kwLen = strlen(keyword);
   if (strncmp(cmd, keyword, kwLen) != 0) return false;
+  if (cmd[kwLen] != ' ' && cmd[kwLen] != '\t') return false;
 
   const char* valueStr = cmd + kwLen;
   while (*valueStr == ' ' || *valueStr == '\t') valueStr++;
 
   if (*valueStr == '\0') return false;
 
-  *outValue = atoi(valueStr);
+  char* end = nullptr;
+  const long parsed = strtol(valueStr, &end, 0);
+  if (end == valueStr || (*end != '\0' && *end != ' ' && *end != '\t')) return false;
+
+  *outValue = static_cast<int>(parsed);
   return true;
 }
 
@@ -70,6 +86,9 @@ inline bool parseInt(const char* cmd, const char* keyword, int* outValue) {
  * @return true if command starts with keyword.
  */
 inline bool match(const char* cmd, const char* keyword) {
+  if (cmd == nullptr || keyword == nullptr || keyword[0] == '\0') {
+    return false;
+  }
   return strncasecmp(cmd, keyword, strlen(keyword)) == 0;
 }
 

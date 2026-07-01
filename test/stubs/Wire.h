@@ -24,13 +24,13 @@ public:
     }
     return written;
   }
-  uint8_t endTransmission(bool stop = true) { (void)stop; return 0; }
+  uint8_t endTransmission(bool stop = true) { (void)stop; return _endTransmissionResult; }
 
   size_t requestFrom(uint8_t addr, size_t len) {
     (void)addr;
-    _rxLen = len;
+    _rxLen = _forceRequestResult ? _requestFromResult : len;
     _rxIdx = 0;
-    return len;
+    return _rxLen;
   }
 
   int available() {
@@ -41,6 +41,36 @@ public:
     return -1;
   }
 
+  void setEndTransmissionResult(uint8_t result) { _endTransmissionResult = result; }
+  void setRequestFromResult(size_t result) {
+    _forceRequestResult = true;
+    _requestFromResult = result;
+  }
+  void clearRequestFromResult() {
+    _forceRequestResult = false;
+    _requestFromResult = 0;
+  }
+  void setRxByte(size_t index, uint8_t value) {
+    if (index < sizeof(_rxBuf)) {
+      _rxBuf[index] = value;
+    }
+  }
+  void resetTestState() {
+    _addr = 0;
+    _txLen = 0;
+    _rxLen = 0;
+    _rxIdx = 0;
+    _endTransmissionResult = 0;
+    _forceRequestResult = false;
+    _requestFromResult = 0;
+    for (uint8_t& byte : _txBuf) {
+      byte = 0;
+    }
+    for (uint8_t& byte : _rxBuf) {
+      byte = 0;
+    }
+  }
+
 private:
   uint8_t _addr = 0;
   uint8_t _txBuf[32] = {};
@@ -48,6 +78,9 @@ private:
   uint8_t _rxBuf[32] = {};
   size_t _rxLen = 0;
   size_t _rxIdx = 0;
+  uint8_t _endTransmissionResult = 0;
+  bool _forceRequestResult = false;
+  size_t _requestFromResult = 0;
 };
 
 extern TwoWire Wire;

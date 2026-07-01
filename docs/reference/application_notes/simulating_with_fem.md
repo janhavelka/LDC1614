@@ -50,4 +50,4 @@ Resolution is estimated by simulating at two target positions (separated by the 
 4. If insufficient, modify sensor or target design
 
 ## Relevance to LDC1614 Implementation
-Useful for validating sensor coil designs before hardware prototyping. Simulation results inform the expected inductance range and frequency shift, which determine the appropriate RCOUNT, CLOCK_DIVIDERS, and OFFSET register settings in the LDC1614 driver. The resolution estimation procedure helps verify that the chosen sensor/target combination will meet system requirements within the LDC1614's 28-bit measurement capabilities.
+Useful for screening or estimating sensor coil behavior before hardware prototyping. Simulation results inform the expected inductance range and frequency shift, which determine the appropriate RCOUNT, CLOCK_DIVIDERS, and OFFSET register settings in the LDC1614 driver. The resolution estimation procedure helps estimate whether the chosen sensor/target combination may meet system requirements within the LDC1614's 28-bit measurement capabilities.

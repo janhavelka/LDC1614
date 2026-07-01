@@ -78,6 +78,8 @@ enum class Deglitch : uint8_t {
   BW_1MHZ  = 1,   ///< 1.0 MHz
   BW_3MHZ  = 4,   ///< 3.3 MHz
   BW_10MHZ = 5,   ///< 10 MHz
+  /// 33 MHz. Uses b111 to match MUX_CONFIG field text and reset default;
+  /// TI application Table 45 also shows a conflicting b011 value.
   BW_33MHZ = 7    ///< 33 MHz
 };
 
@@ -90,12 +92,12 @@ enum class RRSequence : uint8_t {
 
 /// @brief Per-channel configuration.
 struct ChannelConfig {
-  uint16_t rcount = 0x0080;          ///< Reference count (0x0005-0xFFFF). Higher = longer conversion, more resolution.
-  uint16_t settleCount = 0x0000;     ///< Settling reference count. 0 = minimum (32/fREF).
-  uint8_t  finDivider = 1;           ///< Sensor frequency divider (1-15). Must be >=2 if fSensor >= 8.75 MHz.
+  uint16_t rcount = 0x0080;          ///< Reference count (0x0005-0xFFFF). Autoscan selected channels require >=0x0009.
+  uint16_t settleCount = 0x0000;     ///< Settling reference count. 0/1 = minimum (32/fREF); autoscan selected channels require >=0x0004.
+  uint8_t  finDivider = 1;           ///< Sensor frequency divider (1-15). Application must use >=2 when fSensor >= 8.75 MHz.
   uint16_t frefDivider = 1;          ///< Reference clock divider (1-1023).
   uint16_t offset = 0x0000;          ///< Conversion offset (subtracted from measurement).
-  uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See datasheet Table 11.
+  uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See DRIVE_CURRENTx register table.
 };
 
 /// @brief Configuration for LDC1614 driver.
@@ -150,7 +152,7 @@ struct Config {
   // === Recovery Strategy ===
   uint32_t recoverBackoffMs = 100;       ///< Minimum time between recover() attempts (0 = no limit)
   bool recoverUseBusReset = true;        ///< Use bus reset in recover() if callback provided
-  bool recoverUseSoftReset = false;      ///< Use soft reset in recover() (requires re-begin)
+  bool recoverUseSoftReset = false;      ///< Use soft reset in recover(), verify identity, then reapply config
   bool recoverUseHardReset = true;       ///< Use hard reset in recover() if callback provided
 };
 

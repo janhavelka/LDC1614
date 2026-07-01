@@ -49,5 +49,5 @@ configuration decision unless another verified source is added.
 
 The raw PDF text contains symbol encoding artifacts and figure/table extraction
 errors. These compact notes normalize units to ASCII-friendly text and avoid
-copying long passages. Use `docs/pdf-extracted-md/` only as a traceable raw
+copying long passages. Use `docs/reference/pdf-extracted-md/` only as a traceable raw
 source, not as implementation-ready documentation.

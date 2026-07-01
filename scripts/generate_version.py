@@ -15,16 +15,23 @@ Standalone commands:
       Update library.json, then regenerate generated headers.
   set X.Y.Z
       Set an explicit semantic version, then regenerate generated headers.
+
+Reproducible build metadata:
+  SOURCE_DATE_EPOCH=<unix-seconds>
+      Use a deterministic UTC timestamp for injected build metadata.
+  LDC1614_REPRODUCIBLE_BUILD=1
+      Use 1970-01-01 00:00:00 UTC when SOURCE_DATE_EPOCH is not set.
 """
 
 from __future__ import annotations
 
 import configparser
 import json
+import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -157,11 +164,29 @@ def _cpp_string_literal(value: str) -> str:
     return f'\\"{escaped}\\"'
 
 
+def _truthy_env(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _build_metadata_datetime() -> datetime:
+    source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    if source_date_epoch:
+        try:
+            return datetime.fromtimestamp(int(source_date_epoch), tz=timezone.utc)
+        except ValueError as exc:
+            raise ValueError("SOURCE_DATE_EPOCH must be an integer Unix timestamp") from exc
+
+    if _truthy_env("LDC1614_REPRODUCIBLE_BUILD"):
+        return datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+    return datetime.now()
+
+
 def _append_build_metadata_defines(namespace: str, project_root: Path) -> None:
     if ENV is None:
         return
 
-    now = datetime.now()
+    now = _build_metadata_datetime()
     build_date = now.strftime("%Y-%m-%d")
     build_time = now.strftime("%H:%M:%S")
     build_timestamp = f"{build_date} {build_time}"
@@ -202,11 +227,11 @@ def _render_version_header(namespace: str, version: str) -> str:
 #endif
 
 #ifndef {prefix}_BUILD_DATE
-#define {prefix}_BUILD_DATE __DATE__
+#define {prefix}_BUILD_DATE "unknown-date"
 #endif
 
 #ifndef {prefix}_BUILD_TIME
-#define {prefix}_BUILD_TIME __TIME__
+#define {prefix}_BUILD_TIME "unknown-time"
 #endif
 
 #ifndef {prefix}_BUILD_TIMESTAMP
@@ -410,7 +435,10 @@ def _usage() -> str:
         "  scripts/generate_version.py sync\n"
         "  scripts/generate_version.py check\n"
         "  scripts/generate_version.py bump patch|minor|major\n"
-        "  scripts/generate_version.py set X.Y.Z"
+        "  scripts/generate_version.py set X.Y.Z\n\n"
+        "Environment:\n"
+        "  SOURCE_DATE_EPOCH=<unix-seconds>       deterministic UTC build metadata\n"
+        "  LDC1614_REPRODUCIBLE_BUILD=1          use 1970-01-01 when SOURCE_DATE_EPOCH is absent"
     )
 
 

@@ -118,7 +118,7 @@ inline void printHealthVerbose(LDC1614::LDC1614& driver) {
   const bool online = driver.isOnline();
   const uint32_t totalSuccess = driver.totalSuccess();
   const uint32_t totalFailures = driver.totalFailures();
-  uint32_t total = totalSuccess + totalFailures;
+  const uint64_t total = static_cast<uint64_t>(totalSuccess) + totalFailures;
   float successRate = (total > 0) ? (100.0f * totalSuccess / total) : 0.0f;
 
   LOG_SERIAL.println();

@@ -7,19 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+## [2.0.0] - 2026-07-01
+
 ### Added
+- Dirty/sync-needed partial hardware-state contract with `Err::CONFIG_DIRTY`,
+  `hardwareConfigDirty()`, `hardwareConfigDirtyError()`, `syncConfig()`, and
+  dirty-state fields in `SettingsSnapshot`.
+- Freshness APIs: `FreshChannelData` and `readFreshChannels()` for
+  STATUS/`UNREADCONVx`-driven latest-versus-unread conversion handling.
+- Poll-chunked I2C APIs for selected channel reads, cached config apply, and
+  reset/reapply with one active job per driver instance.
+- Clean package consumer compile guard that packs the library, extracts the
+  archive, and compiles a consumer against the packaged public headers and
+  source.
+- HIL procedure and conservative runner: `docs/HIL_VALIDATION.md`,
+  `docs/hil/README.md`, and `tools/ldc1614_hil_runner.py`. A no-hardware run is
+  `NOT_RUN`, not a pass.
+- Reproducible version metadata controls through `SOURCE_DATE_EPOCH` and
+  `LDC1614_REPRODUCIBLE_BUILD=1`.
+- Maintained docs index and validation status pages that separate software
+  hardening evidence from hardware validation limitations.
 - ESP-IDF component metadata, root `CMakeLists.txt`, and an interactive
   `examples/esp_idf/basic` CLI application using the ESP-IDF new I2C master
   driver, `esp_timer`, FreeRTOS yield hook, optional INTB GPIO hook, and
   optional bus/hard reset callbacks.
-- Shared framework-neutral example CLI implementation used by both Arduino and
-  ESP-IDF examples, including identical help text, command aliases, colors,
-  prompts, health diagnostics, raw register access, probe/recover/reset,
-  `selftest`, `stress`, `stress_mix`, and `demo` workflows.
+- Arduino diagnostic CLI coverage through `examples/common/Ldc1614Cli.cpp` and
+  a separate ESP-IDF fixed-buffer native CLI with a contract-checked safe command
+  subset.
 - `tools/check_idf_example_contract.py` to guard ESP-IDF CLI parity, native I2C
   driver usage, and absence of Arduino compatibility facades.
-- IDF port implementation notes documenting the framework-neutral core boundary
-  and validation status.
+- IDF port notes documenting the framework-neutral core boundary and validation
+  status.
 - Explicit `readDataReady(bool&)` API for DRDY checks with `Status` error reporting.
 - Expanded settings snapshot API: `getSettings(SettingsSnapshot&)`, by-value `settings()`, `driverState()`, and per-channel `hasSample()`.
 - Public timing helpers `calcSettleTimeUs()` and `calcSampleTimeUs()`.
@@ -32,6 +52,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bringup CLI commands covering the runtime configuration surface, identity readback, reinitialization aliases, and timing calculations.
 
 ### Changed
+- `LDC1614` copy and move construction/assignment are deleted to avoid implicit
+  duplication of non-owning transport callbacks and cached device state.
+- `sampleTimestampMs()` may return `0` for a valid cached sample; use
+  `hasSample()` or `getLastSample()` validity status to test whether a sample is
+  present.
+- Full configuration apply and runtime configuration writes now document and
+  report dirty hardware/cache divergence when a multi-register sequence can
+  partially reach the device.
+- ESP-IDF diagnostic CLI path now uses native fixed-buffer sources and is guarded
+  against Arduino facade/shared Arduino CLI leakage.
+- Active poll-chunked jobs block other public I2C APIs with `BUSY` until
+  `poll()` completes or fails the job.
+- `probe()` now preserves non-address transport failures instead of collapsing
+  all I2C failures into `DEVICE_NOT_FOUND`.
+- Recovery backoff is enforced only when `Config::nowMs` is configured, avoiding
+  permanent `BUSY` recovery behavior in no-timebase integrations.
+- Package export contents are explicit in `library.json`, and ESP-IDF CMake now
+  checks generated `Version.h` consistency instead of mutating source trees.
+- Readiness wording was tightened across maintained docs and metadata. Hardware
+  validation remains pending for target boards and sensors.
 - Removed Arduino `millis()` and `yield()` fallbacks from the driver core.
   Applications should provide `Config::nowMs` and `Config::cooperativeYield`
   when blocking helpers need wall-clock time or cooperative scheduling.
@@ -41,7 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explicit recovery/reset bypass internals now use the shared `ScopedOfflineI2cAllowance` / `_reassertOfflineLatch()` procedure so failed recovery attempts that begin from `OFFLINE` keep the latch asserted.
 - Doxyfile inputs now focus generated API docs on public headers and top-level
   project docs, avoiding extracted application-note math warnings.
-- Reference documentation now uses human-readable vendor PDF names and separates compact inductance-converter notes from full PDF/application-note extractions under `docs/extracted-md/` and `docs/pdf-extracted-md/`.
+- Reference documentation now uses human-readable vendor PDF names and keeps
+  compact notes, application notes, how-to guides, and raw PDF markdown under
+  `docs/reference/`.
 - Blocking read helpers now propagate `readDataReady()` failures instead of converting I2C errors into timeouts.
 - Blocking read helpers now have a finite poll cap even if the injected clock callback stops advancing.
 - Runtime setters now commit cached configuration only after successful register writes.
@@ -50,15 +92,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public raw register helpers now reject calls before `begin()` and reject addresses outside the LDC1614 register map before touching I2C.
 - README now documents runtime setters, configuration constraints, CLI coverage, and STATUS/INTB data-ready behavior.
 - Health behavior is now standardized on latched `OFFLINE`: normal public I2C operations return `BUSY` with `Driver is offline; call recover()` and do not touch I2C until `recover()` succeeds.
-- Arduino and ESP-IDF examples now share framework-neutral command behavior
-  while each framework owns its own bus, timing, CLI input, and pin setup.
+- Arduino and ESP-IDF examples maintain overlapping diagnostic behavior through
+  repo-local command/source contract checks while each framework owns its own
+  bus, timing, CLI input, and pin setup.
 - Core timing guard now enforces zero Arduino timing calls/includes in
   `include/` and `src/`.
 
 ### Fixed
+- Prompt 02 timing/freshness reconciliation is complete in software: blocking
+  helpers validate clock callbacks before polling, preserve data-ready/status
+  failures, and expose fresh unread conversions explicitly.
+- Expanded native tests and fake-bus fault injection cover lifecycle, health,
+  register, validation, recovery, timing, and poll-budget behavior.
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
 - Channel cache and calculation helpers now reject channels outside the configured LDC1612/LDC1614 channel count.
 - Recovery identity mismatches now update health counters/state instead of returning a semantic failure with a healthy driver state.
+
+### Validation limits
+- Local pure ESP-IDF builds require `idf.py` or CI logs and must not be inferred
+  from PlatformIO Arduino builds.
+- ESP32-S2 no-sensor HIL logs under `docs/reports/` validate LDC1614 identity,
+  I2C register access, configuration readback, reset/reapply, recovery, and
+  bounded precondition/error paths with the chip present at `0x2A`.
+- No committed sensor-attached HIL logs validate live DATAx/STATUS conversion
+  side effects, INTB/SD behavior, address strap variants, fault injection, board
+  clock plans, sensor limits, or soak behavior.
 
 ## [1.0.0] - 2026-04-05
 
@@ -90,5 +148,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0

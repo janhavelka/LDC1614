@@ -6,11 +6,15 @@
 #include "LDC1614/LDC1614.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 struct Ldc1614IdfI2c {
   i2c_master_bus_handle_t bus = nullptr;
   i2c_master_dev_handle_t dev = nullptr;
+  SemaphoreHandle_t mutex = nullptr;
   uint8_t address = 0x2A;
+  uint32_t lockTimeoutMs = 50;
   gpio_num_t intb = GPIO_NUM_NC;
   gpio_num_t shdn = GPIO_NUM_NC;
 };

@@ -209,6 +209,10 @@ static constexpr uint8_t BIT_INIT_IDRIVE = 6;
 // ============================================================================
 // Deglitch Filter Values
 // ============================================================================
+// Datasheet note: the MUX_CONFIG field description and reset default encode
+// 33 MHz as b111, while the application deglitch table has a conflicting b011
+// entry. The driver follows MUX_CONFIG field text/default until TI errata or
+// hardware validation proves otherwise.
 
 static constexpr uint16_t DEGLITCH_1MHZ  = 0x0001;  ///< 1.0 MHz bandwidth
 static constexpr uint16_t DEGLITCH_3MHZ  = 0x0004;  ///< 3.3 MHz bandwidth
@@ -229,6 +233,8 @@ static constexpr uint16_t RR_SEQ_CH0_CH1_CH2_CH3  = 0x4000;  ///< Ch0, Ch1, Ch2,
 
 static constexpr uint16_t RCOUNT_MIN          = 0x0005;  ///< Minimum usable RCOUNT value
 static constexpr uint16_t RCOUNT_MAX          = 0xFFFF;  ///< Maximum RCOUNT for full 28-bit resolution
+static constexpr uint16_t MULTI_RCOUNT_MIN    = 0x0009;  ///< Table 43: multi-channel RCOUNTx must be > 8
+static constexpr uint16_t MULTI_SETTLE_MIN    = 0x0004;  ///< Table 43: multi-channel SETTLECOUNTx must be > 3
 static constexpr uint8_t  FIN_DIVIDER_MIN     = 1;       ///< Minimum sensor frequency divider
 static constexpr uint8_t  FIN_DIVIDER_MAX     = 15;      ///< Maximum sensor frequency divider
 static constexpr uint16_t FREF_DIVIDER_MIN    = 1;       ///< Minimum reference clock divider

@@ -71,6 +71,9 @@ jobs:
       - name: Run native tests
         run: pio test -e native
 
+      - name: Run native coverage-instrumented tests
+        run: pio test -e native_cov
+
   validate-library:
     runs-on: ubuntu-latest
     steps:
@@ -88,5 +91,45 @@ jobs:
       - name: Enforce example CLI contract
         run: python tools/check_cli_contract.py
 
+      - name: Enforce ESP-IDF example contract
+        run: python tools/check_idf_example_contract.py
+
+      - name: Enforce readiness wording contract
+        run: python tools/check_readiness_claims.py
+
+      - name: Run HIL runner host tests
+        run: python tools/test_ldc1614_hil_runner.py
+
+      - name: Check generated version header
+        run: python scripts/generate_version.py check
+
+      - name: Check clean consumer compile
+        run: python tools/check_clean_consumer_compile.py
+
       - name: Validate library package
         run: pio pkg pack
+
+  idf-build:
+    name: ESP-IDF build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - esp32s2
+          - esp32s3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build native ESP-IDF example
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: release-v6.0
+          target: ${{ matrix.target }}
+          path: examples/esp_idf/basic
+          command: |
+            python "$GITHUB_WORKSPACE/scripts/generate_version.py" check
+            idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" set-target ${{ matrix.target }}
+            idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" build

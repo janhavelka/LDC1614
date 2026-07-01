@@ -1,6 +1,7 @@
 /// @file main.cpp
-/// @brief LDC1614 Arduino bringup CLI example
-/// @note This is an EXAMPLE, not part of the library.
+/// @brief LDC1614 Arduino diagnostic bring-up CLI example.
+/// @note This is diagnostic firmware, not a production bus manager or hardware
+/// validation claim. It is not part of the library core.
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -61,8 +62,8 @@ LDC1614::Config makeDefaultConfig(void*) {
   cfg.i2cUser = &Wire;
   cfg.nowMs = [](void*) { return millis(); };
   cfg.cooperativeYield = [](void*) { yield(); };
-  cfg.i2cAddress = 0x2A;
-  cfg.channelCount = 4;
+  cfg.i2cAddress = board::LDC_I2C_ADDRESS;
+  cfg.channelCount = board::LDC_CHANNEL_COUNT;
   cfg.i2cTimeoutMs = board::I2C_TIMEOUT_MS;
 
   cfg.autoScan = false;
@@ -112,17 +113,23 @@ ldc1614_cli::Cli ldcCli(
 void readCliInput() {
   static char inputBuffer[128];
   static size_t inputLen = 0;
+  static bool overflow = false;
 
   while (Serial.available() > 0) {
     const char c = static_cast<char>(Serial.read());
     if (c == '\b' || c == 0x7F) {
-      if (inputLen > 0U) {
+      if (!overflow && inputLen > 0U) {
         inputLen--;
       }
       continue;
     }
     if (c == '\n' || c == '\r') {
-      if (inputLen > 0U) {
+      if (overflow) {
+        inputLen = 0;
+        overflow = false;
+        ldcCli.println("input too long");
+        ldcCli.printPrompt();
+      } else if (inputLen > 0U) {
         inputBuffer[inputLen] = '\0';
         ldcCli.processCommand(inputBuffer);
         inputLen = 0;
@@ -130,8 +137,14 @@ void readCliInput() {
       }
       continue;
     }
+    if (overflow) {
+      continue;
+    }
     if (inputLen < sizeof(inputBuffer) - 1U) {
       inputBuffer[inputLen++] = c;
+    } else {
+      inputLen = 0;
+      overflow = true;
     }
   }
 }
@@ -142,7 +155,8 @@ void setup() {
   board::initSerial();
   delay(100);
 
-  ldcCli.logInfo("=== LDC1614 Bringup Example ===");
+  ldcCli.logInfo("=== LDC1614 Arduino Diagnostic Bring-up Example ===");
+  ldcCli.logInfo("Diagnostic firmware only; production apps own bus policy and validation.");
 
   if (!board::initI2c()) {
     ldcCli.logError("Failed to initialize I2C");

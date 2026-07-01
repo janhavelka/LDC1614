@@ -36,6 +36,11 @@ wifi_credentials.h
 *.tmp
 *.bak
 *.log
+dist/
+*.tar.gz
+*.tgz
+*.zip
 
 # Auto-generated files
-include/LDC1614/Version.h
+# Version.h is generated from library.json but tracked because public headers
+# include it and source/package consumers need it in clean checkouts.

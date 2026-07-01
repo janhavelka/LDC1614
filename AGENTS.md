@@ -1,9 +1,9 @@
 # AGENTS.md - LDC1614 Production Embedded Guidelines
 
 ## Role and Target
-You are a professional embedded software engineer building a production-grade LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
+You are a professional embedded software engineer building a production-oriented LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
 
-- Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO.
+- Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO, and native ESP-IDF component use.
 - Goals: deterministic behavior, long-term stability, clean API contracts, portability, no surprises in the field.
 - These rules are binding.
 
@@ -39,30 +39,57 @@ Rules:
 
 Framework-boundary rules:
 - Core/public headers and `src/` must remain framework-neutral. Do not include Arduino or ESP-IDF headers there unless the exception is documented in Doxygen and this file.
+- Core/public headers and `src/` must not depend on Arduino, Wire, ESP-IDF, FreeRTOS, logging frameworks, global bus objects, framework delays, or heap-heavy framework types.
 - Arduino examples may use Arduino APIs.
 - ESP-IDF examples must be native IDF examples using `app_main`, `driver/i2c_master.h`, native GPIO/timer/task APIs, and fixed C buffers or `esp_console`/argtable.
 - ESP-IDF examples must not include Arduino CLI sources or use `ArduinoCompat`, `IdfArduinoCompat`, `Arduino.h`, `Wire.h`, `String`, `Serial`, `TwoWire`, or equivalent Arduino facades.
-- Keep command parity through repo-local command contracts/checkers, not by compiling Arduino sources into ESP-IDF examples.
+- ESP-IDF examples must not depend on shared Arduino-style CLI code unless explicitly documented as a diagnostic exception and guarded by contract checks.
+- Keep command parity through repo-local command contracts/checkers, not by compiling Arduino sketch sources into ESP-IDF examples.
 
 ---
 
 ## Core Engineering Rules (Mandatory)
 
+- Prefer simplicity, clarity, correctness, robustness, safety, and readability over clever abstractions or speculative flexibility.
+- Before coding, inspect whether existing code can be simplified, reused, or deleted.
+- Prefer deleting unnecessary code over adding new code.
+- Prefer extending existing owners, modules, and public contracts over creating parallel abstractions.
+- Add a service, class, file, interface, or abstraction only for a concrete current need with a clear caller or test.
+- Do not add placeholder classes, future stubs, empty managers, broad frameworks, plugin systems, registries, or generic extension layers unless the current task explicitly requires them.
+- Keep changes tightly scoped to the user's request.
+- Preserve dirty user changes; never revert unrelated work without explicit instruction.
 - Deterministic: no unbounded loops/waits; all timeouts via deadlines, never `delay()` in library code.
+- No unbounded waits, retries, loops, allocations, queues, or buffers in steady paths.
+- Every hardware operation that can block must have a timeout and an observable failure path.
+- Recovery logic must be bounded, deterministic, and testable.
+- Prefer explicit state, explicit ownership, and small local helpers over hidden global state.
+- Do not hide hardware failures behind silent retries or fake success.
 - Non-blocking lifecycle: `Status begin(const Config&)`, `void tick(uint32_t nowMs)`, `void end()`.
 - Any I/O that can exceed ~1-2 ms must be split into state machine steps driven by `tick()`.
 - No heap allocation in steady state (no `String`, `std::vector`, `new` in normal ops).
+- Avoid dynamic allocation in steady embedded paths unless it is already an accepted local pattern and the bound is clear.
 - No logging in library code; examples may log.
 - No macros for constants; use `static constexpr`. Macros only for conditional compile or logging helpers.
+- Public APIs are not ISR-safe unless explicitly documented and proven.
+- Driver instances are not internally thread-safe unless explicitly protected and documented.
+- Conversion timing, settling timing, and sensor-frequency calculations must be documented and tested against configured counts and dividers.
 
 ---
 
 ## I2C Manager + Transport (Required)
 
+- The I2C bus must have one clear owner.
 - The library MUST NOT own I2C. It never touches `Wire` directly.
+- Device drivers must not directly own or reconfigure a shared bus unless this repository's architecture explicitly says so.
 - `Config` MUST accept a transport adapter (function pointers or abstract interface).
 - Transport errors MUST map to `Status` (no leaking `Wire`, `esp_err_t`, etc.).
+- I2C transactions must be timeout-bounded and report errors clearly.
 - The library MUST NOT configure bus timeouts or pins.
+- Bus ownership, locking, timeout policy, and recovery policy belong to the application or transport adapter.
+- Transport callbacks are non-owning injections; the library must not retain ownership of framework bus objects.
+- Do not implement chip protocols manually if an existing hardened project library already provides the needed timeout, recovery, and testability behavior.
+- Keep chip-level protocol code inside the driver/wrapper. Keep application policy outside the chip driver.
+- Do not add fake devices, simulated buses, or test doubles to production paths.
 
 ---
 
@@ -80,6 +107,9 @@ struct Status {
 
 - Silent failure is unacceptable.
 - No exceptions.
+- Public APIs that write device state must report failed register writes precisely.
+- Multi-register configuration updates must avoid, report, or recover from partial hardware state.
+- Hardware failures must remain visible to callers; retries and recovery paths must not convert failures into fake success.
 
 ---
 
@@ -88,6 +118,7 @@ struct Status {
 - I2C address configurable: 0x2A (ADDR->GND), 0x2B (ADDR->VDD).
 - Check device presence in `begin()` by reading MANUFACTURER_ID and DEVICE_ID registers.
 - Support 4 channels (LDC1614) or 2 channels (LDC1612) with configurable channel count.
+- LDC1612 versus LDC1614 variant differences must be explicit. Channels 2 and 3 are LDC1614-only.
 - Per-channel configurable: RCOUNT, SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, DRIVE_CURRENT.
 - Configurable operating modes:
   - **Single-channel continuous**: one channel converting continuously.
@@ -96,6 +127,7 @@ struct Status {
 - Sleep mode / active mode transitions via CONFIG register.
 - Software reset via RESET_DEV register.
 - 28-bit conversion result readout with proper MSB-first coherency.
+- DATAx coherency must follow datasheet ordering: read DATAx_MSB before DATAx_LSB.
 - Sensor frequency calculation from raw data, reference clock, dividers, and offset.
 - Status register readout with error flag parsing.
 - Error reporting configuration (under-range, over-range, watchdog, amplitude, zero count).
@@ -184,6 +216,14 @@ Release steps:
 2. Update `CHANGELOG.md` (Added/Changed/Fixed/Removed).
 3. Update `README.md` if API or examples changed.
 4. Commit and tag: `Release vX.Y.Z`.
+
+---
+
+## Validation Claims
+
+- Do not claim hardware validation unless real LDC1614/LDC1612 hardware logs were captured in the current validation context.
+- Separate software readiness from hardware validation. INTB behavior, SD-pin behavior, fault injection, channel sequencing on real sensors, coil/sensor operating limits, address-pin variants, and long soak/HIL stress require physical evidence.
+- Documentation must label examples honestly: diagnostic bring-up examples are not production bus managers unless they demonstrate application-owned locking, timeout policy, and recovery policy.
 
 ---
 
