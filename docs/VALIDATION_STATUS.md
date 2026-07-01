@@ -18,7 +18,7 @@ The current working branch has software hardening evidence for:
 - HIL runner host parser/no-port/no-sensor artifact tests. The current host
   unit suite contains 24 runner tests.
 - ESP32-S2 no-sensor HIL on COM8 with an LDC1614 at `0x2A`: 1010/1010
-  chip-only command-set stress commands passed and 190/190 negative/precondition
+  chip-only command-set stress commands passed and 200/200 negative/precondition
   stress commands passed. The fixture had no LC sensor and no physical DRDY/INTB
   wiring.
 - Generated `Version.h` consistency check.

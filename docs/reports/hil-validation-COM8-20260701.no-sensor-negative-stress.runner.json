@@ -1,0 +1,2072 @@
+{
+  "base_command_count": 20,
+  "baud": 115200,
+  "board": "ESP32-S2 COM8 with LDC1614 at 0x2A, no LC sensor attached",
+  "command_results": [
+    {
+      "command": "version",
+      "elapsed_s": 0.01500000013038516,
+      "index": 1,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.03200000012293458,
+      "index": 2,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.014999999664723873,
+      "index": 3,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.016000000294297934,
+      "index": 4,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 5,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.015999999828636646,
+      "index": 6,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.01500000013038516,
+      "index": 7,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.015999999828636646,
+      "index": 8,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.030999999959021807,
+      "index": 9,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.016000000294297934,
+      "index": 10,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.015999999828636646,
+      "index": 11,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.030999999959021807,
+      "index": 12,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.01500000013038516,
+      "index": 13,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.015999999828636646,
+      "index": 14,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.030999999959021807,
+      "index": 15,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.016000000294297934,
+      "index": 16,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.015999999828636646,
+      "index": 17,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.030999999959021807,
+      "index": 18,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.030999999959021807,
+      "index": 19,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 20,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.016000000294297934,
+      "index": 21,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.015999999828636646,
+      "index": 22,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.030999999959021807,
+      "index": 23,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.01500000013038516,
+      "index": 24,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.015999999828636646,
+      "index": 25,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.030999999959021807,
+      "index": 26,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.016000000294297934,
+      "index": 27,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.015999999828636646,
+      "index": 28,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.030999999959021807,
+      "index": 29,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.01500000013038516,
+      "index": 30,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.015999999828636646,
+      "index": 31,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.030999999959021807,
+      "index": 32,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.016000000294297934,
+      "index": 33,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.015999999828636646,
+      "index": 34,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.030999999959021807,
+      "index": 35,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.01500000013038516,
+      "index": 36,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.015999999828636646,
+      "index": 37,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.016000000294297934,
+      "index": 38,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.04699999978765845,
+      "index": 39,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.01500000013038516,
+      "index": 40,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.030999999959021807,
+      "index": 41,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.015999999828636646,
+      "index": 42,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.016000000294297934,
+      "index": 43,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.030999999959021807,
+      "index": 44,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.015999999828636646,
+      "index": 45,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.01500000013038516,
+      "index": 46,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.030999999959021807,
+      "index": 47,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.015999999828636646,
+      "index": 48,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.016000000294297934,
+      "index": 49,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.030999999959021807,
+      "index": 50,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.015999999828636646,
+      "index": 51,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.01500000013038516,
+      "index": 52,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.030999999959021807,
+      "index": 53,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.015999999828636646,
+      "index": 54,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.016000000294297934,
+      "index": 55,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.014999999664723873,
+      "index": 56,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.03200000012293458,
+      "index": 57,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.01500000013038516,
+      "index": 58,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.04699999978765845,
+      "index": 59,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.016000000294297934,
+      "index": 60,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.014999999664723873,
+      "index": 61,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.03200000012293458,
+      "index": 62,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.01500000013038516,
+      "index": 63,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.015999999828636646,
+      "index": 64,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 65,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.016000000294297934,
+      "index": 66,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.014999999664723873,
+      "index": 67,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.03200000012293458,
+      "index": 68,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.01500000013038516,
+      "index": 69,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.015999999828636646,
+      "index": 70,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.030999999959021807,
+      "index": 71,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.016000000294297934,
+      "index": 72,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.014999999664723873,
+      "index": 73,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.03200000012293458,
+      "index": 74,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.01500000013038516,
+      "index": 75,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.015999999828636646,
+      "index": 76,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.01500000013038516,
+      "index": 77,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.03200000012293458,
+      "index": 78,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.030999999959021807,
+      "index": 79,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 80,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.015999999828636646,
+      "index": 81,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.01500000013038516,
+      "index": 82,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.03200000012293458,
+      "index": 83,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.014999999664723873,
+      "index": 84,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.016000000294297934,
+      "index": 85,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.030999999959021807,
+      "index": 86,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.015999999828636646,
+      "index": 87,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.01500000013038516,
+      "index": 88,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.03200000012293458,
+      "index": 89,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.014999999664723873,
+      "index": 90,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.016000000294297934,
+      "index": 91,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.030999999959021807,
+      "index": 92,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.015999999828636646,
+      "index": 93,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.01500000013038516,
+      "index": 94,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.03200000012293458,
+      "index": 95,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.014999999664723873,
+      "index": 96,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.016000000294297934,
+      "index": 97,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.015999999828636646,
+      "index": 98,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.04600000008940697,
+      "index": 99,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.015999999828636646,
+      "index": 100,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.030999999959021807,
+      "index": 101,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.016000000294297934,
+      "index": 102,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.015999999828636646,
+      "index": 103,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.030999999959021807,
+      "index": 104,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.01500000013038516,
+      "index": 105,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.015999999828636646,
+      "index": 106,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.030999999959021807,
+      "index": 107,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.016000000294297934,
+      "index": 108,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.015999999828636646,
+      "index": 109,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.030999999959021807,
+      "index": 110,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.01500000013038516,
+      "index": 111,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.015999999828636646,
+      "index": 112,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.030999999959021807,
+      "index": 113,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.016000000294297934,
+      "index": 114,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.015999999828636646,
+      "index": 115,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.030999999959021807,
+      "index": 116,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.01500000013038516,
+      "index": 117,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.015999999828636646,
+      "index": 118,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.04700000025331974,
+      "index": 119,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.015999999828636646,
+      "index": 120,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.01500000013038516,
+      "index": 121,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.030999999959021807,
+      "index": 122,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.015999999828636646,
+      "index": 123,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.016000000294297934,
+      "index": 124,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 125,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.015999999828636646,
+      "index": 126,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.01500000013038516,
+      "index": 127,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.030999999959021807,
+      "index": 128,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.015999999828636646,
+      "index": 129,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.016000000294297934,
+      "index": 130,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.014999999664723873,
+      "index": 131,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.03200000012293458,
+      "index": 132,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.01500000013038516,
+      "index": 133,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.015999999828636646,
+      "index": 134,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.030999999959021807,
+      "index": 135,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.016000000294297934,
+      "index": 136,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.014999999664723873,
+      "index": 137,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.03200000012293458,
+      "index": 138,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.030999999959021807,
+      "index": 139,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 140,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.016000000294297934,
+      "index": 141,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.014999999664723873,
+      "index": 142,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.03200000012293458,
+      "index": 143,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.01500000013038516,
+      "index": 144,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.015999999828636646,
+      "index": 145,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.01500000013038516,
+      "index": 146,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.03200000012293458,
+      "index": 147,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.014999999664723873,
+      "index": 148,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.016000000294297934,
+      "index": 149,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.030999999959021807,
+      "index": 150,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.015999999828636646,
+      "index": 151,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.01500000013038516,
+      "index": 152,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.03200000012293458,
+      "index": 153,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.014999999664723873,
+      "index": 154,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.016000000294297934,
+      "index": 155,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.030999999959021807,
+      "index": 156,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.015999999828636646,
+      "index": 157,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.01500000013038516,
+      "index": 158,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.04699999978765845,
+      "index": 159,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.016000000294297934,
+      "index": 160,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.030999999959021807,
+      "index": 161,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.015999999828636646,
+      "index": 162,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.01500000013038516,
+      "index": 163,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.015999999828636646,
+      "index": 164,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 165,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.016000000294297934,
+      "index": 166,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.015999999828636646,
+      "index": 167,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.030999999959021807,
+      "index": 168,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.01500000013038516,
+      "index": 169,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.015999999828636646,
+      "index": 170,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.030999999959021807,
+      "index": 171,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.016000000294297934,
+      "index": 172,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.015999999828636646,
+      "index": 173,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.030999999959021807,
+      "index": 174,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.01500000013038516,
+      "index": 175,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.015999999828636646,
+      "index": 176,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.030999999959021807,
+      "index": 177,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.016000000294297934,
+      "index": 178,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.030999999959021807,
+      "index": 179,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.030999999959021807,
+      "index": 180,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.015999999828636646,
+      "index": 181,
+      "output": "=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.016000000294297934,
+      "index": 182,
+      "output": "\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.030999999959021807,
+      "index": 183,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0123",
+      "elapsed_s": 0.015999999828636646,
+      "index": 184,
+      "output": "  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: BUSY",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.01500000013038516,
+      "index": 185,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 4 0x0123",
+      "elapsed_s": 0.030999999959021807,
+      "index": 186,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "settle 4 0x0011",
+      "elapsed_s": 0.015999999828636646,
+      "index": 187,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 4 2 3",
+      "elapsed_s": 0.016000000294297934,
+      "index": 188,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "offset 4 0x0010",
+      "elapsed_s": 0.014999999664723873,
+      "index": 189,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 4 5",
+      "elapsed_s": 0.03200000012293458,
+      "index": 190,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 0x0004",
+      "elapsed_s": 0.01500000013038516,
+      "index": 191,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 0 1",
+      "elapsed_s": 0.015999999828636646,
+      "index": 192,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "clkdiv 0 1 0",
+      "elapsed_s": 0.030999999959021807,
+      "index": 193,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "idrive 0 32",
+      "elapsed_s": 0.016000000294297934,
+      "index": 194,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "errcfg 0x0002",
+      "elapsed_s": 0.014999999664723873,
+      "index": 195,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.03200000012293458,
+      "index": 196,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "autoscan 2",
+      "elapsed_s": 0.01500000013038516,
+      "index": 197,
+      "output": "  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> ",
+      "reason": "matched configured expected-failure token: INVALID_PARAM",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.015999999828636646,
+      "index": 198,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.04700000025331974,
+      "index": 199,
+      "output": "=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> ",
+      "reason": "informational command responded without failure pattern",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.014999999664723873,
+      "index": 200,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    }
+  ],
+  "command_timeout_s": 6.0,
+  "commands": [
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep",
+    "version",
+    "init",
+    "wake",
+    "rcount 0 0x0123",
+    "sleep",
+    "rcount 4 0x0123",
+    "settle 4 0x0011",
+    "clkdiv 4 2 3",
+    "offset 4 0x0010",
+    "idrive 4 5",
+    "rcount 0 0x0004",
+    "clkdiv 0 0 1",
+    "clkdiv 0 1 0",
+    "idrive 0 32",
+    "errcfg 0x0002",
+    "highcurrent 1",
+    "autoscan 2",
+    "highcurrent 0",
+    "cfg",
+    "sleep"
+  ],
+  "dry_run": false,
+  "evidence_type": "hardware_hil",
+  "expect_tokens": [],
+  "expected_address": "0x2A",
+  "expected_channel_count": 4,
+  "expected_failure_tokens": [
+    "BUSY",
+    "INVALID_PARAM"
+  ],
+  "failure_tokens": [],
+  "firmware_version": "2.0.0",
+  "fixture": "no-sensor",
+  "git_commit": "6c88592",
+  "git_status": "clean",
+  "hardware_attached": true,
+  "idle_gap_s": 0.35,
+  "library_version": "2.0.0",
+  "not_run_reason": null,
+  "notes": "Release v2.0.0 no-sensor negative HIL stress: version plus BUSY/INVALID_PARAM command set repeated 10 times; conversion checks excluded",
+  "operator": "Codex",
+  "overall_status": "PASS",
+  "port": "COM8",
+  "profile": "arduino",
+  "repeat_command_set": 10,
+  "sample_rate": {
+    "channel": 0,
+    "effective_hz": null,
+    "elapsed_s": 0.0,
+    "failure_count": null,
+    "observed_count": null,
+    "reason": "sample-rate benchmark was not requested",
+    "requested": false,
+    "requested_count": 0,
+    "status": "NOT_RUN"
+  },
+  "sample_rate_channel": 0,
+  "sample_rate_count": 0,
+  "serial_dtr": "on",
+  "serial_port_requested": true,
+  "serial_rts": "off",
+  "skipped_optional_tests": [],
+  "soak": {
+    "elapsed_s": 0.0,
+    "reason": "long soak was not requested",
+    "status": "NOT_RUN"
+  },
+  "startup_delay_s": 1.0,
+  "startup_elapsed_s": 6.0,
+  "stress": {
+    "count": 10,
+    "effective_hz": null,
+    "elapsed_s": 0.0,
+    "failure_count": null,
+    "reason": "stress was not requested",
+    "requested": false,
+    "status": "NOT_RUN",
+    "success_count": null
+  },
+  "timestamp_utc": "2026-07-01T14:30:11+00:00",
+  "tool": "ldc1614_hil_runner",
+  "transcript": "### startup\n\n### command 1: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 2: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 3: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 4: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 5: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 6: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 7: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 8: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 9: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 10: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 11: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 12: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 13: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 14: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 15: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 16: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 17: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 18: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 19: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 20: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 21: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 22: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 23: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 24: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 25: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 26: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 27: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 28: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 29: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 30: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 31: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 32: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 33: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 34: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 35: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 36: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 37: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 38: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 39: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 40: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 41: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 42: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 43: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 44: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 45: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 46: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 47: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 48: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 49: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 50: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 51: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 52: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 53: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 54: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 55: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 56: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 57: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 58: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 59: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 60: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 61: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 62: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 63: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 64: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 65: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 66: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 67: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 68: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 69: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 70: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 71: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 72: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 73: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 74: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 75: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 76: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 77: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 78: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 79: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 80: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 81: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 82: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 83: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 84: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 85: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 86: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 87: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 88: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 89: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 90: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 91: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 92: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 93: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 94: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 95: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 96: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 97: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 98: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 99: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 100: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 101: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 102: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 103: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 104: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 105: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 106: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 107: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 108: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 109: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 110: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 111: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 112: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 113: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 114: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 115: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 116: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 117: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 118: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 119: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 120: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 121: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 122: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 123: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 124: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 125: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 126: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 127: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 128: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 129: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 130: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 131: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 132: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 133: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 134: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 135: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 136: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 137: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 138: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 139: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 140: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 141: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 142: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 143: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 144: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 145: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 146: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 147: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 148: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 149: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 150: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 151: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 152: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 153: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 154: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 155: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 156: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 157: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 158: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 159: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 160: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 161: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 162: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 163: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 164: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 165: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 166: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 167: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 168: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 169: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 170: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 171: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 172: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 173: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 174: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 175: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 176: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 177: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 178: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 179: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 180: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 181: version\n=== Version Info ===\n  Example firmware build: not embedded; use HIL transcript timestamp\n  LDC1614 library version: 2.0.0\n  LDC1614 full version: 2.0.0 (42feb3b, 2026-07-01 16:27:00, clean)\n  LDC1614 build timestamp: 2026-07-01 16:27:00\n  LDC1614 git commit: 42feb3b\n  LDC1614 git status: clean\n  LDC1614 version code: 20000 (major=2 minor=0 patch=0)\n> \n### command 182: init\n\u001b[36m[I]\u001b[0m Initializing LDC1614...\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n\u001b[36m[I]\u001b[0m Device initialized in sleep mode. Use 'wake' to start conversions.\n=== Driver Health ===\n  State: \u001b[32mREADY\u001b[0m\n  Online: \u001b[32myes\u001b[0m\n  Sleeping: \u001b[33myes\u001b[0m\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Consecutive failures: \u001b[32m0\u001b[0m\n  Total success: \u001b[33m0\u001b[0m\n  Total failures: \u001b[32m0\u001b[0m\n  Success rate: \u001b[31m0.0%\u001b[0m\n  Last OK: \u001b[33mnever\u001b[0m\n  Last error: \u001b[32mnever\u001b[0m\n> \n### command 183: wake\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 184: rcount 0 0x0123\n  Status: \u001b[31mBUSY\u001b[0m (code=8, detail=0)\n  Message: \u001b[33mMust be in sleep mode to change config\u001b[0m\n> \n### command 185: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 186: rcount 4 0x0123\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 187: settle 4 0x0011\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 188: clkdiv 4 2 3\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 189: offset 4 0x0010\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 190: idrive 4 5\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid channel\u001b[0m\n> \n### command 191: rcount 0 0x0004\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mRCOUNT below minimum (0x0005)\u001b[0m\n> \n### command 192: clkdiv 0 0 1\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FIN_DIVIDER (1-15)\u001b[0m\n> \n### command 193: clkdiv 0 1 0\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mInvalid FREF_DIVIDER (1-1023)\u001b[0m\n> \n### command 194: idrive 0 32\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mIDRIVE exceeds maximum (31)\u001b[0m\n> \n### command 195: errcfg 0x0002\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mERROR_CONFIG has reserved bits set\u001b[0m\n> \n### command 196: highcurrent 1\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 197: autoscan 2\n  Status: \u001b[31mINVALID_PARAM\u001b[0m (code=5, detail=0)\n  Message: \u001b[33mDisable HIGH_CURRENT_DRV before auto-scan\u001b[0m\n> \n### command 198: highcurrent 0\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> \n### command 199: cfg\n=== Active Configuration ===\n  Initialized: \u001b[32myes\u001b[0m  State: \u001b[32mREADY\u001b[0m  Online: \u001b[32myes\u001b[0m\n  I2C address: 0x2A  timeout=50 ms  offlineThreshold=5\n  Callbacks: write=yes read=yes now=yes yield=yes gpio=no busReset=no hardReset=no\n  Mode: single-channel  RR sequence: CH0_CH1  Deglitch: 10 MHz\n  RefClk: INTERNAL  Activation: FULL_CURRENT\n  RPoverride: yes  AutoAmp: no  HighCurrentDrv: no\n  INTB configured: no  INTB output: no\n  Cached ERROR_CONFIG: 0x00F9\n  Hardware config dirty: \u001b[32mno\u001b[0m\n  Live MUX_CONFIG: 0x020D\n  Live CONFIG: 0x3401 (sleep=1)\n  Live ERROR_CONFIG: 0x00F9\n  Channel count: 4\n  Active channel: 0\n  Sleeping: \u001b[33myes\u001b[0m\n  --- Channel 0 ---\n    Cached: RCOUNT=0x04D6 SETTLE=0x000A CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=10\n    Live RCOUNT: 0x04D6 (1238)\n    Live SETTLECOUNT: 0x000A (10)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x5000 (IDRIVE=10, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 1 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 2 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  --- Channel 3 ---\n    Cached: RCOUNT=0x0080 SETTLE=0x0000 CLOCK_DIV(FIN=1,FREF=1) OFFSET=0x0000 IDRIVE=0\n    Live RCOUNT: 0x0080 (128)\n    Live SETTLECOUNT: 0x0000 (0)\n    Live CLOCK_DIV: 0x1001 (FIN=1, FREF=1)\n    Live DRIVE_CURRENT: 0x0000 (IDRIVE=0, INIT_IDRIVE=0)\n    Live OFFSET: 0x0000 (0)\n  config_readback_failures=0\n> \n### command 200: sleep\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: \u001b[33mOK\u001b[0m\n> ",
+  "write_timeout_s": 1.0
+}
