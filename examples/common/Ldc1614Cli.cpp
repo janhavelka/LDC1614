@@ -1151,12 +1151,12 @@ void Cli::runSelfTest() {
   reportCheck("wake", st.ok(), st.ok() ? "" : errToStr(st.code));
   reportCheck("not sleeping after wake", !_device.isSleeping(), "");
 
-  st = _device.sleep();
-  reportCheck("sleep (restore)", st.ok(), st.ok() ? "" : errToStr(st.code));
-
   st = _device.recover();
   reportCheck("recover", st.ok(), st.ok() ? "" : errToStr(st.code));
   reportCheck("isOnline", _device.isOnline(), "");
+
+  st = _device.sleep();
+  reportCheck("sleep (restore)", st.ok(), st.ok() ? "" : errToStr(st.code));
 
   printf("Selftest result: pass=%s%lu%s fail=%s%lu%s skip=%s%lu%s\n",
          goodIfNonZeroColor(stats.pass), static_cast<unsigned long>(stats.pass), COLOR_RESET,

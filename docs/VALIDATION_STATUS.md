@@ -1,7 +1,7 @@
 # LDC1614 Validation Status
 
 This page records the maintained validation boundary. It is not a release
-certificate and it does not record hardware validation.
+certificate.
 
 ## Current Local Evidence
 
@@ -15,8 +15,12 @@ The current working branch has software hardening evidence for:
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
-- HIL runner host parser/no-port artifact tests. The current host unit suite
-  contains 19 runner tests.
+- HIL runner host parser/no-port/no-sensor artifact tests. The current host
+  unit suite contains 24 runner tests.
+- ESP32-S2 no-sensor HIL on COM8 with an LDC1614 at `0x2A`: 1010/1010
+  chip-only command-set stress commands passed and 190/190 negative/precondition
+  stress commands passed. The fixture had no LC sensor and no physical DRDY/INTB
+  wiring.
 - Generated `Version.h` consistency check.
 - Clean package consumer compile guard.
 - PlatformIO package creation, with generated package archives removed after
@@ -50,7 +54,17 @@ being prepared as a release artifact outside the source tree.
 
 ## Hardware Validation
 
-No committed real LDC1612/LDC1614 HIL logs are recorded here.
+Committed COM8 HIL logs record real ESP32-S2 + LDC1614 chip-only validation
+with no LC sensor attached:
+
+- `docs/reports/hil-validation-COM8-20260701.md`
+- `docs/reports/hil-validation-COM8-20260701.no-sensor-stress.runner.json`
+- `docs/reports/hil-validation-COM8-20260701.no-sensor-negative-stress.runner.json`
+
+These logs validate identity, I2C register access, configuration write/readback,
+sleep/wake, reset/reapply, reset/re-init, recovery, timing calculations, and
+bounded `BUSY` / `INVALID_PARAM` behavior. They do not validate live conversion
+behavior.
 
 On 2026-06-30, COM8 was identified as an ESP32-S2 target. The Arduino-profile
 `esp32s2dev` firmware uploaded successfully once, but the runner then captured
@@ -61,12 +75,13 @@ output. A later upload retry could not open COM8. The generated files under
 `evidence_type=serial_not_run`. They are audit artifacts only and do not prove
 LDC1614/LDC1612 behavior.
 
-Before target deployment decisions, capture hardware logs for:
+Before target deployment decisions or full sensing claims, capture hardware logs
+for:
 
-- Device identity and expected I2C address strap.
+- Device identity and expected I2C address strap for each board variant.
 - LDC1612/LDC1614 channel availability.
-- Configuration readback for timing, mode, drive-current, offset, and error
-  registers.
+- Sensor-attached configuration readback for timing, mode, drive-current, offset,
+  and error registers.
 - DATAx read ordering and DATAx/STATUS side effects.
 - INTB behavior when wired.
 - SD shutdown/wake behavior when wired.

@@ -27,6 +27,19 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("readfresh", commands)
         self.assertIn("readstaged 0x01 8 1", commands)
 
+    def test_no_sensor_fixture_excludes_conversion_checks(self) -> None:
+        commands = runner.default_commands("arduino", "no-sensor")
+
+        self.assertIn("init", commands)
+        self.assertIn("probeaddr 0x2A", commands)
+        self.assertIn("rcount 0 0x0123", commands)
+        self.assertIn("autoscan 4", commands)
+        self.assertIn("resetreapply", commands)
+        self.assertIn("reset", commands)
+        self.assertNotIn("drdy", commands)
+        self.assertNotIn("readfresh", commands)
+        self.assertNotIn("samplerate 0 10", commands)
+
     def test_default_idf_commands_cover_supported_safe_diagnostics(self) -> None:
         commands = runner.default_commands("idf")
 
@@ -37,12 +50,24 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertLess(commands.index("wake"), commands.index("read"))
         self.assertNotIn("scan", commands)
 
+    def test_serial_line_defaults_match_known_esp32s2_fixture(self) -> None:
+        args = runner.parse_args([])
+        self.assertEqual("on", args.serial_dtr)
+        self.assertEqual("off", args.serial_rts)
+
     def test_classifier_accepts_common_informational_outputs(self) -> None:
         cases = (
             ("version", "version: 1.0.0\n> "),
             ("scan", "I2C scan complete\n0x2A\n> "),
             ("settings", "addr=0x2a channels=4 timeoutMs=10\n> "),
+            ("scan", "Scanning I2C bus (timeout=50ms)...\nScan complete. Found 1 device(s).\n> "),
+            ("status", "STATUS raw=0x0000 drdy=no errCh=0\nUR=0 OR=0 WD=0 AH=0 AL=0 ZC=0\n> "),
             ("health", "state=READY initialized=1 online=1 dirty=0\n> "),
+            ("snapshot", "hardwareConfigDirty=0\nChannels: 4\n> "),
+            ("channels", "Channel count: 4\n> "),
+            ("activech", "Active channel: 0\n> "),
+            ("reg 0x7E", "Reg 0x7E = 0x5449 (21577)\n> "),
+            ("rawreg 0x7E", "Raw 0x2A[0x7E] = 0x5449 (21577)\n> "),
         )
 
         for command, output in cases:
@@ -78,6 +103,21 @@ class HilRunnerParserTests(unittest.TestCase):
             with self.subTest(output=output):
                 status, reason = runner.classify_command("probe", output, False)
                 self.assertEqual("FAIL", status, reason)
+
+    def test_classifier_accepts_readstaged_in_progress_then_result(self) -> None:
+        status, reason = runner.classify_command(
+            "readstaged 0x01 8 1",
+            (
+                "Status: IN_PROGRESS (code=9, detail=0)\n"
+                "readstaged poll=1 state=IN_PROGRESS\n"
+                "Status: OK (code=0, detail=0)\n"
+                "Ch0: raw=0x0000001 (1)\n"
+                "ReadStaged result: mask=0x01 polls=2 instr=1\n> "
+            ),
+            False,
+        )
+
+        self.assertEqual("PASS", status, reason)
 
     def test_classifier_supports_configured_tokens(self) -> None:
         expected = runner.compile_token_patterns(["fixture ready"])
@@ -215,6 +255,47 @@ class HilRunnerParserTests(unittest.TestCase):
 
         self.assertNotIn("samplerate 0 10", result["commands"])
         self.assertEqual("sample_rate_benchmark", result["skipped_optional_tests"][0]["name"])
+
+    def test_no_sensor_fixture_skips_optional_conversion_benchmarks(self) -> None:
+        args = runner.parse_args(
+            [
+                "--fixture",
+                "no-sensor",
+                "--dry-run",
+                "--include-stress",
+                "--sample-rate-count",
+                "10",
+            ]
+        )
+        result = runner.make_result(args)
+
+        skipped = {item["name"]: item["reason"] for item in result["skipped_optional_tests"]}
+        self.assertIn("stress", skipped)
+        self.assertIn("sample_rate_benchmark", skipped)
+        self.assertNotIn("stress 10", result["commands"])
+        self.assertNotIn("samplerate 0 10", result["commands"])
+        self.assertEqual("no-sensor", result["fixture"])
+
+    def test_repeat_command_set_expands_selected_commands(self) -> None:
+        args = runner.parse_args(
+            [
+                "--dry-run",
+                "--skip-default-commands",
+                "--command",
+                "version",
+                "--command",
+                "cfg",
+                "--repeat-command-set",
+                "3",
+            ]
+        )
+        result = runner.make_result(args)
+
+        self.assertEqual(["version", "cfg", "version", "cfg", "version", "cfg"],
+                         result["commands"])
+        self.assertEqual(2, result["base_command_count"])
+        self.assertEqual(3, result["repeat_command_set"])
+        self.assertEqual(6, len(result["command_results"]))
 
     def test_sample_rate_summary_parses_gated_samplerate_command(self) -> None:
         args = runner.parse_args(["--sample-rate-count", "50"])

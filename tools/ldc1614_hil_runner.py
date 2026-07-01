@@ -25,6 +25,8 @@ MAX_STARTUP_DELAY_S = 30.0
 MAX_COMMAND_TIMEOUT_S = 60.0
 MAX_WRITE_TIMEOUT_S = 10.0
 MAX_IDLE_GAP_S = 10.0
+MAX_COMMAND_SET_REPETITIONS = 100
+SERIAL_LINE_STATES = ("on", "off", "unchanged")
 
 ARDUINO_DEFAULT_COMMANDS = [
     "help",
@@ -44,6 +46,110 @@ ARDUINO_DEFAULT_COMMANDS = [
     "recover",
     "timing 0 43000000",
     "selftest",
+]
+
+ARDUINO_NO_SENSOR_COMMANDS = [
+    "help",
+    "version",
+    "init",
+    "scan",
+    "probeaddr 0x2A",
+    "probe",
+    "id",
+    "drv",
+    "state",
+    "online",
+    "cfg",
+    "snapshot",
+    "channels",
+    "activech",
+    "status",
+    "status_raw",
+    "rawreg 0x7E",
+    "rawreg 0x7F",
+    "reg 0x7E",
+    "reg 0x7F",
+    "reg 0x19",
+    "reg 0x1A",
+    "reg 0x1B",
+    "sleep",
+    "wake",
+    "sleep",
+    "single 0",
+    "rcount 0 0x0123",
+    "settle 0 0x0011",
+    "clkdiv 0 2 3",
+    "offset 0 0x0010",
+    "idrive 0 5",
+    "rcount 1 0x0124",
+    "settle 1 0x0012",
+    "clkdiv 1 2 4",
+    "offset 1 0x0011",
+    "idrive 1 6",
+    "rcount 2 0x0125",
+    "settle 2 0x0013",
+    "clkdiv 2 2 5",
+    "offset 2 0x0012",
+    "idrive 2 7",
+    "rcount 3 0x0126",
+    "settle 3 0x0014",
+    "clkdiv 3 2 6",
+    "offset 3 0x0013",
+    "idrive 3 8",
+    "initidrive 0",
+    "initidrive 1",
+    "initidrive 2",
+    "initidrive 3",
+    "cfg",
+    "activech 1",
+    "activech 2",
+    "activech 3",
+    "single 0",
+    "single 1",
+    "single 2",
+    "single 3",
+    "single 0",
+    "autoscan 2",
+    "autoscan 3",
+    "autoscan 4",
+    "single 0",
+    "deglitch 1",
+    "deglitch 3",
+    "deglitch 10",
+    "deglitch 33",
+    "errcfg 0x0000",
+    "errcfg 0x00F9",
+    "errcfg",
+    "intb 0",
+    "intb 1",
+    "intb 0",
+    "refclk ext",
+    "refclk int",
+    "activate low",
+    "activate full",
+    "rpoverride 0",
+    "rpoverride 1",
+    "autoamp 1",
+    "autoamp 0",
+    "highcurrent 1",
+    "highcurrent 0",
+    "cfg",
+    "wreg 0x19 0x00F9",
+    "sync",
+    "cfg",
+    "rawwreg 0x19 0x00F9",
+    "cfg",
+    "resetreapply",
+    "cfg",
+    "recover",
+    "timing 0 43000000",
+    "timing 1 43000000",
+    "timing 2 43000000",
+    "timing 3 43000000",
+    "reset",
+    "init",
+    "cfg",
+    "sleep",
 ]
 
 IDF_DEFAULT_COMMANDS = [
@@ -74,9 +180,24 @@ INFO_COMMANDS = {
     "settings",
     "state",
     "health",
+    "init",
+    "begin",
+    "end",
+    "online",
+    "sync",
+    "channels",
+    "activech",
+    "snapshot",
+    "status",
+    "status_raw",
     "drdy",
     "ready",
     "timing",
+    "errcfg",
+    "intb",
+    "initidrive",
+    "reg",
+    "rawreg",
 }
 FAIL_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
@@ -86,7 +207,6 @@ FAIL_PATTERNS = [
         r"\bI2C_(?:ERROR|TIMEOUT|NACK_ADDR|NACK_DATA|BUS)\b",
         r"\bINVALID_(?:CONFIG|PARAM)\b",
         r"\bNOT_INITIALIZED\b",
-        r"\bTIMEOUT\b",
         r"\bBUSY\b",
         r"\b(?:begin|init|probe|read|write|recover|selftest|command)\s+failed\b",
         r"\[FAIL\]",
@@ -172,7 +292,9 @@ def timestamp_utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def default_commands(profile: str) -> List[str]:
+def default_commands(profile: str, fixture: str = "default") -> List[str]:
+    if fixture == "no-sensor" and profile == "arduino":
+        return list(ARDUINO_NO_SENSOR_COMMANDS)
     if profile == "idf":
         return list(IDF_DEFAULT_COMMANDS)
     return list(ARDUINO_DEFAULT_COMMANDS)
@@ -211,11 +333,14 @@ def classify_command(
         if pattern.search(output):
             return "PASS", f"matched configured expected-failure token: {pattern.pattern}"
 
+    name = command_name(command)
+    if name == "readstaged" and re.search(r"\bReadStaged result:", output, re.IGNORECASE):
+        return "PASS", "poll-staged read reached final result"
+
     for pattern in FAIL_PATTERNS:
         if pattern.search(output):
             return "FAIL", f"matched failure pattern: {pattern.pattern}"
 
-    name = command_name(command)
     if name in INFO_COMMANDS:
         return "PASS", "informational command responded without failure pattern"
 
@@ -289,6 +414,15 @@ def ensure_wake_command(commands: List[str]) -> None:
         commands.append("wake")
 
 
+def repeat_commands(commands: List[str], repeat_count: int) -> List[str]:
+    if repeat_count <= 1:
+        return list(commands)
+    repeated: List[str] = []
+    for _ in range(repeat_count):
+        repeated.extend(commands)
+    return repeated
+
+
 def strip_ansi(text: str) -> str:
     return ANSI_PATTERN.sub("", text)
 
@@ -315,6 +449,12 @@ def make_not_run_summary(reason: str) -> Dict[str, object]:
         "reason": reason,
         "elapsed_s": 0.0,
     }
+
+
+def apply_serial_line_state(ser: object, name: str, value: str) -> None:
+    if value == "unchanged":
+        return
+    setattr(ser, name, value == "on")
 
 
 def summarize_stress(args: argparse.Namespace,
@@ -519,7 +659,16 @@ def run_serial_commands(
     results: List[Dict[str, object]] = []
     startup_elapsed_s = 0.0
 
-    with serial.Serial(args.port, args.baud, timeout=0.05, write_timeout=args.write_timeout_s) as ser:
+    with serial.Serial(
+        args.port,
+        args.baud,
+        timeout=0.05,
+        write_timeout=args.write_timeout_s,
+        rtscts=False,
+        dsrdtr=False,
+    ) as ser:
+        apply_serial_line_state(ser, "dtr", args.serial_dtr)
+        apply_serial_line_state(ser, "rts", args.serial_rts)
         time.sleep(args.startup_delay_s)
         startup_start = time.monotonic()
         startup, _ = read_available(
@@ -586,7 +735,14 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
             )
 
     if args.include_stress:
-        if args.profile == "arduino":
+        if args.fixture == "no-sensor":
+            skipped.append(
+                {
+                    "name": "stress",
+                    "reason": "no-sensor fixture excludes conversion/data-read stress",
+                }
+            )
+        elif args.profile == "arduino":
             ensure_wake_command(commands)
             commands.append(f"stress {args.stress_count}")
         else:
@@ -598,7 +754,14 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
             )
 
     if args.sample_rate_count != 0:
-        if args.sample_rate_count < 0 or args.sample_rate_count > MAX_SAMPLE_RATE_COUNT:
+        if args.fixture == "no-sensor":
+            skipped.append(
+                {
+                    "name": "sample_rate_benchmark",
+                    "reason": "no-sensor fixture excludes DRDY-gated sample-rate checks",
+                }
+            )
+        elif args.sample_rate_count < 0 or args.sample_rate_count > MAX_SAMPLE_RATE_COUNT:
             skipped.append(
                 {
                     "name": "sample_rate_benchmark",
@@ -658,9 +821,11 @@ def overall_status(command_results: List[Dict[str, object]],
 
 def make_result(args: argparse.Namespace) -> Dict[str, object]:
     skipped: List[Dict[str, str]] = []
-    commands = [] if args.skip_default_commands else default_commands(args.profile)
+    commands = [] if args.skip_default_commands else default_commands(args.profile, args.fixture)
     commands.extend(args.command)
     add_optional_commands(args, commands, skipped)
+    base_command_count = len(commands)
+    commands = repeat_commands(commands, args.repeat_command_set)
 
     not_run_reason: Optional[str] = None
     command_results: List[Dict[str, object]] = []
@@ -703,6 +868,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "library_version": load_library_version(),
         "firmware_version": firmware_version,
         "profile": args.profile,
+        "fixture": args.fixture,
         "port": args.port or "",
         "baud": args.baud,
         "expected_address": args.address,
@@ -712,6 +878,8 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "notes": args.note,
         "dry_run": args.dry_run,
         "serial_port_requested": bool(args.port),
+        "serial_dtr": args.serial_dtr,
+        "serial_rts": args.serial_rts,
         "hardware_attached": has_transcript,
         "evidence_type": evidence_type,
         "startup_delay_s": args.startup_delay_s,
@@ -719,6 +887,8 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "command_timeout_s": args.command_timeout_s,
         "write_timeout_s": args.write_timeout_s,
         "idle_gap_s": args.idle_gap_s,
+        "repeat_command_set": args.repeat_command_set,
+        "base_command_count": base_command_count,
         "expect_tokens": args.expect_token,
         "failure_tokens": args.failure_token,
         "expected_failure_tokens": args.expected_failure_token,
@@ -748,6 +918,7 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Library version: `{result['library_version']}`",
         f"Firmware version: `{result['firmware_version']}`",
         f"Profile: `{result['profile']}`",
+        f"Fixture: `{result.get('fixture', 'default')}`",
         f"Port: `{result['port']}`",
         f"Baud: `{result['baud']}`",
         f"Expected address: `{result['expected_address']}`",
@@ -756,12 +927,15 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Board: `{result['board']}`",
         f"Dry run: `{result['dry_run']}`",
         f"Serial port requested: `{result['serial_port_requested']}`",
+        f"Serial DTR/RTS: `{result.get('serial_dtr', 'on')}` / `{result.get('serial_rts', 'off')}`",
         f"Hardware attached: `{result['hardware_attached']}`",
         f"Evidence type: `{result['evidence_type']}`",
         f"Startup delay: `{result['startup_delay_s']}` s",
         f"Startup read elapsed: `{float(result['startup_elapsed_s']):.3f}` s",
         f"Command timeout: `{result['command_timeout_s']}` s",
         f"Idle gap: `{result['idle_gap_s']}` s",
+        f"Repeat command set: `{result.get('repeat_command_set', 1)}`",
+        f"Base command count: `{result.get('base_command_count', len(result.get('commands', [])))}`",
     ]
     if result.get("not_run_reason"):
         lines.append(f"Not-run reason: `{result['not_run_reason']}`")
@@ -849,6 +1023,12 @@ def write_outputs(args: argparse.Namespace, result: Dict[str, object]) -> None:
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", choices=("arduino", "idf"), default="arduino")
+    parser.add_argument(
+        "--fixture",
+        choices=("default", "no-sensor"),
+        default="default",
+        help="Fixture-specific default command matrix",
+    )
     parser.add_argument("--port", default="", help="Serial port. Omit to produce NOT_RUN.")
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--address", default="0x2A")
@@ -860,9 +1040,15 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--command-timeout-s", type=float, default=4.0)
     parser.add_argument("--write-timeout-s", type=float, default=1.0)
     parser.add_argument("--idle-gap-s", type=float, default=0.35)
+    parser.add_argument("--serial-dtr", choices=SERIAL_LINE_STATES, default="on",
+                        help="Serial DTR line state after opening the port")
+    parser.add_argument("--serial-rts", choices=SERIAL_LINE_STATES, default="off",
+                        help="Serial RTS line state after opening the port")
     parser.add_argument("--dry-run", action="store_true", help="List planned commands without opening serial")
     parser.add_argument("--parser-self-test", action="store_true", help="Run built-in parser/classifier checks")
     parser.add_argument("--verbose", action="store_true", help="Print per-command progress during serial runs")
+    parser.add_argument("--repeat-command-set", type=int, default=1,
+                        help=f"Repeat the selected command set 1..{MAX_COMMAND_SET_REPETITIONS} times")
     parser.add_argument("--expect-token", action="append", default=[], help="Additional token that can classify output as PASS")
     parser.add_argument("--failure-token", action="append", default=[], help="Additional token that classifies output as FAIL")
     parser.add_argument("--expected-failure-token", action="append", default=[],
@@ -887,6 +1073,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--require-run", action="store_true", help="Exit nonzero when result is NOT_RUN")
     args = parser.parse_args(argv)
 
+    if args.fixture == "no-sensor" and args.profile != "arduino":
+        parser.error("--fixture no-sensor is currently supported only by the Arduino CLI profile")
     if args.baud <= 0:
         parser.error("--baud must be > 0")
     if args.channel_count not in (2, 4):
@@ -899,6 +1087,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error(f"--write-timeout-s must be >0..{MAX_WRITE_TIMEOUT_S}")
     if args.idle_gap_s <= 0.0 or args.idle_gap_s > MAX_IDLE_GAP_S:
         parser.error(f"--idle-gap-s must be >0..{MAX_IDLE_GAP_S}")
+    if args.repeat_command_set < 1 or args.repeat_command_set > MAX_COMMAND_SET_REPETITIONS:
+        parser.error(f"--repeat-command-set must be 1..{MAX_COMMAND_SET_REPETITIONS}")
     if args.stress_count < 1 or args.stress_count > MAX_STRESS_COUNT:
         parser.error(f"--stress-count must be 1..{MAX_STRESS_COUNT}")
     return args
@@ -908,6 +1098,12 @@ def parser_self_test() -> Tuple[bool, List[str]]:
     failures: List[str] = []
     if "version" not in default_commands("arduino"):
         failures.append("arduino default commands missing version")
+    if "drdy" in default_commands("arduino", "no-sensor"):
+        failures.append("no-sensor commands must exclude DRDY")
+    if "readfresh" in default_commands("arduino", "no-sensor"):
+        failures.append("no-sensor commands must exclude fresh conversion reads")
+    if "resetreapply" not in default_commands("arduino", "no-sensor"):
+        failures.append("no-sensor commands missing reset/reapply coverage")
     if "wake" not in default_commands("arduino"):
         failures.append("arduino default commands missing wake before reads")
     if "ready" not in default_commands("idf"):

@@ -7,9 +7,11 @@ production-oriented, but deployment readiness depends on application hardware,
 calibration, fault testing, and captured validation logs.
 
 Current readiness status: the software architecture, native tests, Arduino
-ESP32-S2/S3 builds, and diagnostic ESP-IDF path have been hardened. Real
-hardware/HIL validation, pure ESP-IDF evidence review, board clock-plan
-validation, and soak/fault evidence are still required before deployment
+ESP32-S2/S3 builds, and diagnostic ESP-IDF path have been hardened. ESP32-S2
+no-sensor HIL has validated chip identity, register/configuration, reset, and
+recovery paths with an LDC1614 present at `0x2A`. Sensor-attached conversion
+behavior, pure ESP-IDF build evidence, board clock-plan validation, INTB/SD,
+fault injection, and soak evidence are still required before deployment
 readiness claims for a target product.
 
 ## Features
@@ -499,9 +501,11 @@ or bench measurements before making timing/readiness claims.
 ## Validation Status
 
 The core has a framework-neutral, injected-transport architecture and native
-software tests/guards. Hardware behavior must still be validated on the target
-board and sensor setup, including address strap, INTB/SD wiring, sensor
-configuration, fault cases, and soak profile.
+software tests/guards. COM8 ESP32-S2 no-sensor HIL artifacts under
+`docs/reports/` validate chip-only behavior on real LDC1614 hardware. Hardware
+behavior must still be validated on the target board and sensor setup,
+including sensor-attached DATAx/STATUS behavior, address strap variants,
+INTB/SD wiring, sensor configuration, fault cases, and soak profile.
 
 Use `tools/ldc1614_hil_runner.py` and `docs/HIL_VALIDATION.md` to collect
 hardware evidence. If the runner is not connected to real firmware and hardware,

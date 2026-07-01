@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+## [2.0.0] - 2026-07-01
+
 ### Added
 - Dirty/sync-needed partial hardware-state contract with `Err::CONFIG_DIRTY`,
   `hardwareConfigDirty()`, `hardwareConfigDirtyError()`, `syncConfig()`, and
@@ -98,10 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prompt 02 timing/freshness reconciliation is complete in software: blocking
   helpers validate clock callbacks before polling, preserve data-ready/status
   failures, and expose fresh unread conversions explicitly.
-- Expanded native tests and fake-bus fault injection now cover 126 native test
-  cases when the current local test run confirms that count.
-- Poll-chunked budget and first-failure tests bring the native suite to 139 test
-  cases in this pass.
+- Expanded native tests and fake-bus fault injection cover lifecycle, health,
+  register, validation, recovery, timing, and poll-budget behavior.
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
 - Channel cache and calculation helpers now reject channels outside the configured LDC1612/LDC1614 channel count.
 - Recovery identity mismatches now update health counters/state instead of returning a semantic failure with a healthy driver state.
@@ -109,8 +111,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Validation limits
 - Local pure ESP-IDF builds require `idf.py` or CI logs and must not be inferred
   from PlatformIO Arduino builds.
-- No committed real hardware/HIL logs currently validate STATUS/DATAx side
-  effects, INTB/SD behavior, address strap variants, fault injection, board
+- ESP32-S2 no-sensor HIL logs under `docs/reports/` validate LDC1614 identity,
+  I2C register access, configuration readback, reset/reapply, recovery, and
+  bounded precondition/error paths with the chip present at `0x2A`.
+- No committed sensor-attached HIL logs validate live DATAx/STATUS conversion
+  side effects, INTB/SD behavior, address strap variants, fault injection, board
   clock plans, sensor limits, or soak behavior.
 
 ## [1.0.0] - 2026-04-05
@@ -143,5 +148,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0
