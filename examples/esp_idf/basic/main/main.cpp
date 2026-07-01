@@ -105,31 +105,57 @@ void printSetupStatus(const char* label, const LDC1614::Status& status) {
               status.msg != nullptr ? status.msg : "");
 }
 
+LDC1614::Status makeGpioMask(gpio_num_t pin, uint64_t& mask, const char* context) {
+  mask = 0;
+  if (pin == GPIO_NUM_NC) {
+    return LDC1614::Status::Ok();
+  }
+
+  const int pinNumber = static_cast<int>(pin);
+  if (pinNumber < 0 || pinNumber >= static_cast<int>(GPIO_NUM_MAX) ||
+      pinNumber >= 64) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG, context,
+                                  static_cast<int32_t>(pinNumber));
+  }
+
+  mask = 1ULL << static_cast<uint32_t>(pinNumber);
+  return LDC1614::Status::Ok();
+}
+
 LDC1614::Status configureGpio() {
-  if (INTB_PIN != GPIO_NUM_NC) {
+  uint64_t intbMask = 0;
+  LDC1614::Status status =
+      makeGpioMask(INTB_PIN, intbMask, "INTB GPIO pin invalid");
+  if (!status.ok()) {
+    return status;
+  }
+  if (intbMask != 0) {
     gpio_config_t gpioConfig{};
-    gpioConfig.pin_bit_mask = 1ULL << static_cast<uint32_t>(INTB_PIN);
+    gpioConfig.pin_bit_mask = intbMask;
     gpioConfig.mode = GPIO_MODE_INPUT;
     // LDC1612/LDC1614 INTB is push-pull active-low/configurable; do not assume open-drain.
     gpioConfig.pull_up_en = GPIO_PULLUP_DISABLE;
     gpioConfig.pull_down_en = GPIO_PULLDOWN_DISABLE;
     gpioConfig.intr_type = GPIO_INTR_DISABLE;
-    LDC1614::Status status =
-        statusFromEspErr(gpio_config(&gpioConfig), "INTB GPIO config failed");
+    status = statusFromEspErr(gpio_config(&gpioConfig), "INTB GPIO config failed");
     if (!status.ok()) {
       return status;
     }
   }
 
-  if (SHDN_PIN != GPIO_NUM_NC) {
+  uint64_t shdnMask = 0;
+  status = makeGpioMask(SHDN_PIN, shdnMask, "SHDN GPIO pin invalid");
+  if (!status.ok()) {
+    return status;
+  }
+  if (shdnMask != 0) {
     gpio_config_t gpioConfig{};
-    gpioConfig.pin_bit_mask = 1ULL << static_cast<uint32_t>(SHDN_PIN);
+    gpioConfig.pin_bit_mask = shdnMask;
     gpioConfig.mode = GPIO_MODE_OUTPUT;
     gpioConfig.pull_up_en = GPIO_PULLUP_DISABLE;
     gpioConfig.pull_down_en = GPIO_PULLDOWN_DISABLE;
     gpioConfig.intr_type = GPIO_INTR_DISABLE;
-    LDC1614::Status status =
-        statusFromEspErr(gpio_config(&gpioConfig), "SHDN GPIO config failed");
+    status = statusFromEspErr(gpio_config(&gpioConfig), "SHDN GPIO config failed");
     if (!status.ok()) {
       return status;
     }

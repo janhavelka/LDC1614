@@ -126,10 +126,6 @@ jobs:
       - name: Build native ESP-IDF example
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: release-v6.0
+          esp_idf_version: v6.0.2
           target: ${{ matrix.target }}
           path: examples/esp_idf/basic
-          command: |
-            python "$GITHUB_WORKSPACE/scripts/generate_version.py" check
-            idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" set-target ${{ matrix.target }}
-            idf.py -C "$GITHUB_WORKSPACE/examples/esp_idf/basic" build

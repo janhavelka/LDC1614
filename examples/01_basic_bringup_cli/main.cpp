@@ -27,7 +27,7 @@ void arduinoVPrintf(void*, const char* fmt, va_list args) {
 }
 
 uint32_t arduinoNowMs(void*) {
-  return millis();
+  return static_cast<uint32_t>(millis());
 }
 
 void arduinoDelayMs(uint32_t ms, void*) {
@@ -60,8 +60,8 @@ LDC1614::Config makeDefaultConfig(void*) {
   cfg.i2cWrite = transport::wireWrite;
   cfg.i2cWriteRead = transport::wireWriteRead;
   cfg.i2cUser = &Wire;
-  cfg.nowMs = [](void*) { return millis(); };
-  cfg.cooperativeYield = [](void*) { yield(); };
+  cfg.nowMs = arduinoNowMs;
+  cfg.cooperativeYield = arduinoYield;
   cfg.i2cAddress = board::LDC_I2C_ADDRESS;
   cfg.channelCount = board::LDC_CHANNEL_COUNT;
   cfg.i2cTimeoutMs = board::I2C_TIMEOUT_MS;
@@ -97,18 +97,20 @@ LDC1614::Config makeDefaultConfig(void*) {
   return cfg;
 }
 
-ldc1614_cli::Cli ldcCli(
-    device,
-    ldc1614_cli::Cli::Platform{
-        nullptr,
-        arduinoVPrintf,
-        makeDefaultConfig,
-        arduinoNowMs,
-        arduinoDelayMs,
-        arduinoYield,
-        arduinoI2cProbe,
-        board::I2C_TIMEOUT_MS,
-    });
+ldc1614_cli::Cli::Platform makeCliPlatform() {
+  ldc1614_cli::Cli::Platform platform;
+  platform.user = nullptr;
+  platform.vprintf = arduinoVPrintf;
+  platform.makeConfig = makeDefaultConfig;
+  platform.nowMs = arduinoNowMs;
+  platform.delayMs = arduinoDelayMs;
+  platform.yield = arduinoYield;
+  platform.i2cProbe = arduinoI2cProbe;
+  platform.scanTimeoutMs = board::I2C_TIMEOUT_MS;
+  return platform;
+}
+
+ldc1614_cli::Cli ldcCli(device, makeCliPlatform());
 
 void readCliInput() {
   static char inputBuffer[128];
