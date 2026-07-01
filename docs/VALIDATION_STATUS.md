@@ -54,8 +54,8 @@ being prepared as a release artifact outside the source tree.
 
 ## Hardware Validation
 
-Committed COM8 HIL logs record real ESP32-S2 + LDC1614 chip-only validation
-with no LC sensor attached:
+Committed compact COM8 HIL logs record real ESP32-S2 + LDC1614 chip-only
+validation with no LC sensor attached:
 
 - `docs/reports/hil-validation-COM8-20260701.md`
 - `docs/reports/hil-validation-COM8-20260701.no-sensor-stress.runner.json`
@@ -63,8 +63,10 @@ with no LC sensor attached:
 
 These logs validate identity, I2C register access, configuration write/readback,
 sleep/wake, reset/reapply, reset/re-init, recovery, timing calculations, and
-bounded `BUSY` / `INVALID_PARAM` behavior. They do not validate live conversion
-behavior.
+bounded `BUSY` / `INVALID_PARAM` behavior. The repeated serial transcript is
+not retained in the release artifacts; command counts, per-base-command
+outcomes, firmware/device identity, and non-pass details are retained. They do
+not validate live conversion behavior.
 
 On 2026-06-30, COM8 was identified as an ESP32-S2 target. The Arduino-profile
 `esp32s2dev` firmware uploaded successfully once, but the runner then captured

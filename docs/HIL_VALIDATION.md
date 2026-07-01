@@ -79,7 +79,10 @@ tested configuration and captures the resulting transcript.
 3. Run the selected profile's safe commands.
 4. Classify each command from the transcript. Ambiguous command output is
    `UNKNOWN`, not a pass. Device ID/probe/read failures are failures, not skips.
-5. Write JSON and Markdown artifacts with the full transcript.
+5. Write JSON and Markdown artifacts with command classification evidence.
+   Release artifacts may omit repeated per-command serial output when they keep
+   metadata, command counts, per-base-command outcomes, firmware/device
+   identity, and any non-pass details.
 
 ## Optional Opt-in Procedure
 
@@ -125,7 +128,9 @@ Run these only when hardware and operator setup explicitly support them:
 
 ## Evidence Rules
 
-- JSON and Markdown outputs must be retained with the release artifacts.
+- JSON and Markdown outputs must be retained with the release artifacts. Compact
+  summaries are acceptable for repeated stress runs when they preserve counts,
+  command outcomes, and non-pass details.
 - Hardware logs must name the board, sensor/coil, address strap, channel count,
   firmware profile, Git commit, and operator.
 - Simulation, native tests, and PlatformIO/CI builds are useful software

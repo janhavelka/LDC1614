@@ -35,6 +35,10 @@ the target firmware still reports the same clean `42feb3b` build.
 
 ## Artifacts
 
+The runner artifacts are compact summaries. They retain metadata, counts,
+per-base-command outcomes, firmware/device identity, and non-pass details; the
+raw repeated serial transcript is intentionally omitted.
+
 - `hil-validation-COM8-20260701.no-sensor-stress.runner.json`
 - `hil-validation-COM8-20260701.no-sensor-stress.runner.md`
 - `hil-validation-COM8-20260701.no-sensor-negative-stress.runner.json`
