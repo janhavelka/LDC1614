@@ -17,6 +17,8 @@ IDF_COMMANDS = [
     "read",
     "readall",
     "ready",
+    "sleep",
+    "wake",
     "recover",
     "timing",
     "selftest",

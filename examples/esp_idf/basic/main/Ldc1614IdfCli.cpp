@@ -173,6 +173,10 @@ void Ldc1614IdfCli::processLine(const char* line) {
     handleReadAll();
   } else if (equalsIgnoreCase(cmd, "ready")) {
     handleReady();
+  } else if (equalsIgnoreCase(cmd, "sleep")) {
+    handleSleep();
+  } else if (equalsIgnoreCase(cmd, "wake")) {
+    handleWake();
   } else if (equalsIgnoreCase(cmd, "recover")) {
     handleRecover();
   } else if (equalsIgnoreCase(cmd, "timing")) {
@@ -196,6 +200,8 @@ void Ldc1614IdfCli::printHelp() const {
   std::printf("  read [ch]             Read one channel once\n");
   std::printf("  readall               Read configured channels once\n");
   std::printf("  ready                 Check data-ready status\n");
+  std::printf("  sleep                 Enter device sleep mode\n");
+  std::printf("  wake                  Wake and start conversions\n");
   std::printf("  recover               Run manual recovery ladder\n");
   std::printf("  timing [ch] [frefHz]  Print timing estimates\n");
   std::printf("  selftest              Probe and read safe diagnostic status\n");
@@ -282,6 +288,14 @@ void Ldc1614IdfCli::handleReady() {
   if (status.ok()) {
     std::printf("ready=%u\n", ready ? 1U : 0U);
   }
+}
+
+void Ldc1614IdfCli::handleSleep() {
+  printStatus(_device.sleep());
+}
+
+void Ldc1614IdfCli::handleWake() {
+  printStatus(_device.wake());
 }
 
 void Ldc1614IdfCli::handleRead(int argc, char* argv[]) {

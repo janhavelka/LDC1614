@@ -22,7 +22,8 @@ Native boundaries:
 - Timing/yield/reset: ESP-IDF timer, GPIO, and FreeRTOS APIs are injected
   through the example adapter.
 - CLI: `examples/esp_idf/basic/main/Ldc1614IdfCli.*` uses fixed buffers and a
-  limited diagnostic command set. It does not compile the shared Arduino
+  limited diagnostic command set, including bounded `sleep` and `wake`
+  commands. It does not compile the shared Arduino
   diagnostic CLI.
 - Transport: `Ldc1614IdfI2cTransport.*` maps native I2C/GPIO/timing/reset APIs
   to the framework-neutral driver callbacks and uses an example-owned mutex for

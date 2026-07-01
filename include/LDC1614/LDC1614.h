@@ -360,9 +360,16 @@ public:
   /// @return Age in milliseconds (0 if never read)
   uint32_t sampleAgeMs(uint8_t ch, uint32_t nowMs) const;
 
-  /// @brief Check if the device is currently converting (not sleeping).
-  /// @return true if device is initialized and not in sleep mode
-  bool isMeasuring() const { return _initialized && !_sleeping; }
+  /// @brief Check if the cached driver state says the device is converting.
+  ///
+  /// Returns false when the driver is offline or hardware configuration is
+  /// dirty because cached sleep/awake state is then not trustworthy hardware
+  /// evidence.
+  bool isMeasuring() const {
+    return _initialized && !_sleeping &&
+           (_driverState == DriverState::READY || _driverState == DriverState::DEGRADED) &&
+           !_hardwareConfigDirty;
+  }
 
   // === Status Register ===
 
@@ -668,6 +675,7 @@ private:
   Status _finishChunkedJob(const Status& st);
   Status _storeChannelData(uint8_t ch, uint16_t msb, uint16_t lsb,
                            ChannelData& out);
+  void _clearSamples();
   bool _configStep(uint8_t step, uint8_t& reg, uint16_t& value,
                    uint8_t& phase, uint8_t& index) const;
   uint8_t _configStepCount() const;

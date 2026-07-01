@@ -23,6 +23,8 @@ class Ldc1614IdfCli {
   void handleProbe();
   void handleDeviceStatus();
   void handleReady();
+  void handleSleep();
+  void handleWake();
   void handleRead(int argc, char* argv[]);
   void handleReadAll();
   void handleRecover();

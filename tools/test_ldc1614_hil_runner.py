@@ -23,6 +23,9 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)  # cached settings snapshot
         self.assertIn("drv", commands)  # driver health snapshot
+        self.assertLess(commands.index("wake"), commands.index("read"))
+        self.assertIn("readfresh", commands)
+        self.assertIn("readstaged 0x01 8 1", commands)
 
     def test_default_idf_commands_cover_supported_safe_diagnostics(self) -> None:
         commands = runner.default_commands("idf")
@@ -31,6 +34,7 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)
         self.assertIn("drv", commands)
+        self.assertLess(commands.index("wake"), commands.index("read"))
         self.assertNotIn("scan", commands)
 
     def test_classifier_accepts_common_informational_outputs(self) -> None:
@@ -112,11 +116,21 @@ class HilRunnerParserTests(unittest.TestCase):
         status, _ = runner.classify_command("version", "version: 1.0.0", True)
         self.assertEqual("FAIL", status)
 
+    def test_classifier_uses_unknown_for_ambiguous_output(self) -> None:
+        status, reason = runner.classify_command("custom", "fixture text\n> ", False)
+
+        self.assertEqual("UNKNOWN", status, reason)
+
     def test_overall_status_never_passes_without_transcript(self) -> None:
         command_results = [{"status": "PASS", "command": "version"}]
 
         self.assertEqual("NOT_RUN", runner.overall_status(command_results, None, ""))
         self.assertEqual("PASS", runner.overall_status(command_results, None, "version: 1.0.0\n> "))
+        self.assertEqual("NOT_RUN", runner.overall_status(command_results, None, "### startup\n"))
+        self.assertEqual(
+            "UNKNOWN",
+            runner.overall_status([{"status": "UNKNOWN", "command": "x"}], None, "x\n> "),
+        )
 
     def test_expectation_checks_fail_reported_address_or_channel_mismatch(self) -> None:
         args = runner.parse_args(["--address", "0x2A", "--channel-count", "4"])
@@ -187,18 +201,65 @@ class HilRunnerParserTests(unittest.TestCase):
             self.assertEqual("NOT_RUN", result["overall_status"])
             self.assertEqual("no_hardware_audit", result["evidence_type"])
             self.assertGreater(len(result["command_results"]), 0)
-            self.assertIn("read 0 50", result["commands"])
+            self.assertIn("samplerate 0 50", result["commands"])
+            self.assertEqual("NOT_RUN", result["sample_rate"]["status"])
             self.assertTrue(
                 all(item["status"] == "NOT_RUN" for item in result["command_results"])
             )
             self.assertIn("| # | Command | Status | Elapsed s | Reason |", markdown)
+            self.assertIn("## Sample Rate", markdown)
 
     def test_sample_rate_idf_is_skipped_without_parallel_framework(self) -> None:
         args = runner.parse_args(["--profile", "idf", "--dry-run", "--sample-rate-count", "10"])
         result = runner.make_result(args)
 
-        self.assertNotIn("read 0 10", result["commands"])
+        self.assertNotIn("samplerate 0 10", result["commands"])
         self.assertEqual("sample_rate_benchmark", result["skipped_optional_tests"][0]["name"])
+
+    def test_sample_rate_summary_parses_gated_samplerate_command(self) -> None:
+        args = runner.parse_args(["--sample-rate-count", "50"])
+        command_results = [
+            {
+                "command": "samplerate 0 50",
+                "status": "PASS",
+                "elapsed_s": 1.25,
+                "output": (
+                    "SampleRate result: requested=50 ok=50 fail=0 "
+                    "elapsed_ms=1250 hz=40.000 worst_ms=4 "
+                    "first_raw=0x0000001 last_raw=0x0000002\n> "
+                ),
+            }
+        ]
+
+        summary = runner.summarize_sample_rate(args, command_results)
+
+        self.assertEqual("PASS", summary["status"])
+        self.assertEqual(50, summary["observed_count"])
+        self.assertEqual(0, summary["failure_count"])
+        self.assertEqual(40.0, summary["effective_hz"])
+
+    def test_serial_open_failure_is_not_hardware_hil_evidence(self) -> None:
+        args = runner.parse_args(["--port", "COM404"])
+        original = runner.run_serial_commands
+
+        def raise_open_failure(_args, _commands):
+            raise RuntimeError("could not open port")
+
+        try:
+            runner.run_serial_commands = raise_open_failure
+            result = runner.make_result(args)
+        finally:
+            runner.run_serial_commands = original
+
+        self.assertEqual("NOT_RUN", result["overall_status"])
+        self.assertFalse(result["hardware_attached"])
+        self.assertEqual("serial_not_run", result["evidence_type"])
+
+    def test_parse_args_rejects_unbounded_timeouts_and_stress(self) -> None:
+        with self.assertRaises(SystemExit):
+            runner.parse_args(["--command-timeout-s", "-1"])
+        with self.assertRaises(SystemExit):
+            runner.parse_args(["--stress-count", str(runner.MAX_STRESS_COUNT + 1)])
 
     def test_parser_self_test_passes(self) -> None:
         self.assertEqual(0, runner.main(["--parser-self-test", "--quiet"]))

@@ -968,6 +968,33 @@ void test_recover_reaches_offline_when_threshold_is_one() {
   TEST_ASSERT_FALSE(dev.isOnline());
 }
 
+void test_cached_sleep_wake_noop_rejects_dirty_state() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+
+  assertStatusCode(Err::CONFIG_DIRTY, dev.sleep());
+  assertStatusCode(Err::CONFIG_DIRTY, dev.wake());
+}
+
+void test_cached_sleep_noop_rejects_offline_state() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.offlineThreshold = 1;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+
+  bus.readStatus = Status::Error(Err::I2C_TIMEOUT, "forced offline", -620);
+  DeviceStatus status;
+  (void)dev.readDeviceStatus(status);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
+                          static_cast<uint8_t>(dev.state()));
+
+  assertStatusCode(Err::BUSY, dev.sleep());
+}
+
 void test_syncConfig_success_clears_dirty() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -1468,6 +1495,24 @@ void test_raw_diagnostic_write_failure_from_clean_marks_dirty() {
   TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
   assertStatusCode(Err::I2C_BUS, dev.hardwareConfigDirtyError());
   TEST_ASSERT_EQUAL_HEX8(cmd::REG_CONFIG, dirtyDetailReg(dev));
+}
+
+void test_raw_diagnostic_write_clears_cached_samples() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+
+  ChannelData data;
+  TEST_ASSERT_TRUE(dev.readChannel(0, data).ok());
+  TEST_ASSERT_TRUE(dev.hasSample(0));
+
+  TEST_ASSERT_TRUE(dev.sleep().ok());
+  TEST_ASSERT_TRUE(dev.writeRegister16(cmd::REG_CONFIG, cmd::CONFIG_DEFAULT).ok());
+  TEST_ASSERT_TRUE(dev.hardwareConfigDirty());
+  TEST_ASSERT_FALSE(dev.hasSample(0));
 }
 
 void test_partial_write_failure_can_record_hardware_side_effect() {
@@ -2011,6 +2056,50 @@ void test_poll_readChannels_watchdog_sample_is_sensor_error_and_not_cached() {
   TEST_ASSERT_FALSE(dev.hasSample(0));
 }
 
+void test_failed_readChannel_clears_output_without_caching() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  failReadFromReg(bus, cmd::REG_DATA0_MSB,
+                  Status::Error(Err::I2C_TIMEOUT, "forced DATA msb timeout", -610));
+
+  ChannelData data;
+  data.rawData = 0x0FFFFFFF;
+  data.errWatchdog = true;
+  Status st = dev.readChannel(0, data);
+
+  assertStatusCode(Err::I2C_TIMEOUT, st);
+  TEST_ASSERT_EQUAL_UINT32(0u, data.rawData);
+  TEST_ASSERT_FALSE(data.errWatchdog);
+  TEST_ASSERT_FALSE(dev.hasSample(0));
+}
+
+void test_failed_readAllChannels_clears_unread_outputs() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+  failReadFromReg(bus, cmd::REG_DATA1_LSB,
+                  Status::Error(Err::I2C_TIMEOUT, "forced DATA lsb timeout", -611));
+
+  ChannelData data[4];
+  for (auto& item : data) {
+    item.rawData = 0x0FFFFFFF;
+    item.errOverRange = true;
+  }
+  Status st = dev.readAllChannels(data, 3);
+
+  assertStatusCode(Err::I2C_TIMEOUT, st);
+  TEST_ASSERT_EQUAL_UINT32(0x00010002u, data[0].rawData);
+  TEST_ASSERT_EQUAL_UINT32(0u, data[1].rawData);
+  TEST_ASSERT_FALSE(data[1].errOverRange);
+  TEST_ASSERT_EQUAL_UINT32(0u, data[2].rawData);
+  TEST_ASSERT_FALSE(data[2].errOverRange);
+}
+
 void test_readFreshChannels_reads_only_unread_channels_and_marks_freshness() {
   FakeBus bus;
   LDC1614::LDC1614 dev;
@@ -2103,6 +2192,70 @@ void test_readFreshChannels_ldc1612_ignores_unread_bits_for_channels_2_3() {
   TEST_ASSERT_EQUAL_UINT8(1u, countLoggedReadsToReg(bus, cmd::REG_STATUS));
   TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA2_MSB));
   TEST_ASSERT_EQUAL_UINT8(0u, countLoggedReadsToReg(bus, cmd::REG_DATA3_MSB));
+}
+
+void test_config_setter_clears_cached_samples_and_stale_fresh_data() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+
+  ChannelData data;
+  TEST_ASSERT_TRUE(dev.readChannel(0, data).ok());
+  TEST_ASSERT_TRUE(dev.hasSample(0));
+
+  TEST_ASSERT_TRUE(dev.sleep().ok());
+  TEST_ASSERT_TRUE(dev.setClockDividers(0, 2, 3).ok());
+  TEST_ASSERT_FALSE(dev.hasSample(0));
+
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  bus.reg[cmd::REG_STATUS] = 0;
+  FreshChannelData fresh[4] = {};
+  DeviceStatus status;
+  Status st = dev.readFreshChannels(fresh, status, 1);
+
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(fresh[0].fresh);
+  TEST_ASSERT_FALSE(fresh[0].valid);
+  TEST_ASSERT_EQUAL_UINT32(0u, fresh[0].data.rawData);
+}
+
+void test_resetAndReapply_clears_cached_samples() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+
+  ChannelData data;
+  TEST_ASSERT_TRUE(dev.readChannel(0, data).ok());
+  TEST_ASSERT_TRUE(dev.hasSample(0));
+
+  Status st = dev.resetAndReapply();
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.hasSample(0));
+}
+
+void test_poll_applyConfig_clears_cached_samples() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  bus.reg[cmd::REG_DATA0_MSB] = 0x0001;
+  bus.reg[cmd::REG_DATA0_LSB] = 0x0002;
+
+  ChannelData data;
+  TEST_ASSERT_TRUE(dev.readChannel(0, data).ok());
+  TEST_ASSERT_TRUE(dev.hasSample(0));
+
+  TEST_ASSERT_TRUE(dev.sleep().ok());
+  TEST_ASSERT_TRUE(dev.startApplyConfig().inProgress());
+  Status st = dev.poll(bus.nowMs, 24);
+  TEST_ASSERT_TRUE(st.ok());
+  TEST_ASSERT_FALSE(dev.hasSample(0));
 }
 
 void test_readAllChannels_rejects_count_above_channel_count() {
@@ -2217,12 +2370,47 @@ void test_readDeviceStatus_parses_flags() {
   TEST_ASSERT_TRUE(status.hasError());
 }
 
+void test_readDeviceStatus_failure_clears_output() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  failReadFromReg(bus, cmd::REG_STATUS,
+                  Status::Error(Err::I2C_TIMEOUT, "forced STATUS timeout", -612));
+
+  DeviceStatus status;
+  status.raw = 0xFFFF;
+  status.errUnderRange = true;
+  status.dataReady = true;
+  Status st = dev.readDeviceStatus(status);
+
+  assertStatusCode(Err::I2C_TIMEOUT, st);
+  TEST_ASSERT_EQUAL_HEX16(0u, status.raw);
+  TEST_ASSERT_FALSE(status.errUnderRange);
+  TEST_ASSERT_FALSE(status.dataReady);
+}
+
+void test_readRegister16_failure_clears_output() {
+  FakeBus bus;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(makeConfig(bus)).ok());
+  failReadFromReg(bus, cmd::REG_STATUS,
+                  Status::Error(Err::I2C_TIMEOUT, "forced register timeout", -613));
+
+  uint16_t value = 0xABCD;
+  Status st = dev.readRegister16(cmd::REG_STATUS, value);
+
+  assertStatusCode(Err::I2C_TIMEOUT, st);
+  TEST_ASSERT_EQUAL_HEX16(0u, value);
+}
+
 void test_getLastSample_invalid_channel() {
   LDC1614::LDC1614 dev;
   ChannelData data;
+  data.rawData = 0x1234567;
   Status st = dev.getLastSample(5, data);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Err::INVALID_PARAM),
                           static_cast<uint8_t>(st.code));
+  TEST_ASSERT_EQUAL_UINT32(0u, data.rawData);
   TEST_ASSERT_FALSE(dev.hasSample(5));
 }
 
@@ -2654,6 +2842,24 @@ void test_isMeasuring_true_after_wake() {
 
 void test_isMeasuring_false_when_uninit() {
   LDC1614::LDC1614 dev;
+  TEST_ASSERT_FALSE(dev.isMeasuring());
+}
+
+void test_isMeasuring_false_when_offline_even_if_cached_awake() {
+  FakeBus bus;
+  Config cfg = makeConfig(bus);
+  cfg.offlineThreshold = 1;
+  LDC1614::LDC1614 dev;
+  TEST_ASSERT_TRUE(dev.begin(cfg).ok());
+  TEST_ASSERT_TRUE(dev.wake().ok());
+  TEST_ASSERT_TRUE(dev.isMeasuring());
+
+  bus.readStatus = Status::Error(Err::I2C_TIMEOUT, "forced offline", -621);
+  DeviceStatus status;
+  (void)dev.readDeviceStatus(status);
+
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(DriverState::OFFLINE),
+                          static_cast<uint8_t>(dev.state()));
   TEST_ASSERT_FALSE(dev.isMeasuring());
 }
 
@@ -3304,6 +3510,8 @@ int main() {
   RUN_TEST(test_recover_success_returns_ready);
   RUN_TEST(test_recover_rejects_wrong_device_id);
   RUN_TEST(test_recover_reaches_offline_when_threshold_is_one);
+  RUN_TEST(test_cached_sleep_wake_noop_rejects_dirty_state);
+  RUN_TEST(test_cached_sleep_noop_rejects_offline_state);
   RUN_TEST(test_syncConfig_success_clears_dirty);
   RUN_TEST(test_syncConfig_forces_sleep_before_reapply_when_awake);
   RUN_TEST(test_syncConfig_failure_keeps_dirty);
@@ -3329,6 +3537,7 @@ int main() {
   RUN_TEST(test_probe_preserves_device_id_transport_failure);
   RUN_TEST(test_raw_register_boundaries_and_variant_unsafe_policy);
   RUN_TEST(test_raw_diagnostic_write_failure_from_clean_marks_dirty);
+  RUN_TEST(test_raw_diagnostic_write_clears_cached_samples);
   RUN_TEST(test_partial_write_failure_can_record_hardware_side_effect);
 
   // Preconditions
@@ -3360,6 +3569,8 @@ int main() {
   RUN_TEST(test_readChannel_cache_valid_when_timestamp_is_zero);
   RUN_TEST(test_readChannel_reconstructs_28bit_data_and_error_flags);
   RUN_TEST(test_readChannel_watchdog_sample_is_sensor_error_and_not_cached);
+  RUN_TEST(test_failed_readChannel_clears_output_without_caching);
+  RUN_TEST(test_failed_readAllChannels_clears_unread_outputs);
   RUN_TEST(test_readChannel_reads_data_msb_before_lsb);
   RUN_TEST(test_poll_readChannels_zero_budget_does_no_i2c);
   RUN_TEST(test_poll_readChannels_one_instruction_reads_one_register_no_half_sample);
@@ -3370,11 +3581,16 @@ int main() {
   RUN_TEST(test_readFreshChannels_reads_only_unread_channels_and_marks_freshness);
   RUN_TEST(test_readFreshChannels_validates_before_status_read);
   RUN_TEST(test_readFreshChannels_ldc1612_ignores_unread_bits_for_channels_2_3);
+  RUN_TEST(test_config_setter_clears_cached_samples_and_stale_fresh_data);
+  RUN_TEST(test_resetAndReapply_clears_cached_samples);
+  RUN_TEST(test_poll_applyConfig_clears_cached_samples);
   RUN_TEST(test_readAllChannels_rejects_count_above_channel_count);
   RUN_TEST(test_ldc1612_readAll_default_reads_only_two_channels);
   RUN_TEST(test_ldc1612_rejects_channels_2_3_for_high_level_apis);
   RUN_TEST(test_ldc1614_allows_channels_2_3_for_typed_apis);
   RUN_TEST(test_readDeviceStatus_parses_flags);
+  RUN_TEST(test_readDeviceStatus_failure_clears_output);
+  RUN_TEST(test_readRegister16_failure_clears_output);
   RUN_TEST(test_getLastSample_invalid_channel);
 
   // Settings snapshot
@@ -3405,6 +3621,7 @@ int main() {
   RUN_TEST(test_isMeasuring_false_when_sleeping);
   RUN_TEST(test_isMeasuring_true_after_wake);
   RUN_TEST(test_isMeasuring_false_when_uninit);
+  RUN_TEST(test_isMeasuring_false_when_offline_even_if_cached_awake);
 
   // Blocking reads
   RUN_TEST(test_readChannelBlocking_not_initialized);

@@ -12,6 +12,11 @@ python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 -
 If no serial port and real LDC1614/LDC1612 hardware are supplied, the runner
 reports `NOT_RUN`. It must not be interpreted as a pass.
 
+Supplying `--port` only proves that a serial port was requested. The runner
+marks `hardware_attached=true` only when it captures real command/startup
+payload from the target firmware. A port open with no firmware payload is
+reported as `evidence_type=serial_not_run`.
+
 ## No Hardware Attached Audit
 
 When no board with an LDC1614/LDC1612 is attached, do not run hardware commands
@@ -32,8 +37,8 @@ be stored or described as pass logs.
 
 | Profile | Intended firmware | Default safe commands |
 | --- | --- | --- |
-| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `probe`, `id`, `drv`, `cfg`, `status`, `drdy`, `read`, `recover`, `timing 0 43000000`, `selftest` |
-| `idf` | `examples/esp_idf/basic` | `help`, `version`, `probe`, `drv`, `cfg`, `status`, `ready`, `read`, `readall`, `recover`, `timing 0 43000000`, `selftest` |
+| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `probe`, `id`, `drv`, `cfg`, `status`, `drdy`, `sleep`, `wake`, `readfresh`, `readstaged 0x01 8 1`, `read`, `recover`, `timing 0 43000000`, `selftest` |
+| `idf` | `examples/esp_idf/basic` | `help`, `version`, `probe`, `drv`, `cfg`, `status`, `ready`, `sleep`, `wake`, `read`, `readall`, `recover`, `timing 0 43000000`, `selftest` |
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
@@ -42,10 +47,11 @@ documented fixture-specific cases. Expected-failure tokens are intended for
 negative tests such as proving an invalid channel is rejected; default failure
 classification remains strict.
 
-The IDF diagnostic CLI does not currently expose `wake`, `sleep`, `scan`,
-`probeaddr`, or stress commands. Its `read` / `readall` commands are useful as
-bounded I2C/data-register smoke checks, but live-conversion evidence requires
-firmware that starts conversions for the tested configuration.
+The IDF diagnostic CLI exposes bounded `sleep` / `wake` controls, but it does
+not currently expose `scan`, `probeaddr`, or stress commands. Its `read` /
+`readall` commands are useful as bounded I2C/data-register smoke checks, but
+live-conversion evidence still requires firmware that starts conversions for the
+tested configuration and captures the resulting transcript.
 
 ## Safe Default Procedure
 
@@ -53,8 +59,8 @@ firmware that starts conversions for the tested configuration.
    address, channel count, and timestamp.
 2. Open the serial port and capture startup output.
 3. Run the selected profile's safe commands.
-4. Classify each command from the transcript. Device ID/probe/read failures are
-   failures, not skips.
+4. Classify each command from the transcript. Ambiguous command output is
+   `UNKNOWN`, not a pass. Device ID/probe/read failures are failures, not skips.
 5. Write JSON and Markdown artifacts with the full transcript.
 
 ## Optional Opt-in Procedure
@@ -64,7 +70,9 @@ Run these only when hardware and operator setup explicitly support them:
 - Short diagnostic stress/soak with `--include-stress --stress-count N` on the
   Arduino profile.
 - Bounded sample-rate smoke command with `--sample-rate-count N` on the Arduino
-  profile; the runner appends `read <channel> <N>` and records elapsed time.
+  profile; the runner appends `samplerate <channel> <N>`, which uses
+  DRDY-gated blocking reads and records observed count, failures, elapsed time,
+  and effective hertz.
 - SD shutdown/wake if SD is wired and controlled.
 - INTB observation if INTB is wired to a host GPIO or analyzer.
 - Unplug/replug or induced NACK.

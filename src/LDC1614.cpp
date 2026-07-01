@@ -182,18 +182,8 @@ Status LDC1614::begin(const Config& config) {
   _lastRecoverValid = false;
   _chunkedJob = ChunkedJobKind::NONE;
   _chunkedConfigStep = 0;
-  _chunkedReadMask = 0;
-  _chunkedReadReadyMask = 0;
-  _chunkedReadChannel = 0;
-  _chunkedReadPhase = ChunkedReadPhase::MSB;
-  _chunkedReadMsb = 0;
   _chunkedPollExecuting = false;
-
-  for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
-    _lastChannelData[i] = ChannelData{};
-    _hasSample[i] = false;
-    _sampleTimestampMs[i] = 0;
-  }
+  _clearSamples();
 
   if (requestedConfig.i2cWrite == nullptr || requestedConfig.i2cWriteRead == nullptr) {
     return Status::Error(Err::INVALID_CONFIG, "I2C callbacks required");
@@ -311,12 +301,8 @@ void LDC1614::end() {
   _driverState = DriverState::UNINIT;
   _chunkedJob = ChunkedJobKind::NONE;
   _chunkedConfigStep = 0;
-  _chunkedReadMask = 0;
-  _chunkedReadReadyMask = 0;
-  _chunkedReadChannel = 0;
-  _chunkedReadPhase = ChunkedReadPhase::MSB;
-  _chunkedReadMsb = 0;
   _chunkedPollExecuting = false;
+  _clearSamples();
 }
 
 // ============================================================================
@@ -382,6 +368,7 @@ Status LDC1614::recover() {
 // ============================================================================
 
 Status LDC1614::readChannel(uint8_t ch, ChannelData& out) {
+  out = ChannelData{};
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
@@ -425,6 +412,9 @@ Status LDC1614::readAllChannels(ChannelData* out, uint8_t count) {
   if (n > _config.channelCount) {
     return Status::Error(Err::INVALID_PARAM, "Count exceeds channelCount");
   }
+  for (uint8_t ch = 0; ch < n; ++ch) {
+    out[ch] = ChannelData{};
+  }
 
   for (uint8_t ch = 0; ch < n; ch++) {
     Status st = readChannel(ch, out[ch]);
@@ -443,6 +433,7 @@ Status LDC1614::readFreshChannels(FreshChannelData* out, uint8_t count) {
 
 Status LDC1614::readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut,
                                   uint8_t count) {
+  statusOut = DeviceStatus{};
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
@@ -466,7 +457,6 @@ Status LDC1614::readFreshChannels(FreshChannelData* out, DeviceStatus& statusOut
     out[ch] = FreshChannelData{};
   }
 
-  statusOut = DeviceStatus{};
   Status st = readDeviceStatus(statusOut);
   if (!st.ok()) {
     return st;
@@ -554,6 +544,7 @@ Status LDC1614::readDataReady(bool& ready) {
 // ============================================================================
 
 Status LDC1614::readDeviceStatus(DeviceStatus& out) {
+  out = DeviceStatus{};
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
@@ -596,6 +587,13 @@ Status LDC1614::sleep() {
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+  if (_hardwareConfigDirty) {
+    return Status::Error(Err::CONFIG_DIRTY, "Hardware config dirty; sync before sleep");
+  }
   if (_sleeping) {
     return Status::Ok();
   }
@@ -614,6 +612,13 @@ Status LDC1614::sleep() {
 Status LDC1614::wake() {
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
+  }
+  Status allowed = _ensureNormalI2cAllowed();
+  if (!allowed.ok()) {
+    return allowed;
+  }
+  if (_hardwareConfigDirty) {
+    return Status::Error(Err::CONFIG_DIRTY, "Hardware config dirty; sync before wake");
   }
   if (!_sleeping) {
     return Status::Ok();
@@ -647,6 +652,7 @@ Status LDC1614::softReset() {
   _initialized = false;
   _sleeping = true;
   _driverState = DriverState::UNINIT;
+  _clearSamples();
   return Status::Ok();
 }
 
@@ -696,6 +702,7 @@ Status LDC1614::resetAndReapply() {
   _initialized = true;
   _driverState = DriverState::READY;
   _consecutiveFailures = 0;
+  _clearSamples();
   _clearHardwareConfigDirty();
   return Status::Ok();
 }
@@ -714,6 +721,7 @@ Status LDC1614::syncConfig() {
   _initialized = true;
   _driverState = DriverState::READY;
   _consecutiveFailures = 0;
+  _clearSamples();
   return Status::Ok();
 }
 
@@ -722,6 +730,7 @@ Status LDC1614::syncConfig() {
 // ============================================================================
 
 Status LDC1614::readChannelBlocking(uint8_t ch, ChannelData& out, uint32_t timeoutMs) {
+  out = ChannelData{};
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
@@ -773,6 +782,9 @@ Status LDC1614::readAllChannelsBlocking(ChannelData* out, uint32_t timeoutMs, ui
   const uint8_t n = (count > 0) ? count : _config.channelCount;
   if (n > _config.channelCount) {
     return Status::Error(Err::INVALID_PARAM, "Count exceeds channelCount");
+  }
+  for (uint8_t ch = 0; ch < n; ++ch) {
+    out[ch] = ChannelData{};
   }
   if (_config.nowMs == nullptr) {
     return Status::Error(Err::INVALID_CONFIG, "nowMs callback required for blocking reads");
@@ -937,6 +949,7 @@ Status LDC1614::startResetAndReapply() {
 // ============================================================================
 
 Status LDC1614::getLastSample(uint8_t ch, ChannelData& out) const {
+  out = ChannelData{};
   if (!isValidChannel(ch, _config.channelCount)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid channel");
   }
@@ -1027,6 +1040,7 @@ Status LDC1614::setActiveChannel(uint8_t ch) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.activeChan = ch;
+    _clearSamples();
   }
   return st;
 }
@@ -1066,6 +1080,7 @@ Status LDC1614::setSingleChannelMode(uint8_t ch) {
   if (st.ok()) {
     _config.autoScan = false;
     _config.activeChan = ch;
+    _clearSamples();
   }
   return st;
 }
@@ -1101,6 +1116,7 @@ Status LDC1614::setAutoScanMode(RRSequence sequence) {
   if (st.ok()) {
     _config.autoScan = true;
     _config.rrSequence = sequence;
+    _clearSamples();
   }
   return st;
 }
@@ -1125,6 +1141,7 @@ Status LDC1614::setDeglitch(Deglitch deglitch) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.deglitch = deglitch;
+    _clearSamples();
   }
   return st;
 }
@@ -1144,6 +1161,7 @@ Status LDC1614::setErrorConfig(uint16_t errorConfig) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.errorConfig = errorConfig;
+    _clearSamples();
   }
   return st;
 }
@@ -1165,6 +1183,7 @@ Status LDC1614::setIntbDisabled(bool disabled) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.intbDisable = disabled;
+    _clearSamples();
   }
   return st;
 }
@@ -1189,6 +1208,7 @@ Status LDC1614::setReferenceClockSource(RefClkSrc source) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.refClkSrc = source;
+    _clearSamples();
   }
   return st;
 }
@@ -1213,6 +1233,7 @@ Status LDC1614::setSensorActivation(SensorActivation activation) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.sensorActivation = activation;
+    _clearSamples();
   }
   return st;
 }
@@ -1234,6 +1255,7 @@ Status LDC1614::setRpOverrideEnabled(bool enabled) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.rpOverrideEn = enabled;
+    _clearSamples();
   }
   return st;
 }
@@ -1255,6 +1277,7 @@ Status LDC1614::setAutoAmplitudeCorrectionEnabled(bool enabled) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.autoAmpDis = !enabled;
+    _clearSamples();
   }
   return st;
 }
@@ -1282,6 +1305,7 @@ Status LDC1614::setHighCurrentDriveEnabled(bool enabled) {
                                    DIRTY_PHASE_SETTER_SINGLE, DIRTY_INDEX_GLOBAL);
   if (st.ok()) {
     _config.highCurrentDrv = enabled;
+    _clearSamples();
   }
   return st;
 }
@@ -1308,6 +1332,7 @@ Status LDC1614::setRcount(uint8_t ch, uint16_t rcount) {
                                    DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].rcount = rcount;
+    _clearSamples();
   }
   return st;
 }
@@ -1331,6 +1356,7 @@ Status LDC1614::setSettleCount(uint8_t ch, uint16_t count) {
                                    DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].settleCount = count;
+    _clearSamples();
   }
   return st;
 }
@@ -1359,6 +1385,7 @@ Status LDC1614::setClockDividers(uint8_t ch, uint8_t finDiv, uint16_t frefDiv) {
   if (st.ok()) {
     _config.channel[ch].finDivider = finDiv;
     _config.channel[ch].frefDivider = frefDiv;
+    _clearSamples();
   }
   return st;
 }
@@ -1378,6 +1405,7 @@ Status LDC1614::setOffset(uint8_t ch, uint16_t offset) {
                                    DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].offset = offset;
+    _clearSamples();
   }
   return st;
 }
@@ -1402,11 +1430,13 @@ Status LDC1614::setDriveCurrent(uint8_t ch, uint8_t idrive) {
                                    DIRTY_PHASE_SETTER_SINGLE, ch);
   if (st.ok()) {
     _config.channel[ch].idrive = idrive;
+    _clearSamples();
   }
   return st;
 }
 
 Status LDC1614::readInitIdrive(uint8_t ch, uint8_t& out) {
+  out = 0;
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
@@ -1536,6 +1566,7 @@ Status LDC1614::_i2cWriteTracked(const uint8_t* buf, size_t len) {
 // ============================================================================
 
 Status LDC1614::readRegister16(uint8_t reg, uint16_t& value) {
+  value = 0;
   if (!_initialized) {
     return Status::Error(Err::NOT_INITIALIZED, "Driver not initialized");
   }
@@ -1554,6 +1585,7 @@ Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
   }
   Status st = _writeRegister16Tracked(reg, value);
   if (st.ok()) {
+    _clearSamples();
     _markHardwareConfigDirty(Status::Ok(), DIRTY_PHASE_RAW_WRITE, reg,
                              DIRTY_INDEX_GLOBAL);
   } else if (st.code != Err::BUSY && st.code != Err::INVALID_CONFIG &&
@@ -1765,6 +1797,7 @@ Status LDC1614::_pollApplyConfig(uint8_t& remainingInstructions) {
     uint8_t index = DIRTY_INDEX_GLOBAL;
     if (!_configStep(_chunkedConfigStep, reg, value, phase, index)) {
       _clearHardwareConfigDirty();
+      _clearSamples();
       _sleeping = true;
       _consecutiveFailures = 0;
       _driverState = DriverState::READY;
@@ -1783,6 +1816,7 @@ Status LDC1614::_pollApplyConfig(uint8_t& remainingInstructions) {
     _chunkedConfigStep++;
     if (finalStep) {
       _clearHardwareConfigDirty();
+      _clearSamples();
       _consecutiveFailures = 0;
       _driverState = DriverState::READY;
       return _finishChunkedJob(Status::Ok());
@@ -1865,6 +1899,7 @@ Status LDC1614::_pollResetAndReapply(uint8_t& remainingInstructions) {
       uint8_t index = DIRTY_INDEX_GLOBAL;
       if (!_configStep(applyStep, reg, value, phase, index)) {
         _clearHardwareConfigDirty();
+        _clearSamples();
         _sleeping = true;
         _consecutiveFailures = 0;
         _driverState = DriverState::READY;
@@ -1886,6 +1921,7 @@ Status LDC1614::_pollResetAndReapply(uint8_t& remainingInstructions) {
       _chunkedConfigStep++;
       if (finalStep) {
         _clearHardwareConfigDirty();
+        _clearSamples();
         _consecutiveFailures = 0;
         _driverState = DriverState::READY;
         return _finishChunkedJob(Status::Ok());
@@ -2143,6 +2179,19 @@ void LDC1614::_clearHardwareConfigDirty() {
   _hardwareConfigDirtyError = Status::Ok();
 }
 
+void LDC1614::_clearSamples() {
+  for (uint8_t i = 0; i < cmd::MAX_CHANNELS; i++) {
+    _lastChannelData[i] = ChannelData{};
+    _hasSample[i] = false;
+    _sampleTimestampMs[i] = 0;
+  }
+  _chunkedReadMask = 0;
+  _chunkedReadReadyMask = 0;
+  _chunkedReadChannel = 0;
+  _chunkedReadPhase = ChunkedReadPhase::MSB;
+  _chunkedReadMsb = 0;
+}
+
 Status LDC1614::_applyConfig() {
   // Datasheet configuration changes are made while the device is in sleep mode.
   // Probe does not prove the previous application left the device asleep, so
@@ -2204,6 +2253,7 @@ Status LDC1614::_applyConfig() {
   if (!st.ok()) return st;
 
   _sleeping = true;
+  _clearSamples();
   _clearHardwareConfigDirty();
   return Status::Ok();
 }

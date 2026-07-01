@@ -38,6 +38,20 @@ static constexpr uint32_t I2C_FREQ_HZ = 400000;
 /// @brief I2C timeout in milliseconds for example transactions.
 static constexpr uint16_t I2C_TIMEOUT_MS = 50;
 
+#ifndef LDC1614_EXAMPLE_I2C_ADDRESS
+#define LDC1614_EXAMPLE_I2C_ADDRESS 0x2A
+#endif
+
+#ifndef LDC1614_EXAMPLE_CHANNEL_COUNT
+#define LDC1614_EXAMPLE_CHANNEL_COUNT 4
+#endif
+
+/// @brief Example default LDC I2C address. Override with build flags for HIL.
+static constexpr uint8_t LDC_I2C_ADDRESS = LDC1614_EXAMPLE_I2C_ADDRESS;
+
+/// @brief Example default LDC channel count. Override with build flags for LDC1612.
+static constexpr uint8_t LDC_CHANNEL_COUNT = LDC1614_EXAMPLE_CHANNEL_COUNT;
+
 /// @brief LED pin. Example default for ESP32-S3 (RGB LED on GPIO48).
 /// Set to -1 to disable.
 static constexpr int LED = 48;

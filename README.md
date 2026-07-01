@@ -179,8 +179,8 @@ inductance for an application.
 
 | Method | Description |
 |--------|-------------|
-| `readChannel(ch, data)` | Read conversion data for a single channel. Requires `wake()` first; watchdog-marked DATAx returns `SENSOR_ERROR` and is not cached. |
-| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. Requires `wake()` first. Returns latest register values, not guaranteed-fresh autoscan samples for every channel. |
+| `readChannel(ch, data)` | Read conversion data for a single channel. Requires `wake()` first; watchdog-marked DATAx returns `SENSOR_ERROR` and is not cached. Failed reads clear the caller output before returning. |
+| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. Requires `wake()` first. Returns latest register values, not guaranteed-fresh autoscan samples for every channel. Failed or unread outputs are cleared before returning. |
 | `readFreshChannels(data, count)` | Read STATUS once, then read only channels with `UNREADCONVx` set. Requires `wake()` first. Reports per-channel `fresh` / `valid` flags and cached stale samples where available. The overload with `DeviceStatus&` returns the STATUS snapshot that drove freshness. |
 | `readChannelBlocking(ch, data, timeoutMs)` | Require `Config::nowMs`, wait for DRDY with a wall-clock timeout, then read one channel. |
 | `readAllChannelsBlocking(data, timeoutMs, count)` | Require `Config::nowMs`, wait for one DRDY event, then call `readAllChannels()`. |
@@ -251,14 +251,14 @@ application callback latency.
 | `getLastSample(ch, data)` | Return the last successfully read sample for a channel without I2C. |
 | `sampleTimestampMs(ch)` | Timestamp of the last successful sample for a channel. Check `hasSample(ch)` first; timestamp `0` can be a valid sample time when no timebase is configured or the monotonic clock is at zero. |
 | `sampleAgeMs(ch, nowMs)` | Age of the cached sample for a channel. |
-| `isMeasuring()` | True when the device is awake and conversions are running. |
+| `isMeasuring()` | Cache-only indication that the driver is initialized, online, awake, and not hardware-config-dirty. It is not live DRDY proof. |
 
 ### Control
 
 | Method | Description |
 |--------|-------------|
-| `sleep()` | Enter sleep mode (stop conversions, retain config). |
-| `wake()` | Wake and start conversions. |
+| `sleep()` | Enter sleep mode (stop conversions, retain config). Returns `CONFIG_DIRTY` if cached configuration is known dirty and `BUSY` if the driver is offline. |
+| `wake()` | Wake and start conversions. Returns `CONFIG_DIRTY` if cached configuration is known dirty and `BUSY` if the driver is offline. |
 | `softReset()` | Reset device to defaults. Requires `begin()` to reinitialize. |
 | `resetAndReapply()` | Reset the device and re-apply the cached configuration, returning to READY on success. |
 | `syncConfig()` | Re-apply the cached configuration without a reset. Forces CONFIG sleep first, then applies channel/global registers, and leaves the device in sleep mode on success. |
@@ -285,7 +285,7 @@ application callback latency.
 | `setDriveCurrent(ch, idrive)` | Set sensor drive current (0-31). |
 | `readInitIdrive(ch, out)` | Read auto-calibrated INIT_IDRIVE value. |
 
-Runtime setters require the device to be in sleep mode. Call `sleep()`, apply the changes, then call `wake()` when conversions should resume. Cached configuration is committed only after the corresponding register write succeeds. Full apply paths (`begin()`, `syncConfig()`, recovery reapply, and `resetAndReapply()`) write a sleep-mode CONFIG image before channel/global registers so reconfiguration is performed while asleep.
+Runtime setters require the device to be in sleep mode. Call `sleep()`, apply the changes, then call `wake()` when conversions should resume. Cached configuration is committed only after the corresponding register write succeeds. Successful configuration setters, full apply paths, reset/reapply paths, and raw diagnostic writes clear cached samples because the old conversion data may no longer match the active hardware state. Full apply paths (`begin()`, `syncConfig()`, recovery reapply, and `resetAndReapply()`) write a sleep-mode CONFIG image before channel/global registers so reconfiguration is performed while asleep.
 
 ### Diagnostics
 
@@ -347,17 +347,25 @@ templates.
 The CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid register
 addresses are rejected before I2C, but valid diagnostic writes mark
 `hardwareConfigDirty()` because they can desynchronize the cached configuration.
-Use `syncConfig()`, `recover()`, `resetAndReapply()`, or a fresh `begin()` before
-trusting cached configuration-dependent behavior again.
+Raw diagnostic writes also clear cached samples. Use `syncConfig()`, `recover()`,
+`resetAndReapply()`, or a fresh `begin()` before trusting cached
+configuration-dependent behavior again.
 
 The CLI also exposes runtime configuration commands for the driver features:
 `single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
 `rpoverride`, `autoamp`, `highcurrent`, `rcount`, `settle`, `clkdiv`,
 `offset`, `idrive`, and `initidrive`. Additional service commands include
 `begin` / `init` for reinitialization, `id` for manufacturer/device identity,
-`demo [N]`, `selftest`, `stress [N]`, `stress_mix [N]`, and
-`timing <ch> <fRef>` for conversion, settling, and total sample-time
-calculations.
+`sync` for cached-config reapply, `readfresh [count]` for STATUS-driven fresh
+samples, `readstaged <mask> [polls] [instr]` for poll-budgeted readout,
+`samplerate <ch> <N> [timeoutMs]` for a DRDY-gated smoke measurement,
+`demo [N]`, `selftest`, `stress [N]`, `stress_mix [N]`, and `timing <ch>
+<fRef>` for conversion, settling, and total sample-time calculations.
+
+The Arduino example defaults to address `0x2A` and four channels. Override
+those at build time with `LDC1614_EXAMPLE_I2C_ADDRESS` and
+`LDC1614_EXAMPLE_CHANNEL_COUNT` when validating a different address strap or an
+LDC1612 fixture.
 
 ### Example Helpers (`examples/common/`)
 
@@ -434,14 +442,14 @@ application-owned and must be bounded by the injected implementation.
 | `readDataReady(ready)` | `0R` or `1R` | optional `gpioRead` | INTB high path uses no I2C; polling or asserted INTB reads STATUS. STATUS sensor errors return `SENSOR_ERROR`, with `ready` still reflecting DRDY. |
 | `dataReady()` | `0R` or `1R` | optional `gpioRead` | Convenience only; false can mean not ready or hidden transport/status/sensor error. |
 | `readDeviceStatus()` / `readStatusRaw()` | `1R` | none | STATUS read can clear sticky status and de-assert INTB. |
-| `sleep()` / `wake()` | `0W` or `1W` | none | No write if already in requested state. |
+| `sleep()` / `wake()` | `0W` or `1W` | none | No write if already in requested state, but dirty/offline preconditions are still reported before a no-op success. |
 | `softReset()` | `1W` | none in core | Writes RESET_DEV, marks hardware config dirty, and transitions UNINIT on success. |
 | `syncConfig()` | `N*5W + 4W` | none in core | Force CONFIG sleep, apply cached config, final sleeping CONFIG. |
 | `resetAndReapply()` | `1W + N*5W + 4W` | none in core | RESET_DEV plus full config reapply. |
 | `readChannelBlocking()` | `P*ready + 2R` | `cooperativeYield` between polls | Requires `nowMs`; `ready` is `0R` or `1R` per poll. Timeout bounds readiness wait only. |
 | `readAllChannelsBlocking(N)` | `P*ready + 2N R` | `cooperativeYield` between polls | Requires `nowMs`; waits for one DRDY, then latest-register readout. Timeout bounds readiness wait only. |
-| Major setters | usually `1W`, `setSingleChannelMode()` `2W` | none | Setters require sleep mode and commit cache after successful writes. |
-| Raw register access | `1R` or `1W` | none | Diagnostic only; raw writes mark hardware config dirty. |
+| Major setters | usually `1W`, `setSingleChannelMode()` `2W` | none | Setters require sleep mode, commit cache after successful writes, and clear cached samples on success. |
+| Raw register access | `1R` or `1W` | none | Diagnostic only; raw writes mark hardware config dirty and clear cached samples. |
 
 For blocking helpers, `timeoutMs` bounds the readiness wait, not the total
 wall-clock duration of the public call. Total latency also includes each

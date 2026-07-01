@@ -20,6 +20,11 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_SAMPLE_RATE_COUNT = 5000
+MAX_STRESS_COUNT = 100000
+MAX_STARTUP_DELAY_S = 30.0
+MAX_COMMAND_TIMEOUT_S = 60.0
+MAX_WRITE_TIMEOUT_S = 10.0
+MAX_IDLE_GAP_S = 10.0
 
 ARDUINO_DEFAULT_COMMANDS = [
     "help",
@@ -30,8 +35,12 @@ ARDUINO_DEFAULT_COMMANDS = [
     "drv",
     "cfg",
     "status",
+    "sleep",
+    "wake",
     "drdy",
     "read",
+    "readfresh",
+    "readstaged 0x01 8 1",
     "recover",
     "timing 0 43000000",
     "selftest",
@@ -44,6 +53,8 @@ IDF_DEFAULT_COMMANDS = [
     "drv",
     "cfg",
     "status",
+    "sleep",
+    "wake",
     "ready",
     "read",
     "readall",
@@ -56,12 +67,15 @@ INFO_COMMANDS = {
     "help",
     "version",
     "scan",
+    "id",
     "drv",
     "cfg",
     "config",
     "settings",
     "state",
     "health",
+    "drdy",
+    "ready",
     "timing",
 }
 FAIL_PATTERNS = [
@@ -80,6 +94,7 @@ FAIL_PATTERNS = [
         r"\bmatch=(?:\x1b\[[0-9;]*m)*NO\b",
         r"\bfail=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
         r"\bread_fail=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
+        r"\bconfig_readback_failures=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
         r"\bfailed\s*[:=]\s*[1-9][0-9]*\b",
         r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
         r"\berr=1\b",
@@ -91,8 +106,30 @@ FAIL_PATTERNS = [
 ]
 OK_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
-    for pattern in (r"\bOK\b", r"code=0", r"status:\s*0")
+    for pattern in (
+        r"\bOK\b",
+        r"code=0",
+        r"status:\s*0",
+        r"\bCh\d+:\s*raw=0x[0-9a-f]+",
+        r"\bch\d+\s+raw=0x[0-9a-f]+",
+        r"\bReadFresh result:",
+        r"\bReadStaged result:",
+        r"\bSampleRate result:.*\bfail=(?:\x1b\[[0-9;]*m)*0\b",
+        r"\bStress results:.*\b0\s+failed\b",
+    )
 ]
+ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
+SAMPLE_LINE_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\b", re.IGNORECASE)
+SAMPLE_FAIL_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\s+failed\b", re.IGNORECASE)
+STRESS_RESULT_PATTERN = re.compile(
+    r"Stress results:\s*(\d+)\s+ok,\s*(\d+)\s+failed",
+    re.IGNORECASE,
+)
+SAMPLE_RATE_RESULT_PATTERN = re.compile(
+    r"SampleRate result:\s*requested=(\d+)\s+ok=(\d+)\s+fail=(\d+)"
+    r"\s+elapsed_ms=(\d+)\s+hz=([0-9.]+)",
+    re.IGNORECASE,
+)
 ADDRESS_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -190,7 +227,7 @@ def classify_command(
         if pattern.search(output):
             return "PASS", f"matched configured expected token: {pattern.pattern}"
 
-    return "REVIEW", "no explicit failure found, but no OK status was parsed"
+    return "UNKNOWN", "no explicit failure found, but no OK status was parsed"
 
 
 def parse_int_token(value: object) -> Optional[int]:
@@ -245,6 +282,179 @@ def append_expectation_results(
                 ),
             }
         )
+
+
+def ensure_wake_command(commands: List[str]) -> None:
+    if not any(command_name(command) == "wake" for command in commands):
+        commands.append("wake")
+
+
+def strip_ansi(text: str) -> str:
+    return ANSI_PATTERN.sub("", text)
+
+
+def transcript_payload(transcript: str) -> str:
+    lines = [
+        line for line in transcript.splitlines()
+        if not line.startswith("### ")
+    ]
+    return "\n".join(lines).strip()
+
+
+def find_command_result(command_results: List[Dict[str, object]],
+                        command: str) -> Optional[Dict[str, object]]:
+    for result in command_results:
+        if str(result.get("command", "")) == command:
+            return result
+    return None
+
+
+def make_not_run_summary(reason: str) -> Dict[str, object]:
+    return {
+        "status": "NOT_RUN",
+        "reason": reason,
+        "elapsed_s": 0.0,
+    }
+
+
+def summarize_stress(args: argparse.Namespace,
+                     command_results: List[Dict[str, object]]) -> Dict[str, object]:
+    summary: Dict[str, object] = {
+        "requested": bool(args.include_stress),
+        "count": int(args.stress_count),
+        "status": "NOT_RUN",
+        "reason": "stress was not requested",
+        "success_count": None,
+        "failure_count": None,
+        "elapsed_s": 0.0,
+        "effective_hz": None,
+    }
+    if not args.include_stress:
+        return summary
+    if args.profile != "arduino":
+        summary["reason"] = "IDF diagnostic CLI has no stress command"
+        return summary
+
+    command = f"stress {args.stress_count}"
+    result = find_command_result(command_results, command)
+    if result is None:
+        summary["status"] = "UNKNOWN"
+        summary["reason"] = "stress command result was not captured"
+        return summary
+
+    summary["elapsed_s"] = float(result.get("elapsed_s", 0.0))
+    status = str(result.get("status", "UNKNOWN"))
+    if status == "NOT_RUN":
+        summary["reason"] = str(result.get("reason", "stress command was not run"))
+        return summary
+
+    output = strip_ansi(str(result.get("output", "")))
+    match = STRESS_RESULT_PATTERN.search(output)
+    if not match:
+        summary["status"] = "FAIL" if status == "FAIL" else "UNKNOWN"
+        summary["reason"] = (
+            str(result.get("reason", "stress command failed"))
+            if status == "FAIL"
+            else "stress summary counts were not parsed"
+        )
+        return summary
+
+    ok_count = int(match.group(1))
+    fail_count = int(match.group(2))
+    elapsed_s = float(summary["elapsed_s"])
+    summary["success_count"] = ok_count
+    summary["failure_count"] = fail_count
+    summary["effective_hz"] = (ok_count / elapsed_s) if elapsed_s > 0.0 else None
+    summary["status"] = "FAIL" if fail_count > 0 or status == "FAIL" else "PASS"
+    summary["reason"] = "stress command reported failures" if fail_count > 0 else "stress summary parsed"
+    return summary
+
+
+def summarize_sample_rate(args: argparse.Namespace,
+                          command_results: List[Dict[str, object]]) -> Dict[str, object]:
+    summary: Dict[str, object] = {
+        "requested": args.sample_rate_count != 0,
+        "channel": int(args.sample_rate_channel),
+        "requested_count": int(args.sample_rate_count),
+        "status": "NOT_RUN",
+        "reason": "sample-rate benchmark was not requested",
+        "observed_count": None,
+        "failure_count": None,
+        "elapsed_s": 0.0,
+        "effective_hz": None,
+    }
+    if args.sample_rate_count == 0:
+        return summary
+    if args.profile != "arduino":
+        summary["reason"] = "IDF diagnostic CLI has no counted read command"
+        return summary
+
+    command = f"samplerate {args.sample_rate_channel} {args.sample_rate_count}"
+    result = find_command_result(command_results, command)
+    if result is None:
+        summary["status"] = "UNKNOWN"
+        summary["reason"] = "sample-rate command result was not captured"
+        return summary
+
+    summary["elapsed_s"] = float(result.get("elapsed_s", 0.0))
+    status = str(result.get("status", "UNKNOWN"))
+    if status == "NOT_RUN":
+        summary["reason"] = str(result.get("reason", "sample-rate command was not run"))
+        return summary
+
+    output = strip_ansi(str(result.get("output", "")))
+    rate_match = SAMPLE_RATE_RESULT_PATTERN.search(output)
+    if rate_match:
+        observed_count = int(rate_match.group(2))
+        failure_count = int(rate_match.group(3))
+        elapsed_s = int(rate_match.group(4)) / 1000.0
+        summary["elapsed_s"] = elapsed_s
+        summary["observed_count"] = observed_count
+        summary["failure_count"] = failure_count
+        summary["effective_hz"] = float(rate_match.group(5))
+        summary["status"] = "FAIL" if failure_count > 0 or status == "FAIL" else "PASS"
+        summary["reason"] = (
+            "sample-rate command reported failures"
+            if failure_count > 0
+            else "sample-rate summary parsed"
+        )
+        return summary
+
+    observed_count = len(SAMPLE_LINE_PATTERN.findall(output))
+    failure_count = len(SAMPLE_FAIL_PATTERN.findall(output))
+    elapsed_s = float(summary["elapsed_s"])
+    summary["observed_count"] = observed_count
+    summary["failure_count"] = failure_count
+
+    if status == "FAIL":
+        summary["status"] = "FAIL"
+        summary["reason"] = str(result.get("reason", "sample-rate command failed"))
+        return summary
+    if observed_count == args.sample_rate_count and failure_count == 0 and elapsed_s > 0.0:
+        summary["status"] = "PASS"
+        summary["reason"] = "all requested samples were observed"
+        summary["effective_hz"] = observed_count / elapsed_s
+        return summary
+
+    summary["status"] = "UNKNOWN"
+    summary["reason"] = "sample-rate summary was incomplete"
+    return summary
+
+
+def summarize_soak(args: argparse.Namespace) -> Dict[str, object]:
+    if not args.include_long_soak:
+        return make_not_run_summary("long soak was not requested")
+    return {
+        "status": "NOT_RUN",
+        "reason": "manual/fixture evidence required; no safe automatic firmware command is defined",
+        "requested_duration_s": 8 * 60 * 60,
+        "elapsed_s": 0.0,
+        "command_counts": {},
+        "failure_count": None,
+        "recovery_count": None,
+        "reset_count": None,
+        "worst_latency_s": None,
+    }
 
 
 def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Iterable[str]) -> Tuple[str, bool]:
@@ -377,6 +587,7 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
 
     if args.include_stress:
         if args.profile == "arduino":
+            ensure_wake_command(commands)
             commands.append(f"stress {args.stress_count}")
         else:
             skipped.append(
@@ -402,7 +613,8 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
                 }
             )
         elif args.profile == "arduino":
-            commands.append(f"read {args.sample_rate_channel} {args.sample_rate_count}")
+            ensure_wake_command(commands)
+            commands.append(f"samplerate {args.sample_rate_channel} {args.sample_rate_count}")
         else:
             skipped.append(
                 {
@@ -435,12 +647,12 @@ def overall_status(command_results: List[Dict[str, object]],
         return "NOT_RUN"
     if not command_results:
         return "NOT_RUN"
-    if not transcript.strip():
+    if not transcript_payload(transcript):
         return "NOT_RUN"
     if any(result["status"] == "FAIL" for result in command_results):
         return "FAIL"
-    if any(result["status"] == "REVIEW" for result in command_results):
-        return "REVIEW"
+    if any(result["status"] in ("UNKNOWN", "REVIEW") for result in command_results):
+        return "UNKNOWN"
     return "PASS"
 
 
@@ -471,6 +683,18 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         except Exception as exc:
             not_run_reason = str(exc)
 
+    if (args.port and not args.dry_run and not commands and not not_run_reason and
+            not transcript_payload(transcript)):
+        not_run_reason = "no serial startup transcript payload captured"
+
+    has_transcript = bool(transcript_payload(transcript)) and not args.dry_run and not not_run_reason
+    if has_transcript:
+        evidence_type = "hardware_hil"
+    elif args.dry_run or not args.port:
+        evidence_type = "no_hardware_audit"
+    else:
+        evidence_type = "serial_not_run"
+
     result: Dict[str, object] = {
         "tool": "ldc1614_hil_runner",
         "timestamp_utc": timestamp_utc(),
@@ -487,8 +711,9 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "board": args.board,
         "notes": args.note,
         "dry_run": args.dry_run,
-        "hardware_attached": bool(args.port and not args.dry_run),
-        "evidence_type": "hardware_hil" if args.port and not args.dry_run else "no_hardware_audit",
+        "serial_port_requested": bool(args.port),
+        "hardware_attached": has_transcript,
+        "evidence_type": evidence_type,
         "startup_delay_s": args.startup_delay_s,
         "startup_elapsed_s": startup_elapsed_s,
         "command_timeout_s": args.command_timeout_s,
@@ -506,6 +731,9 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "transcript": transcript,
     }
     result["overall_status"] = overall_status(command_results, not_run_reason, transcript)
+    result["stress"] = summarize_stress(args, command_results)
+    result["sample_rate"] = summarize_sample_rate(args, command_results)
+    result["soak"] = summarize_soak(args)
     return result
 
 
@@ -527,6 +755,7 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Operator: `{result['operator']}`",
         f"Board: `{result['board']}`",
         f"Dry run: `{result['dry_run']}`",
+        f"Serial port requested: `{result['serial_port_requested']}`",
         f"Hardware attached: `{result['hardware_attached']}`",
         f"Evidence type: `{result['evidence_type']}`",
         f"Startup delay: `{result['startup_delay_s']}` s",
@@ -555,6 +784,50 @@ def render_markdown(result: Dict[str, object]) -> str:
             lines.append(f"| `{item['name']}` | {item['reason']} |")
     else:
         lines.append("| - | No optional tests requested |")
+
+    sample = result.get("sample_rate", {})
+    lines.extend([
+        "",
+        "## Sample Rate",
+        "",
+        f"Status: `{sample.get('status', 'NOT_RUN')}`",
+        f"Reason: {sample.get('reason', '')}",
+        f"Channel: `{sample.get('channel', '')}`",
+        f"Requested count: `{sample.get('requested_count', '')}`",
+        f"Observed count: `{sample.get('observed_count', '')}`",
+        f"Failures: `{sample.get('failure_count', '')}`",
+        f"Elapsed s: `{float(sample.get('elapsed_s', 0.0)):.3f}`",
+        f"Effective Hz: `{sample.get('effective_hz', None)}`",
+    ])
+
+    stress = result.get("stress", {})
+    lines.extend([
+        "",
+        "## Stress",
+        "",
+        f"Status: `{stress.get('status', 'NOT_RUN')}`",
+        f"Reason: {stress.get('reason', '')}",
+        f"Requested count: `{stress.get('count', '')}`",
+        f"Success count: `{stress.get('success_count', '')}`",
+        f"Failure count: `{stress.get('failure_count', '')}`",
+        f"Elapsed s: `{float(stress.get('elapsed_s', 0.0)):.3f}`",
+        f"Effective Hz: `{stress.get('effective_hz', None)}`",
+    ])
+
+    soak = result.get("soak", {})
+    lines.extend([
+        "",
+        "## Soak",
+        "",
+        f"Status: `{soak.get('status', 'NOT_RUN')}`",
+        f"Reason: {soak.get('reason', '')}",
+        f"Requested duration s: `{soak.get('requested_duration_s', 0)}`",
+        f"Elapsed s: `{float(soak.get('elapsed_s', 0.0)):.3f}`",
+        f"Failure count: `{soak.get('failure_count', None)}`",
+        f"Recovery count: `{soak.get('recovery_count', None)}`",
+        f"Reset count: `{soak.get('reset_count', None)}`",
+        f"Worst latency s: `{soak.get('worst_latency_s', None)}`",
+    ])
 
     lines.extend(["", "## Transcript", "", "```text", str(result.get("transcript", "")), "```", ""])
     return "\n".join(lines)
@@ -612,15 +885,35 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--markdown-out", default="")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--require-run", action="store_true", help="Exit nonzero when result is NOT_RUN")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    if args.baud <= 0:
+        parser.error("--baud must be > 0")
+    if args.channel_count not in (2, 4):
+        parser.error("--channel-count must be 2 or 4")
+    if args.startup_delay_s < 0.0 or args.startup_delay_s > MAX_STARTUP_DELAY_S:
+        parser.error(f"--startup-delay-s must be 0..{MAX_STARTUP_DELAY_S}")
+    if args.command_timeout_s <= 0.0 or args.command_timeout_s > MAX_COMMAND_TIMEOUT_S:
+        parser.error(f"--command-timeout-s must be >0..{MAX_COMMAND_TIMEOUT_S}")
+    if args.write_timeout_s <= 0.0 or args.write_timeout_s > MAX_WRITE_TIMEOUT_S:
+        parser.error(f"--write-timeout-s must be >0..{MAX_WRITE_TIMEOUT_S}")
+    if args.idle_gap_s <= 0.0 or args.idle_gap_s > MAX_IDLE_GAP_S:
+        parser.error(f"--idle-gap-s must be >0..{MAX_IDLE_GAP_S}")
+    if args.stress_count < 1 or args.stress_count > MAX_STRESS_COUNT:
+        parser.error(f"--stress-count must be 1..{MAX_STRESS_COUNT}")
+    return args
 
 
 def parser_self_test() -> Tuple[bool, List[str]]:
     failures: List[str] = []
     if "version" not in default_commands("arduino"):
         failures.append("arduino default commands missing version")
+    if "wake" not in default_commands("arduino"):
+        failures.append("arduino default commands missing wake before reads")
     if "ready" not in default_commands("idf"):
         failures.append("idf default commands missing ready")
+    if "wake" not in default_commands("idf"):
+        failures.append("idf default commands missing wake before reads")
 
     status, _ = classify_command("version", "version: 1.0.0\n> ", False)
     if status != "PASS":

@@ -33,6 +33,11 @@ static constexpr int STRESS_MIX_DEFAULT_COUNT = 50;
 static constexpr int DEMO_DEFAULT_COUNT = 5;
 static constexpr int MAX_STRESS_COUNT = 100000;
 static constexpr int MAX_DEMO_COUNT = 1000;
+static constexpr uint32_t MAX_SAMPLE_RATE_COUNT = 5000;
+static constexpr uint32_t DEFAULT_SAMPLE_RATE_TIMEOUT_MS = 200;
+static constexpr uint32_t MAX_SAMPLE_RATE_TIMEOUT_MS = 1000;
+static constexpr uint32_t MAX_STAGED_POLLS = 1000;
+static constexpr uint8_t MAX_STAGED_INSTRUCTIONS = 32;
 
 const char* resultColor(bool ok) {
   return ok ? COLOR_GREEN : COLOR_RED;
@@ -535,6 +540,13 @@ void Cli::printDriverHealth() const {
          _device.isSleeping() ? COLOR_YELLOW : COLOR_GREEN,
          boolStr(_device.isSleeping()),
          COLOR_RESET);
+  printf("  Hardware config dirty: %s%s%s\n",
+         _device.hardwareConfigDirty() ? COLOR_RED : COLOR_GREEN,
+         boolStr(_device.hardwareConfigDirty()),
+         COLOR_RESET);
+  if (_device.hardwareConfigDirty()) {
+    printStatus(_device.hardwareConfigDirtyError());
+  }
   printf("  Consecutive failures: %s%u%s\n",
          goodIfZeroColor(_device.consecutiveFailures()),
          _device.consecutiveFailures(),
@@ -697,6 +709,12 @@ void Cli::printHelp() const {
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "read <ch> [N]", COLOR_RESET, "Read channel N times");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "readfresh [count]", COLOR_RESET, "Read STATUS-driven fresh channel data");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "readstaged <mask> [polls] [instr]", COLOR_RESET, "Poll-budgeted DATAx read");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "samplerate <ch> <N> [timeoutMs]", COLOR_RESET, "DRDY-gated sample-rate smoke");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "readblocking", COLOR_RESET, "Blocking read configured channels (waits for DRDY)");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "readblocking <ch>", COLOR_RESET, "Blocking read specific channel");
@@ -802,6 +820,8 @@ void Cli::printHelp() const {
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "recover", COLOR_RESET, "Manual recovery attempt");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
+         "sync", COLOR_RESET, "Re-apply cached config and clear dirty state");
+  printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "verbose [0|1]", COLOR_RESET, "Enable/disable verbose output");
   printf("  %s%-*s%s - %s\n", COLOR_CYAN, static_cast<int>(HELP_COMMAND_WIDTH),
          "stress [N]", COLOR_RESET, "Run N read cycles (default 10)");
@@ -835,13 +855,11 @@ void Cli::printDeviceStatus(const LDC1614::DeviceStatus& ds) const {
          ds.dataReady ? "YES" : "no",
          COLOR_RESET,
          ds.errChan);
-  if (ds.hasError()) {
-    printf("  Errors: %sUR=%d OR=%d WD=%d AH=%d AL=%d ZC=%d%s\n",
-           COLOR_RED,
-           ds.errUnderRange, ds.errOverRange, ds.errWatchdog,
-           ds.errAmplitudeHigh, ds.errAmplitudeLow, ds.errZeroCount,
-           COLOR_RESET);
-  }
+  printf("  Errors: %sUR=%d OR=%d WD=%d AH=%d AL=%d ZC=%d%s\n",
+         ds.hasError() ? COLOR_RED : COLOR_GREEN,
+         ds.errUnderRange, ds.errOverRange, ds.errWatchdog,
+         ds.errAmplitudeHigh, ds.errAmplitudeLow, ds.errZeroCount,
+         COLOR_RESET);
   printf("  Unread: ch0=%d ch1=%d ch2=%d ch3=%d\n",
          ds.unreadConv[0], ds.unreadConv[1], ds.unreadConv[2], ds.unreadConv[3]);
 }
@@ -1197,18 +1215,34 @@ void Cli::printConfig() {
          boolStr(cfg.intbPin >= 0),
          boolStr(cfg.intbPin >= 0 && !cfg.intbDisable));
   printf("  Cached ERROR_CONFIG: 0x%04X\n", cfg.errorConfig);
+  printf("  Hardware config dirty: %s%s%s\n",
+         _device.hardwareConfigDirty() ? COLOR_RED : COLOR_GREEN,
+         boolStr(_device.hardwareConfigDirty()),
+         COLOR_RESET);
+  if (_device.hardwareConfigDirty()) {
+    printStatus(_device.hardwareConfigDirtyError());
+  }
 
   uint16_t regVal = 0;
+  uint32_t configReadbackFailures = 0;
+  auto readLiveRegister = [&](uint8_t reg, uint16_t& value) -> LDC1614::Status {
+    const LDC1614::Status st = _device.readRegister16(reg, value);
+    if (!st.ok()) {
+      configReadbackFailures++;
+      printStatus(st);
+    }
+    return st;
+  };
   if (liveReads) {
-    LDC1614::Status st = _device.readRegister16(LDC1614::cmd::REG_MUX_CONFIG, regVal);
+    LDC1614::Status st = readLiveRegister(LDC1614::cmd::REG_MUX_CONFIG, regVal);
     if (st.ok()) {
       printf("  Live MUX_CONFIG: 0x%04X\n", regVal);
     }
-    st = _device.readRegister16(LDC1614::cmd::REG_CONFIG, regVal);
+    st = readLiveRegister(LDC1614::cmd::REG_CONFIG, regVal);
     if (st.ok()) {
       printf("  Live CONFIG: 0x%04X (sleep=%d)\n", regVal, (regVal >> 13) & 1);
     }
-    st = _device.readRegister16(LDC1614::cmd::REG_ERROR_CONFIG, regVal);
+    st = readLiveRegister(LDC1614::cmd::REG_ERROR_CONFIG, regVal);
     if (st.ok()) {
       printf("  Live ERROR_CONFIG: 0x%04X\n", regVal);
     }
@@ -1235,34 +1269,36 @@ void Cli::printConfig() {
            cc.offset,
            cc.idrive);
     if (liveReads) {
-      LDC1614::Status st = _device.readRegister16(LDC1614::cmd::regRcount(ch), regVal);
+      LDC1614::Status st = readLiveRegister(LDC1614::cmd::regRcount(ch), regVal);
       if (st.ok()) {
         printf("    Live RCOUNT: 0x%04X (%u)\n", regVal, regVal);
       }
-      st = _device.readRegister16(LDC1614::cmd::regSettleCount(ch), regVal);
+      st = readLiveRegister(LDC1614::cmd::regSettleCount(ch), regVal);
       if (st.ok()) {
         printf("    Live SETTLECOUNT: 0x%04X (%u)\n", regVal, regVal);
       }
-      st = _device.readRegister16(LDC1614::cmd::regClockDividers(ch), regVal);
+      st = readLiveRegister(LDC1614::cmd::regClockDividers(ch), regVal);
       if (st.ok()) {
         const uint8_t finDiv = static_cast<uint8_t>((regVal >> 12) & 0x0F);
         const uint16_t frefDiv = regVal & 0x03FF;
         printf("    Live CLOCK_DIV: 0x%04X (FIN=%u, FREF=%u)\n",
                regVal, finDiv, frefDiv);
       }
-      st = _device.readRegister16(LDC1614::cmd::regDriveCurrent(ch), regVal);
+      st = readLiveRegister(LDC1614::cmd::regDriveCurrent(ch), regVal);
       if (st.ok()) {
         const uint8_t idrive = static_cast<uint8_t>((regVal >> 11) & 0x1F);
         const uint8_t initIdrive = static_cast<uint8_t>((regVal >> 6) & 0x1F);
         printf("    Live DRIVE_CURRENT: 0x%04X (IDRIVE=%u, INIT_IDRIVE=%u)\n",
                regVal, idrive, initIdrive);
       }
-      st = _device.readRegister16(LDC1614::cmd::regOffset(ch), regVal);
+      st = readLiveRegister(LDC1614::cmd::regOffset(ch), regVal);
       if (st.ok()) {
         printf("    Live OFFSET: 0x%04X (%u)\n", regVal, regVal);
       }
     }
   }
+  printf("  config_readback_failures=%lu\n",
+         static_cast<unsigned long>(configReadbackFailures));
 }
 
 void Cli::printIdentity() {
@@ -1621,6 +1657,15 @@ void Cli::processCommand(const char* cmdLine) {
     println("  Health changes:");
     printHealthDiff(before, after);
     printHealthCompact();
+  } else if (cmd == "sync") {
+    logInfo("Re-applying cached configuration...");
+    const HealthSnapshot before = captureHealth();
+    const LDC1614::Status st = _device.syncConfig();
+    printStatus(st);
+    const HealthSnapshot after = captureHealth();
+    println("  Health changes:");
+    printHealthDiff(before, after);
+    printHealthCompact();
   } else if (cmd == "online") {
     const bool on = _device.isOnline();
     printf("  Online: %s%s%s\n", on ? COLOR_GREEN : COLOR_RED, boolStr(on), COLOR_RESET);
@@ -1628,8 +1673,12 @@ void Cli::processCommand(const char* cmdLine) {
     logInfo("Verbose mode: %s%s%s", onOffColor(_verboseMode),
             _verboseMode ? "ON" : "OFF", COLOR_RESET);
   } else if (cmd.startsWith("verbose ")) {
-    const int val = cmd.substring(8).toInt();
-    _verboseMode = val != 0;
+    bool val = false;
+    if (!parseBoolToken(cmd.substring(8), val)) {
+      logWarn("Usage: verbose <0|1>");
+      return;
+    }
+    _verboseMode = val;
     logInfo("Verbose mode: %s%s%s", onOffColor(_verboseMode),
             _verboseMode ? "ON" : "OFF", COLOR_RESET);
   } else if (cmd == "init" || cmd == "begin") {
@@ -1801,6 +1850,187 @@ void Cli::processCommand(const char* cmdLine) {
       }
       printChannelData(static_cast<uint8_t>(values[0]), data);
     }
+  } else if (cmd == "readfresh" || cmd.startsWith("readfresh ")) {
+    if (!_device.isOnline()) {
+      logWarn("Device not online. Run 'init' first.");
+      return;
+    }
+    uint32_t requested = 0;
+    if (cmd.length() > 9U &&
+        (!parseU32Flexible(cmd.substring(10), requested) || requested > _device.channelCount())) {
+      logWarn("Usage: readfresh [count]");
+      return;
+    }
+    LDC1614::FreshChannelData fresh[4] = {};
+    LDC1614::DeviceStatus status;
+    const uint8_t count = requested == 0U ? _device.channelCount() : static_cast<uint8_t>(requested);
+    const LDC1614::Status st = _device.readFreshChannels(fresh, status, count);
+    printStatus(st);
+    if (!st.ok()) {
+      return;
+    }
+    printDeviceStatus(status);
+    for (uint8_t ch = 0; ch < count && ch < 4U; ++ch) {
+      const LDC1614::ChannelData& data = fresh[ch].data;
+      printf("  Fresh ch%u fresh=%u valid=%u raw=0x%07lX errUR=%u errOR=%u errWD=%u errAmp=%u\n",
+             static_cast<unsigned>(ch),
+             fresh[ch].fresh ? 1U : 0U,
+             fresh[ch].valid ? 1U : 0U,
+             static_cast<unsigned long>(data.rawData),
+             data.errUnderRange ? 1U : 0U,
+             data.errOverRange ? 1U : 0U,
+             data.errWatchdog ? 1U : 0U,
+             data.errAmplitude ? 1U : 0U);
+    }
+    printf("  ReadFresh result: channels=%u\n", count);
+  } else if (cmd.startsWith("readstaged ")) {
+    if (!_device.isOnline()) {
+      logWarn("Device not online. Run 'init' first.");
+      return;
+    }
+    uint32_t values[3] = {};
+    size_t count = 0;
+    if (!parseU32FlexibleList(cmd.substring(11), values, 3U, count) ||
+        count < 1U || values[0] == 0U || values[0] > 0x0FU) {
+      logWarn("Usage: readstaged <mask> [maxPolls] [instrPerPoll]");
+      return;
+    }
+    const uint8_t mask = static_cast<uint8_t>(values[0]);
+    const uint32_t maxPolls = count >= 2U ? values[1] : 16U;
+    const uint8_t instrPerPoll = count >= 3U ? static_cast<uint8_t>(values[2]) : 1U;
+    if (maxPolls == 0U || maxPolls > MAX_STAGED_POLLS ||
+        instrPerPoll == 0U || instrPerPoll > MAX_STAGED_INSTRUCTIONS) {
+      logWarn("Invalid staged bounds (polls=1-%lu, instr=1-%u)",
+              static_cast<unsigned long>(MAX_STAGED_POLLS),
+              static_cast<unsigned>(MAX_STAGED_INSTRUCTIONS));
+      return;
+    }
+    LDC1614::Status st = _device.startReadChannels(mask);
+    printf("  readstaged start mask=0x%02X\n", mask);
+    printStatus(st);
+    if (!st.inProgress()) {
+      return;
+    }
+
+    uint32_t polls = 0;
+    for (; polls < maxPolls; ++polls) {
+      st = _device.poll(nowMs(), instrPerPoll);
+      if (st.inProgress()) {
+        printf("  readstaged poll=%lu state=IN_PROGRESS\n",
+               static_cast<unsigned long>(polls + 1U));
+        continue;
+      }
+      printf("  readstaged poll=%lu\n", static_cast<unsigned long>(polls + 1U));
+      printStatus(st);
+      break;
+    }
+    if (st.inProgress()) {
+      logWarn("readstaged timeout after %lu polls", static_cast<unsigned long>(maxPolls));
+      return;
+    }
+    if (!st.ok()) {
+      return;
+    }
+    for (uint8_t ch = 0; ch < _device.channelCount() && ch < 4U; ++ch) {
+      if ((mask & (1U << ch)) == 0U) {
+        continue;
+      }
+      LDC1614::ChannelData data;
+      const LDC1614::Status sampleStatus = _device.getChannelSample(ch, data);
+      printStatus(sampleStatus);
+      if (sampleStatus.ok()) {
+        printChannelData(ch, data);
+      }
+    }
+    printf("  ReadStaged result: mask=0x%02X polls=%lu instr=%u\n",
+           mask,
+           static_cast<unsigned long>(polls + 1U),
+           static_cast<unsigned>(instrPerPoll));
+  } else if (cmd.startsWith("samplerate ")) {
+    if (!_device.isOnline()) {
+      logWarn("Device not online. Run 'init' and 'wake' first.");
+      return;
+    }
+    uint32_t values[3] = {};
+    size_t count = 0;
+    if (!parseU32FlexibleList(cmd.substring(11), values, 3U, count) ||
+        count < 2U || values[0] > 3U ||
+        values[1] == 0U || values[1] > MAX_SAMPLE_RATE_COUNT) {
+      logWarn("Usage: samplerate <ch> <count> [timeoutMs]");
+      return;
+    }
+    const uint8_t ch = static_cast<uint8_t>(values[0]);
+    if (ch >= _device.channelCount()) {
+      logWarn("Invalid channel for configured variant");
+      return;
+    }
+    const uint32_t requested = values[1];
+    const uint32_t timeoutMs =
+        count >= 3U ? values[2] : DEFAULT_SAMPLE_RATE_TIMEOUT_MS;
+    if (timeoutMs == 0U || timeoutMs > MAX_SAMPLE_RATE_TIMEOUT_MS) {
+      logWarn("Invalid timeout (1-%lu ms)",
+              static_cast<unsigned long>(MAX_SAMPLE_RATE_TIMEOUT_MS));
+      return;
+    }
+
+    uint32_t ok = 0;
+    uint32_t fail = 0;
+    uint32_t worstMs = 0;
+    uint32_t firstRaw = 0;
+    uint32_t lastRaw = 0;
+    bool haveRaw = false;
+    LDC1614::Status firstFailure = LDC1614::Status::Ok();
+    LDC1614::Status lastFailure = LDC1614::Status::Ok();
+    const uint32_t startMs = nowMs();
+    for (uint32_t i = 0; i < requested; ++i) {
+      LDC1614::ChannelData data;
+      const uint32_t sampleStartMs = nowMs();
+      const LDC1614::Status st = _device.readChannelBlocking(ch, data, timeoutMs);
+      const uint32_t sampleMs = nowMs() - sampleStartMs;
+      if (sampleMs > worstMs) {
+        worstMs = sampleMs;
+      }
+      if (st.ok()) {
+        ok++;
+        if (!haveRaw) {
+          firstRaw = data.rawData;
+          haveRaw = true;
+        }
+        lastRaw = data.rawData;
+      } else {
+        fail++;
+        if (fail == 1U) {
+          firstFailure = st;
+        }
+        lastFailure = st;
+        if (st.code != LDC1614::Err::TIMEOUT) {
+          break;
+        }
+      }
+      yield();
+    }
+    const uint32_t elapsedMs = nowMs() - startMs;
+    const float hz = elapsedMs > 0U
+                         ? (1000.0f * static_cast<float>(ok) /
+                            static_cast<float>(elapsedMs))
+                         : 0.0f;
+    printf("  SampleRate result: requested=%lu ok=%lu fail=%lu elapsed_ms=%lu hz=%.3f worst_ms=%lu first_raw=0x%07lX last_raw=0x%07lX\n",
+           static_cast<unsigned long>(requested),
+           static_cast<unsigned long>(ok),
+           static_cast<unsigned long>(fail),
+           static_cast<unsigned long>(elapsedMs),
+           hz,
+           static_cast<unsigned long>(worstMs),
+           static_cast<unsigned long>(firstRaw),
+           static_cast<unsigned long>(lastRaw));
+    if (fail > 0U) {
+      println("  First failure:");
+      printStatus(firstFailure);
+      if (fail > 1U) {
+        println("  Last failure:");
+        printStatus(lastFailure);
+      }
+    }
   } else if (cmd == "readblocking") {
     if (!_device.isOnline()) {
       logWarn("Device not online. Run 'init' first.");
@@ -1828,7 +2058,11 @@ void Cli::processCommand(const char* cmdLine) {
       logWarn("Device is sleeping. Use 'wake' first.");
       return;
     }
-    const int ch = cmd.substring(13).toInt();
+    int32_t ch = 0;
+    if (!parseI32(cmd.substring(13), ch)) {
+      logWarn("Invalid channel (0-3)");
+      return;
+    }
     if (ch < 0 || ch > 3) {
       logWarn("Invalid channel (0-3)");
       return;
@@ -1841,7 +2075,11 @@ void Cli::processCommand(const char* cmdLine) {
     }
     printChannelData(static_cast<uint8_t>(ch), data);
   } else if (cmd.startsWith("sample ")) {
-    const int ch = cmd.substring(7).toInt();
+    int32_t ch = 0;
+    if (!parseI32(cmd.substring(7), ch)) {
+      logWarn("Invalid channel (0-3)");
+      return;
+    }
     if (ch < 0 || ch > 3) {
       logWarn("Invalid channel (0-3)");
       return;
@@ -1868,7 +2106,11 @@ void Cli::processCommand(const char* cmdLine) {
              COLOR_RESET);
     }
   } else if (cmd.startsWith("sampleage ")) {
-    const int ch = cmd.substring(10).toInt();
+    int32_t ch = 0;
+    if (!parseI32(cmd.substring(10), ch)) {
+      logWarn("Invalid channel (0-3)");
+      return;
+    }
     if (ch < 0 || ch > 3) {
       logWarn("Invalid channel (0-3)");
       return;
@@ -1893,6 +2135,10 @@ void Cli::processCommand(const char* cmdLine) {
            COLOR_RESET);
     printf("  Sleeping: %s\n", boolStr(snap.sleeping));
     printf("  Measuring: %s\n", boolStr(_device.isMeasuring()));
+    printf("  hardwareConfigDirty=%d\n", snap.hardwareConfigDirty ? 1 : 0);
+    if (snap.hardwareConfigDirty) {
+      printStatus(snap.hardwareConfigDirtyError);
+    }
     printf("  Channels: %u  Active: %u  AutoScan: %s\n",
            snap.channelCount, snap.activeChan, boolStr(snap.autoScan));
     printf("  RR sequence: %s  Deglitch: %s\n",
@@ -2008,7 +2254,11 @@ void Cli::processCommand(const char* cmdLine) {
     }
     printStatus(_device.setDriveCurrent(static_cast<uint8_t>(ch), static_cast<uint8_t>(val)));
   } else if (cmd.startsWith("initidrive ")) {
-    const int ch = cmd.substring(11).toInt();
+    int32_t ch = 0;
+    if (!parseI32(cmd.substring(11), ch)) {
+      logWarn("Invalid channel (0-3)");
+      return;
+    }
     if (ch < 0 || ch > 3) {
       logWarn("Invalid channel (0-3)");
       return;
@@ -2023,14 +2273,22 @@ void Cli::processCommand(const char* cmdLine) {
   } else if (cmd == "activech") {
     printf("  Active channel: %u\n", _device.getActiveChannel());
   } else if (cmd.startsWith("activech ")) {
-    const int ch = cmd.substring(9).toInt();
+    int32_t ch = 0;
+    if (!parseI32(cmd.substring(9), ch)) {
+      logWarn("Invalid channel (0-3)");
+      return;
+    }
     if (ch < 0 || ch > 3) {
       logWarn("Invalid channel (0-3)");
       return;
     }
     printStatus(_device.setActiveChannel(static_cast<uint8_t>(ch)));
   } else if (cmd.startsWith("single ")) {
-    const int ch = cmd.substring(7).toInt();
+    int32_t ch = 0;
+    if (!parseI32(cmd.substring(7), ch)) {
+      logWarn("Invalid channel (0-3)");
+      return;
+    }
     if (ch < 0 || ch > 3) {
       logWarn("Invalid channel (0-3)");
       return;
@@ -2071,11 +2329,24 @@ void Cli::processCommand(const char* cmdLine) {
     printStatus(_device.setErrorConfig(static_cast<uint16_t>(value)));
   } else if (cmd == "intb") {
     const LDC1614::Config& cfg = _device.getConfig();
-    printf("  INTB pin: %d  output: %s%s%s\n",
+    const bool outputEnabled = cfg.intbPin >= 0 && !cfg.intbDisable;
+    const bool drdyRouted = (cfg.errorConfig & LDC1614::cmd::MASK_ERRCFG_DRDY_2INT) != 0U;
+    printf("  INTB pin: %d  output: %s%s%s  DRDY_2INT=%d\n",
            cfg.intbPin,
-           cfg.intbPin >= 0 && !cfg.intbDisable ? COLOR_GREEN : COLOR_YELLOW,
-           boolStr(cfg.intbPin >= 0 && !cfg.intbDisable),
-           COLOR_RESET);
+           outputEnabled ? COLOR_GREEN : COLOR_YELLOW,
+           boolStr(outputEnabled),
+           COLOR_RESET,
+           drdyRouted ? 1 : 0);
+    if (cfg.intbPin >= 0 && cfg.gpioRead != nullptr) {
+      const bool level = cfg.gpioRead(cfg.intbPin, cfg.gpioUser);
+      printf("  INTB gpio level: %s%s%s (%s)\n",
+             level ? COLOR_GREEN : COLOR_YELLOW,
+             level ? "HIGH" : "LOW",
+             COLOR_RESET,
+             level ? "not asserted" : "asserted");
+    } else {
+      println("  INTB gpio level: unavailable");
+    }
   } else if (cmd.startsWith("intb ")) {
     bool enabled = false;
     if (!parseBoolToken(cmd.substring(5), enabled)) {
@@ -2200,7 +2471,11 @@ void Cli::processCommand(const char* cmdLine) {
   } else if (cmd == "demo") {
     runDemo(DEMO_DEFAULT_COUNT);
   } else if (cmd.startsWith("demo ")) {
-    const int count = cmd.substring(5).toInt();
+    int32_t count = 0;
+    if (!parseI32(cmd.substring(5), count)) {
+      logWarn("Invalid count (1-%d)", MAX_DEMO_COUNT);
+      return;
+    }
     if (count <= 0 || count > MAX_DEMO_COUNT) {
       logWarn("Invalid count (1-%d)", MAX_DEMO_COUNT);
       return;
@@ -2217,7 +2492,11 @@ void Cli::processCommand(const char* cmdLine) {
       logWarn("Device not online. Run 'init' and 'wake' first.");
       return;
     }
-    const int count = cmd.substring(11).toInt();
+    int32_t count = 0;
+    if (!parseI32(cmd.substring(11), count)) {
+      logWarn("Invalid count (1-%d)", MAX_STRESS_COUNT);
+      return;
+    }
     if (count <= 0 || count > MAX_STRESS_COUNT) {
       logWarn("Invalid count (1-%d)", MAX_STRESS_COUNT);
       return;
@@ -2226,7 +2505,12 @@ void Cli::processCommand(const char* cmdLine) {
   } else if (cmd.startsWith("stress")) {
     int count = STRESS_DEFAULT_COUNT;
     if (cmd.length() > 6U) {
-      count = cmd.substring(7).toInt();
+      int32_t parsedCount = 0;
+      if (!parseI32(cmd.substring(7), parsedCount)) {
+        logWarn("Invalid count (1-%d)", MAX_STRESS_COUNT);
+        return;
+      }
+      count = static_cast<int>(parsedCount);
     }
     if (count <= 0 || count > MAX_STRESS_COUNT) {
       logWarn("Invalid count (1-%d)", MAX_STRESS_COUNT);

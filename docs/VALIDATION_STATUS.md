@@ -9,13 +9,14 @@ The current working branch has software hardening evidence for:
 
 - Native PlatformIO tests in `native` and `native_cov` environments, including
   fault-injection and poll-budget coverage. The latest local run in this working
-  branch passed 151 test cases in each environment.
+  branch passed 162 test cases in each environment.
 - Arduino-framework PlatformIO builds for ESP32-S2 and ESP32-S3.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
-- HIL runner host parser/no-port artifact tests.
+- HIL runner host parser/no-port artifact tests. The current host unit suite
+  contains 19 runner tests.
 - Generated `Version.h` consistency check.
 - Clean package consumer compile guard.
 - PlatformIO package creation, with generated package archives removed after
@@ -50,6 +51,15 @@ being prepared as a release artifact outside the source tree.
 ## Hardware Validation
 
 No committed real LDC1612/LDC1614 HIL logs are recorded here.
+
+On 2026-06-30, COM8 was identified as an ESP32-S2 target. The Arduino-profile
+`esp32s2dev` firmware uploaded successfully once, but the runner then captured
+no target firmware payload and all bounded CLI commands timed out with empty
+output. A later upload retry could not open COM8. The generated files under
+`docs/reports/hil-validation-COM8-20260630.runner.*` are marked
+`overall_status=NOT_RUN`, `hardware_attached=false`, and
+`evidence_type=serial_not_run`. They are audit artifacts only and do not prove
+LDC1614/LDC1612 behavior.
 
 Before target deployment decisions, capture hardware logs for:
 
