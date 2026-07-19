@@ -9,6 +9,7 @@ namespace ldc1614_cli {
 
 enum class I2cProbeResult : uint8_t {
   ACK,
+  NACK,
   TIMEOUT,
   ERROR,
 };
@@ -56,6 +57,8 @@ class Cli {
   void printResult(const LDC1614::OperationResult& result) const;
   void printBatch(const LDC1614::SampleBatch& batch) const;
   void printDeviceStatus(const LDC1614::DeviceStatus& status) const;
+  /// External diagnostic loop capped at 126 one-attempt probes. It is not a
+  /// core driver job or a production shared-bus scan policy.
   void scanI2c() const;
   LDC1614::OperationId nextOperationId();
   uint64_t deadlineFromNow() const;

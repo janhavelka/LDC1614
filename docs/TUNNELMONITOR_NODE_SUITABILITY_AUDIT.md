@@ -15,7 +15,8 @@ product intent.
 
 | Repository | Exact revision inspected | Working-tree basis |
 | --- | --- | --- |
-| LDC1614 | `a09f492659d4eb8299dc9fa41524bf6014b62dd6` on `hardening/tunnelmonitor-suitability-reaudit` | Clean before this v3 implementation; final implementation is the reviewed working tree based on this revision. Record the final commit in release metadata before tagging. |
+| LDC1614 baseline | `a09f492659d4eb8299dc9fa41524bf6014b62dd6` on `hardening/tunnelmonitor-suitability-reaudit` | Clean baseline before the v3 implementation. |
+| LDC1614 v3.0.0 release | `d9983e08b4fa0cf717cf3c7686adab418508c174` | Remote branch and annotated `v3.0.0` tag target; tag object `0fed6ff0e1b5fc5c305f9a1135560229549f2438`. Published tags are immutable. |
 | TunnelMonitor-node baseline | `0897f12c1a1369367747d1063936906005391580` on `develop` | Clean when the contract inspection and native/target validation began; left unchanged by this work. |
 | TunnelMonitor-node final checkout | `b708f511964db6c51e949e99c67820476f00f9c7` on `docs/mb85rc-suitability-contract-facts` | Clean. Its tree `1e7ae125548addb34dea22a6c58a65d623f642e3` is identical to the inspected baseline tree, so the source/contracts validated here did not change when the checkout branch moved externally. |
 
@@ -23,11 +24,14 @@ The previous audit evaluated LDC1614 v2 and an older TunnelMonitor revision.
 Old line numbers and proposed type spellings were not treated as authority. The
 current public headers, implementation, fault tests, examples, maintained docs,
 CI, every applicable `AGENTS.md`, and current TunnelMonitor ownership contracts
-were re-read.
+were re-read. The corrective re-audit added literal replay transcripts and
+exact stage/fault tables rather than relying only on transfer counts or
+non-sentinel provenance.
 
-Final reviewed v3 implementation revision:
-**546c2b59eadd0dd660db6e1674414e7effb938ac**. The annotated release tag points
-to the subsequent audit-metadata-only commit.
+The v3.0.0 implementation review ended at
+**546c2b59eadd0dd660db6e1674414e7effb938ac**; its annotated tag points to the
+subsequent audit-metadata-only release commit above. Corrective re-audit changes
+after that immutable tag require a new patch release, never a moved tag.
 
 Primary chip behavior was checked against the bundled TI LDC1612/LDC1614
 datasheet, SNOSCY9A Revision A (March 2018), whose official URL, repository
@@ -37,10 +41,12 @@ retrieval date, and SHA-256 are recorded in `reference/README.md`.
 
 TunnelMonitor's `I2cTask` is the only shared-bus owner. It owns request
 admission, locking/serialization, absolute deadlines, callback timeout,
-retries, device presence, health, backoff, bus reset/SCL recovery, cancellation,
-and result publication. Normal work advances one backend/library callback per
-owner poll. Foreground identity is the tuple `(requestId, submissionToken,
-device, operation)`; result reservations are fixed and reclaimed exactly once.
+retries, device presence, health, backoff, bus reset/SCL recovery, and result
+publication/lifetime. It has deadline expiry and result take/reclaim, but no
+current public I2C withdrawal/cancellation API. Normal work advances one
+backend/library callback per owner poll. Foreground identity is the tuple
+`(requestId, submissionToken, device, operation)`; result reservations are
+fixed and reclaimed exactly once.
 
 The inspected authorities were:
 
@@ -59,17 +65,19 @@ Current concrete facts:
   with I2C on GPIO8/GPIO9;
 - the five known I2C devices are OLED `0x3C`, RTC `0x51`, FRAM `0x50`, ENV
   `0x76`, and INA `0x41`; no LDC row or operation exists;
-- the public health table uses all 16 fixed entries;
+- device health uses all 16 fixed entries; service health uses 15 of 16;
 - the `tm.v1.vw8_shzk16_env_power` sample schema has 37 numeric fields in a
   capacity of 48; its vibration-wire frequency fields are not an LDC contract;
 - redacted settings status uses 49 of 51 fixed rows; and
 - production dependencies must be private behind their owner and pinned to an
   exact immutable commit.
 
-The v3 library now fits that ownership shape: its operation ID can be derived
-from or stored with the owner reservation, `poll(..., 1)` respects the normal
+The v3 library fits that ownership shape: its operation ID can be derived from
+or stored with the owner reservation, `poll(..., 1)` respects the normal
 callback budget, `cancelJob()` is bus-silent, terminal results are fixed and
 exactly once, and library transport statistics never take over health policy.
+An eventual adapter must translate owner deadline expiry or a future withdrawal
+path into `cancelJob()` and consume the correlated terminal result.
 
 ## Hard-finding disposition
 
@@ -82,7 +90,7 @@ exactly once, and library transport statistics never take over health policy.
 | H-05: default error policy disables readiness paths | **Resolved in v3** | Default `Config` is invalid; readiness/error policy is explicit typed `ErrorReporting`. The checked helper rejects an unusable readiness configuration instead of waiting. | `bind_is_zero_i2c_and_validates_complete_explicit_profile`; `pure_error_status_frequency_and_timing_helpers_cover_boundaries`; owner-safe operation tests. |
 | H-06: partial/non-coherent multi-channel publication | **Resolved at the chip-library boundary** | Fixed scratch is committed only as one complete `SampleBatch`; prior publication survives failure/cancel. Selected/valid/fresh/error/overrun masks and both STATUS snapshots are retained. Sequential channels remain non-simultaneous and TunnelMonitor must decide if mixed-age results are acceptable. | `acquire_failure_at_every_phase_preserves_prior_complete_publication`; `acquire_cancel_every_phase_is_silent_atomic_and_restartable`; overrun/shadow test. |
 | H-07: driver health/recovery conflicts with owner | **Resolved in v3** | OFFLINE admission, internal backoff, retries, bus reset, and hard-reset callbacks were removed. `TransportStats` is diagnostic only. Owner recovery calls bus-silent `invalidateAppliedState()` then explicitly schedules full replay. | `transport_stats_are_diagnostic_only_and_failures_never_suppress_requests`; `dirty_unknown_invalidation_rejects_acquire_and_matching_return_replays_all`; lifecycle test. |
-| H-08: decoded `valid` can hide unusable conversion | **Resolved in v3** | Transport outcome and `SampleQualityFlags` are separate. Raw endpoints, watchdog, amplitude, STATUS zero-count, stale/data-loss, and configuration-unknown evidence remain explicit; the application may apply stricter field policy. | `sample_quality_endpoints_watchdog_amplitude_and_status_zero_count`; acquisition status/error-channel tests. |
+| H-08: decoded `valid` can hide unusable conversion | **Resolved in v3** | Transport outcome, trusted `AppliedConfigState`, and `SampleQualityFlags` are separate. Acquisition is rejected before I2C when configuration is unknown/dirty. For admitted acquisition, raw endpoints, watchdog, amplitude, STATUS zero-count, stale, and data-loss evidence remain explicit; the application may apply stricter field policy. | `sample_quality_endpoints_watchdog_amplitude_and_status_zero_count`; invalidation/replay and acquisition status/error-channel tests. |
 | H-09: reads allowed with untrusted configuration | **Resolved in v3** | `AppliedConfigState` is explicit. Acquisition rejects unknown/dirty/not-active configuration. `ConfigFault` retains full cause/phase/register/channel/effects and clears only after complete replay. | `dirty_unknown_invalidation_rejects_acquire_and_matching_return_replays_all`; config-fault and ambiguous-write tests; diagnostic-dirty test. |
 | H-10: clock/frequency/timing facts ambiguous | **Resolved for reusable chip calculations; Tunnel product choice open** | `ReferenceClock` is validated configuration. Frequency returns `Status` plus `double`; frame timing uses conservative integer units and explicit transfer count. Host scheduling and physical calibration remain outside the helper. | `pure_error_status_frequency_and_timing_helpers_cover_boundaries`. |
 | H-11: variant/electrical assumptions appear implicit | **Resolved in v3; physical values still external** | Explicit `DeviceVariant`, `I2cAddress`, `Channel`, `ChannelMask`, reference clock, known register values for every physical variant channel, and expected sensor ranges for selected channels replace inferred/default facts. Default config cannot bind. The common device ID is not presented as variant detection. | explicit-profile bind/validation test; pure helper boundaries; lifecycle/rebind test. |
@@ -159,7 +167,7 @@ RS485 VibWire frequency fields as implicit LDC outputs.
 | Pin serial-HIL host dependency | **Closed:** `pyserial==3.5` is recorded with the host tools. |
 | Honest `native_cov` wording | **Closed:** it is documented as instrumentation only; no report or threshold is claimed. |
 | Primary datasheet provenance | **Closed:** vendor, title, SNOSCY9A Revision A, official URL, repository date, and SHA-256 are indexed. |
-| Annotated release tag | **Release action pending:** create annotated `v3.0.0` only after the final reviewed commit; downstream must still pin the full commit SHA. |
+| Annotated release tag | **Closed for v3.0.0:** annotated tag object `0fed6ff0e1b5fc5c305f9a1135560229549f2438` resolves to `d9983e08b4fa0cf717cf3c7686adab418508c174`. Any corrections use a new immutable patch tag; downstream still pins a full commit SHA. |
 | Raw physical transcript/logic trace | **Open physical gate:** no raw v3 target artifact is committed. Historical compact v2 chip-only summaries are insufficient. |
 
 ## Validation and remaining physical gates
@@ -170,7 +178,7 @@ reset/reapply, acquisition, deadline and callback caps, result identity/FIFO,
 behavioral DATA/STATUS/INTB side effects, atomic publication, data loss and
 quality, applied-state invalidation/replay, transport statistics, and pure
 frequency/timing helpers. On 2026-07-19 both `native` and the
-coverage-instrumented `native_cov` environments passed 24/24 tests. Exact build
+coverage-instrumented `native_cov` environments passed 29/29 tests. Exact build
 results are maintained in `VALIDATION_STATUS.md`; no CI run or hardware result
 is inferred here.
 
@@ -194,7 +202,7 @@ reports do not satisfy that gate.
 
 ## Final recommendation
 
-Use v3 only after its final reviewed commit is pinned. The reusable driver no
+Use the exact reviewed patch revision, not a moving branch. The reusable driver no
 longer requires an application-side state machine to compensate for blocking
 initialization, missing cancellation, destructive evidence loss, partial batch
 publication, or driver-owned recovery policy.
@@ -203,4 +211,8 @@ Do not integrate it into TunnelMonitor until H-01's product decisions and the
 selected-board HIL gates are complete. When they are, add one small private
 adapter inside `I2cTask`; keep queueing, deadline, retry, health, recovery, and
 public DTO policy in TunnelMonitor, and keep all LDC register protocol inside
-this library.
+this library. The LDC transport callback must be exactly one physical attempt:
+it must bypass TunnelMonitor's generic hidden per-transfer retry/recovery path.
+After an indeterminate LDC write, terminate the job, invalidate applied state
+after owner recovery, and schedule a new complete initialize/replay job; never
+resend only the failed register write.

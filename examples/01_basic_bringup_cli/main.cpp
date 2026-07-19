@@ -49,6 +49,9 @@ ldc1614_cli::I2cProbeResult arduinoI2cProbe(uint8_t address, uint32_t timeoutMs,
   if (error == 0U) {
     return ldc1614_cli::I2cProbeResult::ACK;
   }
+  if (error == 2U || error == 3U) {
+    return ldc1614_cli::I2cProbeResult::NACK;
+  }
   if (error == 5U) {
     return ldc1614_cli::I2cProbeResult::TIMEOUT;
   }

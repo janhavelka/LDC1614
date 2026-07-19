@@ -83,27 +83,68 @@ IDF_DEFAULT_COMMANDS = [
     "selftest",
 ]
 
-INFO_COMMANDS = {
-    "help",
-    "version",
-    "scan",
-    "id",
-    "drv",
-    "cfg",
-    "config",
-    "settings",
-    "state",
-    "health",
-    "end",
-    "progress",
-    "status",
-    "status_raw",
-    "drdy",
-    "ready",
-    "timing",
-    "initidrive",
-    "initdrive",
-    "reg",
+COMMAND_EVIDENCE_PATTERNS = {
+    "help": (re.compile(r"(?:\bOwner-driven jobs\b|\bjobs:)", re.IGNORECASE),),
+    "version": (
+        re.compile(r"\bversion:\s*\d+\.\d+\.\d+\b", re.IGNORECASE),
+        re.compile(r"\bfirmware_git=[0-9a-f]{7,40}\b", re.IGNORECASE),
+        re.compile(r"\bfirmware_status=clean\b", re.IGNORECASE),
+    ),
+    "scan": (
+        re.compile(r"\bscan complete found=\d+ probes=126\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "probe": (
+        re.compile(r"\bMANUFACTURER_ID=0x5449\b", re.IGNORECASE),
+        re.compile(r"\bDEVICE_ID=0x3055\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "id": (
+        re.compile(r"\bMANUFACTURER_ID=0x5449\b", re.IGNORECASE),
+        re.compile(r"\bDEVICE_ID=0x3055\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "selftest": (
+        re.compile(r"\bMANUFACTURER_ID=0x5449\b", re.IGNORECASE),
+        re.compile(r"\bDEVICE_ID=0x3055\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "drv": (re.compile(r"\bbound=[01]\b.*\bapplied=", re.IGNORECASE),),
+    "state": (re.compile(r"\bbound=[01]\b.*\bapplied=", re.IGNORECASE),),
+    "health": (re.compile(r"\bbound=[01]\b.*\bapplied=", re.IGNORECASE),),
+    "cfg": (
+        re.compile(r"\baddress=0x[0-9a-f]{2}\b", re.IGNORECASE),
+        re.compile(r"\bvariantChannels=(?:2|4)\b", re.IGNORECASE),
+    ),
+    "config": (
+        re.compile(r"\baddress=0x[0-9a-f]{2}\b", re.IGNORECASE),
+        re.compile(r"\bvariantChannels=(?:2|4)\b", re.IGNORECASE),
+    ),
+    "settings": (
+        re.compile(r"\baddress=0x[0-9a-f]{2}\b", re.IGNORECASE),
+        re.compile(r"\bvariantChannels=(?:2|4)\b", re.IGNORECASE),
+    ),
+    "progress": (
+        re.compile(r"\bactive=[01]\b.*\boperation=\d+\b.*\btransfers=\d+/\d+\b",
+                   re.IGNORECASE),
+    ),
+    "status": (re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
+                          re.IGNORECASE),),
+    "status_raw": (re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
+                              re.IGNORECASE),),
+    "drdy": (re.compile(r"\bready=[01]\b", re.IGNORECASE),),
+    "ready": (re.compile(r"\bready=[01]\b", re.IGNORECASE),),
+    "timing": (
+        re.compile(r"\bwakeSettleUs=\d+\b.*\bconversionUs=\d+\b", re.IGNORECASE),
+    ),
+    "initidrive": (
+        re.compile(r"\bchannel=\d+\s+initDriveCode=\d+\b", re.IGNORECASE),
+    ),
+    "initdrive": (
+        re.compile(r"\bchannel=\d+\s+initDriveCode=\d+\b", re.IGNORECASE),
+    ),
+    "reg": (re.compile(r"\breg 0x[0-9a-f]+\s*=\s*0x[0-9a-f]{4}\b",
+                       re.IGNORECASE),),
 }
 FAIL_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
@@ -167,6 +208,10 @@ CHANNEL_COUNT_PATTERNS = [
         r"\b(?:variantChannels|channel\s+count)\s*[=:]\s*(\d+)",
     )
 ]
+FIRMWARE_GIT_PATTERN = re.compile(r"\bfirmware_git=([0-9a-f]{7,40}|unknown)\b",
+                                  re.IGNORECASE)
+FIRMWARE_STATUS_PATTERN = re.compile(r"\bfirmware_status=(clean|dirty|unknown)\b",
+                                     re.IGNORECASE)
 
 
 def git_value(args: List[str], default: str = "unknown") -> str:
@@ -243,8 +288,13 @@ def classify_command(
         if pattern.search(output):
             return "FAIL", f"matched failure pattern: {pattern.pattern}"
 
-    if name in INFO_COMMANDS:
-        return "PASS", "informational command responded without failure pattern"
+    required_evidence = COMMAND_EVIDENCE_PATTERNS.get(name)
+    if required_evidence is not None:
+        missing = [pattern.pattern for pattern in required_evidence
+                   if pattern.search(output) is None]
+        if missing:
+            return "FAIL", "missing command-specific evidence: " + ", ".join(missing)
+        return "PASS", "all command-specific evidence parsed"
 
     for pattern in OK_PATTERNS:
         if pattern.search(output):
@@ -282,7 +332,16 @@ def append_expectation_results(
 
     expected_address = parse_int_token(args.address)
     actual_address = first_transcript_int(ADDRESS_PATTERNS, transcript)
-    if expected_address is not None and actual_address is not None and actual_address != expected_address:
+    if expected_address is not None and actual_address is None:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-address",
+                "status": "FAIL",
+                "reason": "configured I2C address was not reported by target firmware",
+            }
+        )
+    elif expected_address is not None and actual_address != expected_address:
         command_results.append(
             {
                 "index": len(command_results) + 1,
@@ -297,7 +356,16 @@ def append_expectation_results(
 
     expected_channel_count = int(args.channel_count)
     actual_channel_count = first_transcript_int(CHANNEL_COUNT_PATTERNS, transcript)
-    if actual_channel_count is not None and actual_channel_count != expected_channel_count:
+    if actual_channel_count is None:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-channel-count",
+                "status": "FAIL",
+                "reason": "configured variant channel count was not reported by target firmware",
+            }
+        )
+    elif actual_channel_count != expected_channel_count:
         command_results.append(
             {
                 "index": len(command_results) + 1,
@@ -309,6 +377,50 @@ def append_expectation_results(
                 ),
             }
         )
+
+    expected_commit = (args.expected_firmware_commit or
+                       git_value(["rev-parse", "--short", "HEAD"])).lower()
+    firmware_match = FIRMWARE_GIT_PATTERN.search(transcript)
+    actual_commit = firmware_match.group(1).lower() if firmware_match else ""
+    commit_matches = (actual_commit != "unknown" and expected_commit != "unknown" and
+                      (actual_commit.startswith(expected_commit) or
+                       expected_commit.startswith(actual_commit)))
+    if not commit_matches:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-firmware-commit",
+                "status": "FAIL",
+                "reason": (
+                    "target firmware commit was not reported"
+                    if not actual_commit
+                    else f"target firmware commit {actual_commit} does not match {expected_commit}"
+                ),
+            }
+        )
+
+    firmware_status = FIRMWARE_STATUS_PATTERN.search(transcript)
+    if firmware_status is None or firmware_status.group(1).lower() != "clean":
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-clean-firmware",
+                "status": "FAIL",
+                "reason": "target firmware did not report a clean source revision",
+            }
+        )
+
+    if args.port and not args.dry_run:
+        for field in ("operator", "board"):
+            if not str(getattr(args, field)).strip():
+                command_results.append(
+                    {
+                        "index": len(command_results) + 1,
+                        "command": f"expect-{field}",
+                        "status": "FAIL",
+                        "reason": f"--{field} is required for a real HIL run",
+                    }
+                )
 
 
 def ensure_wake_command(commands: List[str]) -> None:
@@ -616,7 +728,8 @@ def run_serial_commands(
 
     full_transcript = "\n".join(transcript_parts)
     firmware_version = "unknown"
-    version_match = re.search(r"(?:version|library version):\s*([^\r\n]+)", full_transcript, re.IGNORECASE)
+    version_match = re.search(r"(?:version|library version):\s*(\d+\.\d+\.\d+)",
+                              full_transcript, re.IGNORECASE)
     if version_match:
         firmware_version = version_match.group(1).strip()
     return results, full_transcript, firmware_version, startup_elapsed_s
@@ -743,13 +856,21 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     else:
         evidence_type = "serial_not_run"
 
+    host_git_commit = git_value(["rev-parse", "--short", "HEAD"])
+    target_commit_match = FIRMWARE_GIT_PATTERN.search(transcript)
+    target_status_match = FIRMWARE_STATUS_PATTERN.search(transcript)
     result: Dict[str, object] = {
         "tool": "ldc1614_hil_runner",
         "timestamp_utc": timestamp_utc(),
-        "git_commit": git_value(["rev-parse", "--short", "HEAD"]),
-        "git_status": "dirty" if git_value(["status", "--porcelain"], "") else "clean",
+        "host_git_commit": host_git_commit,
+        "host_git_status": "dirty" if git_value(["status", "--porcelain"], "") else "clean",
         "library_version": load_library_version(),
         "firmware_version": firmware_version,
+        "firmware_git_commit": (target_commit_match.group(1).lower()
+                                if target_commit_match else "unknown"),
+        "firmware_git_status": (target_status_match.group(1).lower()
+                                if target_status_match else "unknown"),
+        "expected_firmware_commit": args.expected_firmware_commit or host_git_commit,
         "profile": args.profile,
         "fixture": args.fixture,
         "port": args.port or "",
@@ -796,10 +917,13 @@ def render_markdown(result: Dict[str, object]) -> str:
         "",
         f"Overall status: `{result['overall_status']}`",
         f"Timestamp UTC: `{result['timestamp_utc']}`",
-        f"Git commit: `{result['git_commit']}`",
-        f"Git status: `{result['git_status']}`",
+        f"Host checkout Git commit: `{result['host_git_commit']}`",
+        f"Host checkout Git status: `{result['host_git_status']}`",
         f"Library version: `{result['library_version']}`",
         f"Firmware version: `{result['firmware_version']}`",
+        f"Firmware-reported Git commit: `{result['firmware_git_commit']}`",
+        f"Firmware-reported Git status: `{result['firmware_git_status']}`",
+        f"Expected firmware Git commit: `{result['expected_firmware_commit']}`",
         f"Profile: `{result['profile']}`",
         f"Fixture: `{result.get('fixture', 'default')}`",
         f"Port: `{result['port']}`",
@@ -916,6 +1040,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--address", default="0x2A")
     parser.add_argument("--channel-count", type=int, default=4)
+    parser.add_argument(
+        "--expected-firmware-commit",
+        default="",
+        help="Expected flashed Git SHA/prefix; defaults to the host checkout HEAD",
+    )
     parser.add_argument("--operator", default="")
     parser.add_argument("--board", default="")
     parser.add_argument("--note", default="")
@@ -962,6 +1091,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error("--baud must be > 0")
     if args.channel_count not in (2, 4):
         parser.error("--channel-count must be 2 or 4")
+    if parse_int_token(args.address) not in (0x2A, 0x2B):
+        parser.error("--address must be 0x2A or 0x2B")
+    if (args.expected_firmware_commit and
+            re.fullmatch(r"[0-9a-fA-F]{7,40}", args.expected_firmware_commit) is None):
+        parser.error("--expected-firmware-commit must be a 7..40 digit hexadecimal SHA")
     if args.startup_delay_s < 0.0 or args.startup_delay_s > MAX_STARTUP_DELAY_S:
         parser.error(f"--startup-delay-s must be 0..{MAX_STARTUP_DELAY_S}")
     if args.command_timeout_s <= 0.0 or args.command_timeout_s > MAX_COMMAND_TIMEOUT_S:
@@ -994,13 +1128,25 @@ def parser_self_test() -> Tuple[bool, List[str]]:
     if "wake" not in default_commands("idf"):
         failures.append("idf default commands missing wake")
 
-    status, _ = classify_command("version", "version: 1.0.0\n> ", False)
+    status, _ = classify_command(
+        "version",
+        "version: 1.0.0 firmware_git=abcdef1 firmware_status=clean\n> ",
+        False,
+    )
     if status != "PASS":
         failures.append("version informational output did not pass")
 
-    status, _ = classify_command("probe", "status: code=0\n> ", False)
+    status, _ = classify_command(
+        "probe",
+        "MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055\nstatus: code=0\n> ",
+        False,
+    )
     if status != "PASS":
-        failures.append("code=0 output did not pass")
+        failures.append("exact probe identity did not pass")
+
+    status, _ = classify_command("probe", "status: code=0\n> ", False)
+    if status != "FAIL":
+        failures.append("probe without exact identity did not fail")
 
     status, _ = classify_command("probe", "status: I2C_TIMEOUT code=7\n> ", False)
     if status != "FAIL":
@@ -1061,6 +1207,8 @@ def main(argv: List[str]) -> int:
         return 2
     if result["overall_status"] == "FAIL":
         return 1
+    if result["overall_status"] == "UNKNOWN":
+        return 3
     return 0
 
 

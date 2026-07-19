@@ -261,16 +261,31 @@ void Cli::printProgress() const {
 
 void Cli::scanI2c() const {
   if (_platform.i2cProbe == nullptr) {
-    println("scan unavailable");
+    printStatus(LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                       "scan unavailable"));
     return;
   }
+  uint8_t found = 0;
+  uint8_t probes = 0;
   for (uint8_t address = 1; address < 0x7F; ++address) {
+    ++probes;
     const I2cProbeResult result =
         _platform.i2cProbe(address, _platform.scanTimeoutMs, _platform.user);
     if (result == I2cProbeResult::ACK) {
+      ++found;
       printf("I2C device at 0x%02X\n", address);
+    } else if (result == I2cProbeResult::TIMEOUT) {
+      printStatus(LDC1614::Status::Error(
+          LDC1614::Err::I2C_TIMEOUT, "I2C scan probe timed out", address));
+      return;
+    } else if (result == I2cProbeResult::ERROR) {
+      printStatus(LDC1614::Status::Error(
+          LDC1614::Err::I2C_BUS, "I2C scan probe failed", address));
+      return;
     }
   }
+  printf("scan complete found=%u probes=%u\n", static_cast<unsigned>(found),
+         static_cast<unsigned>(probes));
   printStatus(LDC1614::Status::Ok());
 }
 
@@ -297,7 +312,9 @@ void Cli::processCommand(const char* commandLine) {
   if (std::strcmp(command, "help") == 0) {
     printHelp();
   } else if (std::strcmp(command, "version") == 0) {
-    printf("version: %s\n", LDC1614::VERSION);
+    printf("version: %s firmware_git=%s firmware_status=%s build_timestamp=%s\n",
+           LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
+           LDC1614::BUILD_TIMESTAMP);
   } else if (std::strcmp(command, "scan") == 0) {
     scanI2c();
   } else if (std::strcmp(command, "bind") == 0) {

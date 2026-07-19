@@ -9,12 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 REQUIRED_COMMON = [
     "BoardConfig.h",
-    "BuildConfig.h",
-    "Log.h",
-    "TransportAdapter.h",
-    "BusDiag.h",
-    "CliShell.h",
-    "CliStyle.h",
+    "I2cTransport.h",
     "Ldc1614Cli.h",
     "Ldc1614Cli.cpp",
 ]
@@ -116,6 +111,10 @@ def main() -> int:
         fail("Arduino example must use shared Ldc1614Cli.h")
     if "Ldc1614Cli.h" in idf_text:
         fail("ESP-IDF example must use native fixed-buffer CLI, not shared Ldc1614Cli.h")
+    if "I2cProbeResult::NACK" not in arduino_text:
+        fail("Arduino scan adapter must distinguish normal address NACK")
+    if "scan complete found=" not in text or "I2C scan probe failed" not in text:
+        fail("Arduino scan must expose bounded completion and transport failure")
 
     for cmd in MANDATORY_COMMANDS:
         if re.search(rf"\b{re.escape(cmd)}\b", text) is None:

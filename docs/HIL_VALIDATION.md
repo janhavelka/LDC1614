@@ -7,14 +7,14 @@ Use:
 
 ```sh
 python -m pip install --requirement requirements-dev.txt
-python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --json-out hil.json --markdown-out hil.md
+python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --markdown-out hil.md
 ```
 
 For a board with the LDC1614 chip present but no LC sensor/coil attached, use
 the no-sensor fixture matrix:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --json-out hil-no-sensor.json --markdown-out hil-no-sensor.md
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --markdown-out hil-no-sensor.md
 ```
 
 This v3 mode exercises identity, selected safe register reads, cached profile
@@ -35,6 +35,14 @@ Supplying `--port` only proves that a serial port was requested. The runner
 marks `hardware_attached=true` only when it captures real command/startup
 payload from the target firmware. A port open with no firmware payload is
 reported as `evidence_type=serial_not_run`.
+
+For a real run, `--operator` and `--board` are mandatory evidence. The runner
+requires the target `version` response to report a clean firmware Git revision,
+compares it with `--expected-firmware-commit` (or the host HEAD when omitted),
+and stores the host checkout identity separately. A host SHA is never treated
+as proof of the flashed image. Missing address, variant channel count, exact TI
+identity, or target build identity makes the run fail. `UNKNOWN` is also a
+nonzero verification exit, not a successful run.
 
 ## No Hardware Attached Audit
 
@@ -81,7 +89,9 @@ commands.
 2. Open the serial port and capture startup output.
 3. Run the selected profile's safe commands.
 4. Classify each command from the transcript. Ambiguous command output is
-   `UNKNOWN`, not a pass. Device ID/probe/read failures are failures, not skips.
+   `UNKNOWN`, not a pass. Maintained commands require command-specific output;
+   arbitrary nonempty text and a bare `code=0` probe are failures. Device
+   ID/probe/read failures are failures, not skips.
 5. Write JSON and Markdown artifacts with command classification evidence.
    Repeated stress output may be condensed when metadata, command counts,
    per-base-command outcomes, firmware/device identity, and every non-pass
@@ -139,6 +149,7 @@ Run these only when hardware and operator setup explicitly support them:
   for production acceptance of the exact board, sensor, wiring, configuration,
   and release revision. No such raw artifact is currently committed.
 - Hardware logs must name the board, sensor/coil, address strap, channel count,
-  firmware profile, Git commit, and operator.
+  firmware profile, firmware-reported Git commit/status, host checkout, and
+  operator.
 - Simulation, native tests, and PlatformIO/CI builds are useful software
   evidence, but they are not hardware validation.

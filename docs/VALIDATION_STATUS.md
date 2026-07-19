@@ -11,18 +11,20 @@ The current working branch has software hardening evidence for:
   per-transfer fault injection, every-phase cancellation/deadline silence,
   identity/FIFO/backpressure, behavioral DATA/STATUS/INTB effects, atomic
   acquisition, full physical-channel profile validation, quality/provenance,
-  lifecycle, and helper boundaries. On 2026-07-19 both environments passed
-  24/24 tests. `native_cov` is coverage-instrumented only: the repository does
+  exact LDC1612/LDC1614 replay payloads, four-channel fault/cancel/deadline
+  paths, lifecycle, and helper boundaries. On 2026-07-19 both environments
+  passed 29/29 tests. `native_cov` is coverage-instrumented only: the repository does
   not generate a report or enforce a threshold, so it is not measured coverage.
 - Arduino-framework PlatformIO builds on 2026-07-19 passed for ESP32-S3
-  (23,216 bytes RAM; 368,870 bytes flash) and ESP32-S2 (37,648 bytes RAM;
-  359,301 bytes flash), using pinned platform release 54.03.20.
+  (23,104 bytes RAM; 369,442 bytes flash) and ESP32-S2 (37,536 bytes RAM;
+  359,845 bytes flash), using pinned platform release 54.03.20.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
-- HIL runner host parser/no-port/no-sensor artifact tests. The current host
-  unit suite contains 24 runner tests.
+- HIL runner host parser/no-port/no-sensor artifact tests. The current 26-test
+  host suite rejects missing command payloads, identity/config/build facts,
+  dirty or mismatched flashed revisions, and ambiguous zero-exit results.
 - Historical v2 ESP32-S2 no-sensor HIL exists for an LDC1614 at `0x2A`.
   It predates the v3 cooperative API and cannot be counted as v3 execution
   evidence. The fixture also had no LC sensor or physical DRDY/INTB wiring.

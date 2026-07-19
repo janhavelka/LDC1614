@@ -16,7 +16,8 @@ recovery decision.
   backoff, GPIO reset/SD, and bus/SCL recovery.
 - Serialize all calls to an instance. The driver is not thread-safe and no API
   is ISR-safe. INTB may wake/notify the owner; driver calls stay in owner/task
-  context.
+  context. Injected transport and INTB callbacks must not re-enter the same
+  instance.
 
 The driver never calls a transport callback from `bind()`, `updateDesiredConfig()`,
 `cancelJob()`, `jobProgress()`, `takeResult()`, `invalidateAppliedState()`, or
@@ -26,7 +27,9 @@ The driver never calls a transport callback from `bind()`, `updateDesiredConfig(
 
 1. Build and `bind()` one explicit desired profile. Binding performs zero I2C.
 2. Reserve the application's request/result identity and choose a nonzero
-   `OperationId` plus immutable absolute 64-bit deadline.
+   `OperationId` plus immutable absolute 64-bit deadline. Deadlines and
+   `poll(nowMs, ...)` use one monotonic, nondecreasing owner timeline. Extend a
+   wrapping 32-bit millisecond clock to 64 bits before passing it to the driver.
 3. Start one job. Starting validates and reserves state but performs zero I2C.
 4. On each owner service pass, call `poll(nowMs, budget)`. A normal shared-bus
    policy can use budget one. A larger explicit budget is allowed for startup
@@ -72,7 +75,10 @@ full original status, job, exact phase, register, channel, and effect flags.
 
 A failed callback cannot always prove whether a write reached the device. The
 driver reports `INDETERMINATE_WRITE`, marks applied state dirty, and leaves the
-retry/reconciliation decision to the owner. It does not repeat the write.
+retry/reconciliation decision to the owner. It does not repeat the write. A
+confirmed `I2C_NACK_ADDR` is different: the addressed device did not accept the
+transaction, so that attempt alone is not reported as an indeterminate device
+mutation. Earlier successful writes in the same job remain partial effects.
 
 Cancellation is idempotent and issues no callback. Cancelling acquisition
 discards private scratch and leaves the previous complete batch untouched.

@@ -1,6 +1,6 @@
 {
   "name": "LDC1614",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Framework-neutral cooperative LDC1614/LDC1612 28-bit inductance-to-digital converter driver",
   "keywords": [
     "ldc1614",

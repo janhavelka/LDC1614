@@ -24,7 +24,9 @@ chip-only evidence predates v3 and does not validate sensor-attached behavior.
 - One job may be active. Each `poll(nowMs, maxTransfers)` call invokes no more
   than the supplied number of transport callbacks; zero is bus-silent.
 - Each start carries a caller-selected nonzero `OperationId` and absolute
-  64-bit deadline. A terminal `OperationResult` retains identity, outcome,
+  64-bit deadline. `nowMs` and deadlines share one owner-supplied monotonic,
+  nondecreasing timeline; extend a wrapping 32-bit clock before use. A terminal
+  `OperationResult` retains identity, outcome,
   status, side-effect flags, configuration revision, and fault provenance.
 - The fixed two-entry result FIFO delivers each terminal result exactly once
   through `takeResult()`. The owner must drain results; starts fail explicitly
@@ -35,7 +37,8 @@ chip-only evidence predates v3 and does not validate sensor-attached behavior.
 - Transport counters are non-authoritative diagnostics. Failures never latch
   the library offline or suppress a later owner request.
 - Instances are neither internally thread-safe nor ISR-safe. Serialize every
-  call. An ISR may notify the owner, but must not call the driver.
+  call. Transport/INTB callbacks must not re-enter the same instance. An ISR
+  may notify the owner, but must not call the driver.
 
 ## Installation
 
@@ -105,7 +108,10 @@ the selected variant, so those register values must all be supplied; expected
 sensor-frequency bounds are required for channels selected for conversion.
 Validation uses both reference-clock tolerance extrema for fREF limits and the
 fIN < fREF/4 rule, and requires deglitch bandwidth to be strictly above the
-maximum expected sensor frequency.
+maximum expected sensor frequency. External-clock tolerance must remain within
+the device input range; internal-clock uncertainty is bounded by the guaranteed
+oscillator range. OFFSET must remain below the selected channel's worst-case
+minimum-sensor-frequency ratio so it cannot mask changing result bits.
 
 ## Owner loop
 
@@ -172,7 +178,8 @@ Every result includes:
 - terminal phase, register, channel, completed/maximum transfer counts, and
   requested/completed channel masks in `finalProgress`;
 - immutable operation identity, kind, outcome, full status/effect provenance,
-  configuration revision, and owner completion time;
+  configuration revision, and the owner timestamp supplied at the terminal
+  `poll()` boundary (zero for bus-silent `cancelJob()`);
 
 Successful acquisition results additionally include:
 
@@ -180,7 +187,9 @@ Successful acquisition results additionally include:
 - the pre-DATA and post-DATA STATUS snapshots;
 - raw 28-bit count, raw register words, and silicon-level quality flags per
   selected channel;
-- owner-supplied completion time and the applied configuration revision.
+- owner-supplied terminal poll-boundary time and the applied configuration
+  revision. Timestamp after `poll()` returns if wall-clock completion time is
+  required by the application.
 
 The device has destructive read behavior:
 

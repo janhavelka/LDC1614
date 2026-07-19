@@ -58,6 +58,9 @@ Framework boundaries:
 - No logging or delays in library code.
 - Use `static constexpr` for constants. Macros are only for conditional compilation or example logging.
 - Public APIs are not ISR-safe. Driver instances are not internally thread-safe. Document application serialization.
+- Injected transport and INTB callbacks must not re-enter the same driver
+  instance. Owner time supplied to jobs/polling is monotonic and nondecreasing;
+  wrapping hardware clocks are extended before entering the core.
 - Conversion timing, settling timing, and sensor-frequency calculations are checked against explicit clock/count/divider facts.
 
 ## I2C Manager and Transport (Required)
@@ -99,7 +102,10 @@ struct Status {
   sensor-frequency bounds.
 - Support single-channel continuous and multi-channel sequential modes, typed deglitch bandwidth, sleep/active transitions, and software reset.
 - DATA reads follow MSB-before-LSB coherency and preserve STATUS/DATA/UNREAD/INTB destructive-read evidence.
-- Acquisition publishes fixed-size selected/valid/fresh/error/overrun masks, explicit quality, pre/post STATUS, and owner completion time.
+- Acquisition publishes fixed-size selected/valid/fresh/error/overrun masks,
+  explicit quality, pre/post STATUS, and the owner-supplied terminal poll
+  boundary timestamp. Applications timestamp again after `poll()` if they need
+  wall-clock completion time.
 - Multi-channel results are sequential readout batches, never claimed simultaneous frames.
 - Error reporting and reference-clock frequency/tolerance are explicit validated configuration.
 - Sensor-frequency and conservative frame-timing helpers are checked and status-returning.
@@ -113,8 +119,12 @@ struct Status {
 - Terminal results retain operation identity and are consumed exactly once from a fixed-capacity store. A pending result is never overwritten.
 - Cancellation can be followed immediately by replacement work while its result remains takeable; finite result capacity provides explicit backpressure.
 - Initialization always performs identity plus full replay. It is the path for first boot, hotplug return, backend restart, and brownout recovery.
-- Acquisition reads STATUS-before, DATAx MSB/LSB into private scratch, then STATUS-after. It commits batch/cache only after the complete job succeeds.
-- A failed or cancelled acquisition leaves the prior complete batch/cache untouched. Destructive read effects remain reported.
+- Acquisition reads STATUS-before, DATAx MSB/LSB into private scratch, then
+  STATUS-after. It publishes a batch only in the terminal result after the
+  complete job succeeds.
+- A failed or cancelled acquisition publishes no partial batch. Previously
+  queued terminal results remain untouched. Destructive read effects remain
+  reported.
 - `AppliedConfigState` is separate from non-authoritative transport counters. Normal acquisition requires verified active configuration.
 - Owner-observed removal, reset, brownout, or bus recovery calls `invalidateAppliedState()` before reuse.
 - The core exposes chip reset/replay jobs but no bus-reset callbacks, retry policy, backoff, OFFLINE latch, scheduler wait, yield callback, or second `tick()` execution model.
@@ -140,6 +150,9 @@ Release steps:
 ## Validation Claims
 
 - Never claim hardware validation without current real LDC1612/LDC1614 logs.
+- HIL acceptance must parse identity and the firmware-reported target Git
+  revision/status. The host checkout SHA is metadata, not proof of what was
+  flashed. Ambiguous or incomplete command output never passes.
 - Separate software readiness from physical evidence for INTB/SD behavior, fault injection, sequencing, coil limits, address variants, and soak/HIL stress.
 - Bring-up examples are not production bus managers unless they demonstrate application-owned locking, timeout, and recovery policy.
 

@@ -23,6 +23,11 @@ before acquiring trusted data. An acquisition result includes the destructive
 pre-DATA STATUS snapshot, quality/freshness/error/overrun masks, and sequential
 channel samples. A batch is not a simultaneous measurement.
 
+`scan` is a bounded external diagnostic loop over 126 legal addresses. Address
+NACK means no device and is ignored; timeout or bus failure stops the scan and
+prints a non-OK status. It is not a production shared-bus scan policy or one
+core-driver job.
+
 The example profile values, GPIO8/GPIO9 pins, 43 MHz internal-clock estimate,
 sensor-frequency bounds, and drive-current code are placeholders. Replace and
 validate them against the exact board, LC tank, target, and clock plan.

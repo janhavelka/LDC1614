@@ -250,7 +250,10 @@ void Ldc1614IdfCli::processLine(const char* line) {
   if (std::strcmp(command, "help") == 0) {
     printHelp();
   } else if (std::strcmp(command, "version") == 0) {
-    std::printf("version: %s\n", LDC1614::VERSION);
+    std::printf(
+        "version: %s firmware_git=%s firmware_status=%s build_timestamp=%s\n",
+        LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
+        LDC1614::BUILD_TIMESTAMP);
   } else if (std::strcmp(command, "bind") == 0) {
     printStatus(_device.bind(_defaultConfig));
   } else if (std::strcmp(command, "init") == 0 ||
