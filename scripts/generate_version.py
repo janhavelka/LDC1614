@@ -146,14 +146,17 @@ def _get_git_info(project_root: Path) -> Tuple[str, str]:
         commit = commit_result.stdout.strip() if commit_result.returncode == 0 else "unknown"
 
         status_result = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=project_root,
             capture_output=True,
             text=True,
             timeout=2,
             check=False,
         )
-        git_status = "dirty" if status_result.stdout.strip() else "clean"
+        if status_result.returncode != 0:
+            git_status = "unknown"
+        else:
+            git_status = "dirty" if status_result.stdout.strip() else "clean"
         return commit or "unknown", git_status
     except Exception:
         return "unknown", "unknown"
@@ -445,10 +448,12 @@ def _usage() -> str:
 def main(args: List[str]) -> int:
     project_root = _find_project_root()
     namespace = _resolve_namespace_dir(project_root).name
-    _append_build_metadata_defines(namespace, project_root)
 
     if not args:
         _sync_outputs(project_root, check_only=False, quiet=True)
+        # Capture identity after synchronization so a stale generated header
+        # makes this build visibly dirty instead of masquerading as HEAD.
+        _append_build_metadata_defines(namespace, project_root)
         return 0
 
     command = args[0]

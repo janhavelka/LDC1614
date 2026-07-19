@@ -14,6 +14,10 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#if defined(ARDUINO_ARCH_ESP32)
+#include <esp_timer.h>
+#endif
+
 #include "LDC1614/Status.h"
 
 namespace transport {
@@ -91,6 +95,9 @@ inline LDC1614::Status wireWrite(uint8_t addr, const uint8_t* data, size_t len,
  * @param timeoutMs Timeout requested by the driver (bus-manager owned in shared buses)
  * @param user Pointer to TwoWire instance
  * @return Status OK on success, I2C error on failure
+ *
+ * On ESP32 the repeated-start address phase and the read share this single
+ * callback timeout; the second phase receives only the remaining time.
  */
 inline LDC1614::Status wireWriteRead(uint8_t addr, const uint8_t* tx, size_t txLen,
                                      uint8_t* rx, size_t rxLen, uint32_t timeoutMs,
@@ -110,6 +117,7 @@ inline LDC1614::Status wireWriteRead(uint8_t addr, const uint8_t* tx, size_t txL
   }
 
 #if defined(ARDUINO_ARCH_ESP32)
+  const uint64_t startedAtUs = static_cast<uint64_t>(esp_timer_get_time());
   wire->setTimeOut(timeoutMs);
 #else
   (void)timeoutMs;
@@ -139,6 +147,22 @@ inline LDC1614::Status wireWriteRead(uint8_t addr, const uint8_t* tx, size_t txL
     default:
       return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, "I2C write failed", result);
   }
+
+#if defined(ARDUINO_ARCH_ESP32)
+  // endTransmission(false) and requestFrom() are one injected callback. Give
+  // the read only the callback budget that the address phase did not consume.
+  const uint64_t budgetUs = static_cast<uint64_t>(timeoutMs) * 1000ULL;
+  const uint64_t elapsedUs =
+      static_cast<uint64_t>(esp_timer_get_time()) - startedAtUs;
+  const uint32_t remainingMs = elapsedUs < budgetUs
+                                   ? static_cast<uint32_t>((budgetUs - elapsedUs) / 1000ULL)
+                                   : 0U;
+  if (remainingMs == 0U) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT,
+                                  "I2C write-read deadline exhausted");
+  }
+  wire->setTimeOut(remainingMs);
+#endif
 
   size_t read = wire->requestFrom(addr, static_cast<uint8_t>(rxLen));
   if (read != rxLen) {

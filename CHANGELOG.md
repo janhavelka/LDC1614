@@ -31,6 +31,10 @@ No changes yet.
   recorded separately.
 - Distinguish normal address NACK from Arduino scan transport failures and stop
   the bounded diagnostic scan on timeout/bus error.
+- Share one timeout budget across the Arduino combined write/read phases instead
+  of allowing each phase to consume the full callback timeout.
+- Include untracked source files in flashed-firmware cleanliness metadata and
+  report Git status failures as unknown rather than clean.
 
 ### Changed
 
@@ -113,9 +117,9 @@ No changes yet.
 - Acquisition no longer discards the STATUS snapshot that can be destroyed by
   later DATA reads, nor publishes partial cache changes when a later phase
   fails or is cancelled.
-- Raw endpoint saturation, watchdog, amplitude, zero-count, data-loss, and
-  configuration-unknown conditions remain visible independently of transport
-  success.
+- Raw endpoint saturation, watchdog, amplitude, zero-count, and data-loss
+  conditions remain visible independently of transport success. Configuration
+  trust remains explicit through applied state and acquisition admission.
 - A transport failure that may have committed a write remains explicitly
   indeterminate and is never converted to success by a blind retry.
 

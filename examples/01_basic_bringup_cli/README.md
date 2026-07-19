@@ -10,6 +10,9 @@ first calls bus-silent `bind()`, schedules `startInitialize()`, then advances
 the active job by at most one I2C callback per `loop()` pass. Terminal results
 are consumed through `takeResult()` exactly once.
 
+The ESP32 Wire adapter treats its repeated-start address and read phases as one
+callback and gives the read only the timeout remaining after the address phase.
+
 Useful commands:
 
 - `init`, `apply`, `resetreapply`, `acquire [mask]`, `cancel`, `progress`;

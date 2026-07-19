@@ -21,3 +21,9 @@ This is not a production bus manager. The internal pull-up setting and example
 sensor profile are bring-up conveniences. No sensor, INTB, SD, address-strap,
 fault, timing, or soak behavior is claimed without captured evidence from the
 exact target hardware.
+
+The generated `build/` directory is ignored. Generated `sdkconfig` and
+`dependencies.lock` remain visible to Git because they affect the flashed
+binary. For release-acceptance HIL, commit the reviewed configuration and lock
+inputs before the final clean rebuild; leaving either untracked intentionally
+reports `firmware_status=dirty`.

@@ -202,8 +202,9 @@ For that reason acquisition always reads STATUS before DATA, preserves both
 STATUS snapshots, and reports detected overrun/data-loss evidence. DATAx is
 read MSB before LSB. Under-range zero and over-range `0x0FFFFFFF` are classified
 even when corresponding device reporting bits are disabled. Watchdog,
-amplitude, zero-count, stale, data-loss, and configuration-unknown conditions
-remain visible separately from transport success.
+amplitude, zero-count, stale, and data-loss conditions remain visible separately
+from transport success. Configuration trust is reported by `AppliedConfigState`;
+acquisition is rejected before I2C unless that state is `APPLIED_ACTIVE`.
 
 LDC multi-channel conversion is sequential. Atomic batch publication means the
 software result is committed together; it does not mean channels were sampled

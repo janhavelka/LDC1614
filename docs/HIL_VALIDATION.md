@@ -40,7 +40,9 @@ For a real run, `--operator` and `--board` are mandatory evidence. The runner
 requires the target `version` response to report a clean firmware Git revision,
 compares it with `--expected-firmware-commit` (or the host HEAD when omitted),
 and stores the host checkout identity separately. A host SHA is never treated
-as proof of the flashed image. Missing address, variant channel count, exact TI
+as proof of the flashed image. Firmware cleanliness includes tracked and
+untracked source-tree changes; a failed Git-status query reports `unknown` and
+cannot pass acceptance. Missing address, variant channel count, exact TI
 identity, or target build identity makes the run fail. `UNKNOWN` is also a
 nonzero verification exit, not a successful run.
 

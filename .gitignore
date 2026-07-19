@@ -13,6 +13,7 @@
 *.gcda
 *.gcno
 docs/doxygen/
+examples/esp_idf/basic/build/
 
 # Python (for scripts/)
 __pycache__/
