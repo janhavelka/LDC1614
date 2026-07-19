@@ -25,8 +25,9 @@ current public headers, implementation, fault tests, examples, maintained docs,
 CI, every applicable `AGENTS.md`, and current TunnelMonitor ownership contracts
 were re-read.
 
-Final v3 implementation revision: **FINAL_COMMIT_PENDING_AFTER_INTEGRATION**.
-Replace this marker with the exact reviewed commit before release/tagging.
+Final reviewed v3 implementation revision:
+**546c2b59eadd0dd660db6e1674414e7effb938ac**. The annotated release tag points
+to the subsequent audit-metadata-only commit.
 
 Primary chip behavior was checked against the bundled TI LDC1612/LDC1614
 datasheet, SNOSCY9A Revision A (March 2018), whose official URL, repository
