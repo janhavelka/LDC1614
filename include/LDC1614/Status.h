@@ -18,6 +18,8 @@ enum class Err : uint8_t {
   RESULT_QUEUE_FULL,
   DUPLICATE_OPERATION_ID,
   DEVICE_NOT_FOUND,
+  /// Reserved for v3.0 numeric/source compatibility; current readiness APIs
+  /// return a successful false snapshot or a precise precondition/I2C status.
   CONVERSION_NOT_READY,
   TIMEOUT,
   CANCELLED,

@@ -115,6 +115,8 @@ enum class SampleQualityFlag : uint16_t {
   AMPLITUDE_SUSPECT = 1U << 5,
   ZERO_COUNT = 1U << 6,
   DATA_LOST = 1U << 7,
+  /// Reserved for v3.0 source compatibility; never emitted. Configuration
+  /// trust is represented by AppliedConfigState and acquisition admission.
   CONFIG_UNKNOWN = 1U << 8,
 };
 
@@ -204,6 +206,7 @@ struct FrameTiming {
 /// are no hidden retries, waits, yields, bus recovery, logging, or allocation.
 /// Instances are neither thread-safe nor ISR-safe; the application must
 /// serialize access and retain ownership of bus scheduling and recovery.
+/// Injected transport and INTB callbacks must not re-enter the same instance.
 class LDC1614 {
  public:
   static constexpr uint8_t RESULT_CAPACITY = 2;
@@ -249,11 +252,13 @@ class LDC1614 {
   Status startAcquire(ChannelMask channels, OperationId operationId,
                       uint64_t deadlineMs);
 
-  /// Advance at most maxTransfers physical callbacks. nowMs is one owner clock
-  /// snapshot; time does not advance internally. maxTransfers==0 is bus-silent
-  /// but still applies deadline state. Callback timeouts share the remaining
-  /// deadline budget so their worst-case sum cannot exceed the remaining time
-  /// observed at this poll boundary.
+  /// Advance at most maxTransfers physical callbacks. nowMs is one snapshot of
+  /// the owner's monotonic, nondecreasing 64-bit millisecond timeline; owners
+  /// using a wrapping 32-bit clock must extend it before calling the driver.
+  /// Time does not advance internally. maxTransfers==0 is bus-silent but still
+  /// applies deadline state. Callback timeouts share the remaining deadline
+  /// budget so their worst-case sum cannot exceed the remaining time observed
+  /// at this poll boundary.
   Status poll(uint64_t nowMs, uint8_t maxTransfers = 1);
 
   /// Idempotent and bus-silent. An active job produces one CANCELLED result;
@@ -284,8 +289,10 @@ class LDC1614 {
   Status wake();
   Status readInitDriveCurrent(Channel channel, uint8_t& code);
 
-  // Advanced diagnostics. DATA/STATUS reads retain their documented
-  // destructive effects; configuration writes invalidate trusted applied state.
+  // Advanced diagnostics. Access is variant-aware; writes to read-only
+  // DATA/STATUS/identity registers are rejected. DATA/STATUS reads retain their
+  // documented destructive effects, and possible configuration writes
+  // invalidate trusted applied state.
   Status readRegister16(uint8_t reg, uint16_t& value);
   Status writeRegister16(uint8_t reg, uint16_t value);
   Status readIntb(bool& asserted) const;
@@ -326,9 +333,8 @@ class LDC1614 {
                           Channel channel, EffectFlags effects);
   Status _finishJob(TerminalOutcome outcome, const Status& status,
                     uint64_t completedUptimeMs);
-  void _commitAcquisition(uint64_t completedUptimeMs);
+  SampleBatch _buildAcquisition(uint64_t completedUptimeMs) const;
   void _clearActiveJob();
-  void _clearSampleCache();
   bool _operationIdInUse(OperationId operationId) const;
   bool _reserveResultSlot() const;
   uint8_t _configuredChannelCount() const;
@@ -351,9 +357,6 @@ class LDC1614 {
   DeviceStatus _scratchStatusAfter{};
   ChannelSample _scratchSamples[4]{};
   ChannelMask _scratchCompleted{};
-
-  SampleBatch _lastBatch{};
-  bool _hasLastBatch = false;
 
   OperationResult _results[RESULT_CAPACITY]{};
   uint8_t _resultHead = 0;

@@ -82,6 +82,9 @@ enum class RefClkSrc : uint8_t {
 };
 
 /// @brief Application-supplied reference-clock fact used for validation and calculations.
+/// External-clock tolerance must remain inside the datasheet input range. The
+/// internal-oscillator interval is conservatively clipped to its guaranteed
+/// datasheet range.
 struct ReferenceClock {
   RefClkSrc source = RefClkSrc::UNSPECIFIED;
   uint32_t frequencyHz = 0;

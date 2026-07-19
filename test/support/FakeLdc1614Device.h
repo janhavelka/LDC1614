@@ -175,15 +175,17 @@ struct FakeLdc1614Device {
     self->record(TransferKind::WRITE, address, targetReg, value, timeoutMs);
     self->writeCalls++;
 
+    if (address != self->acceptedAddress) {
+      self->runScheduledInjection();
+      return Status::Error(Err::I2C_NACK_ADDR, "unexpected fake address", address);
+    }
+
     const bool fail = self->failTransfer != 0U &&
                       self->transferCalls == self->failTransfer;
     if (!fail || self->commitWriteBeforeFailure) {
       self->applyWrite(targetReg, value);
     }
     self->runScheduledInjection();
-    if (address != self->acceptedAddress) {
-      return Status::Error(Err::I2C_NACK_ADDR, "unexpected fake address", address);
-    }
     return fail ? self->failStatus : Status::Ok();
   }
 
@@ -197,9 +199,17 @@ struct FakeLdc1614Device {
     }
 
     const uint8_t targetReg = txData[0];
-    const uint16_t value = self->readValue(targetReg);
-    self->record(TransferKind::READ, address, targetReg, value, timeoutMs);
+    self->record(TransferKind::READ, address, targetReg, 0U, timeoutMs);
     self->readCalls++;
+    if (address != self->acceptedAddress) {
+      self->runScheduledInjection();
+      return Status::Error(Err::I2C_NACK_ADDR, "unexpected fake address", address);
+    }
+
+    const uint16_t value = self->readValue(targetReg);
+    if (self->transferLogCount != 0U) {
+      self->transferLog[self->transferLogCount - 1U].value = value;
+    }
     const bool fail = self->failTransfer != 0U &&
                       self->transferCalls == self->failTransfer;
     if (!fail) {
@@ -208,9 +218,6 @@ struct FakeLdc1614Device {
       self->applyReadSideEffects(targetReg);
     }
     self->runScheduledInjection();
-    if (address != self->acceptedAddress) {
-      return Status::Error(Err::I2C_NACK_ADDR, "unexpected fake address", address);
-    }
     return fail ? self->failStatus : Status::Ok();
   }
 

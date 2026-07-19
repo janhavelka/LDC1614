@@ -22,6 +22,11 @@ constexpr Status FORCED_READ =
 constexpr Status FORCED_WRITE =
     Status::Error(Err::I2C_BUS, "forced full-detail write fault", -7654321);
 
+Status failingIntb(bool& asserted, void*) {
+  asserted = false;
+  return Status::Error(Err::I2C_ERROR, "forced INTB failure", -9001);
+}
+
 void assertCode(Err expected, const Status& actual) {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(expected),
                           static_cast<uint8_t>(actual.code));
@@ -95,6 +100,108 @@ uint8_t applyTransfers(DeviceVariant variant) {
 
 uint8_t resetTransfers(DeviceVariant variant) {
   return variant == DeviceVariant::LDC1612 ? 17U : 27U;
+}
+
+struct ExpectedStage {
+  JobPhase phase;
+  uint8_t reg;
+  Channel channel;
+};
+
+ExpectedStage configStage(DeviceVariant variant, uint8_t transfer) {
+  const uint8_t channelCount =
+      variant == DeviceVariant::LDC1612 ? 2U : 4U;
+  if (transfer == 1U) {
+    return {JobPhase::FORCE_SLEEP, cmd::REG_CONFIG, Channel::NONE};
+  }
+  const uint8_t fieldTransfer = static_cast<uint8_t>(transfer - 2U);
+  if (fieldTransfer < static_cast<uint8_t>(channelCount * 5U)) {
+    const uint8_t channel = static_cast<uint8_t>(fieldTransfer / 5U);
+    const uint8_t field = static_cast<uint8_t>(fieldTransfer % 5U);
+    const JobPhase phases[] = {
+        JobPhase::WRITE_RCOUNT, JobPhase::WRITE_SETTLECOUNT,
+        JobPhase::WRITE_CLOCK_DIVIDERS, JobPhase::WRITE_OFFSET,
+        JobPhase::WRITE_DRIVE_CURRENT};
+    const uint8_t registers[] = {
+        cmd::regRcount(channel), cmd::regSettleCount(channel),
+        cmd::regClockDividers(channel), cmd::regOffset(channel),
+        cmd::regDriveCurrent(channel)};
+    return {phases[field], registers[field], static_cast<Channel>(channel)};
+  }
+  const uint8_t global =
+      static_cast<uint8_t>(fieldTransfer - channelCount * 5U);
+  if (global == 0U) {
+    return {JobPhase::WRITE_ERROR_CONFIG, cmd::REG_ERROR_CONFIG, Channel::NONE};
+  }
+  if (global == 1U) {
+    return {JobPhase::WRITE_MUX_CONFIG, cmd::REG_MUX_CONFIG, Channel::NONE};
+  }
+  return {JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE};
+}
+
+ExpectedStage initializeStage(DeviceVariant variant, uint8_t transfer) {
+  if (transfer == 1U) {
+    return {JobPhase::VERIFY_MANUFACTURER, cmd::REG_MANUFACTURER_ID,
+            Channel::NONE};
+  }
+  if (transfer == 2U) {
+    return {JobPhase::VERIFY_DEVICE, cmd::REG_DEVICE_ID, Channel::NONE};
+  }
+  return configStage(variant, static_cast<uint8_t>(transfer - 2U));
+}
+
+ExpectedStage resetStage(DeviceVariant variant, uint8_t transfer) {
+  if (transfer == 1U) {
+    return {JobPhase::SOFTWARE_RESET, cmd::REG_RESET_DEV, Channel::NONE};
+  }
+  if (transfer == 2U) {
+    return {JobPhase::VERIFY_MANUFACTURER, cmd::REG_MANUFACTURER_ID,
+            Channel::NONE};
+  }
+  if (transfer == 3U) {
+    return {JobPhase::VERIFY_DEVICE, cmd::REG_DEVICE_ID, Channel::NONE};
+  }
+  return configStage(variant, static_cast<uint8_t>(transfer - 3U));
+}
+
+ExpectedStage acquireStage(ChannelMask channels, uint8_t transfer) {
+  if (transfer == 1U) {
+    return {JobPhase::READ_STATUS_BEFORE, cmd::REG_STATUS, Channel::NONE};
+  }
+  uint8_t remaining = static_cast<uint8_t>(transfer - 2U);
+  for (uint8_t channel = 0; channel < 4U; ++channel) {
+    if ((channels.bits & static_cast<uint8_t>(1U << channel)) == 0U) {
+      continue;
+    }
+    if (remaining == 0U) {
+      return {JobPhase::READ_DATA_MSB, cmd::regDataMsb(channel),
+              static_cast<Channel>(channel)};
+    }
+    if (remaining == 1U) {
+      return {JobPhase::READ_DATA_LSB, cmd::regDataLsb(channel),
+              static_cast<Channel>(channel)};
+    }
+    remaining = static_cast<uint8_t>(remaining - 2U);
+  }
+  return {JobPhase::READ_STATUS_AFTER, cmd::REG_STATUS, Channel::NONE};
+}
+
+void assertStage(const ExpectedStage& expected, const JobProgress& actual) {
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(expected.phase),
+                          static_cast<uint8_t>(actual.phase));
+  TEST_ASSERT_EQUAL_HEX8(expected.reg, actual.registerAddress);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(expected.channel),
+                          static_cast<uint8_t>(actual.channel));
+}
+
+void assertFaultStage(const ExpectedStage& expected,
+                      const ConfigFault& actual) {
+  TEST_ASSERT_TRUE(actual.valid);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(expected.phase),
+                          static_cast<uint8_t>(actual.phase));
+  TEST_ASSERT_EQUAL_HEX8(expected.reg, actual.registerAddress);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(expected.channel),
+                          static_cast<uint8_t>(actual.channel));
 }
 
 Status pollToTerminal(LDC1614::LDC1614& driver, uint64_t nowMs = NOW_MS,
@@ -258,7 +365,10 @@ void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
 
   for (uint8_t index = 0; index < 24U; ++index) {
     LDC1614::LDC1614 invalidDriver;
-    assertCode(Err::INVALID_CONFIG, invalidDriver.bind(cases[index]));
+    const Status invalidStatus = invalidDriver.bind(cases[index]);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(
+        static_cast<uint8_t>(Err::INVALID_CONFIG),
+        static_cast<uint8_t>(invalidStatus.code), "invalid config case index");
     TEST_ASSERT_FALSE(invalidDriver.isBound());
     TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, fake.transferCalls,
                                      "bind validation touched I2C");
@@ -273,7 +383,7 @@ void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
 
   Config worstCaseRatio = valid;
   worstCaseRatio.deglitch = Deglitch::BW_10MHZ;
-  worstCaseRatio.channel[0].expectedSensorMaxHz = 4300000U;
+  worstCaseRatio.channel[0].expectedSensorMaxHz = 4375000U;
   LDC1614::LDC1614 worstCaseRatioDriver;
   assertCode(Err::INVALID_CONFIG, worstCaseRatioDriver.bind(worstCaseRatio));
 
@@ -318,6 +428,146 @@ void test_initialize_exact_transfer_counts_and_zero_one_large_budgets() {
   }
 }
 
+struct ExpectedWrite {
+  uint8_t reg;
+  uint16_t value;
+};
+
+void assertConfigWrites(const FakeLdc1614Device& fake, uint8_t offset,
+                        const ExpectedWrite* expected, uint8_t count) {
+  for (uint8_t index = 0; index < count; ++index) {
+    const FakeLdc1614Device::Transfer& actual =
+        fake.transferLog[static_cast<uint8_t>(offset + index)];
+    TEST_ASSERT_EQUAL_UINT8(
+        static_cast<uint8_t>(FakeLdc1614Device::TransferKind::WRITE),
+        static_cast<uint8_t>(actual.kind));
+    TEST_ASSERT_EQUAL_HEX8(expected[index].reg, actual.reg);
+    TEST_ASSERT_EQUAL_HEX16(expected[index].value, actual.value);
+  }
+}
+
+void test_exact_register_replay_for_both_variants_and_all_replay_jobs() {
+  static constexpr ExpectedWrite LDC1612_WRITES[] = {
+      {cmd::REG_CONFIG, 0x3C81},
+      {cmd::REG_RCOUNT0, 0x0080}, {cmd::REG_SETTLECOUNT0, 0x0000},
+      {cmd::REG_CLOCK_DIVIDERS0, 0x1002}, {cmd::REG_OFFSET0, 0x0000},
+      {cmd::REG_DRIVE_CURRENT0, 0x8000},
+      {cmd::REG_RCOUNT1, 0x0080}, {cmd::REG_SETTLECOUNT1, 0x0000},
+      {cmd::REG_CLOCK_DIVIDERS1, 0x1002}, {cmd::REG_OFFSET1, 0x0000},
+      {cmd::REG_DRIVE_CURRENT1, 0x8000},
+      {cmd::REG_ERROR_CONFIG, 0xF8FD}, {cmd::REG_MUX_CONFIG, 0x0209},
+      {cmd::REG_CONFIG, 0x3C81},
+  };
+  {
+    FakeLdc1614Device fake;
+    LDC1614::LDC1614 driver;
+    Config config = makeConfig(fake, DeviceVariant::LDC1612);
+    TEST_ASSERT_TRUE(driver.bind(config).ok());
+    TEST_ASSERT_TRUE(driver.startInitialize(12001, DEADLINE_MS).inProgress());
+    TEST_ASSERT_TRUE(pollToTerminal(driver).ok());
+    (void)takeResult(driver);
+    TEST_ASSERT_EQUAL_UINT8(
+        static_cast<uint8_t>(FakeLdc1614Device::TransferKind::READ),
+        static_cast<uint8_t>(fake.transferLog[0].kind));
+    TEST_ASSERT_EQUAL_HEX8(cmd::REG_MANUFACTURER_ID,
+                           fake.transferLog[0].reg);
+    TEST_ASSERT_EQUAL_HEX16(cmd::MANUFACTURER_ID_VALUE,
+                            fake.transferLog[0].value);
+    TEST_ASSERT_EQUAL_HEX8(cmd::REG_DEVICE_ID, fake.transferLog[1].reg);
+    TEST_ASSERT_EQUAL_HEX16(cmd::DEVICE_ID_VALUE, fake.transferLog[1].value);
+    assertConfigWrites(fake, 2U, LDC1612_WRITES, 14U);
+  }
+
+  static constexpr ExpectedWrite LDC1614_WRITES[] = {
+      {cmd::REG_CONFIG, 0x2281},
+      {cmd::REG_RCOUNT0, 0x0100}, {cmd::REG_SETTLECOUNT0, 0x0020},
+      {cmd::REG_CLOCK_DIVIDERS0, 0x1008}, {cmd::REG_OFFSET0, 0x0001},
+      {cmd::REG_DRIVE_CURRENT0, 0x5000},
+      {cmd::REG_RCOUNT1, 0x0101}, {cmd::REG_SETTLECOUNT1, 0x0021},
+      {cmd::REG_CLOCK_DIVIDERS1, 0x2009}, {cmd::REG_OFFSET1, 0x0002},
+      {cmd::REG_DRIVE_CURRENT1, 0x5800},
+      {cmd::REG_RCOUNT2, 0x0102}, {cmd::REG_SETTLECOUNT2, 0x0022},
+      {cmd::REG_CLOCK_DIVIDERS2, 0x300A}, {cmd::REG_OFFSET2, 0x0003},
+      {cmd::REG_DRIVE_CURRENT2, 0x6000},
+      {cmd::REG_RCOUNT3, 0x0103}, {cmd::REG_SETTLECOUNT3, 0x0023},
+      {cmd::REG_CLOCK_DIVIDERS3, 0x400B}, {cmd::REG_OFFSET3, 0x0004},
+      {cmd::REG_DRIVE_CURRENT3, 0x6800},
+      {cmd::REG_ERROR_CONFIG, 0xF8FD}, {cmd::REG_MUX_CONFIG, 0xC20F},
+      {cmd::REG_CONFIG, 0x2281},
+  };
+  FakeLdc1614Device fake;
+  LDC1614::LDC1614 driver;
+  Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
+  config.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000000U, 0U};
+  config.deglitch = Deglitch::BW_33MHZ;
+  config.sensorActivation = SensorActivation::FULL_CURRENT;
+  config.rpOverrideEnabled = false;
+  config.autoAmplitudeCorrectionEnabled = true;
+  for (uint8_t channel = 0; channel < 4U; ++channel) {
+    config.channel[channel].rcount = static_cast<uint16_t>(0x0100U + channel);
+    config.channel[channel].settleCount = static_cast<uint16_t>(0x0020U + channel);
+    config.channel[channel].finDivider = static_cast<uint8_t>(channel + 1U);
+    config.channel[channel].frefDivider = static_cast<uint16_t>(8U + channel);
+    config.channel[channel].offset = static_cast<uint16_t>(channel + 1U);
+    config.channel[channel].driveCurrentCode =
+        DriveCurrentCode{static_cast<uint8_t>(10U + channel)};
+    config.channel[channel].expectedSensorMinHz = 100000U;
+    config.channel[channel].expectedSensorMaxHz = 300000U;
+  }
+  TEST_ASSERT_TRUE(driver.bind(config).ok());
+  TEST_ASSERT_TRUE(driver.startInitialize(12002, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(pollToTerminal(driver).ok());
+  (void)takeResult(driver);
+  assertConfigWrites(fake, 2U, LDC1614_WRITES, 24U);
+
+  fake.clearIo();
+  TEST_ASSERT_TRUE(driver.startApplyConfig(12003, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(pollToTerminal(driver).ok());
+  (void)takeResult(driver);
+  assertConfigWrites(fake, 0U, LDC1614_WRITES, 24U);
+
+  fake.clearIo();
+  TEST_ASSERT_TRUE(driver.startResetAndReapply(12004, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(pollToTerminal(driver).ok());
+  (void)takeResult(driver);
+  const ExpectedWrite reset = {cmd::REG_RESET_DEV, cmd::MASK_RESET_DEV};
+  assertConfigWrites(fake, 0U, &reset, 1U);
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_MANUFACTURER_ID, fake.transferLog[1].reg);
+  TEST_ASSERT_EQUAL_HEX8(cmd::REG_DEVICE_ID, fake.transferLog[2].reg);
+  assertConfigWrites(fake, 3U, LDC1614_WRITES, 24U);
+}
+
+void test_large_poll_budget_uses_actual_remaining_transfer_count() {
+  const DeviceVariant variants[] = {DeviceVariant::LDC1612,
+                                    DeviceVariant::LDC1614};
+  for (DeviceVariant variant : variants) {
+    FakeLdc1614Device fake;
+    LDC1614::LDC1614 driver;
+    Config config = makeConfig(fake, variant);
+    config.i2cTimeoutMs = 20U;
+    TEST_ASSERT_TRUE(driver.bind(config).ok());
+    TEST_ASSERT_TRUE(driver.startInitialize(12100U + initTransfers(variant),
+                                            2000U).inProgress());
+    TEST_ASSERT_TRUE(driver.poll(100U, 255U).ok());
+    TEST_ASSERT_EQUAL_UINT16(initTransfers(variant), fake.transferCalls);
+    for (uint8_t index = 0; index < initTransfers(variant); ++index) {
+      TEST_ASSERT_EQUAL_UINT32(20U, fake.transferLog[index].timeoutMs);
+    }
+    (void)takeResult(driver);
+  }
+
+  FakeLdc1614Device fake;
+  LDC1614::LDC1614 driver;
+  Config config = makeConfig(fake);
+  config.i2cTimeoutMs = 20U;
+  TEST_ASSERT_TRUE(driver.bind(config).ok());
+  TEST_ASSERT_TRUE(driver.startInitialize(12199, 2000U).inProgress());
+  TEST_ASSERT_TRUE(driver.poll(100U, 15U).inProgress());
+  TEST_ASSERT_TRUE(driver.poll(100U, 255U).ok());
+  TEST_ASSERT_EQUAL_UINT32(20U, fake.transferLog[15].timeoutMs);
+  (void)takeResult(driver);
+}
+
 void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
   const DeviceVariant variants[] = {DeviceVariant::LDC1612, DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
@@ -342,17 +592,14 @@ void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
                                result.finalProgress.operationId);
       TEST_ASSERT_EQUAL_UINT8(failed,
                               result.finalProgress.completedTransfers);
-      TEST_ASSERT_NOT_EQUAL_HEX8(0xFF,
-                                 result.finalProgress.registerAddress);
-      TEST_ASSERT_NOT_EQUAL_UINT8(
-          static_cast<uint8_t>(JobPhase::NONE),
-          static_cast<uint8_t>(result.finalProgress.phase));
+      const ExpectedStage failedStage = initializeStage(variant, failed);
+      assertStage(failedStage, result.finalProgress);
       TEST_ASSERT_EQUAL_INT32(failed <= 2U ? FORCED_READ.detail : FORCED_WRITE.detail,
                               result.status.detail);
       if (failed <= 2U) {
         TEST_ASSERT_FALSE(result.configFault.valid);
       } else {
-        TEST_ASSERT_TRUE(result.configFault.valid);
+        assertFaultStage(failedStage, result.configFault);
         TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::INDETERMINATE_WRITE));
         TEST_ASSERT_EQUAL_INT32(FORCED_WRITE.detail, result.configFault.cause.detail);
         TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
@@ -423,10 +670,9 @@ void test_initialize_cancel_is_bus_silent_at_every_phase() {
     TEST_ASSERT_FALSE(result.hasSampleBatch);
     if (completed > 2U) {
       TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::PARTIAL_WRITE));
-      TEST_ASSERT_TRUE(result.configFault.valid);
-      TEST_ASSERT_NOT_EQUAL_HEX8(0xFF, result.configFault.registerAddress);
-      TEST_ASSERT_NOT_EQUAL_UINT8(static_cast<uint8_t>(JobPhase::NONE),
-                                  static_cast<uint8_t>(result.configFault.phase));
+      assertFaultStage(configStage(DeviceVariant::LDC1614,
+                                   static_cast<uint8_t>(completed - 2U)),
+                       result.configFault);
       TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
                               static_cast<uint8_t>(driver.appliedConfigState()));
     }
@@ -499,6 +745,19 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
     OperationResult result = takeResult(driver);
     assertOutcome(TerminalOutcome::TIMED_OUT, result);
     TEST_ASSERT_FALSE(result.hasSampleBatch);
+    assertStage(initializeStage(DeviceVariant::LDC1614,
+                                static_cast<uint8_t>(completed + 1U)),
+                result.finalProgress);
+    if (completed > 2U) {
+      assertFaultStage(configStage(DeviceVariant::LDC1614,
+                                   static_cast<uint8_t>(completed - 2U)),
+                       result.configFault);
+      TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::PARTIAL_WRITE));
+      TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
+                              static_cast<uint8_t>(driver.appliedConfigState()));
+    } else {
+      TEST_ASSERT_FALSE(result.configFault.valid);
+    }
   }
 
   for (uint8_t completed = 0; completed < applyTransfers(DeviceVariant::LDC1614);
@@ -515,7 +774,18 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
     const uint16_t before = fake.transferCalls;
     assertCode(Err::TIMEOUT, driver.poll(200, 0));
     TEST_ASSERT_EQUAL_UINT16(before, fake.transferCalls);
-    assertOutcome(TerminalOutcome::TIMED_OUT, takeResult(driver));
+    OperationResult result = takeResult(driver);
+    assertOutcome(TerminalOutcome::TIMED_OUT, result);
+    assertStage(configStage(DeviceVariant::LDC1614,
+                            static_cast<uint8_t>(completed + 1U)),
+                result.finalProgress);
+    if (completed != 0U) {
+      assertFaultStage(configStage(DeviceVariant::LDC1614, completed),
+                       result.configFault);
+      TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::PARTIAL_WRITE));
+    } else {
+      TEST_ASSERT_FALSE(result.configFault.valid);
+    }
   }
 
   for (uint8_t completed = 0; completed < resetTransfers(DeviceVariant::LDC1614);
@@ -533,7 +803,22 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
     const uint16_t before = fake.transferCalls;
     assertCode(Err::TIMEOUT, driver.poll(200, 0));
     TEST_ASSERT_EQUAL_UINT16(before, fake.transferCalls);
-    assertOutcome(TerminalOutcome::TIMED_OUT, takeResult(driver));
+    OperationResult result = takeResult(driver);
+    assertOutcome(TerminalOutcome::TIMED_OUT, result);
+    assertStage(resetStage(DeviceVariant::LDC1614,
+                           static_cast<uint8_t>(completed + 1U)),
+                result.finalProgress);
+    if (completed != 0U) {
+      const ExpectedStage lastWrite = completed <= 3U
+                                          ? resetStage(DeviceVariant::LDC1614, 1U)
+                                          : configStage(
+                                                DeviceVariant::LDC1614,
+                                                static_cast<uint8_t>(completed - 3U));
+      assertFaultStage(lastWrite, result.configFault);
+      TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::PARTIAL_WRITE));
+    } else {
+      TEST_ASSERT_FALSE(result.configFault.valid);
+    }
   }
 
   for (uint8_t completed = 0; completed < 6U; ++completed) {
@@ -555,6 +840,14 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
     OperationResult result = takeResult(driver);
     assertOutcome(TerminalOutcome::TIMED_OUT, result);
     TEST_ASSERT_FALSE(result.hasSampleBatch);
+    assertStage(acquireStage(ChannelMask{0x03},
+                             static_cast<uint8_t>(completed + 1U)),
+                result.finalProgress);
+    TEST_ASSERT_EQUAL_UINT8(completed,
+                            result.finalProgress.completedTransfers);
+    TEST_ASSERT_EQUAL_UINT8(
+        completed == 0U ? 0U : effectFlag(EffectFlag::READ_SIDE_EFFECTS),
+        result.effects);
   }
 }
 
@@ -672,7 +965,9 @@ void test_apply_exact_counts_failure_cancel_and_ambiguous_write_provenance() {
                                        "apply retried or ran past failure");
       OperationResult result = takeResult(driver);
       assertOutcome(TerminalOutcome::FAILED, result);
-      TEST_ASSERT_TRUE(result.configFault.valid);
+      const ExpectedStage failedStage = configStage(variant, failed);
+      assertStage(failedStage, result.finalProgress);
+      assertFaultStage(failedStage, result.configFault);
       TEST_ASSERT_EQUAL_INT32(FORCED_WRITE.detail, result.configFault.cause.detail);
       TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::INDETERMINATE_WRITE));
       if (failed > 1U) {
@@ -699,10 +994,8 @@ void test_apply_exact_counts_failure_cancel_and_ambiguous_write_provenance() {
     assertOutcome(TerminalOutcome::CANCELLED, result);
     if (completed != 0U) {
       TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::PARTIAL_WRITE));
-      TEST_ASSERT_TRUE(result.configFault.valid);
-      TEST_ASSERT_NOT_EQUAL_HEX8(0xFF, result.configFault.registerAddress);
-      TEST_ASSERT_NOT_EQUAL_UINT8(static_cast<uint8_t>(JobPhase::NONE),
-                                  static_cast<uint8_t>(result.configFault.phase));
+      assertFaultStage(configStage(DeviceVariant::LDC1614, completed),
+                       result.configFault);
       TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
                               static_cast<uint8_t>(driver.appliedConfigState()));
     }
@@ -785,7 +1078,9 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
                                        "reset/reapply retried or ran past failure");
       OperationResult result = takeResult(driver);
       assertOutcome(TerminalOutcome::FAILED, result);
-      TEST_ASSERT_TRUE(result.configFault.valid);
+      const ExpectedStage failedStage = resetStage(variant, failed);
+      assertStage(failedStage, result.finalProgress);
+      assertFaultStage(failedStage, result.configFault);
       TEST_ASSERT_EQUAL_INT32(forced.detail, result.configFault.cause.detail);
       TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
                               static_cast<uint8_t>(driver.appliedConfigState()));
@@ -811,10 +1106,12 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
     assertOutcome(TerminalOutcome::CANCELLED, result);
     if (completed != 0U) {
       TEST_ASSERT_TRUE(hasEffect(result.effects, EffectFlag::PARTIAL_WRITE));
-      TEST_ASSERT_TRUE(result.configFault.valid);
-      TEST_ASSERT_NOT_EQUAL_HEX8(0xFF, result.configFault.registerAddress);
-      TEST_ASSERT_NOT_EQUAL_UINT8(static_cast<uint8_t>(JobPhase::NONE),
-                                  static_cast<uint8_t>(result.configFault.phase));
+      const ExpectedStage lastWrite = completed <= 3U
+                                          ? resetStage(DeviceVariant::LDC1614, 1U)
+                                          : configStage(
+                                                DeviceVariant::LDC1614,
+                                                static_cast<uint8_t>(completed - 3U));
+      assertFaultStage(lastWrite, result.configFault);
       TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
                               static_cast<uint8_t>(driver.appliedConfigState()));
     }
@@ -944,8 +1241,8 @@ void test_acquire_failure_at_every_phase_preserves_prior_complete_publication() 
     TEST_ASSERT_FALSE(failure.hasSampleBatch);
     TEST_ASSERT_EQUAL_UINT8(failed,
                             failure.finalProgress.completedTransfers);
-    TEST_ASSERT_NOT_EQUAL_HEX8(0xFF,
-                               failure.finalProgress.registerAddress);
+    assertStage(acquireStage(ChannelMask{0x03}, failed),
+                failure.finalProgress);
     TEST_ASSERT_EQUAL_INT32(FORCED_READ.detail, failure.status.detail);
     TEST_ASSERT_TRUE(hasEffect(failure.effects, EffectFlag::READ_SIDE_EFFECTS));
   }
@@ -979,6 +1276,80 @@ void test_acquire_cancel_every_phase_is_silent_atomic_and_restartable() {
     TEST_ASSERT_EQUAL_HEX32(0x00555555U,
                             replacement.sampleBatch.channel[0].rawCount28);
   }
+}
+
+void test_ldc1614_acquire_failure_cancel_deadline_and_fresh_stale_paths() {
+  for (uint8_t failed = 1U; failed <= 10U; ++failed) {
+    FakeLdc1614Device fake;
+    LDC1614::LDC1614 driver;
+    Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
+    initializeAndWake(driver, fake, config);
+    fake.clearIo();
+    for (uint8_t channel = 0; channel < 4U; ++channel) {
+      fake.injectConversion(channel, 0x00100000U + channel);
+    }
+    fake.failOnTransfer(failed, FORCED_READ);
+    TEST_ASSERT_TRUE(
+        driver.startAcquire(ChannelMask{0x0F}, 13000U + failed,
+                            DEADLINE_MS).inProgress());
+    assertCode(FORCED_READ.code, pollToTerminal(driver));
+    OperationResult result = takeResult(driver);
+    assertOutcome(TerminalOutcome::FAILED, result);
+    assertStage(acquireStage(ChannelMask{0x0F}, failed), result.finalProgress);
+    TEST_ASSERT_FALSE(result.hasSampleBatch);
+  }
+
+  for (uint8_t completed = 0U; completed < 10U; ++completed) {
+    FakeLdc1614Device fake;
+    LDC1614::LDC1614 driver;
+    Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
+    initializeAndWake(driver, fake, config);
+    fake.clearIo();
+    for (uint8_t channel = 0; channel < 4U; ++channel) {
+      fake.injectConversion(channel, 0x00200000U + channel);
+    }
+    TEST_ASSERT_TRUE(
+        driver.startAcquire(ChannelMask{0x0F}, 13100U + completed,
+                            200U).inProgress());
+    for (uint8_t step = 0U; step < completed; ++step) {
+      TEST_ASSERT_TRUE(driver.poll(100U, 1U).inProgress());
+    }
+    const uint16_t before = fake.transferCalls;
+    if ((completed & 1U) == 0U) {
+      TEST_ASSERT_TRUE(driver.cancelJob().ok());
+      TEST_ASSERT_EQUAL_UINT16(before, fake.transferCalls);
+      OperationResult result = takeResult(driver);
+      assertOutcome(TerminalOutcome::CANCELLED, result);
+      assertStage(acquireStage(ChannelMask{0x0F},
+                               static_cast<uint8_t>(completed + 1U)),
+                  result.finalProgress);
+    } else {
+      assertCode(Err::TIMEOUT, driver.poll(200U, 0U));
+      TEST_ASSERT_EQUAL_UINT16(before, fake.transferCalls);
+      OperationResult result = takeResult(driver);
+      assertOutcome(TerminalOutcome::TIMED_OUT, result);
+      assertStage(acquireStage(ChannelMask{0x0F},
+                               static_cast<uint8_t>(completed + 1U)),
+                  result.finalProgress);
+    }
+  }
+
+  FakeLdc1614Device fake;
+  LDC1614::LDC1614 driver;
+  Config config = makeConfig(fake);
+  initializeAndWake(driver, fake, config);
+  fake.injectConversion(0, 0x00555555U);
+  OperationResult fresh = acquire(driver, channelBit(Channel::CH0), 13200U);
+  TEST_ASSERT_TRUE(fresh.sampleBatch.freshChannels.contains(Channel::CH0));
+  TEST_ASSERT_TRUE(hasSampleQuality(fresh.sampleBatch.channel[0].quality,
+                                    SampleQualityFlag::FRESH));
+  TEST_ASSERT_FALSE(hasSampleQuality(fresh.sampleBatch.channel[0].quality,
+                                     SampleQualityFlag::STALE));
+  OperationResult stale = acquire(driver, channelBit(Channel::CH0), 13201U);
+  TEST_ASSERT_FALSE(stale.sampleBatch.freshChannels.contains(Channel::CH0));
+  TEST_ASSERT_FALSE(stale.sampleBatch.validChannels.contains(Channel::CH0));
+  TEST_ASSERT_TRUE(hasSampleQuality(stale.sampleBatch.channel[0].quality,
+                                    SampleQualityFlag::STALE));
 }
 
 void test_acquire_detects_conversion_overrun_without_breaking_shadow_coherency() {
@@ -1213,6 +1584,12 @@ void test_owner_safe_single_transfer_and_diagnostic_dirty_contracts() {
   intbConfig.intbUser = &intbFake;
   initializeAndWake(intbDriver, intbFake, intbConfig);
   intbFake.clearIo();
+  ready = true;
+  observed = DeviceStatus{};
+  TEST_ASSERT_TRUE(intbDriver.readDataReady(ready, observed).ok());
+  TEST_ASSERT_FALSE(ready);
+  TEST_ASSERT_FALSE(observed.observed);
+  TEST_ASSERT_EQUAL_UINT16(0, intbFake.transferCalls);
   intbFake.stickyStatusErrors = cmd::MASK_STATUS_ERR_ZC;
   intbFake.errorChannel = 0;
   intbFake.unreadMask = 0;
@@ -1226,6 +1603,158 @@ void test_owner_safe_single_transfer_and_diagnostic_dirty_contracts() {
                           static_cast<uint8_t>(observed.errorChannel));
   TEST_ASSERT_EQUAL_UINT16(1, intbFake.transferCalls);
   TEST_ASSERT_EQUAL_HEX16(0, intbFake.stickyStatusErrors);
+}
+
+void test_single_transfer_boundaries_confirmed_nack_and_lifecycle_cleanup() {
+  FakeLdc1614Device fake;
+  LDC1614::LDC1614 driver;
+  Config config = makeConfig(fake);
+  TEST_ASSERT_TRUE(driver.bind(config).ok());
+
+  bool ready = true;
+  DeviceStatus observed;
+  assertCode(Err::CONFIG_DIRTY, driver.readDataReady(ready, observed));
+  TEST_ASSERT_FALSE(ready);
+  TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
+
+  TEST_ASSERT_TRUE(driver.startInitialize(14000U, DEADLINE_MS).inProgress());
+  assertCode(Err::BUSY, driver.readDataReady(ready, observed));
+  TEST_ASSERT_TRUE(driver.poll(NOW_MS, 3U).inProgress());
+  const uint16_t beforeEnd = fake.transferCalls;
+  driver.end();
+  TEST_ASSERT_EQUAL_UINT16(beforeEnd, fake.transferCalls);
+  TEST_ASSERT_FALSE(driver.isBound());
+  TEST_ASSERT_FALSE(driver.resultAvailable());
+
+  fake.clearIo();
+  TEST_ASSERT_TRUE(driver.bind(config).ok());
+  TEST_ASSERT_TRUE(driver.startInitialize(14001U, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(driver.poll(NOW_MS, 3U).inProgress());
+  const uint16_t beforeInvalidate = fake.transferCalls;
+  driver.invalidateAppliedState(
+      Status::Error(Err::I2C_BUS, "owner recovery", -14001));
+  TEST_ASSERT_EQUAL_UINT16(beforeInvalidate, fake.transferCalls);
+  OperationResult cancelled = takeResult(driver);
+  assertOutcome(TerminalOutcome::CANCELLED, cancelled);
+  assertCode(Err::CONFIG_DIRTY,
+             driver.startAcquire(channelBit(Channel::CH0), 14002U,
+                                 DEADLINE_MS));
+
+  driver.end();
+  fake.clearIo();
+  TEST_ASSERT_TRUE(driver.bind(config).ok());
+  TEST_ASSERT_TRUE(driver.startInitialize(14003U, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(pollToTerminal(driver).ok());
+  (void)takeResult(driver);
+  TEST_ASSERT_TRUE(driver.sleep().ok());
+  TEST_ASSERT_EQUAL_UINT16(initTransfers(DeviceVariant::LDC1612),
+                           fake.transferCalls);
+  TEST_ASSERT_TRUE(driver.wake().ok());
+  TEST_ASSERT_EQUAL_UINT16(initTransfers(DeviceVariant::LDC1612) + 1U,
+                           fake.transferCalls);
+  fake.injectConversion(0, 0x00123456U);
+  ready = false;
+  observed = DeviceStatus{};
+  TEST_ASSERT_TRUE(driver.readDataReady(ready, observed).ok());
+  TEST_ASSERT_TRUE(ready);
+  TEST_ASSERT_TRUE(observed.observed);
+  TEST_ASSERT_EQUAL_UINT16(initTransfers(DeviceVariant::LDC1612) + 2U,
+                           fake.transferCalls);
+  TEST_ASSERT_TRUE(driver.wake().ok());
+  TEST_ASSERT_TRUE(driver.sleep().ok());
+  TEST_ASSERT_EQUAL_UINT16(initTransfers(DeviceVariant::LDC1612) + 3U,
+                           fake.transferCalls);
+  TEST_ASSERT_TRUE(driver.sleep().ok());
+
+  fake.reg[cmd::REG_DRIVE_CURRENT1] =
+      static_cast<uint16_t>(0x1BU << cmd::BIT_INIT_IDRIVE);
+  uint8_t initDrive = 0xFFU;
+  TEST_ASSERT_TRUE(driver.readInitDriveCurrent(Channel::CH1, initDrive).ok());
+  TEST_ASSERT_EQUAL_UINT8(0x1BU, initDrive);
+  const uint16_t beforeInvalidChannel = fake.transferCalls;
+  assertCode(Err::INVALID_PARAM,
+             driver.readInitDriveCurrent(Channel::CH2, initDrive));
+  TEST_ASSERT_EQUAL_UINT8(0U, initDrive);
+  TEST_ASSERT_EQUAL_UINT16(beforeInvalidChannel, fake.transferCalls);
+
+  uint16_t raw = 0xFFFFU;
+  assertCode(Err::INVALID_PARAM,
+             driver.readRegister16(cmd::REG_DATA2_MSB, raw));
+  TEST_ASSERT_EQUAL_UINT16(0U, raw);
+  assertCode(Err::INVALID_PARAM,
+             driver.writeRegister16(cmd::REG_STATUS, 0U));
+  assertCode(Err::INVALID_PARAM,
+             driver.writeRegister16(cmd::REG_MANUFACTURER_ID, 0U));
+  TEST_ASSERT_EQUAL_UINT16(beforeInvalidChannel, fake.transferCalls);
+
+  fake.clearIo();
+  fake.failOnTransfer(1U, FORCED_READ);
+  raw = 0xFFFFU;
+  const Status rawReadFailure = driver.readRegister16(cmd::REG_RCOUNT0, raw);
+  assertCode(FORCED_READ.code, rawReadFailure);
+  TEST_ASSERT_EQUAL_INT32(FORCED_READ.detail, rawReadFailure.detail);
+  TEST_ASSERT_EQUAL_UINT16(0U, raw);
+  TEST_ASSERT_EQUAL_UINT16(1U, fake.transferCalls);
+
+  fake.acceptedAddress = 0x2BU;
+  const uint16_t priorConfig = fake.reg[cmd::REG_CONFIG];
+  TEST_ASSERT_TRUE(driver.startApplyConfig(14004U, DEADLINE_MS).inProgress());
+  assertCode(Err::I2C_NACK_ADDR, pollToTerminal(driver));
+  OperationResult applyNack = takeResult(driver);
+  assertOutcome(TerminalOutcome::FAILED, applyNack);
+  TEST_ASSERT_EQUAL_UINT8(0U, applyNack.effects);
+  TEST_ASSERT_FALSE(applyNack.configFault.valid);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::APPLIED_SLEEPING),
+                          static_cast<uint8_t>(driver.appliedConfigState()));
+  assertCode(Err::I2C_NACK_ADDR, driver.wake());
+  TEST_ASSERT_EQUAL_HEX16(priorConfig, fake.reg[cmd::REG_CONFIG]);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::APPLIED_SLEEPING),
+                          static_cast<uint8_t>(driver.appliedConfigState()));
+  TEST_ASSERT_FALSE(driver.configFault().valid);
+
+  fake.acceptedAddress = 0x2AU;
+  fake.clearIo();
+  fake.failOnTransfer(1U, FORCED_WRITE, true);
+  assertCode(FORCED_WRITE.code, driver.wake());
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
+                          static_cast<uint8_t>(driver.appliedConfigState()));
+  TEST_ASSERT_TRUE(hasEffect(driver.configFault().effects,
+                             EffectFlag::INDETERMINATE_WRITE));
+
+  FakeLdc1614Device partialNackFake;
+  LDC1614::LDC1614 partialNackDriver;
+  Config partialNackConfig = makeConfig(partialNackFake);
+  initialize(partialNackDriver, partialNackFake, partialNackConfig);
+  partialNackFake.clearIo();
+  partialNackFake.failOnTransfer(
+      2U, Status::Error(Err::I2C_NACK_ADDR, "forced address NACK", 0x2A));
+  TEST_ASSERT_TRUE(
+      partialNackDriver.startApplyConfig(14005U, DEADLINE_MS).inProgress());
+  assertCode(Err::I2C_NACK_ADDR, pollToTerminal(partialNackDriver));
+  OperationResult partialNack = takeResult(partialNackDriver);
+  TEST_ASSERT_TRUE(hasEffect(partialNack.effects, EffectFlag::PARTIAL_WRITE));
+  TEST_ASSERT_FALSE(
+      hasEffect(partialNack.effects, EffectFlag::INDETERMINATE_WRITE));
+  assertFaultStage(configStage(DeviceVariant::LDC1612, 2U),
+                   partialNack.configFault);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AppliedConfigState::DIRTY),
+                          static_cast<uint8_t>(
+                              partialNackDriver.appliedConfigState()));
+
+  FakeLdc1614Device gpioFake;
+  LDC1614::LDC1614 gpioDriver;
+  Config gpioConfig = makeConfig(gpioFake);
+  gpioConfig.intbDisabled = false;
+  gpioConfig.intbAsserted = failingIntb;
+  initializeAndWake(gpioDriver, gpioFake, gpioConfig);
+  gpioFake.clearIo();
+  ready = true;
+  observed = DeviceStatus{};
+  const Status gpioFailure = gpioDriver.readDataReady(ready, observed);
+  assertCode(Err::I2C_ERROR, gpioFailure);
+  TEST_ASSERT_EQUAL_INT32(-9001, gpioFailure.detail);
+  TEST_ASSERT_FALSE(ready);
+  TEST_ASSERT_EQUAL_UINT16(0U, gpioFake.transferCalls);
 }
 
 void test_transport_stats_are_diagnostic_only_and_failures_never_suppress_requests() {
@@ -1252,6 +1781,33 @@ void test_transport_stats_are_diagnostic_only_and_failures_never_suppress_reques
 void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   const uint16_t allMask = LDC1614::LDC1614::encodeErrorReporting(ErrorReporting::all());
   TEST_ASSERT_EQUAL_HEX16(cmd::MASK_ERRCFG_ALLOWED, allMask);
+  const uint16_t individualMasks[] = {
+      cmd::MASK_ERRCFG_UR_ERR2OUT, cmd::MASK_ERRCFG_OR_ERR2OUT,
+      cmd::MASK_ERRCFG_WD_ERR2OUT, cmd::MASK_ERRCFG_AH_ERR2OUT,
+      cmd::MASK_ERRCFG_AL_ERR2OUT, cmd::MASK_ERRCFG_UR_ERR2INT,
+      cmd::MASK_ERRCFG_OR_ERR2INT, cmd::MASK_ERRCFG_WD_ERR2INT,
+      cmd::MASK_ERRCFG_AH_ERR2INT, cmd::MASK_ERRCFG_AL_ERR2INT,
+      cmd::MASK_ERRCFG_ZC_ERR2INT, cmd::MASK_ERRCFG_DRDY_2INT};
+  for (uint8_t index = 0; index < 12U; ++index) {
+    ErrorReporting reporting{};
+    switch (index) {
+      case 0: reporting.dataUnderRange = true; break;
+      case 1: reporting.dataOverRange = true; break;
+      case 2: reporting.dataWatchdog = true; break;
+      case 3: reporting.dataAmplitudeHigh = true; break;
+      case 4: reporting.dataAmplitudeLow = true; break;
+      case 5: reporting.statusUnderRange = true; break;
+      case 6: reporting.statusOverRange = true; break;
+      case 7: reporting.statusWatchdog = true; break;
+      case 8: reporting.statusAmplitudeHigh = true; break;
+      case 9: reporting.statusAmplitudeLow = true; break;
+      case 10: reporting.statusZeroCount = true; break;
+      default: reporting.dataReady = true; break;
+    }
+    TEST_ASSERT_EQUAL_HEX16(
+        individualMasks[index],
+        LDC1614::LDC1614::encodeErrorReporting(reporting));
+  }
 
   uint16_t nominalMicroamps = 0;
   TEST_ASSERT_TRUE(LDC1614::LDC1614::nominalDriveCurrentMicroamps(
@@ -1292,6 +1848,29 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
       config, Channel::CH0, 0x08000001U, nextFrequency).ok());
   TEST_ASSERT_TRUE(nextFrequency > frequency);
+
+  double endpointFrequency = -1.0;
+  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+      config, Channel::CH0, 0U, endpointFrequency).ok());
+  TEST_ASSERT_TRUE(endpointFrequency == 0.0);
+  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+      config, Channel::CH0, 0x0FFFFFFFU, endpointFrequency).ok());
+  TEST_ASSERT_TRUE(endpointFrequency > 21499999.0 &&
+                   endpointFrequency < 21500001.0);
+  endpointFrequency = 123.0;
+  assertCode(Err::INVALID_PARAM,
+             LDC1614::LDC1614::calculateSensorFrequencyHz(
+                 config, Channel::CH0, 0x10000000U, endpointFrequency));
+  TEST_ASSERT_TRUE(endpointFrequency == 0.0);
+
+  Config finDividerConfig = config;
+  finDividerConfig.channel[0].finDivider = 2U;
+  double dividedInputFrequency = 0.0;
+  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+      finDividerConfig, Channel::CH0, 0x04000000U,
+      dividedInputFrequency).ok());
+  TEST_ASSERT_TRUE(dividedInputFrequency >= 10749999.999 &&
+                   dividedInputFrequency <= 10750000.001);
 
   Config offsetConfig = config;
   offsetConfig.channel[0].offset = 1;
@@ -1351,6 +1930,87 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   TEST_ASSERT_TRUE(conservative.sequentialFrameUs >= one.sequentialFrameUs);
 }
 
+void test_clock_offset_mode_and_config_encoding_boundaries() {
+  FakeLdc1614Device fake;
+  Config external = makeConfig(fake);
+  external.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 40000000U, 1U};
+  LDC1614::LDC1614 externalHigh;
+  assertCode(Err::INVALID_CONFIG, externalHigh.bind(external));
+  external.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 2000000U, 1U};
+  LDC1614::LDC1614 externalLow;
+  assertCode(Err::INVALID_CONFIG, externalLow.bind(external));
+
+  Config offset = makeConfig(fake);
+  offset.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000000U, 0U};
+  offset.channel[0].expectedSensorMinHz = 156250U;
+  offset.channel[0].offset = 1023U;
+  LDC1614::LDC1614 below;
+  TEST_ASSERT_TRUE(below.bind(offset).ok());
+  offset.channel[0].offset = 1024U;
+  LDC1614::LDC1614 equal;
+  assertCode(Err::INVALID_CONFIG, equal.bind(offset));
+  offset.channel[0].offset = 1025U;
+  LDC1614::LDC1614 above;
+  assertCode(Err::INVALID_CONFIG, above.bind(offset));
+
+  for (uint8_t active = 0U; active < 4U; ++active) {
+    FakeLdc1614Device modeFake;
+    LDC1614::LDC1614 modeDriver;
+    Config mode = makeConfig(modeFake, DeviceVariant::LDC1614);
+    mode.channels = channelBit(static_cast<Channel>(active));
+    mode.activeChannel = static_cast<Channel>(active);
+    TEST_ASSERT_TRUE(modeDriver.bind(mode).ok());
+    TEST_ASSERT_TRUE(
+        modeDriver.startInitialize(15000U + active, DEADLINE_MS).inProgress());
+    TEST_ASSERT_TRUE(pollToTerminal(modeDriver).ok());
+    (void)takeResult(modeDriver);
+    const uint16_t expected = static_cast<uint16_t>(
+        0x3C81U | (static_cast<uint16_t>(active) <<
+                   cmd::BIT_CFG_ACTIVE_CHAN));
+    TEST_ASSERT_EQUAL_HEX16(expected, modeFake.reg[cmd::REG_CONFIG]);
+  }
+
+  FakeLdc1614Device highCurrentFake;
+  LDC1614::LDC1614 highCurrentDriver;
+  Config highCurrent = makeConfig(highCurrentFake, DeviceVariant::LDC1614);
+  highCurrent.highCurrentDriveEnabled = true;
+  TEST_ASSERT_TRUE(highCurrentDriver.bind(highCurrent).ok());
+  TEST_ASSERT_TRUE(
+      highCurrentDriver.startInitialize(15010U, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(pollToTerminal(highCurrentDriver).ok());
+  (void)takeResult(highCurrentDriver);
+  TEST_ASSERT_TRUE((highCurrentFake.reg[cmd::REG_CONFIG] &
+                    cmd::MASK_CFG_HIGH_CURRENT_DRV) != 0U);
+
+  FakeLdc1614Device threeFake;
+  LDC1614::LDC1614 threeDriver;
+  Config three = makeConfig(threeFake, DeviceVariant::LDC1614, true);
+  three.channels = ChannelMask{0x07};
+  three.rrSequence = RRSequence::CH0_CH1_CH2;
+  TEST_ASSERT_TRUE(threeDriver.bind(three).ok());
+  TEST_ASSERT_TRUE(threeDriver.startInitialize(15011U, DEADLINE_MS).inProgress());
+  TEST_ASSERT_TRUE(pollToTerminal(threeDriver).ok());
+  (void)takeResult(threeDriver);
+  TEST_ASSERT_EQUAL_HEX16(0xA209U, threeFake.reg[cmd::REG_MUX_CONFIG]);
+
+  const Deglitch deglitches[] = {Deglitch::BW_1MHZ, Deglitch::BW_3MHZ,
+                                 Deglitch::BW_10MHZ, Deglitch::BW_33MHZ};
+  const uint16_t encodings[] = {0x0209U, 0x020CU, 0x020DU, 0x020FU};
+  for (uint8_t index = 0; index < 4U; ++index) {
+    FakeLdc1614Device deglitchFake;
+    LDC1614::LDC1614 deglitchDriver;
+    Config deglitch = makeConfig(deglitchFake);
+    deglitch.deglitch = deglitches[index];
+    TEST_ASSERT_TRUE(deglitchDriver.bind(deglitch).ok());
+    TEST_ASSERT_TRUE(deglitchDriver.startInitialize(15020U + index,
+                                                    DEADLINE_MS).inProgress());
+    TEST_ASSERT_TRUE(pollToTerminal(deglitchDriver).ok());
+    (void)takeResult(deglitchDriver);
+    TEST_ASSERT_EQUAL_HEX16(encodings[index],
+                            deglitchFake.reg[cmd::REG_MUX_CONFIG]);
+  }
+}
+
 }  // namespace
 
 void setUp() {}
@@ -1362,6 +2022,8 @@ int main() {
   RUN_TEST(test_behavioral_fake_models_shadow_status_unread_and_intb);
   RUN_TEST(test_bind_is_zero_i2c_and_validates_complete_explicit_profile);
   RUN_TEST(test_initialize_exact_transfer_counts_and_zero_one_large_budgets);
+  RUN_TEST(test_exact_register_replay_for_both_variants_and_all_replay_jobs);
+  RUN_TEST(test_large_poll_budget_uses_actual_remaining_transfer_count);
   RUN_TEST(test_initialize_fails_once_at_every_transfer_with_full_provenance);
   RUN_TEST(test_initialize_cancel_is_bus_silent_at_every_phase);
   RUN_TEST(test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout);
@@ -1375,12 +2037,15 @@ int main() {
   RUN_TEST(test_acquire_exact_budget_order_status_evidence_and_each_error_channel);
   RUN_TEST(test_acquire_failure_at_every_phase_preserves_prior_complete_publication);
   RUN_TEST(test_acquire_cancel_every_phase_is_silent_atomic_and_restartable);
+  RUN_TEST(test_ldc1614_acquire_failure_cancel_deadline_and_fresh_stale_paths);
   RUN_TEST(test_acquire_detects_conversion_overrun_without_breaking_shadow_coherency);
   RUN_TEST(test_sample_quality_endpoints_watchdog_amplitude_and_status_zero_count);
   RUN_TEST(test_dirty_unknown_invalidation_rejects_acquire_and_matching_return_replays_all);
   RUN_TEST(test_update_rebind_end_and_repeated_lifecycle_are_zero_i2c_and_revisioned);
   RUN_TEST(test_owner_safe_single_transfer_and_diagnostic_dirty_contracts);
+  RUN_TEST(test_single_transfer_boundaries_confirmed_nack_and_lifecycle_cleanup);
   RUN_TEST(test_transport_stats_are_diagnostic_only_and_failures_never_suppress_requests);
   RUN_TEST(test_pure_error_status_frequency_and_timing_helpers_cover_boundaries);
+  RUN_TEST(test_clock_offset_mode_and_config_encoding_boundaries);
   return UNITY_END();
 }

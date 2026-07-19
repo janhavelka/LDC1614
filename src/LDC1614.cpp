@@ -123,6 +123,21 @@ bool isConfigurationRegister(uint8_t reg) {
          (reg >= cmd::REG_DRIVE_CURRENT0 && reg <= cmd::REG_DRIVE_CURRENT3);
 }
 
+bool isLdc1614OnlyRegister(uint8_t reg) {
+  return (reg >= cmd::REG_DATA2_MSB && reg <= cmd::REG_DATA3_LSB) ||
+         (reg >= cmd::REG_RCOUNT2 && reg <= cmd::REG_RCOUNT3) ||
+         (reg >= cmd::REG_OFFSET2 && reg <= cmd::REG_OFFSET3) ||
+         (reg >= cmd::REG_SETTLECOUNT2 && reg <= cmd::REG_SETTLECOUNT3) ||
+         (reg >= cmd::REG_CLOCK_DIVIDERS2 &&
+          reg <= cmd::REG_CLOCK_DIVIDERS3) ||
+         (reg >= cmd::REG_DRIVE_CURRENT2 &&
+          reg <= cmd::REG_DRIVE_CURRENT3);
+}
+
+bool writeFailureMayHaveCommitted(const Status& status) {
+  return status.code != Err::I2C_NACK_ADDR;
+}
+
 JobPhase configurationPhaseForRegister(uint8_t reg) {
   if (reg >= cmd::REG_RCOUNT0 && reg <= cmd::REG_RCOUNT3) {
     return JobPhase::WRITE_RCOUNT;
@@ -165,10 +180,6 @@ Channel configurationChannelForRegister(uint8_t reg) {
     return static_cast<Channel>(reg - cmd::REG_DRIVE_CURRENT0);
   }
   return Channel::NONE;
-}
-
-bool readHasDocumentedSideEffects(uint8_t reg) {
-  return reg <= cmd::REG_DATA3_LSB || reg == cmd::REG_STATUS;
 }
 
 uint16_t buildConfigRegister(const Config& config, bool sleeping) {
@@ -331,7 +342,6 @@ Status LDC1614::bind(const Config& config) {
   _configFault = ConfigFault{};
   _transportStats = TransportStats{};
   _clearActiveJob();
-  _clearSampleCache();
   _resultHead = 0;
   _resultCount = 0;
   for (uint8_t index = 0; index < RESULT_CAPACITY; ++index) {
@@ -348,7 +358,6 @@ void LDC1614::end() {
   _configFault = ConfigFault{};
   _transportStats = TransportStats{};
   _clearActiveJob();
-  _clearSampleCache();
   _resultHead = 0;
   _resultCount = 0;
   for (uint8_t index = 0; index < RESULT_CAPACITY; ++index) {
@@ -389,7 +398,6 @@ Status LDC1614::updateDesiredConfig(const Config& config) {
   if (_appliedState != AppliedConfigState::UNKNOWN) {
     _appliedState = AppliedConfigState::DIRTY;
   }
-  _clearSampleCache();
   return Status::Ok();
 }
 
@@ -518,7 +526,11 @@ Status LDC1614::poll(uint64_t nowMs, uint8_t maxTransfers) {
   }
 
   const uint64_t deadlineBudgetMs = _progress.deadlineMs - nowMs;
-  uint8_t remaining = maxTransfers;
+  const uint8_t jobTransfersRemaining = static_cast<uint8_t>(
+      _progress.maximumTransfers - _progress.completedTransfers);
+  uint8_t remaining = maxTransfers < jobTransfersRemaining
+                          ? maxTransfers
+                          : jobTransfersRemaining;
   if (deadlineBudgetMs < remaining) {
     remaining = static_cast<uint8_t>(deadlineBudgetMs);
   }
@@ -575,7 +587,6 @@ void LDC1614::invalidateAppliedState(const Status& reason) {
     (void)cancelJob();
   }
   _appliedState = AppliedConfigState::UNKNOWN;
-  _clearSampleCache();
   _configFault = ConfigFault{};
   _configFault.valid = true;
   _configFault.cause =
@@ -606,11 +617,16 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        _progress.effects |= effectFlag(EffectFlag::INDETERMINATE_WRITE);
-        _appliedState = AppliedConfigState::DIRTY;
-        _recordConfigFault(status, JobPhase::SOFTWARE_RESET,
-                           cmd::REG_RESET_DEV, Channel::NONE,
-                           _progress.effects);
+        if (writeFailureMayHaveCommitted(status)) {
+          _progress.effects |= effectFlag(EffectFlag::INDETERMINATE_WRITE);
+        }
+        if (writeFailureMayHaveCommitted(status) ||
+            hasEffect(_progress.effects, EffectFlag::PARTIAL_WRITE)) {
+          _appliedState = AppliedConfigState::DIRTY;
+          _recordConfigFault(status, JobPhase::SOFTWARE_RESET,
+                             cmd::REG_RESET_DEV, Channel::NONE,
+                             _progress.effects);
+        }
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _progress.effects |= effectFlag(EffectFlag::PARTIAL_WRITE);
@@ -649,7 +665,6 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
         status = Status::Error(Err::DEVICE_NOT_FOUND,
                                "Wrong MANUFACTURER_ID", value);
         _appliedState = AppliedConfigState::UNKNOWN;
-        _clearSampleCache();
         _recordConfigFault(status, JobPhase::VERIFY_MANUFACTURER,
                            cmd::REG_MANUFACTURER_ID, Channel::NONE,
                            _progress.effects);
@@ -686,7 +701,6 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
         status =
             Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID", value);
         _appliedState = AppliedConfigState::UNKNOWN;
-        _clearSampleCache();
         _recordConfigFault(status, JobPhase::VERIFY_DEVICE,
                            cmd::REG_DEVICE_ID, Channel::NONE,
                            _progress.effects);
@@ -704,7 +718,6 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
     if (!write.valid) {
       _appliedState = AppliedConfigState::APPLIED_SLEEPING;
       _configFault = ConfigFault{};
-      _clearSampleCache();
       _progress.effects = 0;
       return _finishJob(TerminalOutcome::SUCCESS, Status::Ok(), nowMs);
     }
@@ -712,15 +725,19 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
     _progress.phase = write.phase;
     _progress.registerAddress = write.reg;
     _progress.channel = write.channel;
-    _jobChannel = write.channel;
     Status status = _writeRegister(write.reg, write.value, transferTimeoutMs);
     --remainingTransfers;
     ++_progress.completedTransfers;
     if (!status.ok()) {
-      _progress.effects |= effectFlag(EffectFlag::INDETERMINATE_WRITE);
-      _appliedState = AppliedConfigState::DIRTY;
-      _recordConfigFault(status, write.phase, write.reg, write.channel,
-                         _progress.effects);
+      if (writeFailureMayHaveCommitted(status)) {
+        _progress.effects |= effectFlag(EffectFlag::INDETERMINATE_WRITE);
+      }
+      if (writeFailureMayHaveCommitted(status) ||
+          hasEffect(_progress.effects, EffectFlag::PARTIAL_WRITE)) {
+        _appliedState = AppliedConfigState::DIRTY;
+        _recordConfigFault(status, write.phase, write.reg, write.channel,
+                           _progress.effects);
+      }
       return _finishJob(outcomeForFailure(status), status, nowMs);
     }
     _progress.effects |= effectFlag(EffectFlag::PARTIAL_WRITE);
@@ -733,7 +750,6 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
         configurationTransferCount(_configuredChannelCount())) {
       _appliedState = AppliedConfigState::APPLIED_SLEEPING;
       _configFault = ConfigFault{};
-      _clearSampleCache();
       _progress.effects = 0;
       return _finishJob(TerminalOutcome::SUCCESS, Status::Ok(), nowMs);
     }
@@ -834,7 +850,6 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _scratchStatusAfter = decodeDeviceStatus(raw);
-      _commitAcquisition(nowMs);
       return _finishJob(TerminalOutcome::SUCCESS, Status::Ok(), nowMs);
     }
 
@@ -859,11 +874,9 @@ Status LDC1614::_finishJob(TerminalOutcome outcome, const Status& status,
   result.completedUptimeMs = completedUptimeMs;
   result.finalProgress = _progress;
   result.finalProgress.active = false;
-  if (kind == JobKind::ACQUIRE && outcome == TerminalOutcome::SUCCESS &&
-      _hasLastBatch) {
+  if (kind == JobKind::ACQUIRE && outcome == TerminalOutcome::SUCCESS) {
     result.hasSampleBatch = true;
-    result.sampleBatch = _lastBatch;
-    result.sampleBatch.completedUptimeMs = completedUptimeMs;
+    result.sampleBatch = _buildAcquisition(completedUptimeMs);
   }
 
   const uint8_t tail =
@@ -876,7 +889,7 @@ Status LDC1614::_finishJob(TerminalOutcome outcome, const Status& status,
   return outcome == TerminalOutcome::SUCCESS ? Status::Ok() : status;
 }
 
-void LDC1614::_commitAcquisition(uint64_t completedUptimeMs) {
+SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
   SampleBatch batch{};
   batch.selectedChannels = _progress.requestedChannels;
   batch.statusBefore = _scratchStatusBefore;
@@ -932,8 +945,7 @@ void LDC1614::_commitAcquisition(uint64_t completedUptimeMs) {
         sampleQualityFlag(SampleQualityFlag::OVER_RANGE) |
         sampleQualityFlag(SampleQualityFlag::WATCHDOG) |
         sampleQualityFlag(SampleQualityFlag::ZERO_COUNT) |
-        sampleQualityFlag(SampleQualityFlag::DATA_LOST) |
-        sampleQualityFlag(SampleQualityFlag::CONFIG_UNKNOWN);
+        sampleQualityFlag(SampleQualityFlag::DATA_LOST);
     if ((sample.quality & invalidFlags) == 0U) {
       batch.validChannels.bits |= bit;
     }
@@ -948,8 +960,7 @@ void LDC1614::_commitAcquisition(uint64_t completedUptimeMs) {
     }
     batch.channel[index] = sample;
   }
-  _lastBatch = batch;
-  _hasLastBatch = true;
+  return batch;
 }
 
 void LDC1614::_clearActiveJob() {
@@ -966,11 +977,6 @@ void LDC1614::_clearActiveJob() {
   for (uint8_t index = 0; index < cmd::MAX_CHANNELS; ++index) {
     _scratchSamples[index] = ChannelSample{};
   }
-}
-
-void LDC1614::_clearSampleCache() {
-  _lastBatch = SampleBatch{};
-  _hasLastBatch = false;
 }
 
 bool LDC1614::_operationIdInUse(OperationId operationId) const {
@@ -1076,6 +1082,10 @@ Status LDC1614::readDataReady(bool& ready, DeviceStatus& observedStatus) {
   if (_progress.active) {
     return Status::Error(Err::BUSY, "Operation active");
   }
+  if (_appliedState != AppliedConfigState::APPLIED_ACTIVE) {
+    return Status::Error(Err::CONFIG_DIRTY,
+                         "Readiness requires verified active configuration");
+  }
   if (_config.intbAsserted != nullptr && !_config.intbDisabled) {
     bool asserted = false;
     Status gpio = _config.intbAsserted(asserted, _config.intbUser);
@@ -1111,10 +1121,12 @@ Status LDC1614::sleep() {
       _writeRegister(cmd::REG_CONFIG, buildConfigRegister(_config, true),
                      _config.i2cTimeoutMs);
   if (!status.ok()) {
-    _appliedState = AppliedConfigState::DIRTY;
-    _recordConfigFault(
-        status, JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE,
-        effectFlag(EffectFlag::INDETERMINATE_WRITE));
+    if (writeFailureMayHaveCommitted(status)) {
+      _appliedState = AppliedConfigState::DIRTY;
+      _recordConfigFault(
+          status, JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE,
+          effectFlag(EffectFlag::INDETERMINATE_WRITE));
+    }
     return status;
   }
   _appliedState = AppliedConfigState::APPLIED_SLEEPING;
@@ -1139,10 +1151,12 @@ Status LDC1614::wake() {
       _writeRegister(cmd::REG_CONFIG, buildConfigRegister(_config, false),
                      _config.i2cTimeoutMs);
   if (!status.ok()) {
-    _appliedState = AppliedConfigState::DIRTY;
-    _recordConfigFault(
-        status, JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE,
-        effectFlag(EffectFlag::INDETERMINATE_WRITE));
+    if (writeFailureMayHaveCommitted(status)) {
+      _appliedState = AppliedConfigState::DIRTY;
+      _recordConfigFault(
+          status, JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE,
+          effectFlag(EffectFlag::INDETERMINATE_WRITE));
+    }
     return status;
   }
   _appliedState = AppliedConfigState::APPLIED_ACTIVE;
@@ -1179,11 +1193,12 @@ Status LDC1614::readRegister16(uint8_t reg, uint16_t& value) {
   if (!isValidRegisterAddress(reg)) {
     return Status::Error(Err::INVALID_PARAM, "Invalid register address");
   }
-  Status status = _readRegister(reg, value, _config.i2cTimeoutMs);
-  if (status.ok() && readHasDocumentedSideEffects(reg)) {
-    _clearSampleCache();
+  if (_config.variant == DeviceVariant::LDC1612 &&
+      isLdc1614OnlyRegister(reg)) {
+    return Status::Error(Err::INVALID_PARAM,
+                         "Register is unavailable on LDC1612");
   }
-  return status;
+  return _readRegister(reg, value, _config.i2cTimeoutMs);
 }
 
 Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
@@ -1193,18 +1208,27 @@ Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
   if (_progress.active) {
     return Status::Error(Err::BUSY, "Operation active");
   }
-  if (!isValidRegisterAddress(reg)) {
-    return Status::Error(Err::INVALID_PARAM, "Invalid register address");
+  if (!isConfigurationRegister(reg)) {
+    return Status::Error(Err::INVALID_PARAM,
+                         "Register is not writable by this device");
+  }
+  if (_config.variant == DeviceVariant::LDC1612 &&
+      isLdc1614OnlyRegister(reg)) {
+    return Status::Error(Err::INVALID_PARAM,
+                         "Register is unavailable on LDC1612");
   }
   Status status = _writeRegister(reg, value, _config.i2cTimeoutMs);
-  if (isConfigurationRegister(reg)) {
-    _clearSampleCache();
-    _appliedState =
-        reg == cmd::REG_RESET_DEV ? AppliedConfigState::UNKNOWN
-                                  : AppliedConfigState::DIRTY;
-    const EffectFlags effects =
-        status.ok() ? effectFlag(EffectFlag::PARTIAL_WRITE)
-                    : effectFlag(EffectFlag::INDETERMINATE_WRITE);
+  const bool mutationPossible = status.ok() || writeFailureMayHaveCommitted(status);
+  if (mutationPossible) {
+    _appliedState = reg == cmd::REG_RESET_DEV ? AppliedConfigState::UNKNOWN
+                                              : AppliedConfigState::DIRTY;
+  }
+  const EffectFlags effects =
+      status.ok() ? effectFlag(EffectFlag::PARTIAL_WRITE)
+                  : (mutationPossible
+                         ? effectFlag(EffectFlag::INDETERMINATE_WRITE)
+                         : 0U);
+  if (mutationPossible) {
     _configFault.valid = true;
     _configFault.job = JobKind::NONE;
     _configFault.cause =
@@ -1271,13 +1295,25 @@ Status LDC1614::_validateConfig(const Config& config) const {
     return Status::Error(Err::INVALID_CONFIG,
                          "Reference clock tolerance must be <1000000 ppm");
   }
-  const uint64_t clockMin =
+  uint64_t clockMin =
       static_cast<uint64_t>(clock) *
       (PPM_SCALE - config.referenceClock.tolerancePpm) / PPM_SCALE;
-  const uint64_t clockMax = ceilDivide(
+  uint64_t clockMax = ceilDivide(
       static_cast<uint64_t>(clock) *
           (PPM_SCALE + config.referenceClock.tolerancePpm),
       PPM_SCALE);
+  if (config.referenceClock.source == RefClkSrc::INTERNAL) {
+    if (clockMin < INTERNAL_CLOCK_MIN_HZ) {
+      clockMin = INTERNAL_CLOCK_MIN_HZ;
+    }
+    if (clockMax > INTERNAL_CLOCK_MAX_HZ) {
+      clockMax = INTERNAL_CLOCK_MAX_HZ;
+    }
+  } else if (clockMin < EXTERNAL_CLOCK_MIN_HZ ||
+             clockMax > EXTERNAL_CLOCK_MAX_HZ) {
+    return Status::Error(Err::INVALID_CONFIG,
+                         "Reference clock tolerance exceeds source range");
+  }
   if (!isValidDeglitch(config.deglitch)) {
     return Status::Error(Err::INVALID_CONFIG, "Deglitch bandwidth required");
   }
@@ -1367,6 +1403,11 @@ Status LDC1614::_validateConfig(const Config& config) const {
       return Status::Error(Err::INVALID_CONFIG,
                            "Channel reference clock tolerance exceeds limit",
                            index);
+    }
+    if (static_cast<uint64_t>(channel.offset) * frefMax >=
+        static_cast<uint64_t>(channel.expectedSensorMinHz) * 65536ULL) {
+      return Status::Error(Err::INVALID_CONFIG,
+                           "OFFSET masks expected sensor minimum", index);
     }
     const uint64_t fin =
         ceilDivide(channel.expectedSensorMaxHz, channel.finDivider);
@@ -1514,9 +1555,13 @@ Status LDC1614::estimateFrameTiming(const Config& config,
     return Status::Error(Err::INVALID_PARAM,
                          "Timing mask must be configured and nonzero");
   }
-  const uint64_t clockMin =
+  uint64_t clockMin =
       static_cast<uint64_t>(config.referenceClock.frequencyHz) *
       (PPM_SCALE - config.referenceClock.tolerancePpm) / PPM_SCALE;
+  if (config.referenceClock.source == RefClkSrc::INTERNAL &&
+      clockMin < INTERNAL_CLOCK_MIN_HZ) {
+    clockMin = INTERNAL_CLOCK_MIN_HZ;
+  }
   if (clockMin == 0U) {
     return Status::Error(Err::INVALID_CONFIG,
                          "Reference clock minimum is zero");
