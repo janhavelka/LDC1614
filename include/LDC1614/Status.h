@@ -1,58 +1,53 @@
 /// @file Status.h
-/// @brief Error codes and status handling for LDC1614 driver
+/// @brief Framework-neutral status contract for LDC1612/LDC1614 operations.
 #pragma once
 
 #include <cstdint>
 
 namespace LDC1614 {
 
-/// @brief Error codes for all LDC1614 operations.
+/// @brief Error codes returned by fallible public operations.
 enum class Err : uint8_t {
-  OK = 0,                    ///< Operation successful
-  NOT_INITIALIZED,           ///< begin() not called
-  INVALID_CONFIG,            ///< Invalid configuration parameter
-  I2C_ERROR,                 ///< I2C communication failure
-  TIMEOUT,                   ///< Operation timed out
-  INVALID_PARAM,             ///< Invalid parameter value
-  DEVICE_NOT_FOUND,          ///< LDC1614 not responding on I2C bus
-  CONVERSION_NOT_READY,      ///< Conversion not yet complete
-  MEASUREMENT_NOT_READY = CONVERSION_NOT_READY, ///< Alias for cross-library uniformity
-  BUSY,                      ///< Device is busy with conversion
-  IN_PROGRESS,               ///< Operation scheduled; call tick() to complete
-  I2C_NACK_ADDR,             ///< I2C address phase was not acknowledged
-  I2C_NACK_DATA,             ///< I2C data phase was not acknowledged
-  I2C_TIMEOUT,               ///< I2C transaction timed out
-  I2C_BUS,                   ///< I2C bus or arbitration error
-  SENSOR_ERROR,              ///< Sensor error reported by device (check status flags)
-  CONFIG_DIRTY               ///< Cached configuration may not match hardware
+  OK = 0,
+  NOT_BOUND,
+  INVALID_CONFIG,
+  INVALID_PARAM,
+  BUSY,
+  IN_PROGRESS,
+  RESULT_NOT_READY,
+  RESULT_QUEUE_FULL,
+  DUPLICATE_OPERATION_ID,
+  DEVICE_NOT_FOUND,
+  CONVERSION_NOT_READY,
+  TIMEOUT,
+  CANCELLED,
+  CONFIG_DIRTY,
+  I2C_ERROR,
+  I2C_NACK_ADDR,
+  I2C_NACK_DATA,
+  I2C_TIMEOUT,
+  I2C_BUS,
 };
 
-/// @brief Status structure returned by all fallible operations.
+/// @brief Status returned by all fallible operations.
 struct Status {
   Err code = Err::OK;
-  int32_t detail = 0;        ///< Implementation-specific detail (e.g., I2C error code)
-  const char* msg = "";      ///< Static string describing the error
+  int32_t detail = 0;       ///< Full transport or implementation detail.
+  const char* msg = "";     ///< Static-lifetime diagnostic string.
 
   constexpr Status() = default;
   constexpr Status(Err codeIn, int32_t detailIn, const char* msgIn)
       : code(codeIn), detail(detailIn), msg(msgIn) {}
 
-  /// @return true if operation succeeded
   constexpr bool ok() const { return code == Err::OK; }
-
-  /// @return true if the status matches the supplied error code
   constexpr bool is(Err err) const { return code == err; }
-
-  /// @return true if operation in progress (not a failure)
   constexpr bool inProgress() const { return code == Err::IN_PROGRESS; }
 
-  /// Create a success status
   static constexpr Status Ok() { return Status{Err::OK, 0, "OK"}; }
-
-  /// Create an error status
-  static constexpr Status Error(Err err, const char* message, int32_t detailCode = 0) {
+  static constexpr Status Error(Err err, const char* message,
+                                int32_t detailCode = 0) {
     return Status{err, detailCode, message};
   }
 };
 
-} // namespace LDC1614
+}  // namespace LDC1614
