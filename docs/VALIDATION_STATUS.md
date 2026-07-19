@@ -16,8 +16,9 @@ The current working branch has software hardening evidence for:
   passed 29/29 tests. `native_cov` is coverage-instrumented only: the repository does
   not generate a report or enforce a threshold, so it is not measured coverage.
 - Arduino-framework PlatformIO builds on 2026-07-19 passed for ESP32-S3
-  (23,104 bytes RAM; 369,442 bytes flash) and ESP32-S2 (37,536 bytes RAM;
-  359,845 bytes flash), using pinned platform release 54.03.20.
+  (23,104 bytes RAM; 369,594 bytes flash) and ESP32-S2 (37,536 bytes RAM;
+  360,013 bytes flash), using pinned platform release 54.03.20. Both clean-tree
+  build objects embed reviewed implementation `d06e39b` with status `clean`.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.

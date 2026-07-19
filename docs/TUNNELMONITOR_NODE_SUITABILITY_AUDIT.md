@@ -17,6 +17,7 @@ product intent.
 | --- | --- | --- |
 | LDC1614 baseline | `a09f492659d4eb8299dc9fa41524bf6014b62dd6` on `hardening/tunnelmonitor-suitability-reaudit` | Clean baseline before the v3 implementation. |
 | LDC1614 v3.0.0 release | `d9983e08b4fa0cf717cf3c7686adab418508c174` | Remote branch and annotated `v3.0.0` tag target; tag object `0fed6ff0e1b5fc5c305f9a1135560229549f2438`. Published tags are immutable. |
+| LDC1614 v3.0.1 reviewed implementation | `d06e39bd3067b2ab37f1c4395c48864f336d4647` | Clean corrective implementation after independent core, test, documentation, and final-integration review. Exact native, target-build, Doxygen, package, and guard results are recorded in `VALIDATION_STATUS.md`. |
 | TunnelMonitor-node baseline | `0897f12c1a1369367747d1063936906005391580` on `develop` | Clean when the contract inspection and native/target validation began; left unchanged by this work. |
 | TunnelMonitor-node final checkout | `b708f511964db6c51e949e99c67820476f00f9c7` on `docs/mb85rc-suitability-contract-facts` | Clean. Its tree `1e7ae125548addb34dea22a6c58a65d623f642e3` is identical to the inspected baseline tree, so the source/contracts validated here did not change when the checkout branch moved externally. |
 
@@ -31,7 +32,11 @@ non-sentinel provenance.
 The v3.0.0 implementation review ended at
 **546c2b59eadd0dd660db6e1674414e7effb938ac**; its annotated tag points to the
 subsequent audit-metadata-only release commit above. Corrective re-audit changes
-after that immutable tag require a new patch release, never a moved tag.
+after that immutable tag use the v3.0.1 reviewed implementation recorded above,
+never a moved tag. The annotated `v3.0.1` tag targets the subsequent
+documentation-only release commit containing these final results. Its exact
+remote tag object and peeled target are verified after publication and reported
+in the release handoff because a commit cannot contain its own object ID.
 
 Primary chip behavior was checked against the bundled TI LDC1612/LDC1614
 datasheet, SNOSCY9A Revision A (March 2018), whose official URL, repository
@@ -167,7 +172,7 @@ RS485 VibWire frequency fields as implicit LDC outputs.
 | Pin serial-HIL host dependency | **Closed:** `pyserial==3.5` is recorded with the host tools. |
 | Honest `native_cov` wording | **Closed:** it is documented as instrumentation only; no report or threshold is claimed. |
 | Primary datasheet provenance | **Closed:** vendor, title, SNOSCY9A Revision A, official URL, repository date, and SHA-256 are indexed. |
-| Annotated release tag | **Closed for v3.0.0:** annotated tag object `0fed6ff0e1b5fc5c305f9a1135560229549f2438` resolves to `d9983e08b4fa0cf717cf3c7686adab418508c174`. Any corrections use a new immutable patch tag; downstream still pins a full commit SHA. |
+| Annotated release tag | **Closed:** v3.0.0 tag object `0fed6ff0e1b5fc5c305f9a1135560229549f2438` resolves to `d9983e08b4fa0cf717cf3c7686adab418508c174`; corrective v3.0.1 uses its own annotated tag on the final documentation-only descendant of reviewed implementation `d06e39b`. Published tags are immutable and downstream still pins a full commit SHA. |
 | Raw physical transcript/logic trace | **Open physical gate:** no raw v3 target artifact is committed. Historical compact v2 chip-only summaries are insufficient. |
 
 ## Validation and remaining physical gates
