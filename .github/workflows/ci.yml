@@ -26,7 +26,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio
-          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini', 'requirements-dev.txt') }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,7 +36,7 @@ jobs:
       - name: Install PlatformIO
         run: |
           python -m pip install --upgrade pip
-          pip install platformio
+          python -m pip install --requirement requirements-dev.txt
 
       - name: Build ${{ matrix.environment }}
         run: pio run -e ${{ matrix.environment }}
@@ -53,7 +53,7 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio
-          key: ${{ runner.os }}-pio-native-${{ hashFiles('platformio.ini') }}
+          key: ${{ runner.os }}-pio-native-${{ hashFiles('platformio.ini', 'requirements-dev.txt') }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,7 +63,7 @@ jobs:
       - name: Install PlatformIO
         run: |
           python -m pip install --upgrade pip
-          pip install platformio
+          python -m pip install --requirement requirements-dev.txt
 
       - name: Enforce core timing guard
         run: python tools/check_core_timing_guard.py
@@ -86,7 +86,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install PlatformIO
-        run: pip install platformio
+        run: python -m pip install --requirement requirements-dev.txt
 
       - name: Enforce example CLI contract
         run: python tools/check_cli_contract.py
@@ -96,6 +96,14 @@ jobs:
 
       - name: Enforce readiness wording contract
         run: python tools/check_readiness_claims.py
+
+      - name: Check Python tooling syntax
+        run: python -B -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
+
+      - name: Check HIL parser and no-hardware path
+        run: |
+          python tools/ldc1614_hil_runner.py --parser-self-test
+          python tools/ldc1614_hil_runner.py --dry-run --quiet
 
       - name: Run HIL runner host tests
         run: python tools/test_ldc1614_hil_runner.py

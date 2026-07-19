@@ -9,12 +9,14 @@ material.
 
 - `HARDWARE_INTEGRATION.md` - board, sensor, timing, INTB, SD, and I2C
   integration checklist.
-- `I2C_INTEGRATION.md` - injected-transport, error-taxonomy, dirty-config, and
-  bounded poll-integration notes for application-owned I2C managers.
+- `I2C_INTEGRATION.md` - injected transport, owner deadlines/budgets,
+  cancellation, result identity, applied-state, and recovery contracts.
 - `IDF_PORT.md` - native ESP-IDF component and diagnostic example boundaries.
 - `HIL_VALIDATION.md` - hardware-in-the-loop procedure and evidence matrix.
 - `VALIDATION_STATUS.md` - current software checks, local evidence boundaries,
   and hardware evidence still required.
+- `TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md` - current external-owner suitability
+  findings, dispositions, and the still-external TunnelMonitor product gate.
 - `hil/README.md` - location and rules for real HIL output artifacts.
 
 ## Reference Material
@@ -32,6 +34,6 @@ material.
 
 Prompt-era reports, hardening progress logs, implementation plans, cleanup
 reports, and prompt files are not part of the maintained docs surface. Current
-status is represented by `VALIDATION_STATUS.md`, the changelog, and the root
-`README.md`; hardware evidence still has to be captured with the HIL procedure
-before target deployment decisions.
+status is represented by `VALIDATION_STATUS.md`, the suitability audit, the
+changelog, and the root `README.md`; hardware evidence still has to be captured
+with the HIL procedure before target deployment decisions.

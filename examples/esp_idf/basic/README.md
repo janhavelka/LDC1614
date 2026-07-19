@@ -1,15 +1,23 @@
-# LDC1614 Native ESP-IDF Basic Example
+# Native ESP-IDF diagnostic example
 
-This is a native ESP-IDF diagnostic bring-up example. It uses
-`driver/i2c_master.h`, an example-owned I2C mutex, a fixed-buffer CLI parser,
-and ESP-IDF GPIO/timer/task hooks injected into the framework-neutral driver.
-The CLI includes bounded `sleep` and `wake` controls for conversion-state
-smoke checks.
+This native ESP-IDF application uses `app_main`, `driver/i2c_master.h`, a
+fixed-buffer CLI, one application owner task, ESP timer timekeeping, and native GPIO
+and task APIs. It contains no Arduino facade.
 
-This example is not a production bus manager. Production applications must own
-bus lifecycle, driver-call serialization, lock timeout policy, task scheduling,
-recovery/backoff policy, GPIO/INTB integration, and hardware validation.
+The example binds an explicit profile without I2C, schedules cooperative
+initialization, and advances at most one driver transport callback per console
+service pass. This diagnostic has one task and therefore no redundant mutex;
+an application with multiple callers must own serialization. The application
+owns the bus, locking, absolute deadline,
+transaction budget, task scheduling, pins, retry/backoff, recovery, and device
+presence policy. The library's transport statistics are diagnostic only.
 
-No hardware behavior is claimed unless real LDC1614/LDC1612 logs are captured
-for the specific board, address strap, INTB/SD wiring, sensor configuration, and
-fault tests.
+Commands cover initialization/apply/reset jobs, acquisition, bus-silent
+cancellation and invalidation, STATUS/readiness, sleep/wake, raw diagnostics,
+and pure timing/frequency helpers. `probe` deliberately performs two diagnostic
+identity reads; it is not the production initialization path.
+
+This is not a production bus manager. The internal pull-up setting and example
+sensor profile are bring-up conveniences. No sensor, INTB, SD, address-strap,
+fault, timing, or soak behavior is claimed without captured evidence from the
+exact target hardware.

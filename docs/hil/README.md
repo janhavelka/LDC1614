@@ -6,9 +6,13 @@ Do not create pass artifacts by hand.
 Expected generated files:
 - JSON result from `tools/ldc1614_hil_runner.py --json-out ...`
 - Markdown summary from `tools/ldc1614_hil_runner.py --markdown-out ...`
-- Optional logic-analyzer, oscilloscope, or bench notes referenced by the run
+- At least one raw serial transcript or logic-analyzer trace for production
+  acceptance of the exact release fixture
+- Optional oscilloscope or bench notes referenced by the run
 
-No hardware logs are currently committed.
+No raw serial transcript or logic-analyzer trace is currently committed. The
+compact chip-only summaries under `docs/reports/` remain valid limited evidence,
+but do not satisfy the raw-artifact production acceptance gate.
 
 No-hardware `NOT_RUN` / dry-run audit artifacts are review aids, not HIL logs.
 Keep them in `docs/reports/` or an external review artifact directory unless a

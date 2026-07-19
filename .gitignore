@@ -9,6 +9,10 @@
 *.elf
 *.bin
 *.map
+*.gcov
+*.gcda
+*.gcno
+docs/doxygen/
 
 # Python (for scripts/)
 __pycache__/

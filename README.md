@@ -1,534 +1,286 @@
-# LDC1614 Driver Library
+# LDC1614 driver library
 
-Framework-neutral LDC1614/LDC1612 multi-channel 28-bit inductance-to-digital
-converter I2C driver core for ESP32-S2 / ESP32-S3 integration through Arduino
-framework, PlatformIO, or native ESP-IDF component use. The architecture is
-production-oriented, but deployment readiness depends on application hardware,
-calibration, fault testing, and captured validation logs.
+Framework-neutral, fixed-memory LDC1612/LDC1614 28-bit inductance-to-digital
+converter driver for externally owned I2C buses. The v3 API is cooperative:
+multi-register procedures execute only when the application calls `poll()` and
+never exceed its transfer budget.
 
-Current readiness status: the software architecture, native tests, Arduino
-ESP32-S2/S3 builds, and diagnostic ESP-IDF path have been hardened. ESP32-S2
-no-sensor HIL has validated chip identity, register/configuration, reset, and
-recovery paths with an LDC1614 present at `0x2A`. Sensor-attached conversion
-behavior, pure ESP-IDF build evidence, board clock-plan validation, INTB/SD,
-fault injection, and soak evidence are still required before deployment
-readiness claims for a target product.
+The software has native fault-injection tests and maintained Arduino and native
+ESP-IDF build paths. Deployment still requires evidence for the exact board,
+address strap, reference clock, LC sensors, channel mapping, INTB/SD wiring,
+fault policy, calibration, cadence, and soak conditions. Retained ESP32-S2
+chip-only evidence predates v3 and does not validate sensor-attached behavior.
 
-## Features
+## Core contract
 
-- Injected I2C transport (no Wire dependency in library code)
-- Framework-neutral core (`include/` and `src/` do not include Arduino or ESP-IDF driver headers)
-- Health monitoring with READY / DEGRADED / OFFLINE states
-- 4-channel (LDC1614) and 2-channel (LDC1612) support
-- Configurable per-channel RCOUNT, settle count, clock dividers, offset, drive current
-- Single-channel and multi-channel auto-scan modes
-- Internal (~43 MHz) or external reference clock
-- Sensor frequency and conversion time calculation helpers
-- INTB pin and STATUS polling support for data-ready detection
-- Comprehensive device status and per-channel error flag parsing
-- Runtime setters for mode, autoscan sequence, deglitch, error reporting, INTB, clock source, drive policy, and per-channel timing
-- Manual recovery ladder with backoff, optional bus reset, optional soft reset, and optional hard reset callbacks
+- The application owns the I2C bus, pins, locking, scheduling, absolute
+  operation deadline, per-transfer timeout cap, retries, device presence,
+  health policy, backoff, and shared-bus recovery.
+- `Config` injects non-owning write and combined write/read callbacks. The core
+  includes no Arduino, ESP-IDF, FreeRTOS, logging, global bus, delay, allocation,
+  or hidden retry path.
+- `bind()` validates and retains an explicit desired profile with zero I2C.
+  A default-constructed profile is invalid by design.
+- One job may be active. Each `poll(nowMs, maxTransfers)` call invokes no more
+  than the supplied number of transport callbacks; zero is bus-silent.
+- Each start carries a caller-selected nonzero `OperationId` and absolute
+  64-bit deadline. A terminal `OperationResult` retains identity, outcome,
+  status, side-effect flags, configuration revision, and fault provenance.
+- The fixed two-entry result FIFO delivers each terminal result exactly once
+  through `takeResult()`. The owner must drain results; starts fail explicitly
+  when result capacity is reserved or full.
+- `cancelJob()` is idempotent and bus-silent. It discards partial acquisition
+  scratch, retains the previous complete batch, records possible write effects,
+  and permits a replacement job while the cancelled result awaits collection.
+- Transport counters are non-authoritative diagnostics. Failures never latch
+  the library offline or suppress a later owner request.
+- Instances are neither internally thread-safe nor ISR-safe. Serialize every
+  call. An ISR may notify the owner, but must not call the driver.
 
 ## Installation
 
-### PlatformIO
-
-Add to `platformio.ini`:
+For PlatformIO:
 
 ```ini
 lib_deps =
   LDC1614
 ```
 
-### Manual
+The repository root is also an ESP-IDF component. Add it through
+`EXTRA_COMPONENT_DIRS` or component-manager metadata. The native diagnostic
+example is under `examples/esp_idf/basic`.
 
-Copy `include/LDC1614/` and `src/` into your project.
+Host validation tools are pinned in `requirements-dev.txt`; the maintained
+Espressif PlatformIO platform is pinned in `platformio.ini`.
 
-### ESP-IDF
+## Explicit profile
 
-The repository root is an ESP-IDF component. Add it through `EXTRA_COMPONENT_DIRS`
-or component manager metadata, then provide `Config::i2cWrite`,
-`Config::i2cWriteRead`, `Config::nowMs`, optional `Config::cooperativeYield`,
-optional `Config::gpioRead`, and optional recovery callbacks from your
-application-owned adapter. Production applications own bus lifecycle, locking,
-timeouts, task scheduling, recovery/backoff policy, GPIO/INTB integration, and
-hardware validation. A native ESP-IDF diagnostic bring-up CLI using the
-`driver/i2c_master.h` API is in `examples/esp_idf/basic`; it is not a production
-bus manager.
-
-## Quick Start
+The following values are illustrative only. Derive the clock, frequency
+bounds, timing counts, dividers, deglitch bandwidth, and drive current from the
+actual target.
 
 ```cpp
-#include <Wire.h>
-#include "LDC1614/LDC1614.h"
+LDC1614::Config makeProfile(void* busContext) {
+  LDC1614::Config cfg{};
+  cfg.i2cWrite = appI2cWrite;
+  cfg.i2cWriteRead = appI2cWriteRead;
+  cfg.i2cUser = busContext;
+  cfg.i2cTimeoutMs = 20;
+  cfg.i2cAddress = LDC1614::I2cAddress::ADDR_GND;
 
-// Transport callbacks
-LDC1614::Status i2cWrite(uint8_t addr, const uint8_t* data, size_t len,
-                         uint32_t timeoutMs, void* user) {
-  TwoWire* wire = static_cast<TwoWire*>(user);
-  (void)timeoutMs;
-  wire->beginTransmission(addr);
-  wire->write(data, len);
-  switch (wire->endTransmission(true)) {
-    case 0: return LDC1614::Status::Ok();
-    case 2: return LDC1614::Status::Error(LDC1614::Err::I2C_NACK_ADDR, "Address NACK");
-    case 3: return LDC1614::Status::Error(LDC1614::Err::I2C_NACK_DATA, "Data NACK");
-    case 5: return LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT, "I2C timeout");
-    case 4: return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, "I2C bus error");
-    default: return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, "Write failed");
+  cfg.variant = LDC1614::DeviceVariant::LDC1614;
+  cfg.channels = LDC1614::channelBit(LDC1614::Channel::CH0);
+  cfg.referenceClock = {
+      LDC1614::RefClkSrc::INTERNAL, 43000000U, 200000U};
+  cfg.mode = LDC1614::OperatingMode::SINGLE_CHANNEL;
+  cfg.activeChannel = LDC1614::Channel::CH0;
+  cfg.deglitch = LDC1614::Deglitch::BW_10MHZ;
+  cfg.sensorActivation = LDC1614::SensorActivation::FULL_CURRENT;
+  cfg.rpOverrideEnabled = true;
+  cfg.autoAmplitudeCorrectionEnabled = false;
+  cfg.intbDisabled = true;
+  cfg.errorReporting = LDC1614::ErrorReporting::all();
+
+  // Initialization writes every physical variant channel to a known value.
+  for (uint8_t channel = 0; channel < 4; ++channel) {
+    auto& profile = cfg.channel[channel];
+    profile.rcount = 0x04D6;
+    profile.settleCount = 0x000A;
+    profile.finDivider = 2;
+    profile.frefDivider = 2;
+    profile.offset = 0;
+    profile.driveCurrentCode = 10;
   }
-}
-
-LDC1614::Status i2cWriteRead(uint8_t addr, const uint8_t* tx, size_t txLen,
-                             uint8_t* rx, size_t rxLen,
-                             uint32_t timeoutMs, void* user) {
-  TwoWire* wire = static_cast<TwoWire*>(user);
-  (void)timeoutMs;
-  wire->beginTransmission(addr);
-  wire->write(tx, txLen);
-  uint8_t result = wire->endTransmission(false);
-  if (result != 0) {
-    return LDC1614::Status::Error(
-      result == 2 ? LDC1614::Err::I2C_NACK_ADDR :
-      result == 3 ? LDC1614::Err::I2C_NACK_DATA :
-      result == 5 ? LDC1614::Err::I2C_TIMEOUT :
-      result == 4 ? LDC1614::Err::I2C_BUS :
-                    LDC1614::Err::I2C_ERROR,
-      "Write phase failed");
-  }
-  if (wire->requestFrom(addr, rxLen) != rxLen) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, "Read failed");
-  }
-  for (size_t i = 0; i < rxLen; ++i) {
-    rx[i] = wire->read();
-  }
-  return LDC1614::Status::Ok();
-}
-
-LDC1614::LDC1614 device;
-
-void setup() {
-  Serial.begin(115200);
-  Wire.begin(8, 9);
-
-  LDC1614::Config cfg;
-  cfg.i2cWrite = i2cWrite;
-  cfg.i2cWriteRead = i2cWriteRead;
-  cfg.i2cUser = &Wire;
-  cfg.nowMs = [](void*) { return millis(); };
-  cfg.cooperativeYield = [](void*) { yield(); };
-  cfg.i2cAddress = 0x2A;
-  cfg.channelCount = 4;
-
-  // Channel 0 config
-  cfg.channel[0].rcount = 0x04D6;
-  cfg.channel[0].settleCount = 0x000A;
-  cfg.channel[0].finDivider = 1;
-  cfg.channel[0].frefDivider = 1;
-  cfg.channel[0].idrive = 10;
-
-  auto status = device.begin(cfg);
-  if (!status.ok()) {
-    Serial.printf("Init failed: %s\n", status.msg);
-    return;
-  }
-
-  // Device is in sleep mode after begin(). Wake to start conversions.
-  device.wake();
-  Serial.println("LDC1614 initialized and running!");
-}
-
-void loop() {
-  device.tick(millis());
-
-  bool ready = false;
-  auto readyStatus = device.readDataReady(ready);
-  if (!readyStatus.ok()) {
-    Serial.printf("DRDY check failed: %s\n", readyStatus.msg);
-    return;
-  }
-
-  if (ready) {
-    LDC1614::ChannelData data;
-    auto st = device.readChannel(0, data);
-    if (st.ok()) {
-      Serial.printf("Ch0: 0x%07lX\n", (unsigned long)data.rawData);
-    }
-  }
+  cfg.channel[0].expectedSensorMinHz = 100000;
+  cfg.channel[0].expectedSensorMaxHz = 5000000;
+  return cfg;
 }
 ```
 
-The numeric channel values above are example-sensor placeholders. Derive
-RCOUNT, SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, and IDRIVE from the sensor
-frequency, Q/Rp, reference clock, target amplitude, and application timing
-requirements. IDRIVE and coil behavior require board-level evidence; the
-library does not calibrate distance, coating thickness, material identity, or
-inductance for an application.
+`DeviceVariant` is a hardware fact: LDC1612 and LDC1614 expose the same checked
+identity values, so software cannot discover the variant. `I2cAddress`, the
+selected `ChannelMask` and clock frequency/tolerance are also explicit.
+Initialization writes a known register profile for every physical channel of
+the selected variant, so those register values must all be supplied; expected
+sensor-frequency bounds are required for channels selected for conversion.
+Validation uses both reference-clock tolerance extrema for fREF limits and the
+fIN < fREF/4 rule, and requires deglitch bandwidth to be strictly above the
+maximum expected sensor frequency.
 
-## API Reference
+## Owner loop
 
-### Lifecycle
+```cpp
+LDC1614::LDC1614 device;
 
-| Method | Description |
-|--------|-------------|
-| `begin(config)` | Initialize driver, verify device identity, apply config. Device remains in sleep mode. |
-| `tick(nowMs)` | Cooperative update (currently a no-op; reserved for future use). |
-| `end()` | Deinitialize driver, transition to UNINIT. |
-| `isInitialized()` | Return `true` after successful `begin()` until `end()`. |
-| `getConfig()` | Return the cached configuration snapshot currently held by the driver. |
+// Startup in the application's I2C-owner context.
+LDC1614::Status st = device.bind(makeProfile(&bus));    // zero I2C
+if (st.ok()) {
+  st = device.startInitialize(1001, nowMs + 2000);      // schedules only
+}
 
-### Data Readback
+// On each owner-task service pass:
+if (device.jobProgress().active) {
+  st = device.poll(nowMs, 1);                           // at most one transfer
+}
 
-| Method | Description |
-|--------|-------------|
-| `readChannel(ch, data)` | Read conversion data for a single channel. Requires `wake()` first; watchdog-marked DATAx returns `SENSOR_ERROR` and is not cached. Failed reads clear the caller output before returning. |
-| `readAllChannels(data, count)` | Read channels `0..count-1`; with `count=0`, reads the configured `channelCount`. Requires `wake()` first. Returns latest register values, not guaranteed-fresh autoscan samples for every channel. Failed or unread outputs are cleared before returning. |
-| `readFreshChannels(data, count)` | Read STATUS once, then read only channels with `UNREADCONVx` set. Requires `wake()` first. Reports per-channel `fresh` / `valid` flags and cached stale samples where available. The overload with `DeviceStatus&` returns the STATUS snapshot that drove freshness. |
-| `readChannelBlocking(ch, data, timeoutMs)` | Require `Config::nowMs`, wait for DRDY with a wall-clock timeout, then read one channel. |
-| `readAllChannelsBlocking(data, timeoutMs, count)` | Require `Config::nowMs`, wait for one DRDY event, then call `readAllChannels()`. |
-| `readDataReady(ready)` | Check DRDY with explicit `Status` reporting. Uses INTB if configured and enabled; otherwise polls STATUS. If STATUS contains DRDY plus sensor error flags, `ready` is true and the returned status is `SENSOR_ERROR`. |
-| `dataReady()` | Convenience wrapper around `readDataReady()`. `false` can mean not ready, not initialized, OFFLINE/BUSY, or hidden transport/status/sensor failure. |
+LDC1614::OperationResult result;
+while (device.resultAvailable()) {
+  if (!device.takeResult(result).ok()) {
+    break;
+  }
+  publishToMatchingRequest(result.operationId, result); // exactly once
+}
+```
 
-### Poll-Chunked I2C Execution
+The illustrative result-drain loop is bounded by `RESULT_CAPACITY == 2`.
+Production code should use its existing fixed request identity and result
+reservation rather than inventing a second queue around the driver.
 
-For application-owned I2C managers that advance work in bounded polls, the
-driver also exposes one-active-job poll APIs:
+At or after the absolute deadline, `poll()` completes the job as timed out
+without issuing another transfer. Before work starts, the poll divides the
+remaining deadline budget across the callbacks it may invoke; every callback
+is also capped by `Config::i2cTimeoutMs`, so their worst-case timeout sum cannot
+exceed the remaining time observed at that poll boundary. Time does not
+advance inside the library and there are no sleeps or yields.
 
-| Method | Description |
-|--------|-------------|
-| `startReadChannels(mask)` | Schedule selected DATAx reads without reading STATUS. Requires `wake()` first. Mask bits 0..3 select channels. |
-| `poll(nowMs, maxInstructions)` | Advance the active job by at most `maxInstructions` register transfers. `maxInstructions=0` performs no I2C. |
-| `readChannelsReady()` | True after the most recent channel-read job completed successfully. |
-| `getChannelSample(ch, data)` | Return a sample from the completed channel-read job. |
-| `startApplyConfig()` | Schedule cached config apply, one register write per instruction. |
-| `startResetAndReapply()` | Schedule `RESET_DEV` followed by cached config apply. |
+## Operation classes and bounds
 
-One 16-bit register read or register write is one instruction. A DATAx sample
-requires DATAx_MSB then DATAx_LSB, so it consumes two register-read instructions,
-but `getChannelSample()` does not expose a half sample. While a chunked job is
-active, other public I2C APIs return `BUSY`; only `poll()` advances that job.
-`startReadChannels()` intentionally does not read STATUS because STATUS reads can
-clear sticky flags and de-assert INTB. Use `readFreshChannels()` or
-`readDeviceStatus()` when STATUS evidence is required.
+One instruction is one physical transport callback.
 
-`readDeviceStatus()`, `readStatusRaw()`, and STATUS-based data-ready polling read the device STATUS register. Per the device behavior, that read can clear sticky status flags and de-assert INTB.
+| Class | API | Maximum callbacks | Scheduling contract |
+| --- | --- | ---: | --- |
+| Steady state | `readDeviceStatus`, `readDataReady`, `sleep`, `wake`, `readInitDriveCurrent`, raw register read/write | 0 or 1 per call | Bounded by the injected callback timeout; no retry. INTB observation may be bus-silent. |
+| Acquisition | `startAcquire` | `2 + 2N`, up to 10 for four channels | STATUS before, MSB/LSB per selected channel, STATUS after; caller budgets each poll. |
+| Configuration apply | `startApplyConfig` | 14 for LDC1612; 24 for LDC1614 | Multi-poll write procedure; failure/cancel may leave partial or indeterminate hardware state. |
+| Initialization | `startInitialize` | 16 for LDC1612; 26 for LDC1614 | Two identity reads plus complete configuration replay. |
+| Chip reset/reapply | `startResetAndReapply` | 17 for LDC1612; 27 for LDC1614 | One software-reset write plus the complete initialization procedure. |
 
-`readChannel()` reads `DATAx_MSB` before `DATAx_LSB` and masks the 28-bit
-conversion value. The upper DATAx_MSB bits can report under-range, over-range,
-watchdog, and amplitude error flags when the corresponding ERROR_CONFIG
-`*_ERR2OUT` bits are enabled. The amplitude flag is the high/low amplitude
-condition collapsed into `ChannelData::errAmplitude`; zero-count is reported via
-STATUS/INTB, not DATAx_MSB.
-Watchdog-marked DATAx is treated as invalid: the call returns `SENSOR_ERROR`,
-fills the output flags/value for diagnostics, and leaves the cached sample
-unchanged. High-level DATAx reads return `BUSY` while the device is asleep; raw
-`readRegister16()` remains available for diagnostics.
+The LDC1612/LDC1614 has no library-managed NVM programming or calibration
+storage procedure. Commissioning/calibration remains application work. Raw
+diagnostic writes are single-transfer advanced operations, not a maintenance
+framework and never receive blind retries.
 
-When INTB is configured, `readDataReady()` uses the no-I2C INTB-high fast path
-only if `ERROR_CONFIG.DRDY_2INT` is enabled. If DRDY is not routed to INTB, the
-driver polls STATUS so a high INTB level does not hide ready data.
+## Acquisition integrity
 
-In autoscan mode, `DRDY` means the selected conversion sequence reached its
-documented data-ready condition; it is not a per-channel freshness bitmap.
-`readAllChannels()` intentionally preserves backward-compatible latest-register
-semantics. Production autoscan loops that must avoid stale channel data should
-use `readDeviceStatus()` / `readFreshChannels()` and the `UNREADCONVx` bits,
-then process only entries where `FreshChannelData::fresh` is true. Entries with
-`valid=true` and `fresh=false` are cached samples from an earlier successful
-read, not new conversions. Use the `readFreshChannels(..., DeviceStatus&, ...)`
-overload when STATUS error flags must be captured before the STATUS read clears
-sticky flags or de-asserts INTB.
+`startAcquire(mask, id, deadline)` is the production multi-channel read path.
+It uses fixed private scratch and publishes a new `SampleBatch` only after the
+complete requested protocol terminates successfully. A failed or cancelled job
+does not expose a half batch or update the last complete publication.
 
-Blocking helpers validate parameters and `Config::nowMs` before polling,
-touching I2C, or calling `cooperativeYield`. Without a monotonic `nowMs`
-callback, they return `INVALID_CONFIG`; nonblocking reads, status checks, and
-cache access remain available. `timeoutMs` bounds the readiness wait. The final
-DATAx readout still uses injected I2C transaction timeouts and bounded
-application callback latency.
+Every result includes:
 
-### Sample Cache
+- terminal phase, register, channel, completed/maximum transfer counts, and
+  requested/completed channel masks in `finalProgress`;
+- immutable operation identity, kind, outcome, full status/effect provenance,
+  configuration revision, and owner completion time;
 
-| Method | Description |
-|--------|-------------|
-| `getLastSample(ch, data)` | Return the last successfully read sample for a channel without I2C. |
-| `sampleTimestampMs(ch)` | Timestamp of the last successful sample for a channel. Check `hasSample(ch)` first; timestamp `0` can be a valid sample time when no timebase is configured or the monotonic clock is at zero. |
-| `sampleAgeMs(ch, nowMs)` | Age of the cached sample for a channel. |
-| `isMeasuring()` | Cache-only indication that the driver is initialized, online, awake, and not hardware-config-dirty. It is not live DRDY proof. |
+Successful acquisition results additionally include:
 
-### Control
+- selected, valid, fresh, error, and overrun channel masks;
+- the pre-DATA and post-DATA STATUS snapshots;
+- raw 28-bit count, raw register words, and silicon-level quality flags per
+  selected channel;
+- owner-supplied completion time and the applied configuration revision.
 
-| Method | Description |
-|--------|-------------|
-| `sleep()` | Enter sleep mode (stop conversions, retain config). Returns `CONFIG_DIRTY` if cached configuration is known dirty and `BUSY` if the driver is offline. |
-| `wake()` | Wake and start conversions. Returns `CONFIG_DIRTY` if cached configuration is known dirty and `BUSY` if the driver is offline. |
-| `softReset()` | Reset device to defaults. Requires `begin()` to reinitialize. |
-| `resetAndReapply()` | Reset the device and re-apply the cached configuration, returning to READY on success. |
-| `syncConfig()` | Re-apply the cached configuration without a reset. Forces CONFIG sleep first, then applies channel/global registers, and leaves the device in sleep mode on success. |
+The device has destructive read behavior:
 
-### Runtime Configuration (requires sleep mode)
+- reading `DATAx_MSB` latches that channel's LSB shadow, consumes
+  `UNREADCONVx`, and may clear the channel's latched STATUS/error/INTB evidence;
+- reading STATUS captures then clears sticky status and can deassert INTB; and
+- a new conversion can overwrite unread data while a chunked read is active.
 
-| Method | Description |
-|--------|-------------|
-| `setActiveChannel(ch)` | Set active channel for single-channel mode. |
-| `setSingleChannelMode(ch)` | Disable autoscan and select the active single channel. |
-| `setAutoScanMode(sequence)` | Enable autoscan using `CH0_CH1`, `CH0_CH1_CH2`, or `CH0_CH1_CH2_CH3`. Selected channels must meet the datasheet Table 43 multi-channel minima. |
-| `setDeglitch(deglitch)` | Set the input deglitch filter bandwidth. |
-| `setErrorConfig(mask)` / `getErrorConfig()` | Set/read cached `ERROR_CONFIG`. Reserved bits are rejected. |
-| `setIntbDisabled(disabled)` | Enable or disable INTB output in `CONFIG.INTB_DIS`. |
-| `setReferenceClockSource(source)` | Select internal oscillator or external CLKIN. |
-| `setSensorActivation(activation)` | Select full-current or low-power sensor activation. |
-| `setRpOverrideEnabled(enabled)` | Enable/disable fixed drive current override. |
-| `setAutoAmplitudeCorrectionEnabled(enabled)` | Enable/disable automatic amplitude correction. |
-| `setHighCurrentDriveEnabled(enabled)` | Enable high-current drive. Valid only for single-channel Ch0. |
-| `setRcount(ch, rcount)` | Set reference count for channel. Autoscan selected channels require `>=0x0009`. |
-| `setSettleCount(ch, count)` | Set settling reference count. Autoscan selected channels require `>=0x0004`. |
-| `setClockDividers(ch, fin, fref)` | Set frequency dividers. Register-field ranges are enforced; physical clock-plan limits remain application-owned. |
-| `setOffset(ch, offset)` | Set conversion offset. |
-| `setDriveCurrent(ch, idrive)` | Set sensor drive current (0-31). |
-| `readInitIdrive(ch, out)` | Read auto-calibrated INIT_IDRIVE value. |
+For that reason acquisition always reads STATUS before DATA, preserves both
+STATUS snapshots, and reports detected overrun/data-loss evidence. DATAx is
+read MSB before LSB. Under-range zero and over-range `0x0FFFFFFF` are classified
+even when corresponding device reporting bits are disabled. Watchdog,
+amplitude, zero-count, stale, data-loss, and configuration-unknown conditions
+remain visible separately from transport success.
 
-Runtime setters require the device to be in sleep mode. Call `sleep()`, apply the changes, then call `wake()` when conversions should resume. Cached configuration is committed only after the corresponding register write succeeds. Successful configuration setters, full apply paths, reset/reapply paths, and raw diagnostic writes clear cached samples because the old conversion data may no longer match the active hardware state. Full apply paths (`begin()`, `syncConfig()`, recovery reapply, and `resetAndReapply()`) write a sleep-mode CONFIG image before channel/global registers so reconfiguration is performed while asleep.
+LDC multi-channel conversion is sequential. Atomic batch publication means the
+software result is committed together; it does not mean channels were sampled
+simultaneously or prove a single-instant physical frame.
 
-### Diagnostics
+## Applied configuration and recovery
 
-| Method | Description |
-|--------|-------------|
-| `probe()` | I2C-active raw identity probe (no health tracking). |
-| `recover()` | Manual recovery ladder. Uses tracked identity reads, then optional bus reset, optional soft reset/reapply, and optional hard reset/reapply. |
-| `readRegister16()` / `writeRegister16()` | I2C-active diagnostic-only tracked register access. Valid addresses are `0x00`-`0x1C`, `0x1E`-`0x21`, `0x7E`, and `0x7F`. Raw access is not variant/access-type safe. |
-| `readDeviceStatus()` / `readStatusRaw()` | Parsed or raw STATUS register access. |
-| `getSettings(snap)` | Populate an expanded cache-only, bus-silent snapshot of active settings, hook presence, cached samples, timestamps, and health. |
-| `settings()` | Return the same cache-only snapshot by value for compact diagnostics. |
-| `driverState()` | Cross-library alias for the current `DriverState`. |
-| `hasSample(ch)` | Check whether a configured channel has a cached sample. |
-| `calcSettleTimeUs(ch, fRef)` / `calcSampleTimeUs(ch, fRef)` | Calculate configured settling and conversion-plus-settling timing for service diagnostics. |
-| `calcSensorFrequency(ch, rawData, fRef)` / `calcConversionTimeUs(ch, fRef)` | Calculate sensor frequency and conversion timing from raw data, reference clock, dividers, and offset. Frequency is not calibrated inductance or distance. |
+`AppliedConfigState` distinguishes unknown, applying, applied-sleeping,
+applied-active, and dirty state. Normal acquisition is rejected unless the
+desired configuration is trusted as applied and active.
 
-`probe()` is intentionally raw and does not affect health. It requires configured
-transport callbacks; a fresh default instance returns `INVALID_CONFIG` because no
-transport has been supplied. Address NACK maps to `DEVICE_NOT_FOUND`; data NACK,
-timeout, bus, and generic transport errors preserve their original `Err` code,
-detail, and static message.
+After application-observed removal, reset, brownout, SD shutdown, device power
+loss, or shared-bus recovery, call:
 
-`recover()` honors `Config::recoverBackoffMs` when `Config::nowMs` is supplied
-and validates both `MANUFACTURER_ID` and `DEVICE_ID` before reporting success.
-Without a timebase, recovery backoff is not enforced. Transport failures update
-health counters. If `hardwareConfigDirty()` is true, recovery also re-applies
-the cached configuration before returning success.
+```cpp
+device.invalidateAppliedState(reason);                 // zero I2C
+device.startInitialize(newId, absoluteDeadlineMs);      // full identity + replay
+```
 
-### Health
+The application decides if and when to retry. The driver does not reset the
+bus, toggle application GPIOs, apply backoff, or declare a device offline.
+Matching identity after return is not treated as proof that configuration
+survived; initialization replays the complete desired profile.
 
-| Method | Description |
-|--------|-------------|
-| `state()` | Current `DriverState` (UNINIT/READY/DEGRADED/OFFLINE). |
-| `isOnline()` | True if READY or DEGRADED. |
-| `consecutiveFailures()` | Count since last success. |
-| `totalSuccess()` / `totalFailures()` | Lifetime counters. |
-| `lastOkMs()` / `lastErrorMs()` | Timestamps of last events. |
-| `lastError()` | Most recent error Status. |
-| `hardwareConfigDirty()` | True when cached configuration may not match hardware. |
-| `hardwareConfigDirtyError()` | First status/detail that made the dirty state true. |
+A configuration write that could have reached hardware records full
+`ConfigFault` provenance: original `Status`, job and phase, register, channel,
+and confirmed-partial or indeterminate effect flags. `updateDesiredConfig()` is
+bus-silent and increments the desired revision; a later apply/reinitialize is
+required. Advanced raw writes invalidate the high-level applied-state contract.
 
-## Examples
+## Pure helpers and diagnostics
 
-- `examples/01_basic_bringup_cli/` - Arduino diagnostic bring-up CLI for
-  exercising LDC1614 features. This is diagnostic firmware, not a production
-  application bus manager.
-- `examples/esp_idf/basic/` - Native ESP-IDF diagnostic bring-up CLI with
-  `driver/i2c_master.h` transport glue. This example is diagnostic bring-up
-  code; production applications own lifecycle, locking, recovery, and hardware
-  validation.
+- `calculateSensorFrequencyHz()` returns `Status` plus `double`, using the
+  explicit reference clock, channel dividers, offset, and raw count.
+- `estimateFrameTiming()` returns conservative device timing and acquisition
+  transfer count. Multi-channel device time includes the complete configured
+  auto-scan sequence even when the requested readout mask is a subset;
+  acquisition transfer count follows the requested mask. Application queueing,
+  lock wait, I2C callback duration, and processing time remain outside this
+  chip estimate.
+- `encodeErrorReporting()`, `decodeDeviceStatus()`, and
+  `decodeChannelSample()` are bus-silent pure helpers.
+- `readRegister16()` and `writeRegister16()` are advanced diagnostic access.
+  Prefer typed jobs/controls for normal use and reconcile any raw mutation by
+  invalidation plus replay.
+- `TransportStats` records attempts, successes, failures, and the last status
+  for diagnostics only; it does not own health or admission policy.
 
-The Arduino bring-up example uses the shared example-only command implementation
-in `examples/common/Ldc1614Cli.cpp`. The ESP-IDF example uses its own
-fixed-buffer native parser so the IDF compile path does not include
-`std::string`, Arduino `String`, `Arduino.h`, `Wire.h`, `Serial`, or Arduino
-facades. These CLIs are diagnostic examples, not production bus-management
-templates.
+## Migration from v2
 
-The CLI includes raw `reg` / `wreg` commands for diagnostics. Invalid register
-addresses are rejected before I2C, but valid diagnostic writes mark
-`hardwareConfigDirty()` because they can desynchronize the cached configuration.
-Raw diagnostic writes also clear cached samples. Use `syncConfig()`, `recover()`,
-`resetAndReapply()`, or a fresh `begin()` before trusting cached
-configuration-dependent behavior again.
+v3 is a deliberate breaking release.
 
-The CLI also exposes runtime configuration commands for the driver features:
-`single`, `autoscan`, `deglitch`, `errcfg`, `intb`, `refclk`, `activate`,
-`rpoverride`, `autoamp`, `highcurrent`, `rcount`, `settle`, `clkdiv`,
-`offset`, `idrive`, and `initidrive`. Additional service commands include
-`begin` / `init` for reinitialization, `id` for manufacturer/device identity,
-`sync` for cached-config reapply, `readfresh [count]` for STATUS-driven fresh
-samples, `readstaged <mask> [polls] [instr]` for poll-budgeted readout,
-`samplerate <ch> <N> [timeoutMs]` for a DRDY-gated smoke measurement,
-`demo [N]`, `selftest`, `stress [N]`, `stress_mix [N]`, and `timing <ch>
-<fRef>` for conversion, settling, and total sample-time calculations.
+| v2 | v3 |
+| --- | --- |
+| `begin(config)` | `bind(config)` then `startInitialize(id, deadline)` / `poll()` / `takeResult()` |
+| `tick()` plus separate staged APIs | one `poll(nowMs, maxTransfers)` job engine; no `tick()` |
+| `readChannel`, `readAllChannels`, `readFreshChannels`, `startReadChannels` | `startAcquire(mask, id, deadline)` with one status-aware `SampleBatch` result |
+| blocking channel reads and cached-sample age/accessors | owner-driven `startAcquire` / `poll` / `takeResult`; retain or timestamp the returned batch in application storage |
+| `dataReady()` | `readDataReady(bool&, DeviceStatus&)`, which preserves the destructive STATUS snapshot |
+| `readStatusRaw()` | diagnostic `readRegister16(REG_STATUS, value)`; prefer `readDeviceStatus()` when decoded fields are needed |
+| `probe()` | diagnostic reads of `REG_MANUFACTURER_ID` and `REG_DEVICE_ID`; production admission uses `startInitialize()` |
+| `syncConfig()` | `startApplyConfig(id, deadline)` |
+| `resetAndReapply()` | `startResetAndReapply(id, deadline)` |
+| `softReset()` | `startResetAndReapply()`; a raw RESET_DEV write is diagnostic and leaves applied state unknown |
+| runtime `set*()` configuration calls | sleep, `updateDesiredConfig()`, then `startApplyConfig()`; transport/address/variant changes require `end()` and `bind()` |
+| `readInitIdrive()` | `readInitDriveCurrent()` |
+| `getSettings()` / `settings()` / `getConfig()` | `config()`, `appliedConfigState()`, `configRevision()`, and `jobProgress()` |
+| `calcSensorFrequency()` | checked `calculateSensorFrequencyHz()` |
+| separate settle/sample/conversion-time helpers | conservative `estimateFrameTiming()` and its fixed-unit fields |
+| library `recover()`, OFFLINE latch, backoff, bus/hard-reset hooks | application recovery plus `invalidateAppliedState()` and explicit initialization/replay |
+| raw `channelCount`, address, error mask, and optional clock facts | explicit typed variant, address, channel mask, clock, profile, and `ErrorReporting` |
+| per-transfer health admission | non-authoritative `TransportStats`; owner retains health/admission authority |
 
-The Arduino example defaults to address `0x2A` and four channels. Override
-those at build time with `LDC1614_EXAMPLE_I2C_ADDRESS` and
-`LDC1614_EXAMPLE_CHANNEL_COUNT` when validating a different address strap or an
-LDC1612 fixture.
+## Examples and validation
 
-### Example Helpers (`examples/common/`)
+- `examples/01_basic_bringup_cli`: Arduino diagnostic CLI with a one-transfer
+  owner service budget.
+- `examples/esp_idf/basic`: native ESP-IDF diagnostic CLI using the new I2C
+  master driver and fixed C buffers.
+- `docs/I2C_INTEGRATION.md`: detailed ownership, deadline, result, side-effect,
+  and recovery integration contract.
+- `docs/HARDWARE_INTEGRATION.md`: board, sensor, timing, and physical evidence
+  checklist.
+- `docs/TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md`: current audit disposition and
+  remaining external product decisions.
+- `docs/VALIDATION_STATUS.md`: exact software and hardware-evidence status.
 
-Not part of the library. These simulate project-level glue and keep examples self-contained:
-
-| File | Purpose |
-|------|---------|
-| `BoardConfig.h` | Pin definitions and Wire init for supported boards |
-| `BuildConfig.h` | Compile-time `LOG_LEVEL` configuration |
-| `Log.h` | Serial logging macros (`LOGE`/`LOGW`/`LOGI`/`LOGD`/`LOGT`/`LOGV`) |
-| `I2cTransport.h` | Wire-based I2C transport adapter |
-| `I2cScanner.h` | I2C bus scanner with table output and bus recovery |
-| `BusDiag.h` | Bus diagnostics wrapper |
-| `CliShell.h` | Serial command-line shell with line editing |
-| `CliStyle.h` | Shared CLI color and help formatting helpers |
-| `Ldc1614Cli.h/.cpp` | Shared example-only diagnostic command implementation used by the Arduino bring-up example |
-| `CommandHandler.h` | Command parsing helpers (`readLine`, `match`, `parseInt`) |
-| `HealthDiag.h` | Verbose driver-health diagnostics and snapshots |
-| `HealthView.h` | Compact health/status formatting helpers |
-| `TransportAdapter.h` | Function-pointer adapter for example transports |
-
-## Behavioral Contracts
-
-1. **Threading model**: Instances are not internally thread-safe, and public APIs are not ISR-safe. Serialize all driver calls and I2C access in the application or injected transport. Transport callbacks must not recursively call into the same driver instance.
-2. **Timing model**: `tick()` is bounded (currently no-op). Blocking read waits require a monotonic `Config::nowMs`, use explicit deadlines, and keep a saturated finite poll cap so a stalled injected clock cannot spin forever.
-3. **Resource ownership**: I2C bus, locking/serialization, GPIO pins, timeouts, task ownership, INTB integration, and recovery/backoff policy are owned by the application or injected transport. Provided via `Config`.
-4. **Framework boundary**: Core code does not call `Wire`, `Serial`, `delay()`, `yield()`, `millis()`, ESP-IDF, FreeRTOS, or logging APIs directly. Arduino and ESP-IDF examples provide those hooks externally.
-5. **Memory behavior**: All allocation in `begin()`. Zero heap allocation in steady state.
-6. **Error handling**: All fallible APIs return `Status`. No silent failures. No exceptions.
-7. **Health behavior**: `OFFLINE` is latched. Normal public I2C operations return `BUSY` with `Driver is offline; call recover()` without touching the bus until `recover()` succeeds.
-8. **Dirty hardware config behavior**: failed configuration writes and diagnostic raw writes can leave hardware and cache diverged. Check `hardwareConfigDirty()` / `hardwareConfigDirtyError()`, stop trusting cached configuration, then call `syncConfig()`, `recover()`, `resetAndReapply()`, or `begin()`. Trust the cache again only after dirty state is clear.
-
-## Configuration Constraints
-
-| Setting | Constraint |
-|---------|------------|
-| `i2cWrite`, `i2cWriteRead` | Required. The library never touches `Wire` directly. |
-| `i2cAddress` | `0x2A` or `0x2B`. |
-| `i2cTimeoutMs` | Passed through to the injected transport; the core does not configure bus hardware timeouts. |
-| `nowMs` | Required for wall-clock blocking reads and recovery backoff timing. Nonblocking reads and status APIs can run without it, timestamps are then `0`, and recovery backoff is not enforced. |
-| `cooperativeYield` | Optional application callback between blocking-read polls. It must be bounded and must not recursively call into the same driver instance. |
-| `channelCount` | `2` for LDC1612 or `4` for LDC1614. |
-| Channel indexes | Must be less than `channelCount`. |
-| `rrSequence` | LDC1612 accepts only `CH0_CH1`; LDC1614 accepts all defined sequences. |
-| `RCOUNTx` | Register value must be `0x0005..0xFFFF`; channels selected by autoscan require `>=0x0009` per datasheet Table 43. |
-| `SETTLECOUNTx` | Single-channel mode accepts the register-defined values; channels selected by autoscan require `>=0x0004` per datasheet Table 43. |
-| `FIN_DIVIDERx` | Register field must be `1..15`. The application clock plan must choose `>=2` when actual sensor frequency is `>=8.75 MHz`. |
-| `FREF_DIVIDERx` | Register field must be `1..1023`; reserved bits in CLOCK_DIVIDERSx are kept clear. |
-| Physical clock plan | The driver does not know actual `fCLK`, `fREFx`, sensor frequency, coil tolerance, or deglitch margin. Validate `fINx < fREFx/4`, external/internal clock accuracy, 1 kHz to 10 MHz sensor range, and deglitch selection on the target board. |
-| `deglitch` | Must be one of 1 MHz, 3.3 MHz, 10 MHz, or 33 MHz. |
-| `errorConfig` | Only `cmd::MASK_ERRCFG_*` bits in `cmd::MASK_ERRCFG_ALLOWED` may be set. |
-| INTB | If `intbPin >= 0`, `gpioRead` is required. |
-| `highCurrentDrv` | Valid only in single-channel mode on Ch0. |
-| Full configuration apply | `begin()`, `syncConfig()`, `recover()` reapply, and `resetAndReapply()` force CONFIG sleep before writing channel/global configuration and leave the device asleep. |
-| Recovery | `recoverBackoffMs` gates repeated `recover()` attempts only when `nowMs` is configured; bus/hard reset callbacks are optional. |
-
-## API Latency and Transaction Model
-
-Notation: `R` = 16-bit register read transaction, `W` = 16-bit register write
-transaction, `N` = configured channel count/effective `count`, `F` = channels
-with `UNREADCONVx` set, `P` = readiness poll count until ready/timeout, and
-`T` = injected per-transaction timeout (`Config::i2cTimeoutMs`). Callback
-latency for `gpioRead`, `busReset`, `hardReset`, and `cooperativeYield` is
-application-owned and must be bounded by the injected implementation.
-
-| API | I2C transactions | Other waits | Bound / notes |
-| --- | ---: | --- | --- |
-| `begin()` | `2R + N*5W + 4W` | none in core | Probe identity, force CONFIG sleep, apply channel registers plus ERROR_CONFIG/MUX_CONFIG/final CONFIG. Leaves device asleep. |
-| `probe()` | `2R` | none | Raw identity reads, no health tracking. Requires configured callbacks. |
-| `recover()` | `1R..2R` before optional recovery steps | optional bus/hard reset callbacks | Identity failure can return after MANUFACTURER_ID. May add bus reset, RESET_DEV write, hard reset, and full config reapply. Backoff depends on `nowMs` when configured. |
-| `readChannel(ch)` | `2R` | none | DATAx_MSB then DATAx_LSB. |
-| `readAllChannels(out, N)` | `2N R` | none | Latest-register semantics; not per-channel freshness proof. |
-| `readFreshChannels(out, N)` | `1R + 2F R` | none | `F` is channels with `UNREADCONVx` set. Non-fresh channels return cached data if available. |
-| `readDataReady(ready)` | `0R` or `1R` | optional `gpioRead` | INTB high path uses no I2C; polling or asserted INTB reads STATUS. STATUS sensor errors return `SENSOR_ERROR`, with `ready` still reflecting DRDY. |
-| `dataReady()` | `0R` or `1R` | optional `gpioRead` | Convenience only; false can mean not ready or hidden transport/status/sensor error. |
-| `readDeviceStatus()` / `readStatusRaw()` | `1R` | none | STATUS read can clear sticky status and de-assert INTB. |
-| `sleep()` / `wake()` | `0W` or `1W` | none | No write if already in requested state, but dirty/offline preconditions are still reported before a no-op success. |
-| `softReset()` | `1W` | none in core | Writes RESET_DEV, marks hardware config dirty, and transitions UNINIT on success. |
-| `syncConfig()` | `N*5W + 4W` | none in core | Force CONFIG sleep, apply cached config, final sleeping CONFIG. |
-| `resetAndReapply()` | `1W + N*5W + 4W` | none in core | RESET_DEV plus full config reapply. |
-| `readChannelBlocking()` | `P*ready + 2R` | `cooperativeYield` between polls | Requires `nowMs`; `ready` is `0R` or `1R` per poll. Timeout bounds readiness wait only. |
-| `readAllChannelsBlocking(N)` | `P*ready + 2N R` | `cooperativeYield` between polls | Requires `nowMs`; waits for one DRDY, then latest-register readout. Timeout bounds readiness wait only. |
-| Major setters | usually `1W`, `setSingleChannelMode()` `2W` | none | Setters require sleep mode, commit cache after successful writes, and clear cached samples on success. |
-| Raw register access | `1R` or `1W` | none | Diagnostic only; raw writes mark hardware config dirty and clear cached samples. |
-
-For blocking helpers, `timeoutMs` bounds the readiness wait, not the total
-wall-clock duration of the public call. Total latency also includes each
-readiness-poll transaction or GPIO callback, the optional `cooperativeYield`
-callback, and the final DATA register reads, each subject to the injected
-transport's own bounded behavior and `i2cTimeoutMs`.
-
-## Conversion Timing Model
-
-The helper methods use the local datasheet approximation:
-
-- Channel reference clock: `fREFx = fRef / FREF_DIVIDERx`.
-- Conversion time: approximately `(RCOUNTx * 16 + 4) / fREFx`.
-- Settling time: `32 / fREFx` for SETTLECOUNT 0 or 1, otherwise
-  `(SETTLECOUNTx * 16) / fREFx`.
-- `calcSampleTimeUs()` returns conversion plus settling time for one channel.
-- In autoscan, estimate the nominal frame time by summing enabled channel sample
-  times, then validate the observed cadence on hardware.
-- The driver enforces register-field ranges and the datasheet Table 43
-  multi-channel minima it can check from configuration: selected autoscan
-  channels require `RCOUNTx >= 0x0009` and `SETTLECOUNTx >= 0x0004`.
-
-The `fRef` argument is the pre-divider reference clock supplied to the LDC
-channel, not already-divided `fREFx`. Internal versus external clock accuracy,
-multi-channel sequencing overhead/switching behavior, I2C readout time,
-interrupt latency, and sensor restart/error behavior are not included in the
-helper result. Treat the result as an estimate for scheduling and validation,
-not a hardware-proven sample-rate guarantee.
-
-The application clock plan must still validate facts the core cannot infer:
-actual `fCLK`/`fREFx`, `fINx < fREFx/4`, the 1 kHz to 10 MHz sensor operating
-range, `FIN_DIVIDERx >= 2` when actual sensor frequency is at least 8.75 MHz,
-and deglitch bandwidth above the maximum sensor frequency. Capture board logs
-or bench measurements before making timing/readiness claims.
-
-## Documentation
-
-- `CHANGELOG.md` - Full release history
-- `docs/README.md` - Maintained docs index
-- `docs/HARDWARE_INTEGRATION.md` - LDC1612/LDC1614 hardware integration checklist
-- `docs/I2C_INTEGRATION.md` - Application-owned I2C integration and bounded poll notes
-- `docs/HIL_VALIDATION.md` - Hardware-in-the-loop validation procedure and matrix
-- `docs/IDF_PORT.md` - ESP-IDF portability guidance
-- `docs/VALIDATION_STATUS.md` - Software check status and hardware validation requirements
-- `docs/reference/` - Datasheet, compact extracts, vendor application notes, and how-to guides
-
-## Validation Status
-
-The core has a framework-neutral, injected-transport architecture and native
-software tests/guards. COM8 ESP32-S2 no-sensor HIL artifacts under
-`docs/reports/` validate chip-only behavior on real LDC1614 hardware. Hardware
-behavior must still be validated on the target board and sensor setup,
-including sensor-attached DATAx/STATUS behavior, address strap variants,
-INTB/SD wiring, sensor configuration, fault cases, and soak profile.
-
-Use `tools/ldc1614_hil_runner.py` and `docs/HIL_VALIDATION.md` to collect
-hardware evidence. If the runner is not connected to real firmware and hardware,
-its result is `NOT_RUN`, not pass.
-
-## Reproducible Version Metadata
-
-`scripts/generate_version.py` keeps `Version.h` synchronized with
-`library.json`. PlatformIO builds can inject build timestamp and Git metadata.
-For deterministic build metadata, set `SOURCE_DATE_EPOCH=<unix-seconds>`. If no
-source epoch is available, set `LDC1614_REPRODUCIBLE_BUILD=1` to use
-`1970-01-01 00:00:00` as the injected timestamp. Without injected metadata, the
-generated header falls back to `unknown-date unknown-time` rather than compiler
-`__DATE__` / `__TIME__`.
-
-Before packaging or tagging, run `python scripts/generate_version.py check`.
-Release version changes should use `python scripts/generate_version.py set
-X.Y.Z` or the `bump` command so `library.json` and generated `Version.h` stay
-consistent. `Version.h` is generated but tracked because it is a public header
-included by `LDC1614/LDC1614.h`. Package archives created by
-`python -m platformio pkg pack` are local artifacts and should not remain in the
-worktree after review.
-
-## License
-
-MIT License. See `LICENSE`.
+Do not infer target hardware suitability from a successful native test or
+firmware build. See the validation documents before making a deployment claim.

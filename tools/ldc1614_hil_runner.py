@@ -33,40 +33,26 @@ ARDUINO_DEFAULT_COMMANDS = [
     "version",
     "scan",
     "probe",
-    "id",
     "drv",
     "cfg",
+    "progress",
     "status",
     "sleep",
     "wake",
     "drdy",
-    "read",
-    "readfresh",
-    "readstaged 0x01 8 1",
-    "recover",
-    "timing 0 43000000",
+    "timing 0x01",
     "selftest",
 ]
 
 ARDUINO_NO_SENSOR_COMMANDS = [
     "help",
     "version",
-    "init",
     "scan",
-    "probeaddr 0x2A",
     "probe",
-    "id",
     "drv",
-    "state",
-    "online",
     "cfg",
-    "snapshot",
-    "channels",
-    "activech",
+    "progress",
     "status",
-    "status_raw",
-    "rawreg 0x7E",
-    "rawreg 0x7F",
     "reg 0x7E",
     "reg 0x7F",
     "reg 0x19",
@@ -75,80 +61,10 @@ ARDUINO_NO_SENSOR_COMMANDS = [
     "sleep",
     "wake",
     "sleep",
-    "single 0",
-    "rcount 0 0x0123",
-    "settle 0 0x0011",
-    "clkdiv 0 2 3",
-    "offset 0 0x0010",
-    "idrive 0 5",
-    "rcount 1 0x0124",
-    "settle 1 0x0012",
-    "clkdiv 1 2 4",
-    "offset 1 0x0011",
-    "idrive 1 6",
-    "rcount 2 0x0125",
-    "settle 2 0x0013",
-    "clkdiv 2 2 5",
-    "offset 2 0x0012",
-    "idrive 2 7",
-    "rcount 3 0x0126",
-    "settle 3 0x0014",
-    "clkdiv 3 2 6",
-    "offset 3 0x0013",
-    "idrive 3 8",
     "initidrive 0",
-    "initidrive 1",
-    "initidrive 2",
-    "initidrive 3",
     "cfg",
-    "activech 1",
-    "activech 2",
-    "activech 3",
-    "single 0",
-    "single 1",
-    "single 2",
-    "single 3",
-    "single 0",
-    "autoscan 2",
-    "autoscan 3",
-    "autoscan 4",
-    "single 0",
-    "deglitch 1",
-    "deglitch 3",
-    "deglitch 10",
-    "deglitch 33",
-    "errcfg 0x0000",
-    "errcfg 0x00F9",
-    "errcfg",
-    "intb 0",
-    "intb 1",
-    "intb 0",
-    "refclk ext",
-    "refclk int",
-    "activate low",
-    "activate full",
-    "rpoverride 0",
-    "rpoverride 1",
-    "autoamp 1",
-    "autoamp 0",
-    "highcurrent 1",
-    "highcurrent 0",
-    "cfg",
-    "wreg 0x19 0x00F9",
-    "sync",
-    "cfg",
-    "rawwreg 0x19 0x00F9",
-    "cfg",
-    "resetreapply",
-    "cfg",
-    "recover",
-    "timing 0 43000000",
-    "timing 1 43000000",
-    "timing 2 43000000",
-    "timing 3 43000000",
-    "reset",
-    "init",
-    "cfg",
+    "timing 0x01",
+    "selftest",
     "sleep",
 ]
 
@@ -158,14 +74,12 @@ IDF_DEFAULT_COMMANDS = [
     "probe",
     "drv",
     "cfg",
+    "progress",
     "status",
     "sleep",
     "wake",
     "ready",
-    "read",
-    "readall",
-    "recover",
-    "timing 0 43000000",
+    "timing 0x01",
     "selftest",
 ]
 
@@ -180,24 +94,16 @@ INFO_COMMANDS = {
     "settings",
     "state",
     "health",
-    "init",
-    "begin",
     "end",
-    "online",
-    "sync",
-    "channels",
-    "activech",
-    "snapshot",
+    "progress",
     "status",
     "status_raw",
     "drdy",
     "ready",
     "timing",
-    "errcfg",
-    "intb",
     "initidrive",
+    "initdrive",
     "reg",
-    "rawreg",
 }
 FAIL_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
@@ -206,9 +112,9 @@ FAIL_PATTERNS = [
         r"\bDEVICE_NOT_FOUND\b",
         r"\bI2C_(?:ERROR|TIMEOUT|NACK_ADDR|NACK_DATA|BUS)\b",
         r"\bINVALID_(?:CONFIG|PARAM)\b",
-        r"\bNOT_INITIALIZED\b",
+        r"\bNOT_BOUND\b",
         r"\bBUSY\b",
-        r"\b(?:begin|init|probe|read|write|recover|selftest|command)\s+failed\b",
+        r"\b(?:bind|init|probe|read|write|selftest|command)\s+failed\b",
         r"\[FAIL\]",
         r"\[ERR:",
         r"\bmatch=(?:\x1b\[[0-9;]*m)*NO\b",
@@ -219,8 +125,7 @@ FAIL_PATTERNS = [
         r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
         r"\berr=1\b",
         r"\b(?:errUR|errOR|errWD|errAmp|ur|or|wd|ah|al|zc)=1\b",
-        r"not online",
-        r"not initialized",
+        r"not bound",
         r"code=[1-9][0-9]*",
     )
 ]
@@ -259,7 +164,7 @@ ADDRESS_PATTERNS = [
 CHANNEL_COUNT_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
-        r"\bchannel(?:\s+count|s)?\s*[=:]\s*(\d+)",
+        r"\b(?:variantChannels|channel\s+count)\s*[=:]\s*(\d+)",
     )
 ]
 
@@ -334,9 +239,6 @@ def classify_command(
             return "PASS", f"matched configured expected-failure token: {pattern.pattern}"
 
     name = command_name(command)
-    if name == "readstaged" and re.search(r"\bReadStaged result:", output, re.IGNORECASE):
-        return "PASS", "poll-staged read reached final result"
-
     for pattern in FAIL_PATTERNS:
         if pattern.search(output):
             return "FAIL", f"matched failure pattern: {pattern.pattern}"
@@ -478,8 +380,7 @@ def summarize_stress(args: argparse.Namespace,
     command = f"stress {args.stress_count}"
     result = find_command_result(command_results, command)
     if result is None:
-        summary["status"] = "UNKNOWN"
-        summary["reason"] = "stress command result was not captured"
+        summary["reason"] = "v3 diagnostic CLIs expose no stress command"
         return summary
 
     summary["elapsed_s"] = float(result.get("elapsed_s", 0.0))
@@ -532,8 +433,7 @@ def summarize_sample_rate(args: argparse.Namespace,
     command = f"samplerate {args.sample_rate_channel} {args.sample_rate_count}"
     result = find_command_result(command_results, command)
     if result is None:
-        summary["status"] = "UNKNOWN"
-        summary["reason"] = "sample-rate command result was not captured"
+        summary["reason"] = "v3 diagnostic CLIs expose no counted acquisition command"
         return summary
 
     summary["elapsed_s"] = float(result.get("elapsed_s", 0.0))
@@ -724,34 +624,20 @@ def run_serial_commands(
 
 def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped: List[Dict[str, str]]) -> None:
     if args.include_address_0x2b:
-        if args.profile == "arduino":
-            commands.append("probeaddr 0x2B")
-        else:
-            skipped.append(
-                {
-                    "name": "address_0x2B",
-                    "reason": "IDF diagnostic CLI has no probeaddr command",
-                }
-            )
+        skipped.append(
+            {
+                "name": "address_0x2B",
+                "reason": "rebuild with the explicit 0x2B profile; runtime address changes are not exposed",
+            }
+        )
 
     if args.include_stress:
-        if args.fixture == "no-sensor":
-            skipped.append(
-                {
-                    "name": "stress",
-                    "reason": "no-sensor fixture excludes conversion/data-read stress",
-                }
-            )
-        elif args.profile == "arduino":
-            ensure_wake_command(commands)
-            commands.append(f"stress {args.stress_count}")
-        else:
-            skipped.append(
-                {
-                    "name": "stress",
-                    "reason": "IDF diagnostic CLI has no stress command",
-                }
-            )
+        skipped.append(
+            {
+                "name": "stress",
+                "reason": "v3 diagnostic CLIs expose no production-cadence stress command",
+            }
+        )
 
     if args.sample_rate_count != 0:
         if args.fixture == "no-sensor":
@@ -775,14 +661,11 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
                     "reason": "--sample-rate-channel must be 0..3",
                 }
             )
-        elif args.profile == "arduino":
-            ensure_wake_command(commands)
-            commands.append(f"samplerate {args.sample_rate_channel} {args.sample_rate_count}")
         else:
             skipped.append(
                 {
                     "name": "sample_rate_benchmark",
-                    "reason": "IDF diagnostic CLI has no counted read command",
+                    "reason": "v3 diagnostic CLIs expose no production-cadence counted acquisition command",
                 }
             )
 
@@ -1100,16 +983,16 @@ def parser_self_test() -> Tuple[bool, List[str]]:
         failures.append("arduino default commands missing version")
     if "drdy" in default_commands("arduino", "no-sensor"):
         failures.append("no-sensor commands must exclude DRDY")
-    if "readfresh" in default_commands("arduino", "no-sensor"):
-        failures.append("no-sensor commands must exclude fresh conversion reads")
-    if "resetreapply" not in default_commands("arduino", "no-sensor"):
-        failures.append("no-sensor commands missing reset/reapply coverage")
+    if any(command.startswith("acquire") for command in default_commands("arduino", "no-sensor")):
+        failures.append("no-sensor commands must exclude acquisition")
+    if "progress" not in default_commands("arduino", "no-sensor"):
+        failures.append("no-sensor commands missing cooperative progress snapshot")
     if "wake" not in default_commands("arduino"):
-        failures.append("arduino default commands missing wake before reads")
+        failures.append("arduino default commands missing wake")
     if "ready" not in default_commands("idf"):
         failures.append("idf default commands missing ready")
     if "wake" not in default_commands("idf"):
-        failures.append("idf default commands missing wake before reads")
+        failures.append("idf default commands missing wake")
 
     status, _ = classify_command("version", "version: 1.0.0\n> ", False)
     if status != "PASS":

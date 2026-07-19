@@ -9,6 +9,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [3.0.0] - 2026-07-19
+
+### Added
+
+- One fixed-memory cooperative job engine for initialization, configuration
+  apply, software reset/reapply, and status-aware channel acquisition.
+- Caller-owned nonzero `OperationId`, absolute 64-bit deadline, per-poll
+  transport budget, cache-only `JobProgress`, bus-silent `cancelJob()`, and a
+  fixed two-entry exactly-once terminal `OperationResult` FIFO.
+- Full terminal provenance: success/failure/cancel/timeout outcome, destructive
+  read and partial/indeterminate write effects, desired configuration revision,
+  and structured `ConfigFault` with the original status, phase, register, and
+  channel.
+- Fixed `SampleBatch` with pre/post DATA STATUS snapshots,
+  selected/valid/fresh/error/overrun masks, per-channel raw register words,
+  28-bit count, silicon quality flags, and owner completion timestamp.
+- Explicit `DeviceVariant`, `I2cAddress`, `Channel`, `ChannelMask`,
+  `ReferenceClock`, sensor-frequency bounds, and typed `ErrorReporting`.
+- Bus-silent `invalidateAppliedState()` for owner-observed removal, brownout,
+  chip reset, shutdown, or shared-bus recovery.
+- Checked `double` frequency calculation, conservative fixed-unit frame timing,
+  nominal drive-current lookup, pure STATUS/DATA decoders, and error-policy
+  encoder.
+- Behavioral fake-device tests for shadow latching, UNREAD consumption,
+  STATUS/error clearing, INTB deassertion, conversion overrun, and ambiguous
+  transport writes, plus exhaustive phase failure/cancellation tables.
+- Pinned host tools in `requirements-dev.txt` and an exact maintained Espressif
+  PlatformIO platform URL.
+
+### Changed
+
+- **Breaking:** `begin(config)` is replaced by zero-I2C `bind(config)` followed
+  by `startInitialize(id, deadline)`, budgeted `poll()`, and exactly-once
+  `takeResult()`.
+- **Breaking:** `readChannel`, `readAllChannels`, `readFreshChannels`, and
+  `startReadChannels` are replaced by one `startAcquire()` protocol that always
+  preserves destructive STATUS evidence and commits a complete batch only.
+- **Breaking:** `syncConfig()` becomes `startApplyConfig()`;
+  `resetAndReapply()` becomes `startResetAndReapply()`.
+- **Breaking:** `tick()`, blocking read helpers, driver-owned `recover()`, the
+  OFFLINE/DEGRADED state machine, retry/backoff policy, and bus/hard-reset hooks
+  are removed. Applications retain scheduling, health, retry, and recovery
+  authority; `TransportStats` is non-authoritative diagnostics only.
+- Default `Config` is intentionally invalid. Variant, address, reference clock,
+  channel mask/profile, mode, deglitch, and readiness/error policy must be
+  explicit before binding.
+- Applied configuration is represented as unknown/applying/applied sleeping/
+  applied active/dirty. Acquisition rejects untrusted or inactive hardware
+  state, and matching identity after return still requires complete replay.
+- Arduino and native ESP-IDF diagnostic examples now advance no more than one
+  driver transport callback per service pass and consume terminal results by ID.
+- HIL defaults were migrated away from removed v2 commands. Asynchronous v3
+  jobs require correlated terminal-result evidence; immediate `IN_PROGRESS`
+  output is not classified as completion.
+- Documentation now states DATAx_MSB/STATUS/UNREAD/INTB destructive effects,
+  sequential non-simultaneous channel timing, concurrency/ISR/latency limits,
+  external-owner retry/deadline/recovery policy, and exact operation maxima.
+- `native_cov` is described as coverage instrumentation only because no report
+  or threshold is produced.
+
+### Fixed
+
+- Cold initialization, configuration replay, and reset/reapply can no longer
+  monopolize an external bus owner in one library call.
+- Deadline or application cancellation cannot leave an old job busy or permit
+  a stale completion to be attributed to its replacement.
+- Acquisition no longer discards the STATUS snapshot that can be destroyed by
+  later DATA reads, nor publishes partial cache changes when a later phase
+  fails or is cancelled.
+- Raw endpoint saturation, watchdog, amplitude, zero-count, data-loss, and
+  configuration-unknown conditions remain visible independently of transport
+  success.
+- A transport failure that may have committed a write remains explicitly
+  indeterminate and is never converted to success by a blind retry.
+
+### Validation limits
+
+- Existing ESP32-S2/COM8 chip-only artifacts were produced against v2. They do
+  not validate v3 IDs, deadlines, cancellation, result delivery, applied-state
+  invalidation, or acquisition semantics.
+- No committed raw v3 target transcript or logic trace validates sensor-attached
+  conversion, INTB/SD, address variants, fault injection, exact board clock
+  plans, coils, calibration, or soak behavior.
+
 ## [2.0.0] - 2026-07-01
 
 ### Added
@@ -148,6 +232,7 @@ No changes yet.
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0
