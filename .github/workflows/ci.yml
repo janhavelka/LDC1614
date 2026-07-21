@@ -137,3 +137,20 @@ jobs:
           esp_idf_version: v6.0.2
           target: ${{ matrix.target }}
           path: examples/esp_idf/basic
+
+  documentation:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes doxygen
+
+      - name: Generate public documentation
+        run: |
+          doxygen --version
+          doxygen Doxyfile
+          test -f docs/doxygen/html/index.html

@@ -58,15 +58,15 @@ static constexpr uint8_t REG_DEVICE_ID       = 0x7F;  ///< Device ID (R) = 0x305
 // Default Register Values
 // ============================================================================
 
-static constexpr uint16_t RCOUNT_DEFAULT         = 0x0080;
-static constexpr uint16_t OFFSET_DEFAULT         = 0x0000;
-static constexpr uint16_t SETTLECOUNT_DEFAULT    = 0x0000;
-static constexpr uint16_t CLOCK_DIVIDERS_DEFAULT = 0x0000;
-static constexpr uint16_t STATUS_DEFAULT         = 0x0000;
-static constexpr uint16_t ERROR_CONFIG_DEFAULT   = 0x0000;
-static constexpr uint16_t CONFIG_DEFAULT         = 0x2801;
-static constexpr uint16_t MUX_CONFIG_DEFAULT     = 0x020F;
-static constexpr uint16_t DRIVE_CURRENT_DEFAULT  = 0x0000;
+static constexpr uint16_t RCOUNT_DEFAULT         = 0x0080;  ///< RCOUNTx reset value.
+static constexpr uint16_t OFFSET_DEFAULT         = 0x0000;  ///< OFFSETx reset value.
+static constexpr uint16_t SETTLECOUNT_DEFAULT    = 0x0000;  ///< SETTLECOUNTx reset value.
+static constexpr uint16_t CLOCK_DIVIDERS_DEFAULT = 0x0000;  ///< CLOCK_DIVIDERSx reset value.
+static constexpr uint16_t STATUS_DEFAULT         = 0x0000;  ///< STATUS reset value.
+static constexpr uint16_t ERROR_CONFIG_DEFAULT   = 0x0000;  ///< ERROR_CONFIG reset value.
+static constexpr uint16_t CONFIG_DEFAULT         = 0x2801;  ///< CONFIG reset value.
+static constexpr uint16_t MUX_CONFIG_DEFAULT     = 0x020F;  ///< MUX_CONFIG reset value.
+static constexpr uint16_t DRIVE_CURRENT_DEFAULT  = 0x0000;  ///< DRIVE_CURRENTx reset value.
 
 static constexpr uint16_t MANUFACTURER_ID_VALUE  = 0x5449;  ///< "TI" in ASCII
 static constexpr uint16_t DEVICE_ID_VALUE        = 0x3055;  ///< Shared LDC1612/LDC1614
@@ -81,10 +81,10 @@ static constexpr uint16_t MASK_DATA_ERR_WD   = 0x2000;  ///< Watchdog timeout er
 static constexpr uint16_t MASK_DATA_ERR_AE   = 0x1000;  ///< Amplitude error flag (OR of high+low)
 static constexpr uint16_t MASK_DATA_MSB_DATA = 0x0FFF;  ///< 12 MSBs of 28-bit result [27:16]
 
-static constexpr uint8_t BIT_DATA_ERR_UR = 15;
-static constexpr uint8_t BIT_DATA_ERR_OR = 14;
-static constexpr uint8_t BIT_DATA_ERR_WD = 13;
-static constexpr uint8_t BIT_DATA_ERR_AE = 12;
+static constexpr uint8_t BIT_DATA_ERR_UR = 15;  ///< Shift for DATA under-range flag.
+static constexpr uint8_t BIT_DATA_ERR_OR = 14;  ///< Shift for DATA over-range flag.
+static constexpr uint8_t BIT_DATA_ERR_WD = 13;  ///< Shift for DATA watchdog flag.
+static constexpr uint8_t BIT_DATA_ERR_AE = 12;  ///< Shift for DATA amplitude flag.
 
 // ============================================================================
 // CLOCK_DIVIDERSx Bit Masks
@@ -93,8 +93,8 @@ static constexpr uint8_t BIT_DATA_ERR_AE = 12;
 static constexpr uint16_t MASK_FIN_DIVIDER  = 0xF000;  ///< Sensor input frequency divider [15:12]
 static constexpr uint16_t MASK_FREF_DIVIDER = 0x03FF;  ///< Reference clock divider [9:0]
 
-static constexpr uint8_t BIT_FIN_DIVIDER  = 12;
-static constexpr uint8_t BIT_FREF_DIVIDER = 0;
+static constexpr uint8_t BIT_FIN_DIVIDER  = 12;  ///< Shift for FIN_DIVIDER field.
+static constexpr uint8_t BIT_FREF_DIVIDER = 0;   ///< Shift for FREF_DIVIDER field.
 
 // ============================================================================
 // STATUS Register (0x18) Bit Masks
@@ -113,14 +113,14 @@ static constexpr uint16_t MASK_STATUS_UNREADCONV1   = 0x0004;  ///< Ch 1 unread 
 static constexpr uint16_t MASK_STATUS_UNREADCONV2   = 0x0002;  ///< Ch 2 unread conversion
 static constexpr uint16_t MASK_STATUS_UNREADCONV3   = 0x0001;  ///< Ch 3 unread conversion
 
-static constexpr uint8_t BIT_STATUS_ERR_CHAN = 14;
-static constexpr uint8_t BIT_STATUS_ERR_UR  = 13;
-static constexpr uint8_t BIT_STATUS_ERR_OR  = 12;
-static constexpr uint8_t BIT_STATUS_ERR_WD  = 11;
-static constexpr uint8_t BIT_STATUS_ERR_AHE = 10;
-static constexpr uint8_t BIT_STATUS_ERR_ALE = 9;
-static constexpr uint8_t BIT_STATUS_ERR_ZC  = 8;
-static constexpr uint8_t BIT_STATUS_DRDY    = 6;
+static constexpr uint8_t BIT_STATUS_ERR_CHAN = 14; ///< Shift for STATUS error channel.
+static constexpr uint8_t BIT_STATUS_ERR_UR  = 13;  ///< Shift for STATUS under-range.
+static constexpr uint8_t BIT_STATUS_ERR_OR  = 12;  ///< Shift for STATUS over-range.
+static constexpr uint8_t BIT_STATUS_ERR_WD  = 11;  ///< Shift for STATUS watchdog.
+static constexpr uint8_t BIT_STATUS_ERR_AHE = 10;  ///< Shift for STATUS amplitude high.
+static constexpr uint8_t BIT_STATUS_ERR_ALE = 9;   ///< Shift for STATUS amplitude low.
+static constexpr uint8_t BIT_STATUS_ERR_ZC  = 8;   ///< Shift for STATUS zero count.
+static constexpr uint8_t BIT_STATUS_DRDY    = 6;   ///< Shift for STATUS data ready.
 
 // ============================================================================
 // ERROR_CONFIG Register (0x19) Bit Masks
@@ -162,14 +162,14 @@ static constexpr uint16_t MASK_CFG_INTB_DIS           = 0x0080;  ///< INTB disab
 static constexpr uint16_t MASK_CFG_HIGH_CURRENT_DRV   = 0x0040;  ///< High current drive (Ch0 only)
 static constexpr uint16_t MASK_CFG_RESERVED_LOW       = 0x003F;  ///< Reserved [5:0], must be 0x01
 
-static constexpr uint8_t BIT_CFG_ACTIVE_CHAN        = 14;
-static constexpr uint8_t BIT_CFG_SLEEP_MODE_EN      = 13;
-static constexpr uint8_t BIT_CFG_RP_OVERRIDE_EN     = 12;
-static constexpr uint8_t BIT_CFG_SENSOR_ACTIVATE_SEL = 11;
-static constexpr uint8_t BIT_CFG_AUTO_AMP_DIS       = 10;
-static constexpr uint8_t BIT_CFG_REF_CLK_SRC        = 9;
-static constexpr uint8_t BIT_CFG_INTB_DIS           = 7;
-static constexpr uint8_t BIT_CFG_HIGH_CURRENT_DRV   = 6;
+static constexpr uint8_t BIT_CFG_ACTIVE_CHAN        = 14; ///< Shift for active channel.
+static constexpr uint8_t BIT_CFG_SLEEP_MODE_EN      = 13; ///< Shift for sleep enable.
+static constexpr uint8_t BIT_CFG_RP_OVERRIDE_EN     = 12; ///< Shift for RP override.
+static constexpr uint8_t BIT_CFG_SENSOR_ACTIVATE_SEL = 11; ///< Shift for activation mode.
+static constexpr uint8_t BIT_CFG_AUTO_AMP_DIS       = 10; ///< Shift for auto-amplitude disable.
+static constexpr uint8_t BIT_CFG_REF_CLK_SRC        = 9;  ///< Shift for reference source.
+static constexpr uint8_t BIT_CFG_INTB_DIS           = 7;  ///< Shift for INTB disable.
+static constexpr uint8_t BIT_CFG_HIGH_CURRENT_DRV   = 6;  ///< Shift for high-current drive.
 
 /// CONFIG reserved bits [5:0] must be set to 0b000001
 static constexpr uint16_t CONFIG_RESERVED_VALUE = 0x0001;
@@ -183,9 +183,9 @@ static constexpr uint16_t MASK_MUX_RR_SEQUENCE  = 0x6000;  ///< Round-robin sequ
 static constexpr uint16_t MASK_MUX_RESERVED     = 0x1FF8;  ///< Reserved [12:3], must be 0x0208
 static constexpr uint16_t MASK_MUX_DEGLITCH     = 0x0007;  ///< Deglitch filter bandwidth [2:0]
 
-static constexpr uint8_t BIT_MUX_AUTOSCAN_EN = 15;
-static constexpr uint8_t BIT_MUX_RR_SEQUENCE = 13;
-static constexpr uint8_t BIT_MUX_DEGLITCH    = 0;
+static constexpr uint8_t BIT_MUX_AUTOSCAN_EN = 15; ///< Shift for auto-scan enable.
+static constexpr uint8_t BIT_MUX_RR_SEQUENCE = 13; ///< Shift for round-robin sequence.
+static constexpr uint8_t BIT_MUX_DEGLITCH    = 0;  ///< Shift for deglitch encoding.
 
 /// MUX_CONFIG reserved bits [12:3] must be set to 0b0001000001 = 0x0208
 static constexpr uint16_t MUX_CONFIG_RESERVED_VALUE = 0x0208;
@@ -203,8 +203,8 @@ static constexpr uint16_t MASK_RESET_DEV = 0x8000;  ///< Write 1 to reset; alway
 static constexpr uint16_t MASK_IDRIVE      = 0xF800;  ///< Sensor drive current [15:11], 5-bit
 static constexpr uint16_t MASK_INIT_IDRIVE = 0x07C0;  ///< Initial drive current [10:6], read-only
 
-static constexpr uint8_t BIT_IDRIVE      = 11;
-static constexpr uint8_t BIT_INIT_IDRIVE = 6;
+static constexpr uint8_t BIT_IDRIVE      = 11; ///< Shift for programmed IDRIVE code.
+static constexpr uint8_t BIT_INIT_IDRIVE = 6;  ///< Shift for read-only initial IDRIVE.
 
 // ============================================================================
 // Deglitch Filter Values
@@ -247,25 +247,32 @@ static constexpr uint8_t  MAX_CHANNELS        = 4;       ///< Maximum number of 
 // Per-Channel Register Offsets
 // ============================================================================
 
-/// Get DATAx_MSB register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return DATAx_MSB register address.
 static constexpr uint8_t regDataMsb(uint8_t ch) { return static_cast<uint8_t>(REG_DATA0_MSB + ch * 2); }
 
-/// Get DATAx_LSB register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return DATAx_LSB register address.
 static constexpr uint8_t regDataLsb(uint8_t ch) { return static_cast<uint8_t>(REG_DATA0_LSB + ch * 2); }
 
-/// Get RCOUNTx register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return RCOUNTx register address.
 static constexpr uint8_t regRcount(uint8_t ch) { return static_cast<uint8_t>(REG_RCOUNT0 + ch); }
 
-/// Get OFFSETx register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return OFFSETx register address.
 static constexpr uint8_t regOffset(uint8_t ch) { return static_cast<uint8_t>(REG_OFFSET0 + ch); }
 
-/// Get SETTLECOUNTx register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return SETTLECOUNTx register address.
 static constexpr uint8_t regSettleCount(uint8_t ch) { return static_cast<uint8_t>(REG_SETTLECOUNT0 + ch); }
 
-/// Get CLOCK_DIVIDERSx register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return CLOCK_DIVIDERSx register address.
 static constexpr uint8_t regClockDividers(uint8_t ch) { return static_cast<uint8_t>(REG_CLOCK_DIVIDERS0 + ch); }
 
-/// Get DRIVE_CURRENTx register address for channel 0..3
+/// @param ch Physical channel index 0..3.
+/// @return DRIVE_CURRENTx register address.
 static constexpr uint8_t regDriveCurrent(uint8_t ch) { return static_cast<uint8_t>(REG_DRIVE_CURRENT0 + ch); }
 
 } // namespace cmd

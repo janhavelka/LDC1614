@@ -7,7 +7,7 @@ Thank you for considering contributing to this project!
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make your changes
-4. Ensure examples build: `pio run -e esp32s3dev -e esp32s2dev`
+4. Run the [validation checklist](docs/VALIDATION_STATUS.md)
 5. Commit with a clear message: `git commit -m "feat: add X"`
 6. Push and open a Pull Request
 
@@ -33,6 +33,14 @@ Thank you for considering contributing to this project!
 - Update documentation if needed
 - Add changelog entry under `[Unreleased]`
 - Ensure CI passes
+
+### Documentation
+
+- Keep public API comments, README examples, integration guides, and the
+  changelog consistent in the same change.
+- Run `doxygen Doxyfile`; warnings are errors.
+- Do not edit or commit `docs/doxygen/`. It is generated output.
+- Keep hardware and CI claims evidence-based. A build or dry run is not HIL.
 
 ### What We Accept
 - Bug fixes

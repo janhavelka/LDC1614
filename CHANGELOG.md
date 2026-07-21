@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- Curated Doxygen now publishes the public headers plus maintained integration,
+  validation, and HIL guides while excluding internal instructions and
+  archived prompt/reference material.
+- Documentation generation now fails on undocumented public API, missing
+  parameter documentation, and Doxygen documentation errors, and is exercised
+  in CI.
+- Reconciled README navigation, contribution checks, validation evidence, and
+  the exact published v3.0.1 tag identity.
 
 ## [3.0.1] - 2026-07-19
 
@@ -63,7 +72,7 @@ No changes yet.
   channel.
 - Fixed `SampleBatch` with pre/post DATA STATUS snapshots,
   selected/valid/fresh/error/overrun masks, per-channel raw register words,
-  28-bit count, silicon quality flags, and owner completion timestamp.
+  28-bit count, silicon quality flags, and owner poll-boundary timestamp.
 - Explicit `DeviceVariant`, `I2cAddress`, `Channel`, `ChannelMask`,
   `ReferenceClock`, sensor-frequency bounds, and typed `ErrorReporting`.
 - Bus-silent `invalidateAppliedState()` for owner-observed removal, brownout,

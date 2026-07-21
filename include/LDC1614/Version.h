@@ -12,30 +12,37 @@
 #include <stdint.h>
 
 #ifndef LDC1614_VERSION_STRING
+/// @brief Semantic version string override used by generated metadata.
 #define LDC1614_VERSION_STRING "3.0.1"
 #endif
 
 #ifndef LDC1614_BUILD_DATE
+/// @brief Build date override in YYYY-MM-DD form.
 #define LDC1614_BUILD_DATE "unknown-date"
 #endif
 
 #ifndef LDC1614_BUILD_TIME
+/// @brief Build time override in HH:MM:SS form.
 #define LDC1614_BUILD_TIME "unknown-time"
 #endif
 
 #ifndef LDC1614_BUILD_TIMESTAMP
+/// @brief Combined build date/time override.
 #define LDC1614_BUILD_TIMESTAMP LDC1614_BUILD_DATE " " LDC1614_BUILD_TIME
 #endif
 
 #ifndef LDC1614_GIT_COMMIT
+/// @brief Source Git revision override, or `unknown`.
 #define LDC1614_GIT_COMMIT "unknown"
 #endif
 
 #ifndef LDC1614_GIT_STATUS
+/// @brief Source-tree status override: clean, dirty, or unknown.
 #define LDC1614_GIT_STATUS "unknown"
 #endif
 
 #ifndef LDC1614_VERSION_FULL
+/// @brief Full version/build identity string override.
 #define LDC1614_VERSION_FULL LDC1614_VERSION_STRING " (" LDC1614_GIT_COMMIT ", " LDC1614_BUILD_TIMESTAMP ", " LDC1614_GIT_STATUS ")"
 #endif
 

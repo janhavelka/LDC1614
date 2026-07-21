@@ -3,7 +3,7 @@
 
 PROJECT_NAME           = "LDC1614"
 PROJECT_NUMBER         = "3.0.1"
-PROJECT_BRIEF          = "LDC1614 embedded library API documentation"
+PROJECT_BRIEF          = "Framework-neutral cooperative LDC1612/LDC1614 driver"
 OUTPUT_DIRECTORY       = docs/doxygen
 CREATE_SUBDIRS         = NO
 ALLOW_UNICODE_NAMES    = NO
@@ -16,7 +16,7 @@ BUILTIN_STL_SUPPORT    = YES
 JAVADOC_AUTOBRIEF      = YES
 MULTILINE_CPP_IS_BRIEF = YES
 
-EXTRACT_ALL            = YES
+EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = YES
 EXTRACT_LOCAL_CLASSES  = YES
@@ -31,12 +31,19 @@ REFERENCED_BY_RELATION = YES
 REFERENCES_RELATION    = YES
 STRIP_CODE_COMMENTS    = NO
 
-INPUT                  = README.md CHANGELOG.md AGENTS.md CONTRIBUTING.md include
+INPUT                  = README.md \
+                         CHANGELOG.md \
+                         CONTRIBUTING.md \
+                         include \
+                         docs/I2C_INTEGRATION.md \
+                         docs/HARDWARE_INTEGRATION.md \
+                         docs/IDF_PORT.md \
+                         docs/HIL_VALIDATION.md \
+                         docs/VALIDATION_STATUS.md \
+                         docs/TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */.pio/* */.git/* */test/* */docs/doxygen/* */docs/reference/extracted-md/* */docs/reference/pdf-extracted-md/* */docs/_pdf_extracts/*
-EXAMPLE_PATH           = examples/01_basic_bringup_cli
-
 USE_MDFILE_AS_MAINPAGE = README.md
 FULL_PATH_NAMES        = NO
 SORT_MEMBER_DOCS       = YES
@@ -50,10 +57,10 @@ GENERATE_LATEX         = NO
 GENERATE_XML           = NO
 GENERATE_RTF           = NO
 GENERATE_MAN           = NO
-WARN_IF_UNDOCUMENTED   = NO
-WARN_NO_PARAMDOC       = NO
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
 WARN_IF_DOC_ERROR      = YES
-WARN_AS_ERROR          = NO
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
 QUIET                  = YES
 ALIASES                += frac{2}="\1/\2"
 ALIASES                += sqrt{1}="sqrt(\1)"

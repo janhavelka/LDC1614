@@ -11,6 +11,9 @@ address strap, reference clock, LC sensors, channel mapping, INTB/SD wiring,
 fault policy, calibration, cadence, and soak conditions. Retained ESP32-S2
 chip-only evidence predates v3 and does not validate sensor-attached behavior.
 
+The latest tagged API release is **v3.0.1**. Later documentation-only changes
+are recorded under `[Unreleased]` in the changelog.
+
 ## Core contract
 
 - The application owns the I2C bus, pins, locking, scheduling, absolute
@@ -280,17 +283,28 @@ v3 is a deliberate breaking release.
 
 ## Examples and validation
 
-- `examples/01_basic_bringup_cli`: Arduino diagnostic CLI with a one-transfer
-  owner service budget.
-- `examples/esp_idf/basic`: native ESP-IDF diagnostic CLI using the new I2C
-  master driver and fixed C buffers.
-- `docs/I2C_INTEGRATION.md`: detailed ownership, deadline, result, side-effect,
-  and recovery integration contract.
-- `docs/HARDWARE_INTEGRATION.md`: board, sensor, timing, and physical evidence
-  checklist.
-- `docs/TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md`: current audit disposition and
-  remaining external product decisions.
-- `docs/VALIDATION_STATUS.md`: exact software and hardware-evidence status.
+- [Arduino diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/01_basic_bringup_cli/README.md): cooperative
+  bring-up firmware with a one-transfer owner service budget.
+- [Native ESP-IDF diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/esp_idf/basic/README.md): fixed-buffer
+  example using the native I2C master driver.
+- [I2C owner integration](docs/I2C_INTEGRATION.md): ownership, deadlines,
+  results, side effects, and recovery.
+- [Hardware integration](docs/HARDWARE_INTEGRATION.md): board, sensor, timing,
+  and physical-evidence checklist.
+- [HIL validation](docs/HIL_VALIDATION.md): target procedure and evidence rules.
+- [Validation status](docs/VALIDATION_STATUS.md): exact software evidence and
+  remaining physical gates.
+- [Documentation index](https://github.com/janhavelka/LDC1614/blob/main/docs/README.md): maintained guides, references, and
+  archive boundaries.
+
+Generate the public API and maintained-guide site locally with:
+
+```sh
+doxygen Doxyfile
+```
+
+Open `docs/doxygen/html/index.html` after generation. The output directory is
+ignored; edit the source Markdown or public headers, never generated HTML.
 
 Do not infer target hardware suitability from a successful native test or
 firmware build. See the validation documents before making a deployment claim.
