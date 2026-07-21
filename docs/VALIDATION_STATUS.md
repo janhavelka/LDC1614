@@ -89,15 +89,6 @@ or atomic acquisition. The repeated serial transcript is not retained. The
 compact evidence therefore does not satisfy the raw transcript/logic-trace
 gate and does not validate live conversion behavior.
 
-On 2026-06-30, COM8 was identified as an ESP32-S2 target. The Arduino-profile
-`esp32s2dev` firmware uploaded successfully once, but the runner then captured
-no target firmware payload and all bounded CLI commands timed out with empty
-output. A later upload retry could not open COM8. The generated files under
-`docs/reports/hil-validation-COM8-20260630.runner.*` are marked
-`overall_status=NOT_RUN`, `hardware_attached=false`, and
-`evidence_type=serial_not_run`. They are audit artifacts only and do not prove
-LDC1614/LDC1612 behavior.
-
 Before target deployment decisions or full sensing claims, capture hardware logs
 for:
 

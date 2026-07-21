@@ -1,7 +1,7 @@
 # LDC1614 Docs
 
 This directory contains maintained integration and validation guides plus
-archived evidence and vendor references. Start with the repository
+cited hardware evidence and vendor references. Start with the repository
 [README](../README.md) for the public API contract.
 
 ## Maintained Docs
@@ -33,8 +33,8 @@ than duplicated as generated pages. Generation fails on undocumented public
 API, missing parameter documentation, or documentation errors.
 
 `docs/doxygen/` is ignored build output. Do not edit or commit it. Internal
-engineering instructions, historical reports/prompts, and raw extracted vendor
-text are deliberately excluded from the public site.
+engineering instructions, historical reports, and raw extracted vendor text
+are deliberately excluded from the public site.
 
 ## Reference Material
 
@@ -47,10 +47,13 @@ text are deliberately excluded from the public site.
 - `reference/pdf-extracted-md/` - raw generated markdown from source PDFs. This
   is trace material, not implementation guidance.
 
-## Archive Boundaries
+## Evidence Boundaries
 
-Files under `prompts/` and `reports/` are retained for traceability, not as
-current API guidance. Raw PDF extraction under `reference/pdf-extracted-md/` is
-also evidence, not implementation authority. Current behavior is defined by the
-public headers, root README, maintained guides above, and changelog. Hardware
-readiness still requires the evidence defined by the HIL procedure.
+`reports/` retains only hardware evidence cited by the maintained validation
+status. One-time implementation instructions and no-hardware or empty-payload
+run artifacts are not retained; Git history preserves them if an audit needs
+them.
+Raw PDF extraction under `reference/pdf-extracted-md/` is source traceability,
+not implementation authority. Current behavior is defined by the public
+headers, root README, maintained guides above, and changelog. Hardware readiness
+still requires the evidence defined by the HIL procedure.

@@ -11,12 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Curated Doxygen now publishes the public headers plus maintained integration,
   validation, and HIL guides while excluding internal instructions and
-  archived prompt/reference material.
+  raw vendor/reference trace material.
 - Documentation generation now fails on undocumented public API, missing
   parameter documentation, and Doxygen documentation errors, and is exercised
   in CI.
 - Reconciled README navigation, contribution checks, validation evidence, and
   the exact published v3.0.1 tag identity.
+
+### Removed
+
+- Removed one-time implementation instructions and superseded COM8 dry-run and
+  empty-payload audit artifacts. Current guides, cited chip-only hardware
+  evidence, and vendor-source traceability remain.
 
 ## [3.0.1] - 2026-07-19
 
@@ -231,9 +237,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `include/` and `src/`.
 
 ### Fixed
-- Prompt 02 timing/freshness reconciliation is complete in software: blocking
-  helpers validate clock callbacks before polling, preserve data-ready/status
-  failures, and expose fresh unread conversions explicitly.
+- Blocking timing/freshness helpers validate clock callbacks before polling,
+  preserve data-ready/status failures, and expose fresh unread conversions
+  explicitly.
 - Expanded native tests and fake-bus fault injection cover lifecycle, health,
   register, validation, recovery, timing, and poll-budget behavior.
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
