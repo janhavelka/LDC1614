@@ -15,7 +15,7 @@ The Arduino and native ESP-IDF diagnostics share
 `examples/esp32/I2cMasterTransport.*`. A combined register read is one bounded
 `i2c_master_transmit_receive()` transaction, and owner recovery resets the
 controller through `i2c_master_bus_reset()`. The repository pins pioarduino
-`53.03.13`; do not upgrade it without repeating combined-read and post-NACK
+`55.03.39`; do not upgrade it without repeating combined-read and post-NACK
 recovery testing on real LDC hardware.
 
 The maintained ESP32-S2 PlatformIO profile uses its internal USB CDC upload

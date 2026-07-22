@@ -9,12 +9,13 @@ nonzero-status failures.
 
 ## Result
 
-The maintained Arduino target is pinned to pioarduino `53.03.13` (Arduino
-3.1.3 with ESP-IDF 5.3 libraries). On this fixture, the `54.03.20` stack
-(Arduino 3.2.0 with ESP-IDF 5.4 libraries) intermittently failed combined
-write/read operations with `ESP_ERR_INVALID_STATE` and read-length mismatch.
-Changing bus speed and removing the startup scan did not correct it. A full
-power cycle was required before the comparison stack produced stable results.
+The maintained Arduino target is pinned to pioarduino `55.03.39` (Arduino
+3.3.9 with ESP-IDF 5.5.4 libraries). It contains Espressif commit
+[`459b75f`](https://github.com/espressif/esp-idf/commit/459b75f81a121dc83beb103a10aee8216c657fce),
+which corrects the driver's NACK-state handling. Earlier ESP-IDF 5.3/5.4 runs
+intermittently failed combined write/read operations with
+`ESP_ERR_INVALID_STATE`; changing bus speed, removing the startup scan, handle
+recreation, and explicit bus reset did not correct the stale internal state.
 
 This is a target transport-stack decision, not a dependency or workaround in
 the framework-neutral LDC core. It does not prove that every ESP-IDF new-master
@@ -31,6 +32,7 @@ backend is affected or that the TunnelMonitor ESP32-S3 backend is safe.
 | Clean post-tag `bf44cf1`, pioarduino `53.03.13`, 400 kHz | The NACK-heavy startup scan found `0x2A` and `0x3C`, after which combined reads latched at zero-length while address probes and register writes still completed. The 39-command smoke correctly failed 24 commands. The MCU and serial CLI remained responsive; the missing capability was explicit application-owned controller reinitialization without an MCU reset. |
 | Clean `ac710c1`, Wire teardown/rebegin after each scan | The ESP32-S2 remained responsive for all 200 commands. All 25 scans and recovery commands returned success, but 16/25 following initialization reads failed and only 9/25 succeeded. A recovery operation that reports success while the next combined read remains unusable is not a valid ownership contract; this run forced removal of the duplicate Wire backend. |
 | Clean `05a71d7`, shared new-master delete/recreate after each scan | The raw backend error became explicit `ESP_ERR_INVALID_STATE` (`259`). Twenty of 25 following initialization reads failed, scans sometimes reported false devices or timed out, and delete/recreate did not reset controller state. This negative run selected the driver's dedicated `i2c_master_bus_reset()` operation for the next candidate. |
+| Clean `3036579`, ESP-IDF 5.3 explicit bus reset after each scan | The ESP32-S2 remained responsive for all 200 commands, but 87 failed. Nineteen of 25 initialization attempts failed, and the public bus reset could not repair the driver's stale `ESP_ERR_INVALID_STATE`. This negative run selected an upgrade to the upstream NACK-state correction instead of another application workaround. |
 | 1 MHz | Deliberately not run. The LDC1614 I2C interface maximum is 400 kHz, so 1 MHz would be outside the device contract even if another shared-bus device supports it. |
 
 The failing clean v3.0.0 evidence is retained in:
@@ -43,6 +45,8 @@ The failing clean v3.0.0 evidence is retained in:
 - `hil-validation-COM8-20260722-ac710c1-recovery-stress.runner.md`
 - `hil-validation-COM8-20260722-05a71d7-recovery-stress.runner.json`
 - `hil-validation-COM8-20260722-05a71d7-recovery-stress.runner.md`
+- `hil-validation-COM8-20260722-3036579-recovery-stress.runner.json`
+- `hil-validation-COM8-20260722-3036579-recovery-stress.runner.md`
 
 The Markdown artifacts embed their raw command transcripts. All are intentional
 `FAIL` records and must not be cited as positive HIL acceptance.

@@ -58,10 +58,10 @@ The repository root is also an ESP-IDF component. Add it through
 example is under `examples/esp_idf/basic`.
 
 Host validation tools are pinned in `requirements-dev.txt`; the maintained
-Arduino build uses pioarduino `53.03.13` (Arduino 3.1.3 with ESP-IDF 5.3
-libraries), pinned in `platformio.ini`. COM8 testing selected this baseline
-after the `54.03.20` Arduino Wire path produced intermittent combined-read
-`ESP_ERR_INVALID_STATE` failures. Both maintained ESP32 diagnostics now use one
+Arduino build uses pioarduino `55.03.39` (Arduino 3.3.9 with ESP-IDF 5.5.4),
+pinned in `platformio.ini`. This version contains Espressif's NACK-state driver
+correction; earlier COM8 runs on ESP-IDF 5.3/5.4 could leave combined reads in
+`ESP_ERR_INVALID_STATE`. Both maintained ESP32 diagnostics use one
 example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
 this is example/build-tool policy, not a dependency of the framework-neutral
 core. Each product owner still requires target validation.

@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Pin maintained Arduino builds to pioarduino `53.03.13` (Arduino 3.1.3,
-  ESP-IDF 5.3 libraries), the COM8-tested transport baseline. A reviewed
-  upgrade must repeat combined write/read and post-NACK recovery testing.
+- Pin maintained Arduino builds to pioarduino `55.03.39` (Arduino 3.3.9,
+  ESP-IDF 5.5.4 libraries), which includes Espressif's NACK-state correction.
+  PlatformIO is pinned to the required 6.1.19 host version. A reviewed upgrade
+  must repeat combined write/read and post-NACK recovery testing.
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
   controller reset through `i2c_master_bus_reset()`. The redundant Wire adapter

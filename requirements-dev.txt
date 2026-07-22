@@ -1,3 +1,3 @@
 # Exact host tools used by maintained CI and serial HIL collection.
-platformio==6.1.18
+platformio==6.1.19
 pyserial==3.5

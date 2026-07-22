@@ -17,18 +17,15 @@ The current working branch has software hardening evidence for:
   uint64 rollover corrections; `native_cov` also passed 29/29. `native_cov` is
   coverage-instrumented only: the repository does not generate a report or
   enforce a threshold, so it is not measured coverage.
-- Arduino-framework ESP32-S2 and ESP32-S3 candidate builds passed on
-  2026-07-22 using pinned pioarduino `53.03.13`: ESP32-S2 used 36,196 bytes RAM
-  and 357,163 bytes flash; ESP32-S3 used 21,596 bytes RAM and 363,608 bytes
-  flash. This pin was selected after a COM8 comparison found intermittent
-  combined-read `ESP_ERR_INVALID_STATE` failures on `54.03.20`; see the
-  transport-regression report below. These were dirty-tree candidate builds;
-  the final clean firmware identity is recorded by the HIL artifact.
+- Arduino-framework ESP32-S2 and ESP32-S3 build evidence is refreshed after
+  final HIL acceptance. The maintained platform is pioarduino `55.03.39`
+  (Arduino 3.3.9 / ESP-IDF 5.5.4), selected because it contains Espressif's
+  NACK-state correction; see the transport-regression report below.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
-- HIL runner host parser/no-port/no-sensor artifact tests. The current 33-test
+- HIL runner host parser/no-port/no-sensor artifact tests. The current 34-test
   host suite rejects missing command payloads, identity/config/build facts,
   dirty or mismatched flashed revisions, non-finite timing values, stale or
   mismatched async results, incomplete soak cycles, invalid final driver state,
@@ -52,6 +49,8 @@ Post-v3 COM8 transport evidence is recorded in:
 - `docs/reports/hil-validation-COM8-20260722-ac710c1-recovery-stress.runner.md`
 - `docs/reports/hil-validation-COM8-20260722-05a71d7-recovery-stress.runner.json`
 - `docs/reports/hil-validation-COM8-20260722-05a71d7-recovery-stress.runner.md`
+- `docs/reports/hil-validation-COM8-20260722-3036579-recovery-stress.runner.json`
+- `docs/reports/hil-validation-COM8-20260722-3036579-recovery-stress.runner.md`
 
 The v3.0.0 and `bf44cf1` smokes are intentionally retained as negative `FAIL`
 artifacts. The first records the pioarduino 54.03.20 transport regression; the
@@ -61,9 +60,11 @@ diagnostic NACK traffic. The `ac710c1` stress further records that Wire
 teardown/rebegin reported success on every cycle but restored only 9/25
 following initialization reads. The `05a71d7` shared-new-master run exposed
 raw `ESP_ERR_INVALID_STATE` (`259`) and proved that deleting/recreating handles
-alone did not reset the controller. None is positive release evidence. A clean
-explicit-bus-reset candidate smoke and one-hour soak are required before this
-section can record a positive COM8 result.
+alone did not reset the controller. The `3036579` run proved that the public
+ESP-IDF 5.3 bus-reset API also could not repair the driver's stale NACK state.
+None is positive release evidence. A clean ESP-IDF 5.5.4 candidate smoke and
+one-hour soak are required before this section can record a positive COM8
+result.
 
 The annotated `v3.0.0` tag is not moved by this work. Because `[Unreleased]`
 adds native-IDF scan parity, an automated soak mode, and wrap-safe deadline

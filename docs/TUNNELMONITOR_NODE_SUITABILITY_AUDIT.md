@@ -168,7 +168,7 @@ RS485 VibWire frequency fields as implicit LDC outputs.
 
 | Item | Status |
 | --- | --- |
-| Exact-pin PlatformIO and maintained Espressif platform | **Closed:** `requirements-dev.txt` pins PlatformIO 6.1.18; `platformio.ini` pins pioarduino platform-espressif32 release 53.03.13 after the COM8 comparison. CI installs the requirements file. |
+| Exact-pin PlatformIO and maintained Espressif platform | **Closed:** `requirements-dev.txt` pins PlatformIO 6.1.19; `platformio.ini` pins pioarduino platform-espressif32 release 55.03.39 (Arduino 3.3.9 / ESP-IDF 5.5.4) after the COM8 NACK-state investigation. CI installs the requirements file. |
 | Pin serial-HIL host dependency | **Closed:** `pyserial==3.5` is recorded with the host tools. |
 | Honest `native_cov` wording | **Closed:** it is documented as instrumentation only; no report or threshold is claimed. |
 | Primary datasheet provenance | **Closed:** vendor, title, SNOSCY9A Revision A, official URL, repository date, and SHA-256 are indexed. |
