@@ -200,9 +200,9 @@ explicit reset/rebegin recovery while retaining raw backend codes.
 
 The COM8 post-tag smoke also confirms why this ownership boundary matters:
 the ESP32-S2 remained responsive and address/write traffic continued while
-combined reads were unusable. Recovery must recreate the application-owned
-controller/device handles, invalidate LDC applied state, and replay the complete
-profile; rebooting the MCU is not an acceptable routine recovery policy.
+combined reads were unusable. Recovery must reset the application-owned
+controller state, invalidate LDC applied state, and replay the complete profile;
+rebooting the MCU is not an acceptable routine recovery policy.
 The maintained Arduino diagnostic now uses the same shared ESP-IDF new-master
 transport as the native IDF diagnostic, removing Wire as a second behavior to
 interpret. TunnelMonitor's per-transfer handle lifecycle remains different and

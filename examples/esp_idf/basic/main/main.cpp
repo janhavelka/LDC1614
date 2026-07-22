@@ -159,8 +159,7 @@ LDC1614::Status recoverI2c(void* user) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                   "I2C recovery context missing");
   }
-  const LDC1614::Status status = esp32_i2c::close(context->transport);
-  return status.ok() ? configureI2c(context->transport) : status;
+  return esp32_i2c::reset(context->transport);
 }
 
 int readConsoleChar(uint32_t timeoutMs) {

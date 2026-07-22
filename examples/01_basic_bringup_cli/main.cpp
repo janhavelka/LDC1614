@@ -79,8 +79,7 @@ LDC1614::Status arduinoI2cRecover(void* user) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                   "I2C recovery context missing");
   }
-  LDC1614::Status status = esp32_i2c::close(*context);
-  return status.ok() ? configureI2c(*context) : status;
+  return esp32_i2c::reset(*context);
 }
 
 LDC1614::Config makeDefaultConfig(void* user) {

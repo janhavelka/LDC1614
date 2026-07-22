@@ -13,8 +13,8 @@ callback per `loop()` pass. Terminal results are consumed through
 
 The Arduino and native ESP-IDF diagnostics share
 `examples/esp32/I2cMasterTransport.*`. A combined register read is one bounded
-`i2c_master_transmit_receive()` transaction, and owner recovery deletes and
-recreates the device and bus handles. The repository pins pioarduino
+`i2c_master_transmit_receive()` transaction, and owner recovery resets the
+controller through `i2c_master_bus_reset()`. The repository pins pioarduino
 `53.03.13`; do not upgrade it without repeating combined-read and post-NACK
 recovery testing on real LDC hardware.
 
@@ -26,8 +26,8 @@ Useful commands:
 
 - `init`, `apply`, `resetreapply`, `acquire [mask]`, `cancel`, `progress`;
 - `status`, `ready`, `sleep`, `wake`, `initdrive <channel>`;
-- `busrecover` for one explicit owner-controlled device/bus handle teardown and
-  recreation, followed by a complete `init` replay;
+- `busrecover` for one explicit owner-controlled controller reset, followed by
+  a complete `init` replay;
 - `drv`, `cfg`, `probe`, `reg`, `wreg`, `timing`, and `freq`; and
 - `invalidate` after owner-observed power loss, reset, removal, or bus recovery.
 

@@ -24,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   upgrade must repeat combined write/read and post-NACK recovery testing.
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
-  handle teardown/recreation. The redundant Wire adapter and unused host
-  framework stubs were removed.
+  controller reset through `i2c_master_bus_reset()`. The redundant Wire adapter
+  and unused host framework stubs were removed.
 
 ### Fixed
 

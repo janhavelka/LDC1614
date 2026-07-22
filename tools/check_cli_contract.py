@@ -138,6 +138,8 @@ def main() -> int:
     if ("i2c_master_transmit_receive" not in transport_text or
             "clampTimeoutMs(timeoutMs)" not in transport_text):
         fail("ESP32 combined write-read must use one bounded new-master transaction")
+    if "i2c_master_bus_reset" not in transport_text:
+        fail("ESP32 owner recovery must use the driver's explicit bus reset")
 
     for source_name, source_text in (
         ("PlatformIO version generator", version_text),

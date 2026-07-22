@@ -7,7 +7,7 @@ and task APIs. It contains no Arduino facade.
 It shares the example-owned ESP-IDF new-master transport in
 `examples/esp32/I2cMasterTransport.*` with the Arduino diagnostic. This keeps
 combined-transfer error mapping, bounded timeouts, probe semantics, and handle
-teardown/recreation in one owner rather than maintaining parallel backends.
+reset in one owner rather than maintaining parallel backends.
 
 The example binds an explicit profile without I2C, schedules cooperative
 initialization, and advances at most one driver transport callback per console
@@ -22,8 +22,8 @@ cancellation and invalidation, STATUS/readiness, sleep/wake, raw diagnostics,
 bounded bus `scan`, explicit owner `busrecover`, and pure timing/frequency
 helpers. `scan` covers usable addresses `0x08..0x77`, treats address NACK as
 normal absence, stops on timeout/bus failure, and refuses to interleave with an
-active driver job. `busrecover` removes and recreates the native bus/device
-handles, invalidates applied state, and requires a complete `init` replay.
+active driver job. `busrecover` explicitly resets the native bus controller,
+invalidates applied state, and requires a complete `init` replay.
 Run `busrecover` and `init` after scan diagnostics before resuming device
 operations; this explicitly covers backends that retain a failed state after
 address NACKs without requiring an MCU reboot.

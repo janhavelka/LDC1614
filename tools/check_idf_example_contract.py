@@ -38,7 +38,7 @@ REQUIRED_IDF_TOKENS = [
     "i2c_new_master_bus",
     "i2c_master_bus_add_device",
     "i2c_master_probe",
-    "i2c_del_master_bus",
+    "i2c_master_bus_reset",
     "Ldc1614IdfCli",
     "esp32_i2c::write",
     "esp32_i2c::writeRead",

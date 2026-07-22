@@ -99,24 +99,13 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
   return status;
 }
 
-LDC1614::Status close(Context& context) {
-  if (context.device != nullptr) {
-    const LDC1614::Status status = mapEspErr(
-        i2c_master_bus_rm_device(context.device), "I2C device removal failed");
-    if (!status.ok()) {
-      return status;
-    }
-    context.device = nullptr;
+LDC1614::Status reset(Context& context) {
+  if (context.bus == nullptr || context.device == nullptr) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                  "I2C context is not open");
   }
-  if (context.bus != nullptr) {
-    const LDC1614::Status status = mapEspErr(
-        i2c_del_master_bus(context.bus), "I2C bus deletion failed");
-    if (!status.ok()) {
-      return status;
-    }
-    context.bus = nullptr;
-  }
-  return LDC1614::Status::Ok();
+  return mapEspErr(i2c_master_bus_reset(context.bus),
+                   "I2C bus reset failed");
 }
 
 LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,
