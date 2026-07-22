@@ -171,6 +171,27 @@ LDC1614::Status configureI2c() {
   return LDC1614::Status::Ok();
 }
 
+LDC1614::Status recoverI2c(void*) {
+  if (app.transport.dev != nullptr) {
+    const LDC1614::Status status = statusFromEspErr(
+        i2c_master_bus_rm_device(app.transport.dev),
+        "I2C device removal failed");
+    if (!status.ok()) {
+      return status;
+    }
+    app.transport.dev = nullptr;
+  }
+  if (app.transport.bus != nullptr) {
+    const LDC1614::Status status = statusFromEspErr(
+        i2c_del_master_bus(app.transport.bus), "I2C bus deletion failed");
+    if (!status.ok()) {
+      return status;
+    }
+    app.transport.bus = nullptr;
+  }
+  return configureI2c();
+}
+
 int readConsoleChar(uint32_t timeoutMs) {
   fd_set readSet;
   FD_ZERO(&readSet);
@@ -249,7 +270,8 @@ extern "C" void app_main(void) {
   const LDC1614::Status gpioStatus = configureGpio();
   printSetupStatus("gpio", gpioStatus);
 
-  Ldc1614IdfCli cli(device, makeDefaultConfig(&app), app.transport);
+  Ldc1614IdfCli cli(device, makeDefaultConfig(&app), app.transport,
+                    recoverI2c, &app);
   cli.printBanner();
 
   if (i2cStatus.ok() && gpioStatus.ok()) {

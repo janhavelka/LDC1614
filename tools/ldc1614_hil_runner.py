@@ -36,6 +36,8 @@ ARDUINO_DEFAULT_COMMANDS = [
     "help",
     "version",
     "scan",
+    "busrecover",
+    "init",
     "probe",
     "drv",
     "cfg",
@@ -52,6 +54,8 @@ ARDUINO_NO_SENSOR_COMMANDS = [
     "help",
     "version",
     "scan",
+    "busrecover",
+    "init",
     "probe",
     "drv",
     "cfg",
@@ -94,6 +98,8 @@ IDF_DEFAULT_COMMANDS = [
     "help",
     "version",
     "scan",
+    "busrecover",
+    "init",
     "probe",
     "drv",
     "cfg",
@@ -132,7 +138,7 @@ COMMAND_EVIDENCE_PATTERNS = {
         re.compile(r"\bfirmware_status=clean\b", re.IGNORECASE),
     ),
     "scan": (
-        re.compile(r"\bscan complete found=\d+ probes=126\b", re.IGNORECASE),
+        re.compile(r"\bscan complete found=\d+ probes=112\b", re.IGNORECASE),
         re.compile(r"\bcode=0\b", re.IGNORECASE),
     ),
     "probe": (
@@ -1306,7 +1312,10 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Worst latency s: `{soak.get('worst_latency_s', None)}`",
     ])
 
-    lines.extend(["", "## Transcript", "", "```text", str(result.get("transcript", "")), "```", ""])
+    transcript = "\n".join(
+        line.rstrip() for line in str(result.get("transcript", "")).splitlines()
+    )
+    lines.extend(["", "## Transcript", "", "```text", transcript, "```", ""])
     return "\n".join(lines)
 
 
@@ -1445,6 +1454,8 @@ def parser_self_test() -> Tuple[bool, List[str]]:
     failures: List[str] = []
     if "version" not in default_commands("arduino"):
         failures.append("arduino default commands missing version")
+    if "busrecover" not in default_commands("arduino"):
+        failures.append("arduino default commands missing explicit bus recovery")
     if "drdy" in default_commands("arduino", "no-sensor"):
         failures.append("no-sensor commands must exclude DRDY")
     if "acquire 0x01" not in default_commands("arduino", "no-sensor"):
@@ -1457,6 +1468,8 @@ def parser_self_test() -> Tuple[bool, List[str]]:
         failures.append("idf default commands missing ready")
     if "scan" not in default_commands("idf"):
         failures.append("idf default commands missing scan")
+    if "busrecover" not in default_commands("idf"):
+        failures.append("idf default commands missing explicit bus recovery")
     if "wake" not in default_commands("idf"):
         failures.append("idf default commands missing wake")
 

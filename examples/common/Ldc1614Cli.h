@@ -14,8 +14,8 @@ enum class I2cProbeResult : uint8_t {
   ERROR,
 };
 
-/// Diagnostic Arduino CLI. It demonstrates owner-driven jobs; it is not a
-/// production bus manager and deliberately contains no retry/recovery policy.
+/// Diagnostic Arduino CLI. It demonstrates owner-driven jobs and an explicit
+/// application-owned bus reinitialization; it has no hidden retry/recovery.
 class Cli {
  public:
   using VPrintfFn = void (*)(void* user, const char* fmt, va_list args);
@@ -23,6 +23,7 @@ class Cli {
   using NowMsFn = uint64_t (*)(void* user);
   using I2cProbeFn = I2cProbeResult (*)(uint8_t address, uint32_t timeoutMs,
                                         void* user);
+  using I2cRecoverFn = LDC1614::Status (*)(void* user);
 
   struct Platform {
     void* user = nullptr;
@@ -30,6 +31,7 @@ class Cli {
     MakeConfigFn makeConfig = nullptr;
     NowMsFn nowMs = nullptr;
     I2cProbeFn i2cProbe = nullptr;
+    I2cRecoverFn i2cRecover = nullptr;
     uint32_t scanTimeoutMs = 50;
   };
 
@@ -57,9 +59,10 @@ class Cli {
   void printResult(const LDC1614::OperationResult& result) const;
   void printBatch(const LDC1614::SampleBatch& batch) const;
   void printDeviceStatus(const LDC1614::DeviceStatus& status) const;
-  /// External diagnostic loop capped at 126 one-attempt probes. It is not a
-  /// core driver job or a production shared-bus scan policy.
+  /// External diagnostic loop capped at 112 usable-address probes. It is not
+  /// a core driver job or a production shared-bus scan policy.
   void scanI2c() const;
+  void recoverI2c();
   LDC1614::OperationId nextOperationId();
   uint64_t deadlineFromNow() const;
 

@@ -88,9 +88,9 @@ be stored or described as pass logs.
 
 | Profile | Intended firmware | Default safe commands |
 | --- | --- | --- |
-| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `drdy`, `timing 0x01`, `selftest` |
+| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `busrecover`, `init`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `drdy`, `timing 0x01`, `selftest` |
 | `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Identity/registers, state/progress, init/apply/reset/reapply/acquire correlation, invalidation/replay, diagnostic write/replay, end/bind, sleep/wake, timing/frequency |
-| `idf` | `examples/esp_idf/basic` | `help`, `version`, `scan`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `ready`, `timing 0x01`, `selftest` |
+| `idf` | `examples/esp_idf/basic` | `help`, `version`, `scan`, `busrecover`, `init`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `ready`, `timing 0x01`, `selftest` |
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.

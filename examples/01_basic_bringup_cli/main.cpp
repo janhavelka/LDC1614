@@ -58,6 +58,18 @@ ldc1614_cli::I2cProbeResult arduinoI2cProbe(uint8_t address, uint32_t timeoutMs,
   return ldc1614_cli::I2cProbeResult::ERROR;
 }
 
+LDC1614::Status arduinoI2cRecover(void*) {
+  if (!Wire.end()) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                  "I2C bus shutdown failed");
+  }
+  if (!board::initI2c()) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                  "I2C bus reinitialization failed");
+  }
+  return LDC1614::Status::Ok();
+}
+
 LDC1614::Config makeDefaultConfig(void*) {
   LDC1614::Config cfg;
   cfg.i2cWrite = transport::wireWrite;
@@ -109,6 +121,7 @@ ldc1614_cli::Cli::Platform makeCliPlatform() {
   platform.makeConfig = makeDefaultConfig;
   platform.nowMs = arduinoNowMs;
   platform.i2cProbe = arduinoI2cProbe;
+  platform.i2cRecover = arduinoI2cRecover;
   platform.scanTimeoutMs = board::I2C_TIMEOUT_MS;
   return platform;
 }
@@ -170,8 +183,6 @@ void setup() {
   ldcCli.logInfo("I2C initialized (SDA=%d, SCL=%d)", board::I2C_SDA, board::I2C_SCL);
 
   board::initIntbPin();
-
-  ldcCli.processCommand("scan");
 
   const LDC1614::Status st = device.bind(ldcCli.makeDefaultConfig());
   if (!st.ok()) {

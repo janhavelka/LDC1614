@@ -46,11 +46,16 @@ Post-v3 COM8 transport evidence is recorded in:
 - `docs/reports/hil-validation-COM8-20260722-transport-regression.md`
 - `docs/reports/hil-validation-COM8-20260722-v3-smoke.runner.json`
 - `docs/reports/hil-validation-COM8-20260722-v3-smoke.runner.md`
+- `docs/reports/hil-validation-COM8-20260722-bf44cf1-smoke.runner.json`
+- `docs/reports/hil-validation-COM8-20260722-bf44cf1-smoke.runner.md`
 
-The v3.0.0 smoke is intentionally retained as a negative `FAIL` artifact for
-the pioarduino 54.03.20 transport regression. It is not positive release
-evidence. A clean post-tag candidate smoke and one-hour soak are required before
-this section can record a positive COM8 result.
+The v3.0.0 and `bf44cf1` smokes are intentionally retained as negative `FAIL`
+artifacts. The first records the pioarduino 54.03.20 transport regression; the
+second records a pioarduino 53.03.13 controller state that still accepted
+address/write traffic while combined reads returned zero length after
+diagnostic NACK traffic. Neither is positive release evidence. A clean
+post-recovery candidate smoke and one-hour soak are required before this
+section can record a positive COM8 result.
 
 The annotated `v3.0.0` tag is not moved by this work. Because `[Unreleased]`
 adds native-IDF scan parity, an automated soak mode, and wrap-safe deadline

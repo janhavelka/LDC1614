@@ -9,9 +9,13 @@ struct Ldc1614IdfI2c;
 /// Native fixed-buffer ESP-IDF diagnostic CLI.
 class Ldc1614IdfCli {
  public:
+  using I2cRecoverFn = LDC1614::Status (*)(void* user);
+
   Ldc1614IdfCli(LDC1614::LDC1614& device,
                 const LDC1614::Config& defaultConfig,
-                Ldc1614IdfI2c& transport);
+                Ldc1614IdfI2c& transport,
+                I2cRecoverFn i2cRecover,
+                void* recoverUser);
 
   void printBanner() const;
   void printPrompt() const;
@@ -28,6 +32,7 @@ class Ldc1614IdfCli {
   void printDeviceStatus(const LDC1614::DeviceStatus& status) const;
   void printResult(const LDC1614::OperationResult& result) const;
   void scanI2c() const;
+  void recoverI2c();
   void startInitialize(bool resetFirst, uint64_t nowMs);
   void startAcquire(LDC1614::ChannelMask channels, uint64_t nowMs);
   LDC1614::OperationId nextOperationId();
@@ -35,6 +40,8 @@ class Ldc1614IdfCli {
   LDC1614::LDC1614& _device;
   LDC1614::Config _defaultConfig;
   Ldc1614IdfI2c& _transport;
+  I2cRecoverFn _i2cRecover = nullptr;
+  void* _recoverUser = nullptr;
   LDC1614::OperationId _nextOperationId = 1;
   uint64_t _lastNowMs = 0;
 };

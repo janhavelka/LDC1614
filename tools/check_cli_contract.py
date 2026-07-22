@@ -17,6 +17,7 @@ REQUIRED_COMMON = [
 MANDATORY_COMMANDS = [
     "help",
     "version",
+    "busrecover",
     "scan",
     "probe",
     "bind",
@@ -43,6 +44,7 @@ MANDATORY_COMMANDS = [
 IDF_DIAGNOSTIC_COMMANDS = [
     "help",
     "version",
+    "busrecover",
     "scan",
     "probe",
     "bind",
@@ -128,6 +130,8 @@ def main() -> int:
         fail("Arduino scan adapter must distinguish normal address NACK")
     if "scan complete found=" not in text or "I2C scan probe failed" not in text:
         fail("Arduino scan must expose bounded completion and transport failure")
+    if "i2cRecover" not in text or "Owner reinitialized I2C bus" not in text:
+        fail("Arduino CLI must expose explicit owner-controlled bus reinitialization")
     if (
         "esp_timer_get_time()" not in transport_text
         or "wire->setTimeOut(remainingMs);" not in transport_text

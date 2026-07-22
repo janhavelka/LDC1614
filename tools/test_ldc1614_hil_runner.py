@@ -24,6 +24,9 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)
         self.assertIn("drv", commands)
+        self.assertIn("busrecover", commands)
+        self.assertLess(commands.index("scan"), commands.index("busrecover"))
+        self.assertLess(commands.index("busrecover"), commands.index("init"))
         self.assertIn("progress", commands)
         self.assertIn("timing 0x01", commands)
         self.assertFalse(any(command.startswith("acquire") for command in commands))
@@ -32,6 +35,9 @@ class HilRunnerParserTests(unittest.TestCase):
         commands = runner.default_commands("arduino", "no-sensor")
 
         self.assertIn("progress", commands)
+        self.assertIn("busrecover", commands)
+        self.assertLess(commands.index("scan"), commands.index("busrecover"))
+        self.assertLess(commands.index("busrecover"), commands.index("init"))
         self.assertIn("reg 0x7E", commands)
         self.assertIn("reg 0x7F", commands)
         self.assertNotIn("drdy", commands)
@@ -45,6 +51,9 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)
         self.assertIn("drv", commands)
+        self.assertIn("busrecover", commands)
+        self.assertLess(commands.index("scan"), commands.index("busrecover"))
+        self.assertLess(commands.index("busrecover"), commands.index("init"))
         self.assertIn("progress", commands)
         self.assertIn("timing 0x01", commands)
         self.assertIn("scan", commands)
@@ -57,7 +66,7 @@ class HilRunnerParserTests(unittest.TestCase):
     def test_classifier_accepts_common_informational_outputs(self) -> None:
         cases = (
             ("version", "version: 1.0.0 firmware_git=abcdef1 firmware_status=clean\n> "),
-            ("scan", "I2C device at 0x2A\nscan complete found=1 probes=126\nstatus: code=0\n> "),
+            ("scan", "I2C device at 0x2A\nscan complete found=1 probes=112\nstatus: code=0\n> "),
             ("settings", "address=0x2a variant=2 variantChannels=4 selected=0x01 timeoutMs=10\n> "),
             ("status", "STATUS observed=1 raw=0x0000 drdy=0 unread=0x00 errCh=4\nstatus: code=0\n> "),
             ("health", "bound=1 applied=APPLIED_SLEEPING revision=1\n> "),
@@ -285,6 +294,16 @@ class HilRunnerParserTests(unittest.TestCase):
             self.assertIn("Overall status: `NOT_RUN`", markdown)
             self.assertIn("Evidence type: `no_hardware_audit`", markdown)
             self.assertIn("No serial command transcript captured", markdown)
+
+    def test_markdown_transcript_has_no_trailing_whitespace(self) -> None:
+        args = runner.parse_args(["--dry-run"])
+        result = runner.make_result(args)
+        result["transcript"] = "command output  \n> \n"
+
+        markdown = runner.render_markdown(result)
+
+        self.assertFalse(any(line.endswith((" ", "\t")) for line in markdown.splitlines()))
+        self.assertIn("command output\n>\n", markdown)
 
     def test_dry_run_lists_bounded_not_run_command_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -50,8 +50,14 @@ const char* outcomeName(LDC1614::TerminalOutcome outcome) {
 
 Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device,
                              const LDC1614::Config& defaultConfig,
-                             Ldc1614IdfI2c& transport)
-    : _device(device), _defaultConfig(defaultConfig), _transport(transport) {}
+                             Ldc1614IdfI2c& transport,
+                             I2cRecoverFn i2cRecover,
+                             void* recoverUser)
+    : _device(device),
+      _defaultConfig(defaultConfig),
+      _transport(transport),
+      _i2cRecover(i2cRecover),
+      _recoverUser(recoverUser) {}
 
 void Ldc1614IdfCli::printBanner() const {
   std::printf("LDC1614 v%s native ESP-IDF diagnostic CLI\n", LDC1614::VERSION);
@@ -82,6 +88,7 @@ LDC1614::OperationId Ldc1614IdfCli::nextOperationId() {
 void Ldc1614IdfCli::printHelp() const {
   println("jobs: init, apply, resetreapply, acquire/read [mask], cancel, progress");
   println("controls: status, ready, sleep, wake, initdrive <channel>");
+  println("owner bus: busrecover (explicit reinit; then run init)");
   println("diagnostics: version, scan, probe/id, drv, cfg, reg, wreg, selftest");
   println("pure helpers: timing [mask], freq <channel> <raw28>");
   println("lifecycle: bind, invalidate, end");
@@ -95,7 +102,7 @@ void Ldc1614IdfCli::scanI2c() const {
   }
   uint8_t found = 0;
   uint8_t probes = 0;
-  for (uint8_t address = 1U; address < 0x7FU; ++address) {
+  for (uint8_t address = 0x08U; address <= 0x77U; ++address) {
     ++probes;
     const Ldc1614IdfProbeResult result = ldc1614IdfI2cProbeAddress(
         _transport, address, _defaultConfig.i2cTimeoutMs);
@@ -117,6 +124,26 @@ void Ldc1614IdfCli::scanI2c() const {
   std::printf("scan complete found=%u probes=%u\n",
               static_cast<unsigned>(found), static_cast<unsigned>(probes));
   printStatus(LDC1614::Status::Ok());
+}
+
+void Ldc1614IdfCli::recoverI2c() {
+  if (_device.jobProgress().active) {
+    printStatus(LDC1614::Status::Error(
+        LDC1614::Err::BUSY, "bus recovery unavailable while job active"));
+    return;
+  }
+  if (_i2cRecover == nullptr) {
+    printStatus(LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                       "bus recovery unavailable"));
+    return;
+  }
+  const LDC1614::Status status = _i2cRecover(_recoverUser);
+  _device.invalidateAppliedState(
+      status.ok()
+          ? LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                   "Owner reinitialized I2C bus")
+          : status);
+  printStatus(status);
 }
 
 void Ldc1614IdfCli::printDriver() const {
@@ -291,6 +318,8 @@ void Ldc1614IdfCli::processLine(const char* line) {
         LDC1614::BUILD_TIMESTAMP);
   } else if (std::strcmp(command, "scan") == 0) {
     scanI2c();
+  } else if (std::strcmp(command, "busrecover") == 0) {
+    recoverI2c();
   } else if (std::strcmp(command, "bind") == 0) {
     printStatus(_device.bind(_defaultConfig));
   } else if (std::strcmp(command, "init") == 0 ||

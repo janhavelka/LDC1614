@@ -272,7 +272,7 @@ void Cli::scanI2c() const {
   }
   uint8_t found = 0;
   uint8_t probes = 0;
-  for (uint8_t address = 1; address < 0x7F; ++address) {
+  for (uint8_t address = 0x08U; address <= 0x77U; ++address) {
     ++probes;
     const I2cProbeResult result =
         _platform.i2cProbe(address, _platform.scanTimeoutMs, _platform.user);
@@ -294,9 +294,30 @@ void Cli::scanI2c() const {
   printStatus(LDC1614::Status::Ok());
 }
 
+void Cli::recoverI2c() {
+  if (_device.jobProgress().active) {
+    printStatus(LDC1614::Status::Error(
+        LDC1614::Err::BUSY, "bus recovery unavailable while job active"));
+    return;
+  }
+  if (_platform.i2cRecover == nullptr) {
+    printStatus(LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                       "bus recovery unavailable"));
+    return;
+  }
+  const LDC1614::Status status = _platform.i2cRecover(_platform.user);
+  _device.invalidateAppliedState(
+      status.ok()
+          ? LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                   "Owner reinitialized I2C bus")
+          : status);
+  printStatus(status);
+}
+
 void Cli::printHelp() const {
   println("Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress");
   println("One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>");
+  println("Owner bus control: busrecover (explicit reinit; then run init)");
   println("Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg");
   println("Pure helpers: timing [mask], freq <ch> <raw28>");
   println("Lifecycle: bind, invalidate, end; results print automatically from service()");
@@ -322,6 +343,8 @@ void Cli::processCommand(const char* commandLine) {
            LDC1614::BUILD_TIMESTAMP);
   } else if (std::strcmp(command, "scan") == 0) {
     scanI2c();
+  } else if (std::strcmp(command, "busrecover") == 0) {
+    recoverI2c();
   } else if (std::strcmp(command, "bind") == 0) {
     printStatus(_device.bind(makeDefaultConfig()));
   } else if (std::strcmp(command, "init") == 0 ||

@@ -211,11 +211,14 @@ inline bool initWire(int sda, int scl, uint32_t freq = 400000, uint16_t timeoutM
   delayMicroseconds(5);
 #endif
 
-  Wire.begin(sda, scl);
-  Wire.setClock(freq);
 #if defined(ARDUINO_ARCH_ESP32)
+  if (!Wire.begin(sda, scl, freq)) {
+    return false;
+  }
   Wire.setTimeOut(timeoutMs);
 #else
+  Wire.begin(sda, scl);
+  Wire.setClock(freq);
   (void)timeoutMs;
 #endif
   return true;

@@ -10,6 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 IDF_COMMANDS = [
     "help",
     "version",
+    "busrecover",
     "scan",
     "probe",
     "bind",
@@ -37,6 +38,7 @@ REQUIRED_IDF_TOKENS = [
     "i2c_new_master_bus",
     "i2c_master_bus_add_device",
     "i2c_master_probe",
+    "i2c_del_master_bus",
     "Ldc1614IdfCli",
     "ldc1614IdfI2cWrite",
     "ldc1614IdfI2cWriteRead",

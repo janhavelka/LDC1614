@@ -28,15 +28,25 @@ backend is affected or that the TunnelMonitor ESP32-S3 backend is safe.
 | Same stack, 100 kHz | Same failure class; lowering frequency did not correct the state failure. |
 | Same stack without startup scan | Same failure class; the diagnostic scan was not the root cause. |
 | pioarduino `53.03.13`, 400 kHz, after full power cycle | 25 repeated groups of `probe`, `reg 0x7E`, and `reg 0x7F` completed 75/75 identity transactions with `0x5449` / `0x3055`. This targeted A/B console evidence selected the candidate stack; it is not a substitute for the clean candidate smoke and one-hour artifact. |
+| Clean post-tag `bf44cf1`, pioarduino `53.03.13`, 400 kHz | The NACK-heavy startup scan found `0x2A` and `0x3C`, after which combined reads latched at zero-length while address probes and register writes still completed. The 39-command smoke correctly failed 24 commands. The MCU and serial CLI remained responsive; the missing capability was explicit application-owned controller reinitialization without an MCU reset. |
 | 1 MHz | Deliberately not run. The LDC1614 I2C interface maximum is 400 kHz, so 1 MHz would be outside the device contract even if another shared-bus device supports it. |
 
 The failing clean v3.0.0 evidence is retained in:
 
 - `hil-validation-COM8-20260722-v3-smoke.runner.json`
 - `hil-validation-COM8-20260722-v3-smoke.runner.md`
+- `hil-validation-COM8-20260722-bf44cf1-smoke.runner.json`
+- `hil-validation-COM8-20260722-bf44cf1-smoke.runner.md`
 
-The Markdown artifact embeds the raw command transcript. It is intentionally a
-`FAIL` record and must not be cited as positive HIL acceptance.
+The Markdown artifacts embed their raw command transcripts. Both are
+intentional `FAIL` records and must not be cited as positive HIL acceptance.
+
+The resulting example-owner correction removes the implicit startup scan,
+limits diagnostic scans to usable addresses `0x08..0x77`, adds one explicit
+`busrecover` operation that recreates the bus and invalidates trusted applied
+state, and requires complete `init` replay. The ESP32-S2 upload profile also
+requests return to the application after flashing instead of remaining in the
+flasher stub. These are candidate changes until clean-firmware HIL passes.
 
 ## Integration consequence
 
@@ -52,9 +62,10 @@ backend codes.
 
 ## Acceptance boundary
 
-The stack comparison establishes a defensible Arduino candidate and a real
-negative regression record. Release-grade positive evidence still requires a
-clean firmware identity match, the full no-sensor command matrix, a one-hour
-bounded soak with no unexpected reset or ambiguous response, and exact output
-artifacts. Sensor accuracy, channel physics, INTB, SD, address `0x2B`, LDC1612,
-and TunnelMonitor ESP32-S3 backend behavior remain outside this fixture.
+The stack comparison and post-tag failure establish real negative regression
+records and an explicit no-MCU-reset recovery design. Release-grade positive
+evidence still requires a clean firmware identity match, the full no-sensor
+command matrix, a one-hour bounded soak with no unexpected reset or ambiguous
+response, and exact output artifacts. Sensor accuracy, channel physics, INTB,
+SD, address `0x2B`, LDC1612, and TunnelMonitor ESP32-S3 backend behavior remain
+outside this fixture.
