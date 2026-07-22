@@ -16,7 +16,7 @@ cited hardware evidence and vendor references. Start with the repository
   and hardware evidence still required.
 - [TunnelMonitor suitability audit](TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md) - external-owner suitability
   findings, dispositions, and the still-external TunnelMonitor product gate.
-- [HIL artifact rules](https://github.com/janhavelka/LDC1614/blob/main/docs/hil/README.md) - location and rules for real HIL output artifacts.
+- [HIL artifact rules](https://github.com/janhavelka/LDC1614/blob/main/docs/hil/README.md) - retention rules for real HIL output artifacts.
 
 The maintained examples have their own guides:
 

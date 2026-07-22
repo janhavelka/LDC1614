@@ -172,7 +172,8 @@ Run these only when hardware and operator setup explicitly support them:
   command outcomes, and non-pass details.
 - At least one raw serial transcript or logic-analyzer trace must be retained
   for production acceptance of the exact board, sensor, wiring, configuration,
-  and release revision. No such raw artifact is currently committed.
+  and release revision. The committed post-v3 transcripts are negative
+  transport-regression evidence; no positive exact-release raw artifact exists.
 - Hardware logs must name the board, sensor/coil, address strap, channel count,
   firmware profile, firmware-reported Git commit/status, host checkout, and
   operator.

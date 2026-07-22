@@ -1,9 +1,11 @@
 # HIL Artifacts
 
-Store hardware-in-the-loop run outputs here when an operator runs real hardware.
-Do not create pass artifacts by hand.
+This file defines artifact rules. Commit reviewed JSON/Markdown evidence under
+`docs/reports/`; release-only captures may remain attached to the GitHub
+release. Do not create pass artifacts by hand.
 
 Expected generated files:
+
 - JSON result from `tools/ldc1614_hil_runner.py --json-out ...`
 - Markdown summary from `tools/ldc1614_hil_runner.py --markdown-out ...`
 - Raw serial transcript from `tools/ldc1614_hil_runner.py` with
@@ -12,9 +14,12 @@ Expected generated files:
   acceptance of the exact release fixture
 - Optional oscilloscope or bench notes referenced by the run
 
-No raw serial transcript or logic-analyzer trace is currently committed. The
-compact chip-only summaries under `docs/reports/` remain valid limited evidence,
-but do not satisfy the raw-artifact production acceptance gate.
+The retained post-v3 negative Markdown/JSON artifacts embed their complete
+serial transcripts. They are useful transport-regression evidence but do not
+satisfy the positive exact-release acceptance gate. A standalone `*.log` is
+ignored as temporary output; retain a reviewed raw capture as a release
+artifact or use a non-ignored extension such as `.serial.txt` when repository
+review specifically requires it.
 
 No-hardware `NOT_RUN`, dry-run, and empty-payload outputs are review aids, not
 HIL logs. Keep them as temporary CI or review artifacts rather than committing
