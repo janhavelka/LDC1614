@@ -16,6 +16,10 @@ The repository pins pioarduino `53.03.13`; do not upgrade the example toolchain
 without repeating combined-read and post-NACK recovery testing on real LDC
 hardware.
 
+The maintained ESP32-S2 PlatformIO profile uses its internal USB CDC upload
+path: automatic bootloader entry, port re-enumeration, and return to the
+application. Routine firmware updates must not require operator reset cycles.
+
 Useful commands:
 
 - `init`, `apply`, `resetreapply`, `acquire [mask]`, `cancel`, `progress`;

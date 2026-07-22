@@ -42,8 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   driver job, skip reserved I2C address groups, and no longer run implicitly at
   Arduino example startup. The example HIL sequence explicitly reinitializes
   the application-owned bus and replays configuration after scan NACK traffic.
-- ESP32-S2 uploads request a hard reset back into the application instead of
-  deliberately remaining in the flasher stub.
+- ESP32-S2 internal-USB uploads now use automatic 1200-baud bootloader entry,
+  wait for port re-enumeration, and hard-reset back into the application instead
+  of requiring operator reset cycles or remaining in the flasher stub.
 - Absolute 64-bit job deadlines now use half-range wrap-safe comparison, so a
   valid deadline immediately after `uint64_t` rollover is not timed out early.
 - The HIL runner rejects non-finite timing arguments and applies one absolute

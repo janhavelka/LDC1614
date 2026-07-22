@@ -45,8 +45,10 @@ The resulting example-owner correction removes the implicit startup scan,
 limits diagnostic scans to usable addresses `0x08..0x77`, adds one explicit
 `busrecover` operation that recreates the bus and invalidates trusted applied
 state, and requires complete `init` replay. The ESP32-S2 upload profile also
-requests return to the application after flashing instead of remaining in the
-flasher stub. These are candidate changes until clean-firmware HIL passes.
+uses automatic internal-USB bootloader entry, waits for port re-enumeration,
+and requests return to the application after flashing instead of requiring
+operator reset cycles or remaining in the flasher stub. These are candidate
+changes until clean-firmware HIL passes.
 
 ## Integration consequence
 
