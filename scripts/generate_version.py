@@ -146,14 +146,17 @@ def _get_git_info(project_root: Path) -> Tuple[str, str]:
         commit = commit_result.stdout.strip() if commit_result.returncode == 0 else "unknown"
 
         status_result = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=project_root,
             capture_output=True,
             text=True,
             timeout=2,
             check=False,
         )
-        git_status = "dirty" if status_result.stdout.strip() else "clean"
+        if status_result.returncode != 0:
+            git_status = "unknown"
+        else:
+            git_status = "dirty" if status_result.stdout.strip() else "clean"
         return commit or "unknown", git_status
     except Exception:
         return "unknown", "unknown"
@@ -223,30 +226,37 @@ def _render_version_header(namespace: str, version: str) -> str:
 #include <stdint.h>
 
 #ifndef {prefix}_VERSION_STRING
+/// @brief Semantic version string override used by generated metadata.
 #define {prefix}_VERSION_STRING "{version}"
 #endif
 
 #ifndef {prefix}_BUILD_DATE
+/// @brief Build date override in YYYY-MM-DD form.
 #define {prefix}_BUILD_DATE "unknown-date"
 #endif
 
 #ifndef {prefix}_BUILD_TIME
+/// @brief Build time override in HH:MM:SS form.
 #define {prefix}_BUILD_TIME "unknown-time"
 #endif
 
 #ifndef {prefix}_BUILD_TIMESTAMP
+/// @brief Combined build date/time override.
 #define {prefix}_BUILD_TIMESTAMP {prefix}_BUILD_DATE " " {prefix}_BUILD_TIME
 #endif
 
 #ifndef {prefix}_GIT_COMMIT
+/// @brief Source Git revision override, or `unknown`.
 #define {prefix}_GIT_COMMIT "unknown"
 #endif
 
 #ifndef {prefix}_GIT_STATUS
+/// @brief Source-tree status override: clean, dirty, or unknown.
 #define {prefix}_GIT_STATUS "unknown"
 #endif
 
 #ifndef {prefix}_VERSION_FULL
+/// @brief Full version/build identity string override.
 #define {prefix}_VERSION_FULL {prefix}_VERSION_STRING " (" {prefix}_GIT_COMMIT ", " {prefix}_BUILD_TIMESTAMP ", " {prefix}_GIT_STATUS ")"
 #endif
 
@@ -445,10 +455,12 @@ def _usage() -> str:
 def main(args: List[str]) -> int:
     project_root = _find_project_root()
     namespace = _resolve_namespace_dir(project_root).name
-    _append_build_metadata_defines(namespace, project_root)
 
     if not args:
         _sync_outputs(project_root, check_only=False, quiet=True)
+        # Capture identity after synchronization so a stale generated header
+        # makes this build visibly dirty instead of masquerading as HEAD.
+        _append_build_metadata_defines(namespace, project_root)
         return 0
 
     command = args[0]

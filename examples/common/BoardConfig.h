@@ -5,8 +5,8 @@
  * These are convenience defaults for reference designs only.
  * NOT part of the library API. Override for your hardware.
  *
- * @warning The library itself is board-agnostic. All pins are passed via Config.
- *          These defaults are provided for examples only.
+ * @warning The library itself is board-agnostic and owns no pins. The example
+ *          transport/GPIO callbacks close over these application-owned pins.
  */
 
 #pragma once
@@ -52,6 +52,11 @@ static constexpr uint8_t LDC_I2C_ADDRESS = LDC1614_EXAMPLE_I2C_ADDRESS;
 /// @brief Example default LDC channel count. Override with build flags for LDC1612.
 static constexpr uint8_t LDC_CHANNEL_COUNT = LDC1614_EXAMPLE_CHANNEL_COUNT;
 
+static_assert(LDC_I2C_ADDRESS == 0x2A || LDC_I2C_ADDRESS == 0x2B,
+              "LDC example address must be 0x2A or 0x2B");
+static_assert(LDC_CHANNEL_COUNT == 2 || LDC_CHANNEL_COUNT == 4,
+              "LDC example variant must have 2 or 4 channels");
+
 /// @brief LED pin. Example default for ESP32-S3 (RGB LED on GPIO48).
 /// Set to -1 to disable.
 static constexpr int LED = 48;
@@ -72,10 +77,15 @@ inline void initIntbPin() {
   }
 }
 
-/// @brief Read INTB pin level (true = HIGH, false = LOW).
-inline bool readIntbPin(int pin, void* user) {
-  (void)user;
-  return digitalRead(pin) != 0;
+/// @brief Read the active-low INTB signal without performing I2C.
+inline LDC1614::Status readIntbAsserted(bool& asserted, void*) {
+  if (INTB_PIN < 0) {
+    asserted = false;
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "INTB pin is not configured");
+  }
+  asserted = digitalRead(INTB_PIN) == 0;
+  return LDC1614::Status::Ok();
 }
 
 /// @brief Initialize Serial for examples.

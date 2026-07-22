@@ -1,110 +1,47 @@
 #include "Ldc1614IdfCli.h"
 
-#include <cctype>
+#include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-#include "LDC1614/Version.h"
-
 namespace {
 
-constexpr size_t LINE_CAPACITY = 128;
-constexpr int MAX_ARGS = 5;
-constexpr float DEFAULT_REF_CLOCK_HZ = 43000000.0F;
+constexpr uint64_t JOB_DEADLINE_MS = 2000;
 
-bool equalsIgnoreCase(const char* lhs, const char* rhs) {
-  if (lhs == nullptr || rhs == nullptr) {
-    return false;
-  }
-  while (*lhs != '\0' && *rhs != '\0') {
-    const unsigned char l = static_cast<unsigned char>(*lhs++);
-    const unsigned char r = static_cast<unsigned char>(*rhs++);
-    if (std::tolower(l) != std::tolower(r)) {
-      return false;
-    }
-  }
-  return *lhs == '\0' && *rhs == '\0';
-}
-
-int splitLine(char* line, char* argv[], int maxArgs) {
-  int argc = 0;
-  char* cursor = line;
-
-  while (*cursor != '\0' && argc < maxArgs) {
-    while (*cursor != '\0' &&
-           std::isspace(static_cast<unsigned char>(*cursor)) != 0) {
-      ++cursor;
-    }
-    if (*cursor == '\0') {
-      break;
-    }
-
-    argv[argc++] = cursor;
-    while (*cursor != '\0' &&
-           std::isspace(static_cast<unsigned char>(*cursor)) == 0) {
-      ++cursor;
-    }
-    if (*cursor != '\0') {
-      *cursor++ = '\0';
-    }
-  }
-
-  return argc;
-}
-
-bool parseUint8(const char* text, uint8_t maxValue, uint8_t& out) {
+bool parseUnsigned(const char* text, uint64_t maximum, uint64_t& value) {
   if (text == nullptr || *text == '\0') {
     return false;
   }
   char* end = nullptr;
-  const unsigned long value = std::strtoul(text, &end, 0);
-  if (end == text || *end != '\0' || value > maxValue) {
+  const unsigned long parsed = std::strtoul(text, &end, 0);
+  if (end == text || *end != '\0' || parsed > maximum) {
     return false;
   }
-  out = static_cast<uint8_t>(value);
+  value = parsed;
   return true;
 }
 
-bool parseFloat(const char* text, float& out) {
-  if (text == nullptr || *text == '\0') {
-    return false;
-  }
-  char* end = nullptr;
-  const float value = std::strtof(text, &end);
-  if (end == text || *end != '\0' || value <= 0.0F) {
-    return false;
-  }
-  out = value;
-  return true;
-}
-
-const char* stateName(LDC1614::DriverState state) {
+const char* appliedName(LDC1614::AppliedConfigState state) {
   switch (state) {
-    case LDC1614::DriverState::UNINIT:
-      return "UNINIT";
-    case LDC1614::DriverState::READY:
-      return "READY";
-    case LDC1614::DriverState::DEGRADED:
-      return "DEGRADED";
-    case LDC1614::DriverState::OFFLINE:
-      return "OFFLINE";
+    case LDC1614::AppliedConfigState::UNKNOWN: return "UNKNOWN";
+    case LDC1614::AppliedConfigState::APPLYING: return "APPLYING";
+    case LDC1614::AppliedConfigState::APPLIED_SLEEPING: return "APPLIED_SLEEPING";
+    case LDC1614::AppliedConfigState::APPLIED_ACTIVE: return "APPLIED_ACTIVE";
+    case LDC1614::AppliedConfigState::DIRTY: return "DIRTY";
   }
   return "UNKNOWN";
 }
 
-void printStatusLine(const char* label, const LDC1614::Status& status) {
-  std::printf("%s: code=%u detail=%ld msg=%s\n", label,
-              static_cast<unsigned>(status.code), static_cast<long>(status.detail),
-              status.msg != nullptr ? status.msg : "");
-}
-
-void printChannelData(uint8_t ch, const LDC1614::ChannelData& data) {
-  std::printf("ch%u raw=0x%07lx errUR=%u errOR=%u errWD=%u errAmp=%u\n",
-              static_cast<unsigned>(ch),
-              static_cast<unsigned long>(data.rawData),
-              data.errUnderRange ? 1U : 0U, data.errOverRange ? 1U : 0U,
-              data.errWatchdog ? 1U : 0U, data.errAmplitude ? 1U : 0U);
+const char* outcomeName(LDC1614::TerminalOutcome outcome) {
+  switch (outcome) {
+    case LDC1614::TerminalOutcome::SUCCESS: return "SUCCESS";
+    case LDC1614::TerminalOutcome::FAILED: return "FAILED";
+    case LDC1614::TerminalOutcome::CANCELLED: return "CANCELLED";
+    case LDC1614::TerminalOutcome::TIMED_OUT: return "TIMED_OUT";
+    case LDC1614::TerminalOutcome::NONE: return "NONE";
+  }
+  return "UNKNOWN";
 }
 
 }  // namespace
@@ -114,251 +51,351 @@ Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device,
     : _device(device), _defaultConfig(defaultConfig) {}
 
 void Ldc1614IdfCli::printBanner() const {
-  std::printf("\nLDC1614 ESP-IDF diagnostic bring-up CLI\n");
-  std::printf("This example is not a production bus manager.\n");
-  std::printf("Type 'help' for commands.\n");
+  std::printf("LDC1614 v%s native ESP-IDF diagnostic CLI\n", LDC1614::VERSION);
+  std::printf("One owner; cooperative jobs advance by one transfer per service pass.\n");
 }
 
-void Ldc1614IdfCli::printPrompt() const {
-  std::printf("ldc1614-idf> ");
-  std::fflush(stdout);
-}
+void Ldc1614IdfCli::printPrompt() const { std::printf("> "); }
 
 void Ldc1614IdfCli::println(const char* text) const {
   std::printf("%s\n", text != nullptr ? text : "");
 }
 
-uint32_t Ldc1614IdfCli::nowMs() const {
-  if (_defaultConfig.nowMs != nullptr) {
-    return _defaultConfig.nowMs(_defaultConfig.timeUser);
-  }
-  return 0;
+void Ldc1614IdfCli::printStatus(const LDC1614::Status& status) const {
+  std::printf("status: code=%u detail=%ld msg=%s\n",
+              static_cast<unsigned>(status.code),
+              static_cast<long>(status.detail),
+              status.msg != nullptr ? status.msg : "");
 }
 
-void Ldc1614IdfCli::processLine(const char* line) {
-  char buffer[LINE_CAPACITY] = {};
-  if (line != nullptr) {
-    size_t i = 0;
-    while (line[i] != '\0' && i < (sizeof(buffer) - 1U)) {
-      buffer[i] = line[i];
-      ++i;
-    }
-    buffer[i] = '\0';
+LDC1614::OperationId Ldc1614IdfCli::nextOperationId() {
+  const LDC1614::OperationId result = _nextOperationId++;
+  if (_nextOperationId == 0) {
+    _nextOperationId = 1;
   }
-
-  char* argv[MAX_ARGS] = {};
-  const int argc = splitLine(buffer, argv, MAX_ARGS);
-  if (argc == 0) {
-    return;
-  }
-
-  const char* cmd = argv[0];
-  if (equalsIgnoreCase(cmd, "help") || equalsIgnoreCase(cmd, "?")) {
-    printHelp();
-  } else if (equalsIgnoreCase(cmd, "version")) {
-    std::printf("version: %s\n", LDC1614_VERSION_STRING);
-  } else if (equalsIgnoreCase(cmd, "begin") || equalsIgnoreCase(cmd, "init")) {
-    handleBegin();
-  } else if (equalsIgnoreCase(cmd, "probe")) {
-    handleProbe();
-  } else if (equalsIgnoreCase(cmd, "status")) {
-    handleDeviceStatus();
-  } else if (equalsIgnoreCase(cmd, "drv")) {
-    printDriver();
-  } else if (equalsIgnoreCase(cmd, "cfg")) {
-    printConfig();
-  } else if (equalsIgnoreCase(cmd, "read")) {
-    handleRead(argc, argv);
-  } else if (equalsIgnoreCase(cmd, "readall")) {
-    handleReadAll();
-  } else if (equalsIgnoreCase(cmd, "ready")) {
-    handleReady();
-  } else if (equalsIgnoreCase(cmd, "sleep")) {
-    handleSleep();
-  } else if (equalsIgnoreCase(cmd, "wake")) {
-    handleWake();
-  } else if (equalsIgnoreCase(cmd, "recover")) {
-    handleRecover();
-  } else if (equalsIgnoreCase(cmd, "timing")) {
-    handleTiming(argc, argv);
-  } else if (equalsIgnoreCase(cmd, "selftest")) {
-    handleSelfTest();
-  } else {
-    std::printf("unknown command: %s\n", cmd);
-  }
+  return result;
 }
 
 void Ldc1614IdfCli::printHelp() const {
-  std::printf("commands:\n");
-  std::printf("  help | ?              Show commands\n");
-  std::printf("  version               Print library version\n");
-  std::printf("  begin | init           Reinitialize with default example config\n");
-  std::printf("  probe                 Read MANUFACTURER_ID and DEVICE_ID\n");
-  std::printf("  status                Read device STATUS register\n");
-  std::printf("  drv                   Print driver health snapshot\n");
-  std::printf("  cfg                   Print cached configuration snapshot\n");
-  std::printf("  read [ch]             Read one channel once\n");
-  std::printf("  readall               Read configured channels once\n");
-  std::printf("  ready                 Check data-ready status\n");
-  std::printf("  sleep                 Enter device sleep mode\n");
-  std::printf("  wake                  Wake and start conversions\n");
-  std::printf("  recover               Run manual recovery ladder\n");
-  std::printf("  timing [ch] [frefHz]  Print timing estimates\n");
-  std::printf("  selftest              Probe and read safe diagnostic status\n");
-}
-
-void Ldc1614IdfCli::printStatus(const LDC1614::Status& status) const {
-  printStatusLine("status", status);
+  println("jobs: init, apply, resetreapply, acquire/read [mask], cancel, progress");
+  println("controls: status, ready, sleep, wake, initdrive <channel>");
+  println("diagnostics: version, probe/id, drv, cfg, reg, wreg, selftest");
+  println("pure helpers: timing [mask], freq <channel> <raw28>");
+  println("lifecycle: bind, invalidate, end");
 }
 
 void Ldc1614IdfCli::printDriver() const {
-  const LDC1614::SettingsSnapshot snapshot = _device.settings();
-  const LDC1614::Status dirty = _device.hardwareConfigDirtyError();
-  std::printf("state=%s initialized=%u online=%u dirty=%u sleep=%u\n",
-              stateName(_device.driverState()), _device.isInitialized() ? 1U : 0U,
-              _device.isOnline() ? 1U : 0U,
-              _device.hardwareConfigDirty() ? 1U : 0U,
-              _device.isSleeping() ? 1U : 0U);
-  std::printf("success=%lu failures=%lu consecutive=%u lastOkMs=%lu lastErrMs=%lu\n",
-              static_cast<unsigned long>(_device.totalSuccess()),
-              static_cast<unsigned long>(_device.totalFailures()),
-              static_cast<unsigned>(_device.consecutiveFailures()),
-              static_cast<unsigned long>(_device.lastOkMs()),
-              static_cast<unsigned long>(_device.lastErrorMs()));
-  printStatusLine("lastError", _device.lastError());
-  if (snapshot.hardwareConfigDirty) {
-    printStatusLine("dirtyCause", dirty);
-  }
+  const LDC1614::TransportStats stats = _device.transportStats();
+  const LDC1614::JobProgress progress = _device.jobProgress();
+  std::printf("bound=%u applied=%s revision=%lu active=%u result=%u\n",
+              _device.isBound() ? 1U : 0U,
+              appliedName(_device.appliedConfigState()),
+              static_cast<unsigned long>(_device.configRevision()),
+              progress.active ? 1U : 0U,
+              _device.resultAvailable() ? 1U : 0U);
+  std::printf("transport attempts=%lu success=%lu failures=%lu\n",
+              static_cast<unsigned long>(stats.totalAttempts),
+              static_cast<unsigned long>(stats.totalSuccess),
+              static_cast<unsigned long>(stats.totalFailures));
+  printStatus(stats.lastStatus);
 }
 
 void Ldc1614IdfCli::printConfig() const {
-  const LDC1614::SettingsSnapshot snapshot = _device.settings();
-  std::printf("addr=0x%02x channels=%u timeoutMs=%lu autoscan=%u active=%u intb=%u\n",
-              static_cast<unsigned>(snapshot.i2cAddress),
-              static_cast<unsigned>(snapshot.channelCount),
-              static_cast<unsigned long>(snapshot.i2cTimeoutMs),
-              snapshot.autoScan ? 1U : 0U,
-              static_cast<unsigned>(snapshot.activeChan),
-              snapshot.intbEnabled ? 1U : 0U);
-  for (uint8_t ch = 0; ch < snapshot.channelCount && ch < 4U; ++ch) {
-    const LDC1614::ChannelConfig& cfg = snapshot.channel[ch];
-    std::printf("ch%u rcount=0x%04x settle=0x%04x finDiv=%u frefDiv=%u offset=0x%04x idrive=%u\n",
-                static_cast<unsigned>(ch), static_cast<unsigned>(cfg.rcount),
-                static_cast<unsigned>(cfg.settleCount),
-                static_cast<unsigned>(cfg.finDivider),
-                static_cast<unsigned>(cfg.frefDivider),
-                static_cast<unsigned>(cfg.offset), static_cast<unsigned>(cfg.idrive));
-  }
-}
-
-void Ldc1614IdfCli::handleBegin() {
-  _device.end();
-  const LDC1614::Status status = _device.begin(_defaultConfig);
-  printStatus(status);
-}
-
-void Ldc1614IdfCli::handleProbe() {
-  const LDC1614::Status status = _device.probe();
-  printStatus(status);
-}
-
-void Ldc1614IdfCli::handleDeviceStatus() {
-  LDC1614::DeviceStatus deviceStatus;
-  const LDC1614::Status status = _device.readDeviceStatus(deviceStatus);
-  printStatus(status);
-  if (status.ok()) {
-    std::printf("raw=0x%04x drdy=%u err=%u errChan=%u ur=%u or=%u wd=%u ah=%u al=%u zc=%u\n",
-                static_cast<unsigned>(deviceStatus.raw),
-                deviceStatus.dataReady ? 1U : 0U,
-                deviceStatus.hasError() ? 1U : 0U,
-                static_cast<unsigned>(deviceStatus.errChan),
-                deviceStatus.errUnderRange ? 1U : 0U,
-                deviceStatus.errOverRange ? 1U : 0U,
-                deviceStatus.errWatchdog ? 1U : 0U,
-                deviceStatus.errAmplitudeHigh ? 1U : 0U,
-                deviceStatus.errAmplitudeLow ? 1U : 0U,
-                deviceStatus.errZeroCount ? 1U : 0U);
-  }
-}
-
-void Ldc1614IdfCli::handleReady() {
-  bool ready = false;
-  const LDC1614::Status status = _device.readDataReady(ready);
-  printStatus(status);
-  if (status.ok()) {
-    std::printf("ready=%u\n", ready ? 1U : 0U);
-  }
-}
-
-void Ldc1614IdfCli::handleSleep() {
-  printStatus(_device.sleep());
-}
-
-void Ldc1614IdfCli::handleWake() {
-  printStatus(_device.wake());
-}
-
-void Ldc1614IdfCli::handleRead(int argc, char* argv[]) {
-  uint8_t ch = 0;
-  if (argc >= 2 && !parseUint8(argv[1], 3, ch)) {
-    std::printf("invalid channel\n");
+  if (!_device.isBound()) {
+    println("not bound");
     return;
   }
+  const LDC1614::Config& config = _device.config();
+  const unsigned variantChannels =
+      config.variant == LDC1614::DeviceVariant::LDC1612 ? 2U : 4U;
+  std::printf("address=0x%02X variant=%u variantChannels=%u selected=0x%02X mode=%u refHz=%lu "
+              "tolerancePpm=%lu timeoutMs=%lu\n",
+              static_cast<unsigned>(config.i2cAddress),
+              static_cast<unsigned>(config.variant),
+              variantChannels,
+              static_cast<unsigned>(config.channels.bits),
+              static_cast<unsigned>(config.mode),
+              static_cast<unsigned long>(config.referenceClock.frequencyHz),
+              static_cast<unsigned long>(config.referenceClock.tolerancePpm),
+              static_cast<unsigned long>(config.i2cTimeoutMs));
+}
 
-  LDC1614::ChannelData data;
-  const LDC1614::Status status = _device.readChannel(ch, data);
-  printStatus(status);
-  if (status.ok()) {
-    printChannelData(ch, data);
+void Ldc1614IdfCli::printProgress() const {
+  const LDC1614::JobProgress progress = _device.jobProgress();
+  std::printf("active=%u operation=%" PRIu64 " kind=%u phase=%u transfers=%u/%u "
+              "requested=0x%02X completed=0x%02X deadline=%" PRIu64 "\n",
+              progress.active ? 1U : 0U, progress.operationId,
+              static_cast<unsigned>(progress.kind),
+              static_cast<unsigned>(progress.phase),
+              static_cast<unsigned>(progress.completedTransfers),
+              static_cast<unsigned>(progress.maximumTransfers),
+              static_cast<unsigned>(progress.requestedChannels.bits),
+              static_cast<unsigned>(progress.completedChannels.bits),
+              progress.deadlineMs);
+}
+
+void Ldc1614IdfCli::printDeviceStatus(
+    const LDC1614::DeviceStatus& status) const {
+  std::printf("STATUS observed=%u raw=0x%04X drdy=%u unread=0x%02X errCh=%u "
+              "UR=%u OR=%u WD=%u AH=%u AL=%u ZC=%u\n",
+              status.observed ? 1U : 0U, status.raw,
+              status.dataReady ? 1U : 0U,
+              static_cast<unsigned>(status.unreadChannels.bits),
+              static_cast<unsigned>(status.errorChannel),
+              status.errorUnderRange ? 1U : 0U,
+              status.errorOverRange ? 1U : 0U,
+              status.errorWatchdog ? 1U : 0U,
+              status.errorAmplitudeHigh ? 1U : 0U,
+              status.errorAmplitudeLow ? 1U : 0U,
+              status.errorZeroCount ? 1U : 0U);
+}
+
+void Ldc1614IdfCli::printResult(
+    const LDC1614::OperationResult& result) const {
+  std::printf("result operation=%" PRIu64 " kind=%u outcome=%s effects=0x%02X "
+              "revision=%lu phase=%u reg=0x%02X channel=%u transfers=%u/%u\n",
+              result.operationId, static_cast<unsigned>(result.kind),
+              outcomeName(result.outcome), static_cast<unsigned>(result.effects),
+              static_cast<unsigned long>(result.configRevision),
+              static_cast<unsigned>(result.finalProgress.phase),
+              result.finalProgress.registerAddress,
+              static_cast<unsigned>(result.finalProgress.channel),
+              static_cast<unsigned>(result.finalProgress.completedTransfers),
+              static_cast<unsigned>(result.finalProgress.maximumTransfers));
+  printStatus(result.status);
+  if (result.configFault.valid) {
+    std::printf("configFault phase=%u reg=0x%02X channel=%u effects=0x%02X\n",
+                static_cast<unsigned>(result.configFault.phase),
+                result.configFault.registerAddress,
+                static_cast<unsigned>(result.configFault.channel),
+                static_cast<unsigned>(result.configFault.effects));
+    printStatus(result.configFault.cause);
+  }
+  if (!result.hasSampleBatch) {
+    return;
+  }
+  const LDC1614::SampleBatch& batch = result.sampleBatch;
+  std::printf("batch selected=0x%02X valid=0x%02X fresh=0x%02X error=0x%02X "
+              "overrun=0x%02X completedMs=%" PRIu64 "\n",
+              static_cast<unsigned>(batch.selectedChannels.bits),
+              static_cast<unsigned>(batch.validChannels.bits),
+              static_cast<unsigned>(batch.freshChannels.bits),
+              static_cast<unsigned>(batch.errorChannels.bits),
+              static_cast<unsigned>(batch.overrunChannels.bits),
+              batch.completedUptimeMs);
+  printDeviceStatus(batch.statusBefore);
+  for (uint8_t channel = 0; channel < 4; ++channel) {
+    if ((batch.selectedChannels.bits & static_cast<uint8_t>(1U << channel)) == 0U) {
+      continue;
+    }
+    const LDC1614::ChannelSample& sample = batch.channel[channel];
+    std::printf("ch%u raw=0x%07lX quality=0x%04X\n",
+                static_cast<unsigned>(channel),
+                static_cast<unsigned long>(sample.rawCount28), sample.quality);
   }
 }
 
-void Ldc1614IdfCli::handleReadAll() {
-  LDC1614::ChannelData data[4] = {};
-  const uint8_t count = _device.channelCount();
-  const LDC1614::Status status = _device.readAllChannels(data, count);
+void Ldc1614IdfCli::startInitialize(bool resetFirst, uint64_t nowMs) {
+  const LDC1614::OperationId operationId = nextOperationId();
+  const LDC1614::Status status =
+      resetFirst
+          ? _device.startResetAndReapply(operationId, nowMs + JOB_DEADLINE_MS)
+          : _device.startInitialize(operationId, nowMs + JOB_DEADLINE_MS);
+  std::printf("scheduled operation=%" PRIu64 " reset=%u\n", operationId,
+              resetFirst ? 1U : 0U);
   printStatus(status);
-  if (status.ok()) {
-    for (uint8_t ch = 0; ch < count && ch < 4U; ++ch) {
-      printChannelData(ch, data[ch]);
+}
+
+void Ldc1614IdfCli::startAcquire(LDC1614::ChannelMask channels,
+                                 uint64_t nowMs) {
+  const LDC1614::OperationId operationId = nextOperationId();
+  const LDC1614::Status status =
+      _device.startAcquire(channels, operationId, nowMs + JOB_DEADLINE_MS);
+  std::printf("scheduled acquire operation=%" PRIu64 " mask=0x%02X\n",
+              operationId, static_cast<unsigned>(channels.bits));
+  printStatus(status);
+}
+
+void Ldc1614IdfCli::service(uint64_t nowMs) {
+  _lastNowMs = nowMs;
+  if (_device.jobProgress().active) {
+    const LDC1614::Status status = _device.poll(nowMs, 1);
+    if (!status.ok() && !status.inProgress()) {
+      printStatus(status);
     }
   }
+  LDC1614::OperationResult result;
+  while (_device.resultAvailable()) {
+    const LDC1614::Status status = _device.takeResult(result);
+    if (!status.ok()) {
+      printStatus(status);
+      break;
+    }
+    printResult(result);
+  }
 }
 
-void Ldc1614IdfCli::handleRecover() {
-  const LDC1614::Status status = _device.recover();
-  printStatus(status);
-}
-
-void Ldc1614IdfCli::handleTiming(int argc, char* argv[]) {
-  uint8_t ch = 0;
-  float fRef = DEFAULT_REF_CLOCK_HZ;
-  if (argc >= 2 && !parseUint8(argv[1], 3, ch)) {
-    std::printf("invalid channel\n");
+void Ldc1614IdfCli::processLine(const char* line) {
+  if (line == nullptr) {
     return;
   }
-  if (argc >= 3 && !parseFloat(argv[2], fRef)) {
-    std::printf("invalid reference clock\n");
+  char buffer[128];
+  std::strncpy(buffer, line, sizeof(buffer) - 1U);
+  buffer[sizeof(buffer) - 1U] = '\0';
+  char* command = std::strtok(buffer, " \t");
+  if (command == nullptr) {
     return;
   }
 
-  const float convUs = _device.calcConversionTimeUs(ch, fRef);
-  const float settleUs = _device.calcSettleTimeUs(ch, fRef);
-  const float sampleUs = _device.calcSampleTimeUs(ch, fRef);
-  std::printf("ch%u fRef=%.1fHz conversion=%.2fus settle=%.2fus sample=%.2fus\n",
-              static_cast<unsigned>(ch), static_cast<double>(fRef), static_cast<double>(convUs),
-              static_cast<double>(settleUs), static_cast<double>(sampleUs));
-}
-
-void Ldc1614IdfCli::handleSelfTest() {
-  std::printf("selftest: probe\n");
-  printStatus(_device.probe());
-  if (!_device.isInitialized()) {
-    std::printf("selftest: driver not initialized, skipping STATUS/ready reads\n");
-    return;
+  if (std::strcmp(command, "help") == 0) {
+    printHelp();
+  } else if (std::strcmp(command, "version") == 0) {
+    std::printf(
+        "version: %s firmware_git=%s firmware_status=%s build_timestamp=%s\n",
+        LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
+        LDC1614::BUILD_TIMESTAMP);
+  } else if (std::strcmp(command, "bind") == 0) {
+    printStatus(_device.bind(_defaultConfig));
+  } else if (std::strcmp(command, "init") == 0 ||
+             std::strcmp(command, "begin") == 0) {
+    startInitialize(false, _lastNowMs);
+  } else if (std::strcmp(command, "apply") == 0) {
+    printStatus(_device.startApplyConfig(nextOperationId(),
+                                         _lastNowMs + JOB_DEADLINE_MS));
+  } else if (std::strcmp(command, "resetreapply") == 0) {
+    startInitialize(true, _lastNowMs);
+  } else if (std::strcmp(command, "cancel") == 0) {
+    printStatus(_device.cancelJob());
+  } else if (std::strcmp(command, "progress") == 0) {
+    printProgress();
+  } else if (std::strcmp(command, "drv") == 0 ||
+             std::strcmp(command, "state") == 0) {
+    printDriver();
+  } else if (std::strcmp(command, "cfg") == 0 ||
+             std::strcmp(command, "settings") == 0) {
+    printConfig();
+  } else if (std::strcmp(command, "status") == 0) {
+    LDC1614::DeviceStatus status;
+    const LDC1614::Status result = _device.readDeviceStatus(status);
+    if (result.ok()) {
+      printDeviceStatus(status);
+    }
+    printStatus(result);
+  } else if (std::strcmp(command, "ready") == 0 ||
+             std::strcmp(command, "drdy") == 0) {
+    bool ready = false;
+    LDC1614::DeviceStatus observed;
+    const LDC1614::Status status = _device.readDataReady(ready, observed);
+    std::printf("ready=%u\n", ready ? 1U : 0U);
+    if (status.ok()) {
+      printDeviceStatus(observed);
+    }
+    printStatus(status);
+  } else if (std::strcmp(command, "sleep") == 0) {
+    printStatus(_device.sleep());
+  } else if (std::strcmp(command, "wake") == 0) {
+    printStatus(_device.wake());
+  } else if (std::strcmp(command, "acquire") == 0 ||
+             std::strcmp(command, "read") == 0 ||
+             std::strcmp(command, "readall") == 0) {
+    uint64_t mask = _device.isBound() ? _device.config().channels.bits : 0;
+    const char* argument = std::strtok(nullptr, " \t");
+    if (argument != nullptr && !parseUnsigned(argument, 0x0F, mask)) {
+      println("invalid channel mask");
+      return;
+    }
+    startAcquire(LDC1614::ChannelMask{static_cast<uint8_t>(mask)}, _lastNowMs);
+  } else if (std::strcmp(command, "probe") == 0 ||
+             std::strcmp(command, "id") == 0 ||
+             std::strcmp(command, "selftest") == 0) {
+    uint16_t manufacturer = 0;
+    uint16_t deviceId = 0;
+    LDC1614::Status status =
+        _device.readRegister16(LDC1614::cmd::REG_MANUFACTURER_ID, manufacturer);
+    if (status.ok()) {
+      status = _device.readRegister16(LDC1614::cmd::REG_DEVICE_ID, deviceId);
+    }
+    std::printf("MANUFACTURER_ID=0x%04X DEVICE_ID=0x%04X\n", manufacturer,
+                deviceId);
+    if (status.ok() && (manufacturer != LDC1614::cmd::MANUFACTURER_ID_VALUE ||
+                        deviceId != LDC1614::cmd::DEVICE_ID_VALUE)) {
+      status = LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+                                      "Identity mismatch");
+    }
+    printStatus(status);
+  } else if (std::strcmp(command, "reg") == 0) {
+    uint64_t reg = 0;
+    if (!parseUnsigned(std::strtok(nullptr, " \t"), 0x7F, reg)) {
+      println("usage: reg <address>");
+      return;
+    }
+    uint16_t value = 0;
+    const LDC1614::Status status =
+        _device.readRegister16(static_cast<uint8_t>(reg), value);
+    std::printf("reg 0x%02lX = 0x%04X\n", static_cast<unsigned long>(reg), value);
+    printStatus(status);
+  } else if (std::strcmp(command, "wreg") == 0) {
+    uint64_t reg = 0;
+    uint64_t value = 0;
+    if (!parseUnsigned(std::strtok(nullptr, " \t"), 0x7F, reg) ||
+        !parseUnsigned(std::strtok(nullptr, " \t"), 0xFFFF, value)) {
+      println("usage: wreg <address> <value>");
+      return;
+    }
+    printStatus(_device.writeRegister16(static_cast<uint8_t>(reg),
+                                        static_cast<uint16_t>(value)));
+  } else if (std::strcmp(command, "initdrive") == 0) {
+    uint64_t channel = 0;
+    if (!parseUnsigned(std::strtok(nullptr, " \t"), 3, channel)) {
+      println("usage: initdrive <channel>");
+      return;
+    }
+    uint8_t code = 0;
+    const LDC1614::Status status = _device.readInitDriveCurrent(
+        static_cast<LDC1614::Channel>(channel), code);
+    std::printf("channel=%lu initDriveCode=%u\n",
+                static_cast<unsigned long>(channel), static_cast<unsigned>(code));
+    printStatus(status);
+  } else if (std::strcmp(command, "timing") == 0) {
+    uint64_t mask = _device.isBound() ? _device.config().channels.bits : 0;
+    const char* argument = std::strtok(nullptr, " \t");
+    if (argument != nullptr && !parseUnsigned(argument, 0x0F, mask)) {
+      println("usage: timing [channel-mask]");
+      return;
+    }
+    LDC1614::FrameTiming timing;
+    const LDC1614::Status status = LDC1614::LDC1614::estimateFrameTiming(
+        _device.config(), LDC1614::ChannelMask{static_cast<uint8_t>(mask)}, timing);
+    std::printf("wakeSettleUs=%" PRIu64 " conversionUs=%" PRIu64
+                " sequentialFrameUs=%" PRIu64 " acquisitionTransfers=%u\n",
+                timing.wakeAndSettleUs, timing.conversionUs,
+                timing.sequentialFrameUs,
+                static_cast<unsigned>(timing.acquisitionTransfers));
+    printStatus(status);
+  } else if (std::strcmp(command, "freq") == 0) {
+    uint64_t channel = 0;
+    uint64_t raw = 0;
+    if (!parseUnsigned(std::strtok(nullptr, " \t"), 3, channel) ||
+        !parseUnsigned(std::strtok(nullptr, " \t"), 0x0FFFFFFF, raw)) {
+      println("usage: freq <channel> <raw28>");
+      return;
+    }
+    double frequency = 0.0;
+    const LDC1614::Status status =
+        LDC1614::LDC1614::calculateSensorFrequencyHz(
+            _device.config(), static_cast<LDC1614::Channel>(channel),
+            static_cast<uint32_t>(raw), frequency);
+    std::printf("frequencyHz=%.6f\n", frequency);
+    printStatus(status);
+  } else if (std::strcmp(command, "invalidate") == 0) {
+    _device.invalidateAppliedState(
+        LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                               "Owner invalidated applied state"));
+    printStatus(LDC1614::Status::Ok());
+  } else if (std::strcmp(command, "end") == 0) {
+    _device.end();
+    printStatus(LDC1614::Status::Ok());
+  } else {
+    println("unknown command; type help");
   }
-  std::printf("selftest: ready\n");
-  handleReady();
-  std::printf("selftest: status\n");
-  handleDeviceStatus();
 }

@@ -33,40 +33,26 @@ ARDUINO_DEFAULT_COMMANDS = [
     "version",
     "scan",
     "probe",
-    "id",
     "drv",
     "cfg",
+    "progress",
     "status",
     "sleep",
     "wake",
     "drdy",
-    "read",
-    "readfresh",
-    "readstaged 0x01 8 1",
-    "recover",
-    "timing 0 43000000",
+    "timing 0x01",
     "selftest",
 ]
 
 ARDUINO_NO_SENSOR_COMMANDS = [
     "help",
     "version",
-    "init",
     "scan",
-    "probeaddr 0x2A",
     "probe",
-    "id",
     "drv",
-    "state",
-    "online",
     "cfg",
-    "snapshot",
-    "channels",
-    "activech",
+    "progress",
     "status",
-    "status_raw",
-    "rawreg 0x7E",
-    "rawreg 0x7F",
     "reg 0x7E",
     "reg 0x7F",
     "reg 0x19",
@@ -75,80 +61,10 @@ ARDUINO_NO_SENSOR_COMMANDS = [
     "sleep",
     "wake",
     "sleep",
-    "single 0",
-    "rcount 0 0x0123",
-    "settle 0 0x0011",
-    "clkdiv 0 2 3",
-    "offset 0 0x0010",
-    "idrive 0 5",
-    "rcount 1 0x0124",
-    "settle 1 0x0012",
-    "clkdiv 1 2 4",
-    "offset 1 0x0011",
-    "idrive 1 6",
-    "rcount 2 0x0125",
-    "settle 2 0x0013",
-    "clkdiv 2 2 5",
-    "offset 2 0x0012",
-    "idrive 2 7",
-    "rcount 3 0x0126",
-    "settle 3 0x0014",
-    "clkdiv 3 2 6",
-    "offset 3 0x0013",
-    "idrive 3 8",
     "initidrive 0",
-    "initidrive 1",
-    "initidrive 2",
-    "initidrive 3",
     "cfg",
-    "activech 1",
-    "activech 2",
-    "activech 3",
-    "single 0",
-    "single 1",
-    "single 2",
-    "single 3",
-    "single 0",
-    "autoscan 2",
-    "autoscan 3",
-    "autoscan 4",
-    "single 0",
-    "deglitch 1",
-    "deglitch 3",
-    "deglitch 10",
-    "deglitch 33",
-    "errcfg 0x0000",
-    "errcfg 0x00F9",
-    "errcfg",
-    "intb 0",
-    "intb 1",
-    "intb 0",
-    "refclk ext",
-    "refclk int",
-    "activate low",
-    "activate full",
-    "rpoverride 0",
-    "rpoverride 1",
-    "autoamp 1",
-    "autoamp 0",
-    "highcurrent 1",
-    "highcurrent 0",
-    "cfg",
-    "wreg 0x19 0x00F9",
-    "sync",
-    "cfg",
-    "rawwreg 0x19 0x00F9",
-    "cfg",
-    "resetreapply",
-    "cfg",
-    "recover",
-    "timing 0 43000000",
-    "timing 1 43000000",
-    "timing 2 43000000",
-    "timing 3 43000000",
-    "reset",
-    "init",
-    "cfg",
+    "timing 0x01",
+    "selftest",
     "sleep",
 ]
 
@@ -158,46 +74,77 @@ IDF_DEFAULT_COMMANDS = [
     "probe",
     "drv",
     "cfg",
+    "progress",
     "status",
     "sleep",
     "wake",
     "ready",
-    "read",
-    "readall",
-    "recover",
-    "timing 0 43000000",
+    "timing 0x01",
     "selftest",
 ]
 
-INFO_COMMANDS = {
-    "help",
-    "version",
-    "scan",
-    "id",
-    "drv",
-    "cfg",
-    "config",
-    "settings",
-    "state",
-    "health",
-    "init",
-    "begin",
-    "end",
-    "online",
-    "sync",
-    "channels",
-    "activech",
-    "snapshot",
-    "status",
-    "status_raw",
-    "drdy",
-    "ready",
-    "timing",
-    "errcfg",
-    "intb",
-    "initidrive",
-    "reg",
-    "rawreg",
+COMMAND_EVIDENCE_PATTERNS = {
+    "help": (re.compile(r"(?:\bOwner-driven jobs\b|\bjobs:)", re.IGNORECASE),),
+    "version": (
+        re.compile(r"\bversion:\s*\d+\.\d+\.\d+\b", re.IGNORECASE),
+        re.compile(r"\bfirmware_git=[0-9a-f]{7,40}\b", re.IGNORECASE),
+        re.compile(r"\bfirmware_status=clean\b", re.IGNORECASE),
+    ),
+    "scan": (
+        re.compile(r"\bscan complete found=\d+ probes=126\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "probe": (
+        re.compile(r"\bMANUFACTURER_ID=0x5449\b", re.IGNORECASE),
+        re.compile(r"\bDEVICE_ID=0x3055\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "id": (
+        re.compile(r"\bMANUFACTURER_ID=0x5449\b", re.IGNORECASE),
+        re.compile(r"\bDEVICE_ID=0x3055\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "selftest": (
+        re.compile(r"\bMANUFACTURER_ID=0x5449\b", re.IGNORECASE),
+        re.compile(r"\bDEVICE_ID=0x3055\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "drv": (re.compile(r"\bbound=[01]\b.*\bapplied=", re.IGNORECASE),),
+    "state": (re.compile(r"\bbound=[01]\b.*\bapplied=", re.IGNORECASE),),
+    "health": (re.compile(r"\bbound=[01]\b.*\bapplied=", re.IGNORECASE),),
+    "cfg": (
+        re.compile(r"\baddress=0x[0-9a-f]{2}\b", re.IGNORECASE),
+        re.compile(r"\bvariantChannels=(?:2|4)\b", re.IGNORECASE),
+    ),
+    "config": (
+        re.compile(r"\baddress=0x[0-9a-f]{2}\b", re.IGNORECASE),
+        re.compile(r"\bvariantChannels=(?:2|4)\b", re.IGNORECASE),
+    ),
+    "settings": (
+        re.compile(r"\baddress=0x[0-9a-f]{2}\b", re.IGNORECASE),
+        re.compile(r"\bvariantChannels=(?:2|4)\b", re.IGNORECASE),
+    ),
+    "progress": (
+        re.compile(r"\bactive=[01]\b.*\boperation=\d+\b.*\btransfers=\d+/\d+\b",
+                   re.IGNORECASE),
+    ),
+    "status": (re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
+                          re.IGNORECASE),),
+    "status_raw": (re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
+                              re.IGNORECASE),),
+    "drdy": (re.compile(r"\bready=[01]\b", re.IGNORECASE),),
+    "ready": (re.compile(r"\bready=[01]\b", re.IGNORECASE),),
+    "timing": (
+        re.compile(r"\bwakeSettleUs=\d+\b.*\bconversionUs=\d+\b", re.IGNORECASE),
+    ),
+    "initidrive": (
+        re.compile(r"\bchannel=\d+\s+initDriveCode=\d+\b", re.IGNORECASE),
+    ),
+    "initdrive": (
+        re.compile(r"\bchannel=\d+\s+initDriveCode=\d+\b", re.IGNORECASE),
+    ),
+    "reg": (re.compile(r"\breg 0x[0-9a-f]+\s*=\s*0x[0-9a-f]{4}\b",
+                       re.IGNORECASE),),
 }
 FAIL_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
@@ -206,9 +153,9 @@ FAIL_PATTERNS = [
         r"\bDEVICE_NOT_FOUND\b",
         r"\bI2C_(?:ERROR|TIMEOUT|NACK_ADDR|NACK_DATA|BUS)\b",
         r"\bINVALID_(?:CONFIG|PARAM)\b",
-        r"\bNOT_INITIALIZED\b",
+        r"\bNOT_BOUND\b",
         r"\bBUSY\b",
-        r"\b(?:begin|init|probe|read|write|recover|selftest|command)\s+failed\b",
+        r"\b(?:bind|init|probe|read|write|selftest|command)\s+failed\b",
         r"\[FAIL\]",
         r"\[ERR:",
         r"\bmatch=(?:\x1b\[[0-9;]*m)*NO\b",
@@ -219,8 +166,7 @@ FAIL_PATTERNS = [
         r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
         r"\berr=1\b",
         r"\b(?:errUR|errOR|errWD|errAmp|ur|or|wd|ah|al|zc)=1\b",
-        r"not online",
-        r"not initialized",
+        r"not bound",
         r"code=[1-9][0-9]*",
     )
 ]
@@ -259,9 +205,13 @@ ADDRESS_PATTERNS = [
 CHANNEL_COUNT_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
-        r"\bchannel(?:\s+count|s)?\s*[=:]\s*(\d+)",
+        r"\b(?:variantChannels|channel\s+count)\s*[=:]\s*(\d+)",
     )
 ]
+FIRMWARE_GIT_PATTERN = re.compile(r"\bfirmware_git=([0-9a-f]{7,40}|unknown)\b",
+                                  re.IGNORECASE)
+FIRMWARE_STATUS_PATTERN = re.compile(r"\bfirmware_status=(clean|dirty|unknown)\b",
+                                     re.IGNORECASE)
 
 
 def git_value(args: List[str], default: str = "unknown") -> str:
@@ -334,15 +284,17 @@ def classify_command(
             return "PASS", f"matched configured expected-failure token: {pattern.pattern}"
 
     name = command_name(command)
-    if name == "readstaged" and re.search(r"\bReadStaged result:", output, re.IGNORECASE):
-        return "PASS", "poll-staged read reached final result"
-
     for pattern in FAIL_PATTERNS:
         if pattern.search(output):
             return "FAIL", f"matched failure pattern: {pattern.pattern}"
 
-    if name in INFO_COMMANDS:
-        return "PASS", "informational command responded without failure pattern"
+    required_evidence = COMMAND_EVIDENCE_PATTERNS.get(name)
+    if required_evidence is not None:
+        missing = [pattern.pattern for pattern in required_evidence
+                   if pattern.search(output) is None]
+        if missing:
+            return "FAIL", "missing command-specific evidence: " + ", ".join(missing)
+        return "PASS", "all command-specific evidence parsed"
 
     for pattern in OK_PATTERNS:
         if pattern.search(output):
@@ -380,7 +332,16 @@ def append_expectation_results(
 
     expected_address = parse_int_token(args.address)
     actual_address = first_transcript_int(ADDRESS_PATTERNS, transcript)
-    if expected_address is not None and actual_address is not None and actual_address != expected_address:
+    if expected_address is not None and actual_address is None:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-address",
+                "status": "FAIL",
+                "reason": "configured I2C address was not reported by target firmware",
+            }
+        )
+    elif expected_address is not None and actual_address != expected_address:
         command_results.append(
             {
                 "index": len(command_results) + 1,
@@ -395,7 +356,16 @@ def append_expectation_results(
 
     expected_channel_count = int(args.channel_count)
     actual_channel_count = first_transcript_int(CHANNEL_COUNT_PATTERNS, transcript)
-    if actual_channel_count is not None and actual_channel_count != expected_channel_count:
+    if actual_channel_count is None:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-channel-count",
+                "status": "FAIL",
+                "reason": "configured variant channel count was not reported by target firmware",
+            }
+        )
+    elif actual_channel_count != expected_channel_count:
         command_results.append(
             {
                 "index": len(command_results) + 1,
@@ -407,6 +377,50 @@ def append_expectation_results(
                 ),
             }
         )
+
+    expected_commit = (args.expected_firmware_commit or
+                       git_value(["rev-parse", "--short", "HEAD"])).lower()
+    firmware_match = FIRMWARE_GIT_PATTERN.search(transcript)
+    actual_commit = firmware_match.group(1).lower() if firmware_match else ""
+    commit_matches = (actual_commit != "unknown" and expected_commit != "unknown" and
+                      (actual_commit.startswith(expected_commit) or
+                       expected_commit.startswith(actual_commit)))
+    if not commit_matches:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-firmware-commit",
+                "status": "FAIL",
+                "reason": (
+                    "target firmware commit was not reported"
+                    if not actual_commit
+                    else f"target firmware commit {actual_commit} does not match {expected_commit}"
+                ),
+            }
+        )
+
+    firmware_status = FIRMWARE_STATUS_PATTERN.search(transcript)
+    if firmware_status is None or firmware_status.group(1).lower() != "clean":
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-clean-firmware",
+                "status": "FAIL",
+                "reason": "target firmware did not report a clean source revision",
+            }
+        )
+
+    if args.port and not args.dry_run:
+        for field in ("operator", "board"):
+            if not str(getattr(args, field)).strip():
+                command_results.append(
+                    {
+                        "index": len(command_results) + 1,
+                        "command": f"expect-{field}",
+                        "status": "FAIL",
+                        "reason": f"--{field} is required for a real HIL run",
+                    }
+                )
 
 
 def ensure_wake_command(commands: List[str]) -> None:
@@ -478,8 +492,7 @@ def summarize_stress(args: argparse.Namespace,
     command = f"stress {args.stress_count}"
     result = find_command_result(command_results, command)
     if result is None:
-        summary["status"] = "UNKNOWN"
-        summary["reason"] = "stress command result was not captured"
+        summary["reason"] = "v3 diagnostic CLIs expose no stress command"
         return summary
 
     summary["elapsed_s"] = float(result.get("elapsed_s", 0.0))
@@ -532,8 +545,7 @@ def summarize_sample_rate(args: argparse.Namespace,
     command = f"samplerate {args.sample_rate_channel} {args.sample_rate_count}"
     result = find_command_result(command_results, command)
     if result is None:
-        summary["status"] = "UNKNOWN"
-        summary["reason"] = "sample-rate command result was not captured"
+        summary["reason"] = "v3 diagnostic CLIs expose no counted acquisition command"
         return summary
 
     summary["elapsed_s"] = float(result.get("elapsed_s", 0.0))
@@ -716,7 +728,8 @@ def run_serial_commands(
 
     full_transcript = "\n".join(transcript_parts)
     firmware_version = "unknown"
-    version_match = re.search(r"(?:version|library version):\s*([^\r\n]+)", full_transcript, re.IGNORECASE)
+    version_match = re.search(r"(?:version|library version):\s*(\d+\.\d+\.\d+)",
+                              full_transcript, re.IGNORECASE)
     if version_match:
         firmware_version = version_match.group(1).strip()
     return results, full_transcript, firmware_version, startup_elapsed_s
@@ -724,34 +737,20 @@ def run_serial_commands(
 
 def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped: List[Dict[str, str]]) -> None:
     if args.include_address_0x2b:
-        if args.profile == "arduino":
-            commands.append("probeaddr 0x2B")
-        else:
-            skipped.append(
-                {
-                    "name": "address_0x2B",
-                    "reason": "IDF diagnostic CLI has no probeaddr command",
-                }
-            )
+        skipped.append(
+            {
+                "name": "address_0x2B",
+                "reason": "rebuild with the explicit 0x2B profile; runtime address changes are not exposed",
+            }
+        )
 
     if args.include_stress:
-        if args.fixture == "no-sensor":
-            skipped.append(
-                {
-                    "name": "stress",
-                    "reason": "no-sensor fixture excludes conversion/data-read stress",
-                }
-            )
-        elif args.profile == "arduino":
-            ensure_wake_command(commands)
-            commands.append(f"stress {args.stress_count}")
-        else:
-            skipped.append(
-                {
-                    "name": "stress",
-                    "reason": "IDF diagnostic CLI has no stress command",
-                }
-            )
+        skipped.append(
+            {
+                "name": "stress",
+                "reason": "v3 diagnostic CLIs expose no production-cadence stress command",
+            }
+        )
 
     if args.sample_rate_count != 0:
         if args.fixture == "no-sensor":
@@ -775,14 +774,11 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
                     "reason": "--sample-rate-channel must be 0..3",
                 }
             )
-        elif args.profile == "arduino":
-            ensure_wake_command(commands)
-            commands.append(f"samplerate {args.sample_rate_channel} {args.sample_rate_count}")
         else:
             skipped.append(
                 {
                     "name": "sample_rate_benchmark",
-                    "reason": "IDF diagnostic CLI has no counted read command",
+                    "reason": "v3 diagnostic CLIs expose no production-cadence counted acquisition command",
                 }
             )
 
@@ -860,13 +856,21 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     else:
         evidence_type = "serial_not_run"
 
+    host_git_commit = git_value(["rev-parse", "--short", "HEAD"])
+    target_commit_match = FIRMWARE_GIT_PATTERN.search(transcript)
+    target_status_match = FIRMWARE_STATUS_PATTERN.search(transcript)
     result: Dict[str, object] = {
         "tool": "ldc1614_hil_runner",
         "timestamp_utc": timestamp_utc(),
-        "git_commit": git_value(["rev-parse", "--short", "HEAD"]),
-        "git_status": "dirty" if git_value(["status", "--porcelain"], "") else "clean",
+        "host_git_commit": host_git_commit,
+        "host_git_status": "dirty" if git_value(["status", "--porcelain"], "") else "clean",
         "library_version": load_library_version(),
         "firmware_version": firmware_version,
+        "firmware_git_commit": (target_commit_match.group(1).lower()
+                                if target_commit_match else "unknown"),
+        "firmware_git_status": (target_status_match.group(1).lower()
+                                if target_status_match else "unknown"),
+        "expected_firmware_commit": args.expected_firmware_commit or host_git_commit,
         "profile": args.profile,
         "fixture": args.fixture,
         "port": args.port or "",
@@ -913,10 +917,13 @@ def render_markdown(result: Dict[str, object]) -> str:
         "",
         f"Overall status: `{result['overall_status']}`",
         f"Timestamp UTC: `{result['timestamp_utc']}`",
-        f"Git commit: `{result['git_commit']}`",
-        f"Git status: `{result['git_status']}`",
+        f"Host checkout Git commit: `{result['host_git_commit']}`",
+        f"Host checkout Git status: `{result['host_git_status']}`",
         f"Library version: `{result['library_version']}`",
         f"Firmware version: `{result['firmware_version']}`",
+        f"Firmware-reported Git commit: `{result['firmware_git_commit']}`",
+        f"Firmware-reported Git status: `{result['firmware_git_status']}`",
+        f"Expected firmware Git commit: `{result['expected_firmware_commit']}`",
         f"Profile: `{result['profile']}`",
         f"Fixture: `{result.get('fixture', 'default')}`",
         f"Port: `{result['port']}`",
@@ -1033,6 +1040,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--address", default="0x2A")
     parser.add_argument("--channel-count", type=int, default=4)
+    parser.add_argument(
+        "--expected-firmware-commit",
+        default="",
+        help="Expected flashed Git SHA/prefix; defaults to the host checkout HEAD",
+    )
     parser.add_argument("--operator", default="")
     parser.add_argument("--board", default="")
     parser.add_argument("--note", default="")
@@ -1079,6 +1091,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error("--baud must be > 0")
     if args.channel_count not in (2, 4):
         parser.error("--channel-count must be 2 or 4")
+    if parse_int_token(args.address) not in (0x2A, 0x2B):
+        parser.error("--address must be 0x2A or 0x2B")
+    if (args.expected_firmware_commit and
+            re.fullmatch(r"[0-9a-fA-F]{7,40}", args.expected_firmware_commit) is None):
+        parser.error("--expected-firmware-commit must be a 7..40 digit hexadecimal SHA")
     if args.startup_delay_s < 0.0 or args.startup_delay_s > MAX_STARTUP_DELAY_S:
         parser.error(f"--startup-delay-s must be 0..{MAX_STARTUP_DELAY_S}")
     if args.command_timeout_s <= 0.0 or args.command_timeout_s > MAX_COMMAND_TIMEOUT_S:
@@ -1100,24 +1117,36 @@ def parser_self_test() -> Tuple[bool, List[str]]:
         failures.append("arduino default commands missing version")
     if "drdy" in default_commands("arduino", "no-sensor"):
         failures.append("no-sensor commands must exclude DRDY")
-    if "readfresh" in default_commands("arduino", "no-sensor"):
-        failures.append("no-sensor commands must exclude fresh conversion reads")
-    if "resetreapply" not in default_commands("arduino", "no-sensor"):
-        failures.append("no-sensor commands missing reset/reapply coverage")
+    if any(command.startswith("acquire") for command in default_commands("arduino", "no-sensor")):
+        failures.append("no-sensor commands must exclude acquisition")
+    if "progress" not in default_commands("arduino", "no-sensor"):
+        failures.append("no-sensor commands missing cooperative progress snapshot")
     if "wake" not in default_commands("arduino"):
-        failures.append("arduino default commands missing wake before reads")
+        failures.append("arduino default commands missing wake")
     if "ready" not in default_commands("idf"):
         failures.append("idf default commands missing ready")
     if "wake" not in default_commands("idf"):
-        failures.append("idf default commands missing wake before reads")
+        failures.append("idf default commands missing wake")
 
-    status, _ = classify_command("version", "version: 1.0.0\n> ", False)
+    status, _ = classify_command(
+        "version",
+        "version: 1.0.0 firmware_git=abcdef1 firmware_status=clean\n> ",
+        False,
+    )
     if status != "PASS":
         failures.append("version informational output did not pass")
 
-    status, _ = classify_command("probe", "status: code=0\n> ", False)
+    status, _ = classify_command(
+        "probe",
+        "MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055\nstatus: code=0\n> ",
+        False,
+    )
     if status != "PASS":
-        failures.append("code=0 output did not pass")
+        failures.append("exact probe identity did not pass")
+
+    status, _ = classify_command("probe", "status: code=0\n> ", False)
+    if status != "FAIL":
+        failures.append("probe without exact identity did not fail")
 
     status, _ = classify_command("probe", "status: I2C_TIMEOUT code=7\n> ", False)
     if status != "FAIL":
@@ -1178,6 +1207,8 @@ def main(argv: List[str]) -> int:
         return 2
     if result["overall_status"] == "FAIL":
         return 1
+    if result["overall_status"] == "UNKNOWN":
+        return 3
     return 0
 
 

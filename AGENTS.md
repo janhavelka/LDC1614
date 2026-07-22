@@ -1,13 +1,12 @@
 # AGENTS.md - LDC1614 Production Embedded Guidelines
 
 ## Role and Target
+
 You are a professional embedded software engineer building a production-oriented LDC1614/LDC1612 multi-channel inductance-to-digital converter library.
 
 - Target: ESP32-S2 / ESP32-S3, Arduino framework, PlatformIO, and native ESP-IDF component use.
 - Goals: deterministic behavior, long-term stability, clean API contracts, portability, no surprises in the field.
 - These rules are binding.
-
----
 
 ## Repository Model (Single Library)
 
@@ -21,8 +20,7 @@ include/LDC1614/         - Public API headers only (Doxygen)
 src/                     - Implementation (.cpp)
 examples/
   01_*/
-  common/                - Example-only helpers (Log.h, BoardConfig.h, I2cTransport.h,
-                           I2cScanner.h, CommandHandler.h)
+  common/                - Example-only helpers
 platformio.ini
 library.json
 README.md
@@ -30,72 +28,53 @@ CHANGELOG.md
 AGENTS.md
 ```
 
-Rules:
-- `examples/common/` is NOT part of the library. It simulates project glue and keeps examples self-contained.
-- No board-specific pins/bus in library code; only in `Config`.
-- Public headers only in `include/LDC1614/`.
-- Examples demonstrate usage and may use `examples/common/BoardConfig.h`.
+- `examples/common/` is not part of the library. It simulates project glue and keeps examples self-contained.
+- No board-specific pins or bus objects in library code; inject non-owning callbacks through `Config`.
+- Public headers live only in `include/LDC1614/`.
 - Keep the layout boring and predictable.
 
-Framework-boundary rules:
-- Core/public headers and `src/` must remain framework-neutral. Do not include Arduino or ESP-IDF headers there unless the exception is documented in Doxygen and this file.
+Framework boundaries:
+
+- Core/public headers and `src/` remain framework-neutral.
 - Core/public headers and `src/` must not depend on Arduino, Wire, ESP-IDF, FreeRTOS, logging frameworks, global bus objects, framework delays, or heap-heavy framework types.
 - Arduino examples may use Arduino APIs.
-- ESP-IDF examples must be native IDF examples using `app_main`, `driver/i2c_master.h`, native GPIO/timer/task APIs, and fixed C buffers or `esp_console`/argtable.
-- ESP-IDF examples must not include Arduino CLI sources or use `ArduinoCompat`, `IdfArduinoCompat`, `Arduino.h`, `Wire.h`, `String`, `Serial`, `TwoWire`, or equivalent Arduino facades.
-- ESP-IDF examples must not depend on shared Arduino-style CLI code unless explicitly documented as a diagnostic exception and guarded by contract checks.
-- Keep command parity through repo-local command contracts/checkers, not by compiling Arduino sketch sources into ESP-IDF examples.
-
----
+- Native ESP-IDF examples use `app_main`, `driver/i2c_master.h`, and native GPIO/timer/task APIs. They must not use Arduino compatibility facades.
+- Keep Arduino/IDF example command parity through repo-local contracts/checkers, not by compiling one framework's sources into the other.
 
 ## Core Engineering Rules (Mandatory)
 
 - Prefer simplicity, clarity, correctness, robustness, safety, and readability over clever abstractions or speculative flexibility.
-- Before coding, inspect whether existing code can be simplified, reused, or deleted.
-- Prefer deleting unnecessary code over adding new code.
-- Prefer extending existing owners, modules, and public contracts over creating parallel abstractions.
-- Add a service, class, file, interface, or abstraction only for a concrete current need with a clear caller or test.
-- Do not add placeholder classes, future stubs, empty managers, broad frameworks, plugin systems, registries, or generic extension layers unless the current task explicitly requires them.
-- Keep changes tightly scoped to the user's request.
-- Preserve dirty user changes; never revert unrelated work without explicit instruction.
-- Deterministic: no unbounded loops/waits; all timeouts via deadlines, never `delay()` in library code.
-- No unbounded waits, retries, loops, allocations, queues, or buffers in steady paths.
-- Every hardware operation that can block must have a timeout and an observable failure path.
-- Recovery logic must be bounded, deterministic, and testable.
-- Prefer explicit state, explicit ownership, and small local helpers over hidden global state.
-- Do not hide hardware failures behind silent retries or fake success.
-- Non-blocking lifecycle: `Status begin(const Config&)`, `void tick(uint32_t nowMs)`, `void end()`.
-- Any I/O that can exceed ~1-2 ms must be split into state machine steps driven by `tick()`.
-- No heap allocation in steady state (no `String`, `std::vector`, `new` in normal ops).
-- Avoid dynamic allocation in steady embedded paths unless it is already an accepted local pattern and the bound is clear.
-- No logging in library code; examples may log.
-- No macros for constants; use `static constexpr`. Macros only for conditional compile or logging helpers.
-- Public APIs are not ISR-safe unless explicitly documented and proven.
-- Driver instances are not internally thread-safe unless explicitly protected and documented.
-- Conversion timing, settling timing, and sensor-frequency calculations must be documented and tested against configured counts and dividers.
+- Inspect whether existing code can be simplified, reused, or deleted before adding code.
+- Extend existing owners and contracts instead of creating parallel abstractions.
+- Do not add placeholder managers, future stubs, generic frameworks, registries, or plugin systems without a current caller and test.
+- Keep changes tightly scoped and preserve unrelated dirty changes.
+- No unbounded loops, waits, retries, allocations, queues, or buffers.
+- Every transport callback is timeout-bounded and has an observable failure path.
+- Recovery and reconciliation are bounded, deterministic, and testable.
+- Prefer explicit state and ownership. Never hide hardware failure behind retry or fake success.
+- Cooperative lifecycle: zero-I2C `bind(const Config&)`, explicit `start*()` jobs, budgeted `poll(uint64_t nowMs, uint8_t maxTransfers)`, bus-silent `cancelJob()`/`invalidateAppliedState()`, and bus-silent `end()`.
+- Every multi-transfer operation is a state machine advanced only by `poll()`. Each callback consumes one poll budget unit; `maxTransfers == 0` performs no I2C.
+- No heap allocation in steady state; no `String`, `std::vector`, or `new` in normal paths.
+- No logging or delays in library code.
+- Use `static constexpr` for constants. Macros are only for conditional compilation or example logging.
+- Public APIs are not ISR-safe. Driver instances are not internally thread-safe. Document application serialization.
+- Injected transport and INTB callbacks must not re-enter the same driver
+  instance. Owner time supplied to jobs/polling is monotonic and nondecreasing;
+  wrapping hardware clocks are extended before entering the core.
+- Conversion timing, settling timing, and sensor-frequency calculations are checked against explicit clock/count/divider facts.
 
----
+## I2C Manager and Transport (Required)
 
-## I2C Manager + Transport (Required)
+- The application has one clear I2C owner. The library never owns, configures, resets, or recovers the bus.
+- The application owns locking, pins, scheduling, per-transfer timeout policy, retries, device admission, health, and recovery.
+- `Config` injects non-owning function pointers and contexts. Transport errors map to `Status`; framework error types do not leak.
+- Every callback invocation is one physical attempt. The core never retries transport.
+- Keep chip protocol in this driver and application policy outside it.
+- Do not add fake devices or simulated buses to production paths.
 
-- The I2C bus must have one clear owner.
-- The library MUST NOT own I2C. It never touches `Wire` directly.
-- Device drivers must not directly own or reconfigure a shared bus unless this repository's architecture explicitly says so.
-- `Config` MUST accept a transport adapter (function pointers or abstract interface).
-- Transport errors MUST map to `Status` (no leaking `Wire`, `esp_err_t`, etc.).
-- I2C transactions must be timeout-bounded and report errors clearly.
-- The library MUST NOT configure bus timeouts or pins.
-- Bus ownership, locking, timeout policy, and recovery policy belong to the application or transport adapter.
-- Transport callbacks are non-owning injections; the library must not retain ownership of framework bus objects.
-- Do not implement chip protocols manually if an existing hardened project library already provides the needed timeout, recovery, and testability behavior.
-- Keep chip-level protocol code inside the driver/wrapper. Keep application policy outside the chip driver.
-- Do not add fake devices, simulated buses, or test doubles to production paths.
+## Status and Effect Integrity (Mandatory)
 
----
-
-## Status / Error Handling (Mandatory)
-
-All fallible APIs return `Status`:
+All fallible APIs return:
 
 ```cpp
 struct Status {
@@ -105,133 +84,80 @@ struct Status {
 };
 ```
 
-- Silent failure is unacceptable.
-- No exceptions.
-- Public APIs that write device state must report failed register writes precisely.
-- Multi-register configuration updates must avoid, report, or recover from partial hardware state.
-- Hardware failures must remain visible to callers; retries and recovery paths must not convert failures into fake success.
+- No exceptions or silent failures.
+- Public device writes report the exact failed phase/register/channel.
+- Partial and ambiguous hardware effects remain visible through structured fault/effect provenance with the full original `Status`.
+- Cached desired state is never presented as verified hardware state.
+- Only a complete successful replay or verification clears dirty/unknown applied state.
 
----
+## LDC1612/LDC1614 Requirements
 
-## LDC1614 Driver Requirements
+- Typed addresses support `0x2A` (ADDR to GND) and `0x2B` (ADDR to VDD).
+- `DeviceVariant` is an explicit application fact. Identity registers do not imply automatic LDC1612/LDC1614 detection.
+- The initialization job reads MANUFACTURER_ID and DEVICE_ID before applying configuration.
+- LDC1612 exposes channels 0-1; LDC1614 exposes channels 0-3.
+- Every physical channel of the selected variant has explicit RCOUNT,
+  SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, and DRIVE_CURRENT values because replay
+  writes them all. Selected channels additionally have expected
+  sensor-frequency bounds.
+- Support single-channel continuous and multi-channel sequential modes, typed deglitch bandwidth, sleep/active transitions, and software reset.
+- DATA reads follow MSB-before-LSB coherency and preserve STATUS/DATA/UNREAD/INTB destructive-read evidence.
+- Acquisition publishes fixed-size selected/valid/fresh/error/overrun masks,
+  explicit quality, pre/post STATUS, and the owner-supplied terminal poll
+  boundary timestamp. Applications timestamp again after `poll()` if they need
+  wall-clock completion time.
+- Multi-channel results are sequential readout batches, never claimed simultaneous frames.
+- Error reporting and reference-clock frequency/tolerance are explicit validated configuration.
+- Sensor-frequency and conservative frame-timing helpers are checked and status-returning.
 
-- I2C address configurable: 0x2A (ADDR->GND), 0x2B (ADDR->VDD).
-- Check device presence in `begin()` by reading MANUFACTURER_ID and DEVICE_ID registers.
-- Support 4 channels (LDC1614) or 2 channels (LDC1612) with configurable channel count.
-- LDC1612 versus LDC1614 variant differences must be explicit. Channels 2 and 3 are LDC1614-only.
-- Per-channel configurable: RCOUNT, SETTLECOUNT, CLOCK_DIVIDERS, OFFSET, DRIVE_CURRENT.
-- Configurable operating modes:
-  - **Single-channel continuous**: one channel converting continuously.
-  - **Multi-channel sequential (auto-scan)**: round-robin across selected channels.
-- Configurable deglitch filter bandwidth (1.0, 3.3, 10, 33 MHz).
-- Sleep mode / active mode transitions via CONFIG register.
-- Software reset via RESET_DEV register.
-- 28-bit conversion result readout with proper MSB-first coherency.
-- DATAx coherency must follow datasheet ordering: read DATAx_MSB before DATAx_LSB.
-- Sensor frequency calculation from raw data, reference clock, dividers, and offset.
-- Status register readout with error flag parsing.
-- Error reporting configuration (under-range, over-range, watchdog, amplitude, zero count).
-- INTB pin support for data-ready and error notification.
+## Cooperative External-Owner Architecture
 
----
-
-## Driver Architecture: Managed Synchronous Driver
-
-The driver follows a **managed synchronous** model with health tracking:
-
-- All public I2C operations are **blocking** (no complex async - LDC1614 has no EEPROM/NVM writes).
-- `tick()` may be used for polling data ready status.
-- Health is tracked via **tracked transport wrappers** -- public API never calls `_updateHealth()` directly.
-- Recovery is **manual** via `recover()` - the application controls retry strategy.
-
-### DriverState (4 states only)
-
-```cpp
-enum class DriverState : uint8_t {
-  UNINIT,    // begin() not called or end() called
-  READY,     // Operational, consecutiveFailures == 0
-  DEGRADED,  // 1 <= consecutiveFailures < offlineThreshold
-  OFFLINE    // consecutiveFailures >= offlineThreshold
-};
-```
-
-State transitions:
-- `begin()` success -> READY
-- Any I2C failure in READY -> DEGRADED
-- Success in DEGRADED/OFFLINE -> READY
-- Failures reach `offlineThreshold` -> OFFLINE
-- `end()` -> UNINIT
-
-### Transport Wrapper Architecture
-
-All I2C goes through layered wrappers:
-
-```
-Public API (readChannel, readStatus, etc.)
-    ↓
-Register helpers (readRegister16, writeRegister16)
-    ↓
-TRACKED wrappers (_i2cWriteReadTracked, _i2cWriteTracked)
-    ↓  <- _updateHealth() called here ONLY
-RAW wrappers (_i2cWriteReadRaw, _i2cWriteRaw)
-    ↓
-Transport callbacks (Config::i2cWrite, i2cWriteRead)
-```
-
-**Rules:**
-- Public API methods NEVER call `_updateHealth()` directly
-- `readRegister16()`/`writeRegister16()` use TRACKED wrappers -> health updated automatically
-- `probe()` uses RAW wrappers -> no health tracking (diagnostic only)
-- `recover()` tracks probe failures (driver is initialized, so failures count)
-
-### Health Tracking Rules
-
-- `_updateHealth()` called ONLY inside tracked transport wrappers.
-- State transitions guarded by `_initialized` (no DEGRADED/OFFLINE before `begin()` succeeds).
-- NOT called for config/param validation errors (INVALID_CONFIG, INVALID_PARAM).
-- NOT called for precondition errors (NOT_INITIALIZED).
-- `probe()` uses raw I2C and does NOT update health (diagnostic only).
-
-### Health Tracking Fields
-
-- `_lastOkMs` - timestamp of last successful I2C operation
-- `_lastErrorMs` - timestamp of last failed I2C operation
-- `_lastError` - most recent error Status
-- `_consecutiveFailures` - failures since last success (resets on success)
-- `_totalFailures` / `_totalSuccess` - lifetime counters (wrap at max)
-
----
+- `bind()` validates and retains transport/profile with zero I2C. A default `Config` is deliberately invalid.
+- Initialize, full apply, reset/reapply, and selected-channel acquisition use one active-job engine.
+- Each job has a nonzero caller operation ID, immutable absolute deadline, cache-only progress, and fixed maximum transfer count.
+- Deadline expiry and cancellation issue no new transport callback.
+- Terminal results retain operation identity and are consumed exactly once from a fixed-capacity store. A pending result is never overwritten.
+- Cancellation can be followed immediately by replacement work while its result remains takeable; finite result capacity provides explicit backpressure.
+- Initialization always performs identity plus full replay. It is the path for first boot, hotplug return, backend restart, and brownout recovery.
+- Acquisition reads STATUS-before, DATAx MSB/LSB into private scratch, then
+  STATUS-after. It publishes a batch only in the terminal result after the
+  complete job succeeds.
+- A failed or cancelled acquisition publishes no partial batch. Previously
+  queued terminal results remain untouched. Destructive read effects remain
+  reported.
+- `AppliedConfigState` is separate from non-authoritative transport counters. Normal acquisition requires verified active configuration.
+- Owner-observed removal, reset, brownout, or bus recovery calls `invalidateAppliedState()` before reuse.
+- The core exposes chip reset/replay jobs but no bus-reset callbacks, retry policy, backoff, OFFLINE latch, scheduler wait, yield callback, or second `tick()` execution model.
+- Single-transfer typed/diagnostic operations may invoke one bounded callback directly. They expose failure and any cache/config side effect.
+- Synchronous multi-transfer convenience loops belong only in clearly labelled external diagnostic helpers, not the production core.
 
 ## Versioning and Releases
 
-Single source of truth: `library.json`. `Version.h` is auto-generated and must never be edited.
+`library.json` is the version source of truth. `Version.h` is generated and must not be edited.
 
-SemVer:
 - MAJOR: breaking API/Config/enum changes.
-- MINOR: new backward-compatible features or error codes (append only).
-- PATCH: bug fixes, refactors, docs.
+- MINOR: backward-compatible features or appended error codes.
+- PATCH: fixes, refactors, and documentation.
 
 Release steps:
-1. Update `library.json`.
-2. Update `CHANGELOG.md` (Added/Changed/Fixed/Removed).
-3. Update `README.md` if API or examples changed.
-4. Commit and tag: `Release vX.Y.Z`.
 
----
+1. Update `library.json`.
+2. Update `CHANGELOG.md`.
+3. Update README/API/examples together.
+4. Commit, then create an annotated tag:
+   `git tag -a vX.Y.Z -m "Release vX.Y.Z"`.
 
 ## Validation Claims
 
-- Do not claim hardware validation unless real LDC1614/LDC1612 hardware logs were captured in the current validation context.
-- Separate software readiness from hardware validation. INTB behavior, SD-pin behavior, fault injection, channel sequencing on real sensors, coil/sensor operating limits, address-pin variants, and long soak/HIL stress require physical evidence.
-- Documentation must label examples honestly: diagnostic bring-up examples are not production bus managers unless they demonstrate application-owned locking, timeout policy, and recovery policy.
-
----
+- Never claim hardware validation without current real LDC1612/LDC1614 logs.
+- HIL acceptance must parse identity and the firmware-reported target Git
+  revision/status. The host checkout SHA is metadata, not proof of what was
+  flashed. Ambiguous or incomplete command output never passes.
+- Separate software readiness from physical evidence for INTB/SD behavior, fault injection, sequencing, coil limits, address variants, and soak/HIL stress.
+- Bring-up examples are not production bus managers unless they demonstrate application-owned locking, timeout, and recovery policy.
 
 ## Naming Conventions
 
-- Member variables: `_camelCase`
-- Methods/Functions: `camelCase`
-- Constants: `CAPS_CASE`
-- Enum values: `CAPS_CASE`
-- Locals/params: `camelCase`
-- Config fields: `camelCase`
+- Members: `_camelCase`
+- Methods/functions/locals/parameters/config fields: `camelCase`
+- Constants and enum values: `CAPS_CASE`

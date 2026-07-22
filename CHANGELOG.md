@@ -7,7 +7,145 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- Curated Doxygen now publishes the public headers plus maintained integration,
+  validation, and HIL guides while excluding internal instructions and
+  raw vendor/reference trace material.
+- Documentation generation now fails on undocumented public API, missing
+  parameter documentation, and Doxygen documentation errors, and is exercised
+  in CI.
+- Reconciled README navigation, contribution checks, validation evidence, and
+  the exact published v3.0.1 tag identity.
+
+### Removed
+
+- Removed one-time implementation instructions and superseded COM8 dry-run and
+  empty-payload audit artifacts. Current guides, cited chip-only hardware
+  evidence, and vendor-source traceability remain.
+
+## [3.0.1] - 2026-07-19
+
+### Fixed
+
+- Divide each poll's remaining deadline across the callbacks actually left in
+  the job, so a large caller budget cannot spuriously shorten callback
+  timeouts near completion.
+- Validate external reference-clock tolerance and the datasheet OFFSET versus
+  minimum-sensor-frequency constraint with overflow-safe worst-case arithmetic.
+- Treat a confirmed address NACK as a known no-device-mutation result while
+  retaining conservative ambiguity for timeout, bus, and data-NACK failures.
+- Make advanced raw access variant-aware and reject writes to read-only
+  DATA/STATUS/identity registers.
+- Require trusted active configuration before destructive readiness polling.
+- Correct the behavioral fake so wrong-address transactions cannot mutate
+  device or destructive-read state.
+- Require command-specific HIL evidence, exact device identity, configured
+  address/channel facts, clean firmware-reported Git identity, and nonzero exit
+  for ambiguous verification runs. Host and flashed firmware revisions are now
+  recorded separately.
+- Distinguish normal address NACK from Arduino scan transport failures and stop
+  the bounded diagnostic scan on timeout/bus error.
+- Share one timeout budget across the Arduino combined write/read phases instead
+  of allowing each phase to consume the full callback timeout.
+- Include untracked source files in flashed-firmware cleanliness metadata and
+  report Git status failures as unknown rather than clean.
+
+### Changed
+
+- Expanded native tests with exact LDC1612/LDC1614 replay transcripts, precise
+  phase/register/channel provenance, four-channel acquisition faults,
+  cancellation/deadline paths, freshness, lifecycle, one-transfer boundaries,
+  clock/OFFSET/frequency endpoints, and individual register-field encodings.
+- Removed unused v2-era example helper headers and their stale guard
+  requirements; current examples retain only their actual owners.
+- Clarified monotonic 64-bit owner time, non-reentrant callbacks, poll-boundary
+  timestamps, TunnelMonitor retry boundaries, immutable release tags, and HIL
+  evidence limits.
+
+## [3.0.0] - 2026-07-19
+
+### Added
+
+- One fixed-memory cooperative job engine for initialization, configuration
+  apply, software reset/reapply, and status-aware channel acquisition.
+- Caller-owned nonzero `OperationId`, absolute 64-bit deadline, per-poll
+  transport budget, cache-only `JobProgress`, bus-silent `cancelJob()`, and a
+  fixed two-entry exactly-once terminal `OperationResult` FIFO.
+- Full terminal provenance: success/failure/cancel/timeout outcome, destructive
+  read and partial/indeterminate write effects, desired configuration revision,
+  and structured `ConfigFault` with the original status, phase, register, and
+  channel.
+- Fixed `SampleBatch` with pre/post DATA STATUS snapshots,
+  selected/valid/fresh/error/overrun masks, per-channel raw register words,
+  28-bit count, silicon quality flags, and owner poll-boundary timestamp.
+- Explicit `DeviceVariant`, `I2cAddress`, `Channel`, `ChannelMask`,
+  `ReferenceClock`, sensor-frequency bounds, and typed `ErrorReporting`.
+- Bus-silent `invalidateAppliedState()` for owner-observed removal, brownout,
+  chip reset, shutdown, or shared-bus recovery.
+- Checked `double` frequency calculation, conservative fixed-unit frame timing,
+  nominal drive-current lookup, pure STATUS/DATA decoders, and error-policy
+  encoder.
+- Behavioral fake-device tests for shadow latching, UNREAD consumption,
+  STATUS/error clearing, INTB deassertion, conversion overrun, and ambiguous
+  transport writes, plus exhaustive phase failure/cancellation tables.
+- Pinned host tools in `requirements-dev.txt` and an exact maintained Espressif
+  PlatformIO platform URL.
+
+### Changed
+
+- **Breaking:** `begin(config)` is replaced by zero-I2C `bind(config)` followed
+  by `startInitialize(id, deadline)`, budgeted `poll()`, and exactly-once
+  `takeResult()`.
+- **Breaking:** `readChannel`, `readAllChannels`, `readFreshChannels`, and
+  `startReadChannels` are replaced by one `startAcquire()` protocol that always
+  preserves destructive STATUS evidence and commits a complete batch only.
+- **Breaking:** `syncConfig()` becomes `startApplyConfig()`;
+  `resetAndReapply()` becomes `startResetAndReapply()`.
+- **Breaking:** `tick()`, blocking read helpers, driver-owned `recover()`, the
+  OFFLINE/DEGRADED state machine, retry/backoff policy, and bus/hard-reset hooks
+  are removed. Applications retain scheduling, health, retry, and recovery
+  authority; `TransportStats` is non-authoritative diagnostics only.
+- Default `Config` is intentionally invalid. Variant, address, reference clock,
+  channel mask/profile, mode, deglitch, and readiness/error policy must be
+  explicit before binding.
+- Applied configuration is represented as unknown/applying/applied sleeping/
+  applied active/dirty. Acquisition rejects untrusted or inactive hardware
+  state, and matching identity after return still requires complete replay.
+- Arduino and native ESP-IDF diagnostic examples now advance no more than one
+  driver transport callback per service pass and consume terminal results by ID.
+- HIL defaults were migrated away from removed v2 commands. Asynchronous v3
+  jobs require correlated terminal-result evidence; immediate `IN_PROGRESS`
+  output is not classified as completion.
+- Documentation now states DATAx_MSB/STATUS/UNREAD/INTB destructive effects,
+  sequential non-simultaneous channel timing, concurrency/ISR/latency limits,
+  external-owner retry/deadline/recovery policy, and exact operation maxima.
+- `native_cov` is described as coverage instrumentation only because no report
+  or threshold is produced.
+
+### Fixed
+
+- Cold initialization, configuration replay, and reset/reapply can no longer
+  monopolize an external bus owner in one library call.
+- Deadline or application cancellation cannot leave an old job busy or permit
+  a stale completion to be attributed to its replacement.
+- Acquisition no longer discards the STATUS snapshot that can be destroyed by
+  later DATA reads, nor publishes partial cache changes when a later phase
+  fails or is cancelled.
+- Raw endpoint saturation, watchdog, amplitude, zero-count, and data-loss
+  conditions remain visible independently of transport success. Configuration
+  trust remains explicit through applied state and acquisition admission.
+- A transport failure that may have committed a write remains explicitly
+  indeterminate and is never converted to success by a blind retry.
+
+### Validation limits
+
+- Existing ESP32-S2/COM8 chip-only artifacts were produced against v2. They do
+  not validate v3 IDs, deadlines, cancellation, result delivery, applied-state
+  invalidation, or acquisition semantics.
+- No committed raw v3 target transcript or logic trace validates sensor-attached
+  conversion, INTB/SD, address variants, fault injection, exact board clock
+  plans, coils, calibration, or soak behavior.
 
 ## [2.0.0] - 2026-07-01
 
@@ -99,9 +237,9 @@ No changes yet.
   `include/` and `src/`.
 
 ### Fixed
-- Prompt 02 timing/freshness reconciliation is complete in software: blocking
-  helpers validate clock callbacks before polling, preserve data-ready/status
-  failures, and expose fresh unread conversions explicitly.
+- Blocking timing/freshness helpers validate clock callbacks before polling,
+  preserve data-ready/status failures, and expose fresh unread conversions
+  explicitly.
 - Expanded native tests and fake-bus fault injection cover lifecycle, health,
   register, validation, recovery, timing, and poll-budget behavior.
 - INTB data-ready checks now read STATUS when the pin is asserted so sensor errors are not misreported as data-ready events.
@@ -148,6 +286,8 @@ No changes yet.
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...v3.0.1
+[3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0

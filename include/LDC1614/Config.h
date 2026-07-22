@@ -1,159 +1,220 @@
 /// @file Config.h
-/// @brief Configuration structure for LDC1614 driver
+/// @brief Explicit transport and sensor-profile configuration.
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
+
 #include "LDC1614/Status.h"
 
 namespace LDC1614 {
 
-/// @brief I2C write callback signature.
-/// @param addr     I2C device address (7-bit)
-/// @param data     Pointer to data to write
-/// @param len      Number of bytes to write
-/// @param timeoutMs Maximum time to wait for completion
-/// @param user     User context pointer passed through from Config
-/// @return Status indicating success or failure
-using I2cWriteFn = Status (*)(uint8_t addr, const uint8_t* data, size_t len,
+/// @brief Caller-owned identifier used to correlate jobs and terminal results.
+using OperationId = uint64_t;
+
+/// One bounded I2C write attempt. The callback must return within timeoutMs.
+using I2cWriteFn = Status (*)(uint8_t address, const uint8_t* data, size_t length,
                               uint32_t timeoutMs, void* user);
 
-/// @brief I2C write-then-read callback signature.
-/// @param addr     I2C device address (7-bit)
-/// @param txData   Pointer to data to write
-/// @param txLen    Number of bytes to write
-/// @param rxData   Pointer to buffer for read data
-/// @param rxLen    Number of bytes to read
-/// @param timeoutMs Maximum time to wait for completion
-/// @param user     User context pointer passed through from Config
-/// @return Status indicating success or failure
-using I2cWriteReadFn = Status (*)(uint8_t addr, const uint8_t* txData, size_t txLen,
-                                  uint8_t* rxData, size_t rxLen, uint32_t timeoutMs,
-                                  void* user);
+/// One bounded combined I2C write/read attempt. The callback must return within timeoutMs.
+using I2cWriteReadFn = Status (*)(uint8_t address,
+                                  const uint8_t* txData, size_t txLength,
+                                  uint8_t* rxData, size_t rxLength,
+                                  uint32_t timeoutMs, void* user);
 
-/// @brief GPIO read callback signature for the INTB pin.
-/// @param pin      GPIO pin number
-/// @param user     User context pointer passed through from Config
-/// @return true if pin level is HIGH, false if LOW
-using GpioReadFn = bool (*)(int pin, void* user);
+/// Optional application-owned, bus-silent INTB observation. The callback must
+/// be non-blocking; no pin identity is retained by the driver.
+using IntbAssertedFn = Status (*)(bool& asserted, void* user);
 
-/// @brief Optional monotonic millisecond timestamp callback.
-/// @param user User context pointer passed through from Config
-/// @return Current monotonic milliseconds
-/// @note Framework-neutral builds do not call platform time APIs; if unset,
-/// health timestamps use 0 and blocking helpers cannot advance from wall time.
-using NowMsFn = uint32_t (*)(void* user);
+/// @brief Supported 7-bit LDC1612/LDC1614 I2C addresses.
+enum class I2cAddress : uint8_t {
+  UNSPECIFIED = 0,  ///< Invalid sentinel used by a default profile.
+  ADDR_GND = 0x2A, ///< ADDR pin tied to ground.
+  ADDR_VDD = 0x2B, ///< ADDR pin tied to VDD.
+};
 
-/// @brief Optional cooperative yield callback.
-/// @param user User context pointer passed through from Config
-/// @note If unset, no scheduler/yield API is called by the driver core.
-using YieldFn = void (*)(void* user);
+/// @brief Application-supplied silicon variant; identity registers are shared.
+enum class DeviceVariant : uint8_t {
+  UNSPECIFIED = 0, ///< Invalid sentinel used by a default profile.
+  LDC1612,        ///< Two-channel device; channels 0 and 1 exist.
+  LDC1614,        ///< Four-channel device; channels 0 through 3 exist.
+};
 
-/// @brief Optional bus reset callback (for example, SCL pulse recovery).
-/// Called by recover() if provided and recoverUseBusReset is true.
-/// @param user User context pointer (Config::i2cUser)
-/// @return Status indicating success or failure
-using BusResetFn = Status (*)(void* user);
+/// @brief Physical conversion channel.
+enum class Channel : uint8_t {
+  CH0 = 0,    ///< Channel 0.
+  CH1 = 1,    ///< Channel 1.
+  CH2 = 2,    ///< Channel 2; LDC1614 only.
+  CH3 = 3,    ///< Channel 3; LDC1614 only.
+  NONE = 0xFF, ///< Invalid/no-channel sentinel.
+};
 
-/// @brief Optional hard reset callback (for example, SHDN pin toggle).
-/// Called by recover() if provided and recoverUseHardReset is true.
-/// @param user User context pointer (Config::i2cUser)
-/// @return Status indicating success or failure
-using HardResetFn = Status (*)(void* user);
+/// @brief Strong channel-mask type. Only bits 0..3 are valid.
+struct ChannelMask {
+  uint8_t bits = 0; ///< One bit per physical channel; bits 4..7 must be zero.
 
-/// @brief Reference clock source.
+  /// @return True when no channel bit is set.
+  constexpr bool empty() const { return bits == 0; }
+
+  /// @param channel Channel to test.
+  /// @return True when `channel` is valid and selected.
+  constexpr bool contains(Channel channel) const {
+    const uint8_t index = static_cast<uint8_t>(channel);
+    return index < 4U &&
+           (bits & static_cast<uint8_t>(1U << index)) != 0U;
+  }
+};
+
+/// @param channel Channel to encode.
+/// @return One-hot channel mask, or an empty mask for `Channel::NONE`.
+constexpr ChannelMask channelBit(Channel channel) {
+  const uint8_t index = static_cast<uint8_t>(channel);
+  return index < 4U
+             ? ChannelMask{static_cast<uint8_t>(1U << index)}
+             : ChannelMask{};
+}
+
+/// @param left First channel mask.
+/// @param right Second channel mask.
+/// @return Union of the two masks.
+constexpr ChannelMask operator|(ChannelMask left, ChannelMask right) {
+  return ChannelMask{static_cast<uint8_t>(left.bits | right.bits)};
+}
+
+/// @param variant Explicit device variant.
+/// @return Mask of physical channels implemented by `variant`.
+constexpr ChannelMask validChannelMask(DeviceVariant variant) {
+  return variant == DeviceVariant::LDC1612
+             ? ChannelMask{0x03}
+             : (variant == DeviceVariant::LDC1614 ? ChannelMask{0x0F}
+                                                  : ChannelMask{});
+}
+
+/// @brief Reference-clock source used by CONFIG.REF_CLK_SRC.
 enum class RefClkSrc : uint8_t {
-  INTERNAL = 0,   ///< Internal oscillator (~43 MHz)
-  EXT_CLK = 1     ///< External CLKIN (2-40 MHz)
+  UNSPECIFIED = 0, ///< Invalid sentinel used by a default profile.
+  INTERNAL,        ///< Device internal oscillator.
+  EXTERNAL_CLOCK,  ///< Application-supplied CLKIN source.
 };
 
-/// @brief Sensor activation mode.
+/// @brief Application-supplied reference-clock fact used for validation and calculations.
+/// External-clock tolerance must remain inside the datasheet input range. The
+/// internal-oscillator interval is conservatively clipped to its guaranteed
+/// datasheet range.
+struct ReferenceClock {
+  RefClkSrc source = RefClkSrc::UNSPECIFIED; ///< Selected clock source.
+  uint32_t frequencyHz = 0;                  ///< Nominal clock frequency in hertz.
+  uint32_t tolerancePpm = 0;                 ///< Symmetric tolerance in parts per million.
+};
+
+/// @brief Sensor-activation current policy.
 enum class SensorActivation : uint8_t {
-  FULL_CURRENT = 0,   ///< Full current activation (max drive during settle, faster)
-  LOW_POWER    = 1    ///< Low power activation (uses IDRIVEx during settle)
+  FULL_CURRENT = 0, ///< Use full-current sensor activation.
+  LOW_POWER = 1,   ///< Use low-power sensor activation.
 };
 
-/// @brief Deglitch filter bandwidth.
+/// @brief Input deglitch-filter bandwidth encoding.
 enum class Deglitch : uint8_t {
-  BW_1MHZ  = 1,   ///< 1.0 MHz
-  BW_3MHZ  = 4,   ///< 3.3 MHz
-  BW_10MHZ = 5,   ///< 10 MHz
-  /// 33 MHz. Uses b111 to match MUX_CONFIG field text and reset default;
-  /// TI application Table 45 also shows a conflicting b011 value.
-  BW_33MHZ = 7    ///< 33 MHz
+  UNSPECIFIED = 0, ///< Invalid sentinel used by a default profile.
+  BW_1MHZ = 1,    ///< 1.0 MHz bandwidth.
+  BW_3MHZ = 4,    ///< 3.3 MHz bandwidth.
+  BW_10MHZ = 5,   ///< 10 MHz bandwidth.
+  BW_33MHZ = 7,   ///< 33 MHz bandwidth.
 };
 
-/// @brief Round-robin channel sequence for multi-channel auto-scan mode.
+/// @brief Device conversion mode.
+enum class OperatingMode : uint8_t {
+  UNSPECIFIED = 0,        ///< Invalid sentinel used by a default profile.
+  SINGLE_CHANNEL,         ///< Convert one active channel continuously.
+  MULTI_CHANNEL_SEQUENTIAL, ///< Auto-scan a round-robin channel sequence.
+};
+
+/// @brief Hardware round-robin sequence for sequential conversion.
 enum class RRSequence : uint8_t {
-  CH0_CH1          = 0,   ///< Ch0, Ch1
-  CH0_CH1_CH2      = 1,   ///< Ch0, Ch1, Ch2 (LDC1614 only)
-  CH0_CH1_CH2_CH3  = 2    ///< Ch0, Ch1, Ch2, Ch3 (LDC1614 only)
+  CH0_CH1 = 0,          ///< Scan channels 0 and 1.
+  CH0_CH1_CH2 = 1,      ///< Scan channels 0..2; LDC1614 only.
+  CH0_CH1_CH2_CH3 = 2,  ///< Scan channels 0..3; LDC1614 only.
+  UNSPECIFIED = 0xFF,   ///< Invalid sentinel used by a default profile.
 };
 
-/// @brief Per-channel configuration.
+/// @brief Typed ERROR_CONFIG policy. All fields are encoded by the driver.
+struct ErrorReporting {
+  bool dataUnderRange = false;     ///< Route under-range to DATAx_MSB.
+  bool dataOverRange = false;      ///< Route over-range to DATAx_MSB.
+  bool dataWatchdog = false;       ///< Route watchdog timeout to DATAx_MSB.
+  bool dataAmplitudeHigh = false;  ///< Route high-amplitude error to DATAx_MSB.
+  bool dataAmplitudeLow = false;   ///< Route low-amplitude error to DATAx_MSB.
+  bool statusUnderRange = false;   ///< Route under-range to STATUS/INTB.
+  bool statusOverRange = false;    ///< Route over-range to STATUS/INTB.
+  bool statusWatchdog = false;     ///< Route watchdog timeout to STATUS/INTB.
+  bool statusAmplitudeHigh = false; ///< Route high-amplitude error to STATUS/INTB.
+  bool statusAmplitudeLow = false; ///< Route low-amplitude error to STATUS/INTB.
+  bool statusZeroCount = false;    ///< Route zero-count error to STATUS/INTB.
+  bool dataReady = false;          ///< Route data-ready to INTB.
+
+  /// @return Policy with every supported error/data-ready route enabled.
+  static constexpr ErrorReporting all() {
+    return ErrorReporting{true, true, true, true, true, true,
+                          true, true, true, true, true, true};
+  }
+};
+
+/// @brief Typed five-bit IDRIVE code. 0xFF is the invalid/unspecified sentinel.
+struct DriveCurrentCode {
+  uint8_t value = 0xFF; ///< Five-bit IDRIVE code or 0xFF sentinel.
+
+  /// @brief Construct the invalid/unspecified sentinel.
+  constexpr DriveCurrentCode() = default;
+  /// @param code Raw five-bit IDRIVE code; validation rejects values above 31.
+  constexpr DriveCurrentCode(uint8_t code) : value(code) {}
+  /// @return Raw stored IDRIVE code.
+  constexpr operator uint8_t() const { return value; }
+};
+
+/// @brief Explicit per-channel electrical and conversion profile.
 struct ChannelConfig {
-  uint16_t rcount = 0x0080;          ///< Reference count (0x0005-0xFFFF). Autoscan selected channels require >=0x0009.
-  uint16_t settleCount = 0x0000;     ///< Settling reference count. 0/1 = minimum (32/fREF); autoscan selected channels require >=0x0004.
-  uint8_t  finDivider = 1;           ///< Sensor frequency divider (1-15). Application must use >=2 when fSensor >= 8.75 MHz.
-  uint16_t frefDivider = 1;          ///< Reference clock divider (1-1023).
-  uint16_t offset = 0x0000;          ///< Conversion offset (subtracted from measurement).
-  uint8_t  idrive = 0;              ///< Sensor drive current index (0-31). See DRIVE_CURRENTx register table.
+  uint16_t rcount = 0;              ///< 0 is unspecified; valid configured range starts at 0x0005.
+  uint16_t settleCount = 0;         ///< Reference-clock settling count.
+  uint8_t finDivider = 0;           ///< 0 is unspecified; valid range is 1..15.
+  uint16_t frefDivider = 0;         ///< 0 is unspecified; valid range is 1..1023.
+  uint16_t offset = 0;              ///< Conversion offset constrained by the sensor/clock ratio.
+  DriveCurrentCode driveCurrentCode{};  ///< Explicit code 0..31.
+  uint32_t expectedSensorMinHz = 0; ///< Expected minimum sensor frequency in hertz.
+  uint32_t expectedSensorMaxHz = 0; ///< Expected maximum sensor frequency in hertz.
 };
 
-/// @brief Configuration for LDC1614 driver.
+/// @brief Complete desired device configuration and non-owning transport injection.
+///
+/// A default-constructed Config is deliberately invalid. The application must
+/// explicitly select the part, address, reference clock, mode, and channel
+/// mask; supply every per-channel register field for each physical channel of
+/// the selected variant; and supply expected sensor-frequency bounds only for
+/// channels selected in the channel mask before bind().
 struct Config {
-  // === I2C Transport (required) ===
-  I2cWriteFn i2cWrite = nullptr;
-  I2cWriteReadFn i2cWriteRead = nullptr;
-  void* i2cUser = nullptr;
-  BusResetFn busReset = nullptr;           ///< Optional bus reset callback (SCL recovery)
-  HardResetFn hardReset = nullptr;         ///< Optional hard reset callback (SHDN pin toggle)
+  I2cWriteFn i2cWrite = nullptr;         ///< Non-owning single-write callback.
+  I2cWriteReadFn i2cWriteRead = nullptr; ///< Non-owning combined write/read callback.
+  void* i2cUser = nullptr;               ///< Opaque transport context passed unchanged.
+  uint32_t i2cTimeoutMs = 0;             ///< Per-callback timeout cap in milliseconds.
+  I2cAddress i2cAddress = I2cAddress::UNSPECIFIED; ///< Explicit 7-bit address.
 
-  // === Timing Hooks (optional) ===
-  NowMsFn nowMs = nullptr;                 ///< Optional monotonic millisecond source
-  YieldFn cooperativeYield = nullptr;      ///< Optional cooperative scheduler hint
-  void* timeUser = nullptr;                ///< User context for timing hooks
+  IntbAssertedFn intbAsserted = nullptr; ///< Optional bus-silent INTB observer.
+  void* intbUser = nullptr;              ///< Opaque INTB callback context.
 
-  // === Device Settings ===
-  uint8_t i2cAddress = 0x2A;       ///< 0x2A (ADDR=GND) or 0x2B (ADDR=VDD)
-  uint32_t i2cTimeoutMs = 50;      ///< I2C transaction timeout in ms
+  DeviceVariant variant = DeviceVariant::UNSPECIFIED; ///< Explicit silicon variant.
+  ChannelMask channels{};                            ///< Channels selected for conversion.
+  ChannelConfig channel[4]{};                        ///< Register profile for every physical channel.
+  ReferenceClock referenceClock{};                   ///< Clock fact used by validation/calculation.
 
-  // === Number of channels ===
-  uint8_t channelCount = 4;        ///< 2 for LDC1612, 4 for LDC1614
-
-  // === Per-Channel Configuration ===
-  ChannelConfig channel[4] = {};    ///< Channel 0-3 configuration
-
-  // === Global Conversion Settings ===
-  bool autoScan = false;                        ///< true = multi-channel sequential, false = single-channel
-  uint8_t activeChan = 0;                       ///< Active channel for single-channel mode (0-3)
-  RRSequence rrSequence = RRSequence::CH0_CH1;  ///< Round-robin sequence for auto-scan mode (LDC1612: CH0_CH1 only)
-  Deglitch deglitch = Deglitch::BW_33MHZ;       ///< Input deglitch filter bandwidth
-
-  // === CONFIG Register Settings ===
-  RefClkSrc refClkSrc = RefClkSrc::INTERNAL;              ///< Reference clock source
-  SensorActivation sensorActivation = SensorActivation::LOW_POWER; ///< Sensor activation mode
-  bool rpOverrideEn = true;                                ///< true = use IDRIVEx for fixed drive (recommended)
-  bool autoAmpDis = true;                                  ///< true = disable auto amplitude correction (recommended for precision)
-  bool highCurrentDrv = false;                             ///< true = high current drive for Ch0 only (single-channel only)
-
-  // === Error Reporting ===
-  uint16_t errorConfig = 0x0000;    ///< ERROR_CONFIG register value (reserved bits must remain 0; see CommandTable.h masks)
-
-  // === INTB Pin (optional) ===
-  int intbPin = -1;                 ///< GPIO pin for INTB; -1 means not used
-  GpioReadFn gpioRead = nullptr;
-  void* gpioUser = nullptr;
-  bool intbDisable = false;         ///< true = disable INTB output
-
-  // === Health Tracking ===
-  uint8_t offlineThreshold = 5;    ///< Consecutive failures before OFFLINE
-
-  // === Recovery Strategy ===
-  uint32_t recoverBackoffMs = 100;       ///< Minimum time between recover() attempts (0 = no limit)
-  bool recoverUseBusReset = true;        ///< Use bus reset in recover() if callback provided
-  bool recoverUseSoftReset = false;      ///< Use soft reset in recover(), verify identity, then reapply config
-  bool recoverUseHardReset = true;       ///< Use hard reset in recover() if callback provided
+  OperatingMode mode = OperatingMode::UNSPECIFIED; ///< Single or sequential mode.
+  Channel activeChannel = Channel::NONE;           ///< Active channel in single-channel mode.
+  RRSequence rrSequence = RRSequence::UNSPECIFIED; ///< Sequence in multi-channel mode.
+  Deglitch deglitch = Deglitch::UNSPECIFIED;       ///< Input deglitch bandwidth.
+  SensorActivation sensorActivation = SensorActivation::LOW_POWER; ///< Activation-current mode.
+  bool rpOverrideEnabled = true;                    ///< CONFIG.RP_OVERRIDE_EN value.
+  bool autoAmplitudeCorrectionEnabled = false;     ///< Enable automatic amplitude correction.
+  bool highCurrentDriveEnabled = false;             ///< Enable channel-0 high-current drive.
+  bool intbDisabled = true;                         ///< Disable the INTB output when true.
+  ErrorReporting errorReporting{};                  ///< Typed ERROR_CONFIG policy.
 };
 
-} // namespace LDC1614
+}  // namespace LDC1614

@@ -26,16 +26,16 @@ void arduinoVPrintf(void*, const char* fmt, va_list args) {
   Serial.print(buffer);
 }
 
-uint32_t arduinoNowMs(void*) {
-  return static_cast<uint32_t>(millis());
-}
-
-void arduinoDelayMs(uint32_t ms, void*) {
-  delay(ms);
-}
-
-void arduinoYield(void*) {
-  yield();
+uint64_t arduinoNowMs(void*) {
+  // Extend the framework's wrapping 32-bit counter for operation deadlines.
+  static uint32_t previous = 0;
+  static uint64_t high = 0;
+  const uint32_t current = static_cast<uint32_t>(millis());
+  if (current < previous) {
+    high += (UINT64_C(1) << 32U);
+  }
+  previous = current;
+  return high | current;
 }
 
 ldc1614_cli::I2cProbeResult arduinoI2cProbe(uint8_t address, uint32_t timeoutMs, void*) {
@@ -49,6 +49,9 @@ ldc1614_cli::I2cProbeResult arduinoI2cProbe(uint8_t address, uint32_t timeoutMs,
   if (error == 0U) {
     return ldc1614_cli::I2cProbeResult::ACK;
   }
+  if (error == 2U || error == 3U) {
+    return ldc1614_cli::I2cProbeResult::NACK;
+  }
   if (error == 5U) {
     return ldc1614_cli::I2cProbeResult::TIMEOUT;
   }
@@ -60,40 +63,42 @@ LDC1614::Config makeDefaultConfig(void*) {
   cfg.i2cWrite = transport::wireWrite;
   cfg.i2cWriteRead = transport::wireWriteRead;
   cfg.i2cUser = &Wire;
-  cfg.nowMs = arduinoNowMs;
-  cfg.cooperativeYield = arduinoYield;
-  cfg.i2cAddress = board::LDC_I2C_ADDRESS;
-  cfg.channelCount = board::LDC_CHANNEL_COUNT;
   cfg.i2cTimeoutMs = board::I2C_TIMEOUT_MS;
-
-  cfg.autoScan = false;
-  cfg.activeChan = 0;
+  cfg.i2cAddress = board::LDC_I2C_ADDRESS == 0x2B
+                       ? LDC1614::I2cAddress::ADDR_VDD
+                       : LDC1614::I2cAddress::ADDR_GND;
+  cfg.variant = board::LDC_CHANNEL_COUNT == 2
+                    ? LDC1614::DeviceVariant::LDC1612
+                    : LDC1614::DeviceVariant::LDC1614;
+  cfg.channels = LDC1614::channelBit(LDC1614::Channel::CH0);
+  cfg.referenceClock =
+      LDC1614::ReferenceClock{LDC1614::RefClkSrc::INTERNAL, 43000000U, 200000U};
+  cfg.mode = LDC1614::OperatingMode::SINGLE_CHANNEL;
+  cfg.activeChannel = LDC1614::Channel::CH0;
   cfg.deglitch = LDC1614::Deglitch::BW_10MHZ;
-  cfg.refClkSrc = LDC1614::RefClkSrc::INTERNAL;
-  cfg.rpOverrideEn = true;
-  cfg.autoAmpDis = true;
   cfg.sensorActivation = LDC1614::SensorActivation::FULL_CURRENT;
+  cfg.rpOverrideEnabled = true;
+  cfg.autoAmplitudeCorrectionEnabled = false;
+  cfg.highCurrentDriveEnabled = false;
+  cfg.intbDisabled = board::INTB_PIN < 0;
 
-  cfg.channel[0].rcount = 0x04D6;
-  cfg.channel[0].settleCount = 0x000A;
-  cfg.channel[0].finDivider = 1;
-  cfg.channel[0].frefDivider = 1;
-  cfg.channel[0].offset = 0x0000;
-  cfg.channel[0].idrive = 10;
-
-  cfg.errorConfig = LDC1614::cmd::MASK_ERRCFG_DRDY_2INT |
-                    LDC1614::cmd::MASK_ERRCFG_UR_ERR2INT |
-                    LDC1614::cmd::MASK_ERRCFG_OR_ERR2INT |
-                    LDC1614::cmd::MASK_ERRCFG_WD_ERR2INT |
-                    LDC1614::cmd::MASK_ERRCFG_AH_ERR2INT |
-                    LDC1614::cmd::MASK_ERRCFG_AL_ERR2INT;
+  // Initialization writes every physical channel register to a known value,
+  // even though this diagnostic profile converts only CH0.
+  for (uint8_t channel = 0; channel < board::LDC_CHANNEL_COUNT; ++channel) {
+    cfg.channel[channel].rcount = 0x04D6;
+    cfg.channel[channel].settleCount = 0x000A;
+    cfg.channel[channel].finDivider = 2;
+    cfg.channel[channel].frefDivider = 2;
+    cfg.channel[channel].offset = 0x0000;
+    cfg.channel[channel].driveCurrentCode = 10;
+  }
+  cfg.channel[0].expectedSensorMinHz = 100000;
+  cfg.channel[0].expectedSensorMaxHz = 5000000;
+  cfg.errorReporting = LDC1614::ErrorReporting::all();
 
   if (board::INTB_PIN >= 0) {
-    cfg.intbPin = board::INTB_PIN;
-    cfg.gpioRead = board::readIntbPin;
+    cfg.intbAsserted = board::readIntbAsserted;
   }
-
-  cfg.offlineThreshold = 5;
   return cfg;
 }
 
@@ -103,8 +108,6 @@ ldc1614_cli::Cli::Platform makeCliPlatform() {
   platform.vprintf = arduinoVPrintf;
   platform.makeConfig = makeDefaultConfig;
   platform.nowMs = arduinoNowMs;
-  platform.delayMs = arduinoDelayMs;
-  platform.yield = arduinoYield;
   platform.i2cProbe = arduinoI2cProbe;
   platform.scanTimeoutMs = board::I2C_TIMEOUT_MS;
   return platform;
@@ -170,16 +173,13 @@ void setup() {
 
   ldcCli.processCommand("scan");
 
-  const LDC1614::Status st = device.begin(ldcCli.makeDefaultConfig());
+  const LDC1614::Status st = device.bind(ldcCli.makeDefaultConfig());
   if (!st.ok()) {
-    ldcCli.logError("Failed to initialize device");
+    ldcCli.logError("Failed to bind explicit device profile");
     ldcCli.printStatus(st);
-    ldcCli.processCommand("id");
-    ldcCli.processCommand("state");
-    ldcCli.logInfo("Type 'begin' or 'init' to retry initialization");
   } else {
-    ldcCli.logInfo("Device initialized successfully");
-    ldcCli.printDriverHealth();
+    ldcCli.logInfo("Profile bound with zero I2C; scheduling cooperative initialization");
+    ldcCli.processCommand("init");
   }
 
   ldcCli.println("\nType 'help' for commands");
@@ -187,6 +187,8 @@ void setup() {
 }
 
 void loop() {
-  device.tick(ldcCli.nowMs());
+  // This diagnostic application is the single owner. Each pass advances at
+  // most one transport callback and prints terminal results exactly once.
+  ldcCli.service();
   readCliInput();
 }

@@ -113,9 +113,9 @@ static_assert(LDC1614::VERSION_CODE >= 10000U,
 
 int main() {
   LDC1614::Config cfg;
-  cfg.i2cAddress = 0x2A;
+  cfg.i2cAddress = LDC1614::I2cAddress::ADDR_GND;
   LDC1614::LDC1614 device;
-  LDC1614::Status st = device.begin(cfg);
+  LDC1614::Status st = device.bind(cfg);
   return st.is(LDC1614::Err::INVALID_CONFIG) ? 0 : 1;
 }
 """,

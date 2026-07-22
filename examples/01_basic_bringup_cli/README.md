@@ -1,27 +1,36 @@
-# LDC1614 Arduino Diagnostic Bring-up CLI
+# Arduino diagnostic bring-up CLI
 
-This example is diagnostic bring-up firmware for Arduino/PlatformIO targets. It
-is not a production bus manager, production integration template, or hardware
-validation claim.
+This PlatformIO/Arduino example demonstrates the v3 cooperative owner contract.
+It is diagnostic firmware, not a production bus manager or hardware-validation
+claim.
 
-The example owns Arduino `Wire`, serial input, board pins, diagnostic logging,
-and cooperative timing hooks only as example glue. The framework-neutral driver
-core still receives I2C, timing, GPIO, and recovery behavior through `Config`.
+The application owns `Wire`, pins, serialization, the 64-bit monotonic time
+extension, absolute job deadlines, transfer budget, and recovery policy. It
+first calls bus-silent `bind()`, schedules `startInitialize()`, then advances
+the active job by at most one I2C callback per `loop()` pass. Terminal results
+are consumed through `takeResult()` exactly once.
 
-Production applications must own:
-- I2C bus lifecycle, pull-ups, timeouts, and recovery policy.
-- External serialization of all driver calls and transport access.
-- INTB, SD, reset, and task scheduling policy.
-- Sensor coil, IDRIVE, distance/material interpretation, and calibration.
-- Captured hardware/fault/soak validation logs for the target board.
+The ESP32 Wire adapter treats its repeated-start address and read phases as one
+callback and gives the read only the timeout remaining after the address phase.
 
-The shared Arduino CLI includes diagnostic raw register commands:
-- `reg <addr>` reads a tracked register after `begin()`.
-- `wreg <addr> <val>` writes a tracked register and can desynchronize cached
-  configuration.
-- `rawreg <reg> [addr]` and `rawwreg <reg> <val> [addr]` are pre-`begin()`
-  service escape hatches.
+Useful commands:
 
-After any diagnostic write, check `hardwareConfigDirty()` and run
-`syncConfig()`, `recover()`, `resetAndReapply()`, or a fresh `begin()` before
-trusting cached configuration-dependent behavior.
+- `init`, `apply`, `resetreapply`, `acquire [mask]`, `cancel`, `progress`;
+- `status`, `ready`, `sleep`, `wake`, `initdrive <channel>`;
+- `drv`, `cfg`, `probe`, `reg`, `wreg`, `timing`, and `freq`; and
+- `invalidate` after owner-observed power loss, reset, removal, or bus recovery.
+
+`probe` is an explicitly diagnostic two-register identity read. Raw register
+writes can make applied configuration unknown or dirty; replay configuration
+before acquiring trusted data. An acquisition result includes the destructive
+pre-DATA STATUS snapshot, quality/freshness/error/overrun masks, and sequential
+channel samples. A batch is not a simultaneous measurement.
+
+`scan` is a bounded external diagnostic loop over 126 legal addresses. Address
+NACK means no device and is ignored; timeout or bus failure stops the scan and
+prints a non-OK status. It is not a production shared-bus scan policy or one
+core-driver job.
+
+The example profile values, GPIO8/GPIO9 pins, 43 MHz internal-clock estimate,
+sensor-frequency bounds, and drive-current code are placeholders. Replace and
+validate them against the exact board, LC tank, target, and clock plan.

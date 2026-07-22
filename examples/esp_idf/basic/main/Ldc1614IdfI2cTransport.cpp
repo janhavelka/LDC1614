@@ -4,8 +4,6 @@
 
 #include "esp_err.h"
 #include "esp_timer.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 namespace {
 
@@ -55,41 +53,6 @@ LDC1614::Status validateContext(uint8_t addr, void* user, Ldc1614IdfI2c*& ctx) {
   return LDC1614::Status::Ok();
 }
 
-class I2cLockGuard {
- public:
-  explicit I2cLockGuard(Ldc1614IdfI2c* ctx) : _ctx(ctx) {
-    if (_ctx == nullptr || _ctx->mutex == nullptr) {
-      _status = LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
-                                       "IDF I2C mutex not configured");
-      return;
-    }
-
-    const TickType_t waitTicks = pdMS_TO_TICKS(_ctx->lockTimeoutMs);
-    if (xSemaphoreTake(_ctx->mutex, waitTicks) != pdTRUE) {
-      _status = LDC1614::Status::Error(LDC1614::Err::BUSY, "IDF I2C mutex timeout");
-      return;
-    }
-
-    _locked = true;
-  }
-
-  ~I2cLockGuard() {
-    if (_locked) {
-      xSemaphoreGive(_ctx->mutex);
-    }
-  }
-
-  I2cLockGuard(const I2cLockGuard&) = delete;
-  I2cLockGuard& operator=(const I2cLockGuard&) = delete;
-
-  const LDC1614::Status& status() const { return _status; }
-
- private:
-  Ldc1614IdfI2c* _ctx = nullptr;
-  bool _locked = false;
-  LDC1614::Status _status = LDC1614::Status::Ok();
-};
-
 }  // namespace
 
 LDC1614::Status ldc1614IdfI2cWrite(uint8_t addr, const uint8_t* data, size_t len,
@@ -101,11 +64,6 @@ LDC1614::Status ldc1614IdfI2cWrite(uint8_t addr, const uint8_t* data, size_t len
   }
   if (data == nullptr || len == 0) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, "Invalid I2C write buffer");
-  }
-
-  I2cLockGuard lock(ctx);
-  if (!lock.status().ok()) {
-    return lock.status();
   }
 
   const esp_err_t err =
@@ -126,62 +84,22 @@ LDC1614::Status ldc1614IdfI2cWriteRead(uint8_t addr, const uint8_t* txData,
     return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, "Invalid I2C read buffer");
   }
 
-  I2cLockGuard lock(ctx);
-  if (!lock.status().ok()) {
-    return lock.status();
-  }
-
   const esp_err_t err = i2c_master_transmit_receive(
       ctx->dev, txData, txLen, rxData, rxLen, clampTimeoutMs(timeoutMs));
   return mapEspErr(err, "I2C write-read failed");
 }
 
-bool ldc1614IdfGpioRead(int pin, void*) {
-  return gpio_get_level(static_cast<gpio_num_t>(pin)) != 0;
-}
-
-uint32_t ldc1614IdfNowMs(void*) {
-  return static_cast<uint32_t>(esp_timer_get_time() / 1000);
-}
-
-void ldc1614IdfYield(void*) {
-  taskYIELD();
-}
-
-LDC1614::Status ldc1614IdfBusReset(void* user) {
+LDC1614::Status ldc1614IdfIntbAsserted(bool& asserted, void* user) {
   auto* ctx = static_cast<Ldc1614IdfI2c*>(user);
-  if (ctx == nullptr || ctx->bus == nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, "IDF I2C bus not configured");
+  if (ctx == nullptr || ctx->intb == GPIO_NUM_NC) {
+    asserted = false;
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "INTB pin not configured");
   }
-
-  I2cLockGuard lock(ctx);
-  if (!lock.status().ok()) {
-    return lock.status();
-  }
-
-  return mapEspErr(i2c_master_bus_reset(ctx->bus), "I2C bus reset failed");
-}
-
-LDC1614::Status ldc1614IdfHardReset(void* user) {
-  auto* ctx = static_cast<Ldc1614IdfI2c*>(user);
-  if (ctx == nullptr || ctx->shdn == GPIO_NUM_NC) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG, "SHDN pin not configured");
-  }
-
-  I2cLockGuard lock(ctx);
-  if (!lock.status().ok()) {
-    return lock.status();
-  }
-
-  LDC1614::Status st = mapEspErr(gpio_set_level(ctx->shdn, 1), "SHDN assert failed");
-  if (!st.ok()) {
-    return st;
-  }
-  vTaskDelay(pdMS_TO_TICKS(2));
-  st = mapEspErr(gpio_set_level(ctx->shdn, 0), "SHDN release failed");
-  if (!st.ok()) {
-    return st;
-  }
-  vTaskDelay(pdMS_TO_TICKS(5));
+  asserted = gpio_get_level(ctx->intb) == 0;
   return LDC1614::Status::Ok();
+}
+
+uint64_t ldc1614IdfUptimeMs() {
+  return static_cast<uint64_t>(esp_timer_get_time() / 1000);
 }

@@ -21,23 +21,20 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("version", commands)
         self.assertIn("scan", commands)
         self.assertIn("probe", commands)
-        self.assertIn("cfg", commands)  # cached settings snapshot
-        self.assertIn("drv", commands)  # driver health snapshot
-        self.assertLess(commands.index("wake"), commands.index("read"))
-        self.assertIn("readfresh", commands)
-        self.assertIn("readstaged 0x01 8 1", commands)
+        self.assertIn("cfg", commands)
+        self.assertIn("drv", commands)
+        self.assertIn("progress", commands)
+        self.assertIn("timing 0x01", commands)
+        self.assertFalse(any(command.startswith("acquire") for command in commands))
 
     def test_no_sensor_fixture_excludes_conversion_checks(self) -> None:
         commands = runner.default_commands("arduino", "no-sensor")
 
-        self.assertIn("init", commands)
-        self.assertIn("probeaddr 0x2A", commands)
-        self.assertIn("rcount 0 0x0123", commands)
-        self.assertIn("autoscan 4", commands)
-        self.assertIn("resetreapply", commands)
-        self.assertIn("reset", commands)
+        self.assertIn("progress", commands)
+        self.assertIn("reg 0x7E", commands)
+        self.assertIn("reg 0x7F", commands)
         self.assertNotIn("drdy", commands)
-        self.assertNotIn("readfresh", commands)
+        self.assertFalse(any(command.startswith("acquire") for command in commands))
         self.assertNotIn("samplerate 0 10", commands)
 
     def test_default_idf_commands_cover_supported_safe_diagnostics(self) -> None:
@@ -47,7 +44,8 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)
         self.assertIn("drv", commands)
-        self.assertLess(commands.index("wake"), commands.index("read"))
+        self.assertIn("progress", commands)
+        self.assertIn("timing 0x01", commands)
         self.assertNotIn("scan", commands)
 
     def test_serial_line_defaults_match_known_esp32s2_fixture(self) -> None:
@@ -57,17 +55,13 @@ class HilRunnerParserTests(unittest.TestCase):
 
     def test_classifier_accepts_common_informational_outputs(self) -> None:
         cases = (
-            ("version", "version: 1.0.0\n> "),
-            ("scan", "I2C scan complete\n0x2A\n> "),
-            ("settings", "addr=0x2a channels=4 timeoutMs=10\n> "),
-            ("scan", "Scanning I2C bus (timeout=50ms)...\nScan complete. Found 1 device(s).\n> "),
-            ("status", "STATUS raw=0x0000 drdy=no errCh=0\nUR=0 OR=0 WD=0 AH=0 AL=0 ZC=0\n> "),
-            ("health", "state=READY initialized=1 online=1 dirty=0\n> "),
-            ("snapshot", "hardwareConfigDirty=0\nChannels: 4\n> "),
-            ("channels", "Channel count: 4\n> "),
-            ("activech", "Active channel: 0\n> "),
-            ("reg 0x7E", "Reg 0x7E = 0x5449 (21577)\n> "),
-            ("rawreg 0x7E", "Raw 0x2A[0x7E] = 0x5449 (21577)\n> "),
+            ("version", "version: 1.0.0 firmware_git=abcdef1 firmware_status=clean\n> "),
+            ("scan", "I2C device at 0x2A\nscan complete found=1 probes=126\nstatus: code=0\n> "),
+            ("settings", "address=0x2a variant=2 variantChannels=4 selected=0x01 timeoutMs=10\n> "),
+            ("status", "STATUS observed=1 raw=0x0000 drdy=0 unread=0x00 errCh=4\n> "),
+            ("health", "bound=1 applied=APPLIED_SLEEPING revision=1\n> "),
+            ("progress", "active=0 operation=0 transfers=0/0\n> "),
+            ("reg 0x7E", "reg 0x7E = 0x5449\n> "),
         )
 
         for command, output in cases:
@@ -86,7 +80,7 @@ class HilRunnerParserTests(unittest.TestCase):
         failure_outputs = (
             "status: I2C_TIMEOUT code=7\n> ",
             "DEVICE_NOT_FOUND\n> ",
-            "not initialized\n> ",
+            "not bound\n> ",
             "unknown command: health\n> ",
             "read failed\n> ",
             "errors=2\n> ",
@@ -104,15 +98,13 @@ class HilRunnerParserTests(unittest.TestCase):
                 status, reason = runner.classify_command("probe", output, False)
                 self.assertEqual("FAIL", status, reason)
 
-    def test_classifier_accepts_readstaged_in_progress_then_result(self) -> None:
+    def test_classifier_accepts_terminal_operation_result(self) -> None:
         status, reason = runner.classify_command(
-            "readstaged 0x01 8 1",
+            "custom-acquire",
             (
-                "Status: IN_PROGRESS (code=9, detail=0)\n"
-                "readstaged poll=1 state=IN_PROGRESS\n"
-                "Status: OK (code=0, detail=0)\n"
-                "Ch0: raw=0x0000001 (1)\n"
-                "ReadStaged result: mask=0x01 polls=2 instr=1\n> "
+                "result operation=42 kind=4 outcome=SUCCESS effects=0x01\n"
+                "status: code=0 detail=0 msg=OK\n"
+                "batch selected=0x01 valid=0x01 fresh=0x01\n> "
             ),
             False,
         )
@@ -142,12 +134,12 @@ class HilRunnerParserTests(unittest.TestCase):
         )
         self.assertEqual("PASS", status)
 
-    def test_classifier_allows_benign_error_words_without_failure_tokens(self) -> None:
+    def test_classifier_rejects_benign_but_unstructured_output(self) -> None:
         status, reason = runner.classify_command(
             "health", "error counters: 0\nlast error: never\n> ", False
         )
 
-        self.assertEqual("PASS", status, reason)
+        self.assertEqual("FAIL", status, reason)
 
     def test_classifier_fails_empty_or_timed_out_response(self) -> None:
         status, _ = runner.classify_command("version", "", False)
@@ -173,19 +165,48 @@ class HilRunnerParserTests(unittest.TestCase):
         )
 
     def test_expectation_checks_fail_reported_address_or_channel_mismatch(self) -> None:
-        args = runner.parse_args(["--address", "0x2A", "--channel-count", "4"])
+        args = runner.parse_args([
+            "--address", "0x2A", "--channel-count", "4",
+            "--expected-firmware-commit", "abcdef1",
+        ])
         command_results = [{"index": 1, "command": "cfg", "status": "PASS", "reason": "ok"}]
 
         runner.append_expectation_results(
             args,
             command_results,
-            "addr=0x2b channels=2 timeoutMs=10\n> ",
+            "address=0x2b variantChannels=2 timeoutMs=10 "
+            "firmware_git=abcdef1 firmware_status=clean\n> ",
         )
 
         self.assertEqual("FAIL", command_results[1]["status"])
         self.assertEqual("expect-address", command_results[1]["command"])
         self.assertEqual("FAIL", command_results[2]["status"])
         self.assertEqual("expect-channel-count", command_results[2]["command"])
+
+    def test_expectation_checks_require_all_target_facts_and_match_commit(self) -> None:
+        args = runner.parse_args([
+            "--address", "0x2A", "--channel-count", "4",
+            "--expected-firmware-commit", "abcdef1",
+        ])
+        results = [{"index": 1, "command": "version", "status": "PASS", "reason": "ok"}]
+        runner.append_expectation_results(
+            args, results, "firmware_git=1234567 firmware_status=dirty\n> "
+        )
+        failures = {item["command"] for item in results if item["status"] == "FAIL"}
+        self.assertEqual(
+            {"expect-address", "expect-channel-count", "expect-firmware-commit",
+             "expect-clean-firmware"},
+            failures,
+        )
+
+        passing = [{"index": 1, "command": "cfg", "status": "PASS", "reason": "ok"}]
+        runner.append_expectation_results(
+            args,
+            passing,
+            "address=0x2a variantChannels=4 firmware_git=abcdef123 "
+            "firmware_status=clean\n> ",
+        )
+        self.assertEqual(1, len(passing))
 
     def test_no_port_writes_not_run_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -241,7 +262,11 @@ class HilRunnerParserTests(unittest.TestCase):
             self.assertEqual("NOT_RUN", result["overall_status"])
             self.assertEqual("no_hardware_audit", result["evidence_type"])
             self.assertGreater(len(result["command_results"]), 0)
-            self.assertIn("samplerate 0 50", result["commands"])
+            self.assertNotIn("samplerate 0 50", result["commands"])
+            self.assertEqual(
+                "sample_rate_benchmark",
+                result["skipped_optional_tests"][0]["name"],
+            )
             self.assertEqual("NOT_RUN", result["sample_rate"]["status"])
             self.assertTrue(
                 all(item["status"] == "NOT_RUN" for item in result["command_results"])
@@ -341,6 +366,21 @@ class HilRunnerParserTests(unittest.TestCase):
             runner.parse_args(["--command-timeout-s", "-1"])
         with self.assertRaises(SystemExit):
             runner.parse_args(["--stress-count", str(runner.MAX_STRESS_COUNT + 1)])
+        with self.assertRaises(SystemExit):
+            runner.parse_args(["--address", "0x29"])
+        with self.assertRaises(SystemExit):
+            runner.parse_args(["--expected-firmware-commit", "not-a-sha"])
+
+    def test_unknown_verification_result_exits_nonzero(self) -> None:
+        original_make = runner.make_result
+        original_write = runner.write_outputs
+        try:
+            runner.make_result = lambda _args: {"overall_status": "UNKNOWN"}
+            runner.write_outputs = lambda _args, _result: None
+            self.assertEqual(3, runner.main(["--quiet"]))
+        finally:
+            runner.make_result = original_make
+            runner.write_outputs = original_write
 
     def test_parser_self_test_passes(self) -> None:
         self.assertEqual(0, runner.main(["--parser-self-test", "--quiet"]))

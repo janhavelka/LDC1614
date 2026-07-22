@@ -1,52 +1,49 @@
-# LDC1614 ESP-IDF Port
+# Native ESP-IDF integration
 
-The ESP-IDF example is a native IDF diagnostic bring-up application in
-`examples/esp_idf/basic`. It is not a production bus manager. Production
-applications must own I2C bus lifecycle, locking/serialization, timeouts, task
-scheduling, recovery/backoff policy, GPIO/INTB integration, and hardware
-validation.
+`examples/esp_idf/basic` is a native ESP-IDF diagnostic application, not a
+production bus manager. It uses `app_main`, `driver/i2c_master.h`, one
+application owner task, fixed C input/output buffers, `esp_timer`, FreeRTOS task
+APIs, and native GPIO configuration. It contains no Arduino compatibility
+facade, `String`, `Serial`, `Wire`, or `TwoWire`.
 
-The example does not compile Arduino example sources and does not provide
-Arduino compatibility facades.
+The example demonstrates the v3 boundary:
 
-Native boundaries:
-- Entry point: `app_main()`.
-- I2C: `driver/i2c_master.h` with `i2c_new_master_bus()`,
-  `i2c_master_bus_add_device()`, `i2c_master_transmit()`, and
-  `i2c_master_transmit_receive()`.
-- I2C access: example-owned mutex around native I2C operations. This serializes
-  bus transactions only; applications with multiple tasks must still serialize
-  public driver calls.
-- CLI input: fixed C buffer with a timed `select()`/`read()` loop so the driver
-  tick can run while waiting for console input.
-- Timing/yield/reset: ESP-IDF timer, GPIO, and FreeRTOS APIs are injected
-  through the example adapter.
-- CLI: `examples/esp_idf/basic/main/Ldc1614IdfCli.*` uses fixed buffers and a
-  limited diagnostic command set, including bounded `sleep` and `wake`
-  commands. It does not compile the shared Arduino
-  diagnostic CLI.
-- Transport: `Ldc1614IdfI2cTransport.*` maps native I2C/GPIO/timing/reset APIs
-  to the framework-neutral driver callbacks and uses an example-owned mutex for
-  I2C operations.
-- Forbidden in IDF examples: `Arduino.h`, `Wire.h`, `String`, `Serial`,
-  `TwoWire`, `ArduinoCompat`, `IdfArduinoCompat`, and including
-  `examples/01_basic_bringup_cli/main.cpp`.
+- `Config` retains only non-owning I2C callbacks and optional bus-silent INTB
+  observation;
+- `bind()` validates the explicit address, variant, clock, channel, electrical,
+  error, and timing profile with zero I2C;
+- initialization and acquisition are scheduled with an operation ID and
+  absolute 64-bit deadline;
+- the console-owner loop calls `poll(now, 1)`, so one pass performs at most one
+  physical driver callback; and
+- terminal results are removed from the fixed FIFO exactly once.
 
-The driver core remains framework-neutral. ESP-IDF APIs are confined to the
-example adapter and must not appear under `include/` or `src/`. Hardware access
-is injected through `Config::i2cWrite`, `Config::i2cWriteRead`, optional
-GPIO/reset hooks, `Config::nowMs`, and `Config::cooperativeYield`.
+The application owns bus creation/destruction, lock policy, callback timeout,
+task scheduling, deadline, retry/backoff, device presence, health, SD/reset
+GPIOs, shared-bus recovery, and physical validation. If it resets or recovers
+the device or bus, it must call `invalidateAppliedState()` and schedule complete
+initialization/replay before acquisition.
 
-Run the static contract checks after touching the IDF example:
+Because the diagnostic has one driver-owning task, its transport does not add
+a second mutex wait ahead of the native I2C timeout. Multi-task applications
+must serialize before invoking the driver and include lock wait in their own
+whole-request deadline.
+
+The diagnostic `probe` command performs two raw identity reads and is not the
+normal owner initialization path. The example's internal I2C pull-up setting,
+GPIO8/GPIO9 pins, `0x2A` address, internal-clock estimate, and single-channel
+sensor profile are placeholders. Production hardware needs sized external
+pull-ups and a reviewed board profile.
+
+Run source-boundary guards after changing the example:
 
 ```sh
 python tools/check_idf_example_contract.py
 python tools/check_core_timing_guard.py
 ```
 
-The IDF checker parses the actual ESP-IDF `SRCS` list and scans compiled
-sources plus local headers. Those checks validate source contracts only. Pure
-ESP-IDF build success is claimed only when `idf.py` or CI build logs record it.
-Hardware behavior, including INTB, SD, address variants, fault injection, sensor
-behavior, and soak stability, requires captured logs from real
-LDC1614/LDC1612 hardware.
+The checker parses the ESP-IDF `SRCS` list and scans compiled sources and local
+headers. It does not replace an `idf.py` build. Maintained CI builds ESP32-S2
+and ESP32-S3 with the pinned IDF version recorded in the workflow. No hardware
+behavior is claimed without target logs for the exact variant, address, clock,
+sensor, INTB/SD wiring, deadline/fault procedure, and soak configuration.

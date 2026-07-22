@@ -9,34 +9,26 @@ namespace ldc1614_cli {
 
 enum class I2cProbeResult : uint8_t {
   ACK,
+  NACK,
   TIMEOUT,
   ERROR,
 };
 
-struct HealthSnapshot {
-  LDC1614::DriverState state = LDC1614::DriverState::UNINIT;
-  bool online = false;
-  uint8_t consecutiveFailures = 0;
-  uint32_t totalFailures = 0;
-  uint32_t totalSuccess = 0;
-};
-
+/// Diagnostic Arduino CLI. It demonstrates owner-driven jobs; it is not a
+/// production bus manager and deliberately contains no retry/recovery policy.
 class Cli {
-public:
+ public:
   using VPrintfFn = void (*)(void* user, const char* fmt, va_list args);
   using MakeConfigFn = LDC1614::Config (*)(void* user);
-  using NowMsFn = uint32_t (*)(void* user);
-  using DelayMsFn = void (*)(uint32_t ms, void* user);
-  using YieldFn = void (*)(void* user);
-  using I2cProbeFn = I2cProbeResult (*)(uint8_t address, uint32_t timeoutMs, void* user);
+  using NowMsFn = uint64_t (*)(void* user);
+  using I2cProbeFn = I2cProbeResult (*)(uint8_t address, uint32_t timeoutMs,
+                                        void* user);
 
   struct Platform {
     void* user = nullptr;
     VPrintfFn vprintf = nullptr;
     MakeConfigFn makeConfig = nullptr;
     NowMsFn nowMs = nullptr;
-    DelayMsFn delayMs = nullptr;
-    YieldFn yield = nullptr;
     I2cProbeFn i2cProbe = nullptr;
     uint32_t scanTimeoutMs = 50;
   };
@@ -44,49 +36,36 @@ public:
   Cli(LDC1614::LDC1614& device, Platform platform);
 
   LDC1614::Config makeDefaultConfig() const;
-  void processCommand(const char* cmdLine);
+  void processCommand(const char* commandLine);
+  void service();
   void printPrompt() const;
-  void printStatus(const LDC1614::Status& st) const;
-  void printDriverHealth() const;
+  void printStatus(const LDC1614::Status& status) const;
   void printHelp() const;
   void logError(const char* fmt, ...) const;
-  void logWarn(const char* fmt, ...) const;
   void logInfo(const char* fmt, ...) const;
-  void logVerbose(const char* fmt, ...) const;
   void printf(const char* fmt, ...) const;
   void println(const char* text = "") const;
-  uint32_t nowMs() const;
-  void delayMs(uint32_t ms) const;
-  void yield() const;
+  uint64_t nowMs() const;
 
-private:
+ private:
   void vprintfToOutput(const char* fmt, va_list args) const;
-  void vlog(uint8_t minLevel, const char* color, const char* tag,
-            const char* fmt, va_list args) const;
-  HealthSnapshot captureHealth() const;
-  void printHealthCompact() const;
-  void printHealthDiff(const HealthSnapshot& before, const HealthSnapshot& after) const;
-  void scanI2c();
-  void printBusDiagnostics();
-  void printVersionInfo() const;
-  void printDeviceStatus(const LDC1614::DeviceStatus& ds) const;
-  void printConfig();
-  void printIdentity();
-  void printRawIdentity(uint8_t address) const;
-  void printChannelData(uint8_t ch, const LDC1614::ChannelData& data) const;
-  LDC1614::Status rawReadRegister16(uint8_t i2cAddress, uint8_t reg, uint16_t& value) const;
-  LDC1614::Status rawWriteRegister16(uint8_t i2cAddress, uint8_t reg, uint16_t value) const;
-  bool readIdentityRaw(uint8_t address, uint16_t& manufacturer, uint16_t& deviceId,
-                       LDC1614::Status& failure) const;
-  uint8_t diagnosticAddress() const;
-  void runSelfTest();
-  void runStress(int count);
-  void runStressMix(int count);
-  void runDemo(int count);
+  void startInitialize(bool resetFirst);
+  void startAcquire(LDC1614::ChannelMask channels);
+  void printDriver() const;
+  void printConfig() const;
+  void printProgress() const;
+  void printResult(const LDC1614::OperationResult& result) const;
+  void printBatch(const LDC1614::SampleBatch& batch) const;
+  void printDeviceStatus(const LDC1614::DeviceStatus& status) const;
+  /// External diagnostic loop capped at 126 one-attempt probes. It is not a
+  /// core driver job or a production shared-bus scan policy.
+  void scanI2c() const;
+  LDC1614::OperationId nextOperationId();
+  uint64_t deadlineFromNow() const;
 
   LDC1614::LDC1614& _device;
   Platform _platform;
-  bool _verboseMode = false;
+  LDC1614::OperationId _nextOperationId = 1;
 };
 
 }  // namespace ldc1614_cli

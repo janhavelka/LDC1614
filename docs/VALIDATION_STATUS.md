@@ -8,26 +8,46 @@ certificate.
 The current working branch has software hardening evidence for:
 
 - Native PlatformIO tests in `native` and `native_cov` environments, including
-  fault-injection and poll-budget coverage. The latest local run in this working
-  branch passed 162 test cases in each environment.
-- Arduino-framework PlatformIO builds for ESP32-S2 and ESP32-S3.
+  per-transfer fault injection, every-phase cancellation/deadline silence,
+  identity/FIFO/backpressure, behavioral DATA/STATUS/INTB effects, atomic
+  acquisition, full physical-channel profile validation, quality/provenance,
+  exact LDC1612/LDC1614 replay payloads, four-channel fault/cancel/deadline
+  paths, lifecycle, and helper boundaries. On 2026-07-19 both environments
+  passed 29/29 tests. `native_cov` is coverage-instrumented only: the repository does
+  not generate a report or enforce a threshold, so it is not measured coverage.
+- Arduino-framework PlatformIO builds on 2026-07-19 passed for ESP32-S3
+  (23,104 bytes RAM; 369,594 bytes flash) and ESP32-S2 (37,536 bytes RAM;
+  360,013 bytes flash), using pinned platform release 54.03.20. Both clean-tree
+  build objects embed reviewed implementation `d06e39b` with status `clean`.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
-- HIL runner host parser/no-port/no-sensor artifact tests. The current host
-  unit suite contains 24 runner tests.
-- ESP32-S2 no-sensor HIL on COM8 with an LDC1614 at `0x2A`: 1010/1010
-  chip-only command-set stress commands passed and 200/200 negative/precondition
-  stress commands passed. The fixture had no LC sensor and no physical DRDY/INTB
-  wiring.
+- HIL runner host parser/no-port/no-sensor artifact tests. The current 26-test
+  host suite rejects missing command payloads, identity/config/build facts,
+  dirty or mismatched flashed revisions, and ambiguous zero-exit results.
+- Historical v2 ESP32-S2 no-sensor HIL exists for an LDC1614 at `0x2A`.
+  It predates the v3 cooperative API and cannot be counted as v3 execution
+  evidence. The fixture also had no LC sensor or physical DRDY/INTB wiring.
 - Generated `Version.h` consistency check.
 - Clean package consumer compile guard.
 - PlatformIO package creation, with generated package archives removed after
   review.
 
 Pure ESP-IDF build status is separate evidence. Claim it only from `idf.py`
-output or CI logs for `examples/esp_idf/basic`.
+output or CI logs for `examples/esp_idf/basic`. `idf.py` was unavailable in the
+2026-07-19 local validation context, so no local pure-IDF build is claimed.
+
+## Documentation Evidence
+
+On 2026-07-21, Doxygen 1.13.2 generated the public headers and maintained guides
+with undocumented-member, missing-parameter, and documentation-error warnings
+enabled as errors. It completed without warnings. Generated HTML was inspected
+for the v3.0.1 release identity and the compatibility-only `CONFIG_UNKNOWN`
+wording, then removed because `docs/doxygen/` is ignored build output.
+The maintained Markdown local-link check also passed. Both native environments
+were repeated after the public-header documentation changes and passed 29/29;
+the clean package consumer and v3.0.1 package build passed as well.
 
 ## Checks To Run Before Merge Review
 
@@ -54,28 +74,20 @@ being prepared as a release artifact outside the source tree.
 
 ## Hardware Validation
 
-Committed compact COM8 HIL logs record real ESP32-S2 + LDC1614 chip-only
-validation with no LC sensor attached:
+Committed compact COM8 HIL logs record historical v2 ESP32-S2 + LDC1614
+chip-only validation with no LC sensor attached:
 
 - `docs/reports/hil-validation-COM8-20260701.md`
 - `docs/reports/hil-validation-COM8-20260701.no-sensor-stress.runner.json`
 - `docs/reports/hil-validation-COM8-20260701.no-sensor-negative-stress.runner.json`
 
-These logs validate identity, I2C register access, configuration write/readback,
-sleep/wake, reset/reapply, reset/re-init, recovery, timing calculations, and
-bounded `BUSY` / `INVALID_PARAM` behavior. The repeated serial transcript is
-not retained in the release artifacts; command counts, per-base-command
-outcomes, firmware/device identity, and non-pass details are retained. They do
-not validate live conversion behavior.
-
-On 2026-06-30, COM8 was identified as an ESP32-S2 target. The Arduino-profile
-`esp32s2dev` firmware uploaded successfully once, but the runner then captured
-no target firmware payload and all bounded CLI commands timed out with empty
-output. A later upload retry could not open COM8. The generated files under
-`docs/reports/hil-validation-COM8-20260630.runner.*` are marked
-`overall_status=NOT_RUN`, `hardware_attached=false`, and
-`evidence_type=serial_not_run`. They are audit artifacts only and do not prove
-LDC1614/LDC1612 behavior.
+For the recorded v2 revision, these logs exercised identity, register access,
+configuration write/readback, sleep/wake, reset/reapply, recovery, and bounded
+precondition/error behavior. They do not validate v3 operation IDs, deadlines,
+transfer budgets, cancellation, exact-once results, applied-state invalidation,
+or atomic acquisition. The repeated serial transcript is not retained. The
+compact evidence therefore does not satisfy the raw transcript/logic-trace
+gate and does not validate live conversion behavior.
 
 Before target deployment decisions or full sensing claims, capture hardware logs
 for:
@@ -85,6 +97,8 @@ for:
 - Sensor-attached configuration readback for timing, mode, drive-current, offset,
   and error registers.
 - DATAx read ordering and DATAx/STATUS side effects.
+- v3 initialization/acquisition transfer budgets, operation ID correlation,
+  bus-silent cancellation/deadline expiry, and exact-once result collection.
 - INTB behavior when wired.
 - SD shutdown/wake behavior when wired.
 - Address NACK, unplug/replug, timeout/fault, recovery, and bounded soak cases.

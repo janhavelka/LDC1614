@@ -3,7 +3,16 @@
 This directory holds source material used to implement and review the driver. It
 is intentionally separated from the maintained integration docs in `docs/`.
 
-- `LDC1614_datasheet.pdf` - primary device datasheet.
+- `LDC1614_datasheet.pdf` - primary device datasheet:
+  - Vendor: Texas Instruments.
+  - Title: *LDC1612, LDC1614 Multi-Channel 28-Bit Inductance to Digital
+    Converter (LDC) for Inductive Sensing*.
+  - Vendor document: `SNOSCY9A`, revision A, revised March 2018.
+  - Vendor URL: <https://www.ti.com/lit/ds/symlink/ldc1614.pdf>.
+  - Repository retrieval/addition date: 2026-04-04 (date of the first commit
+    containing this PDF).
+  - SHA-256:
+    `b3bab7a84c9a8423448113f24de3b343c06ce7e7e4cbc6039b262b22130d8652`.
 - `extracted-md/` - compact curated notes from the datasheet and selected
   application notes.
 - `application_notes/` - vendor application-note PDFs and concise local

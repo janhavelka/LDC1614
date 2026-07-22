@@ -12,52 +12,59 @@
 #include <stdint.h>
 
 #ifndef LDC1614_VERSION_STRING
-#define LDC1614_VERSION_STRING "2.0.0"
+/// @brief Semantic version string override used by generated metadata.
+#define LDC1614_VERSION_STRING "3.0.1"
 #endif
 
 #ifndef LDC1614_BUILD_DATE
+/// @brief Build date override in YYYY-MM-DD form.
 #define LDC1614_BUILD_DATE "unknown-date"
 #endif
 
 #ifndef LDC1614_BUILD_TIME
+/// @brief Build time override in HH:MM:SS form.
 #define LDC1614_BUILD_TIME "unknown-time"
 #endif
 
 #ifndef LDC1614_BUILD_TIMESTAMP
+/// @brief Combined build date/time override.
 #define LDC1614_BUILD_TIMESTAMP LDC1614_BUILD_DATE " " LDC1614_BUILD_TIME
 #endif
 
 #ifndef LDC1614_GIT_COMMIT
+/// @brief Source Git revision override, or `unknown`.
 #define LDC1614_GIT_COMMIT "unknown"
 #endif
 
 #ifndef LDC1614_GIT_STATUS
+/// @brief Source-tree status override: clean, dirty, or unknown.
 #define LDC1614_GIT_STATUS "unknown"
 #endif
 
 #ifndef LDC1614_VERSION_FULL
+/// @brief Full version/build identity string override.
 #define LDC1614_VERSION_FULL LDC1614_VERSION_STRING " (" LDC1614_GIT_COMMIT ", " LDC1614_BUILD_TIMESTAMP ", " LDC1614_GIT_STATUS ")"
 #endif
 
 namespace LDC1614 {
 
 /// @brief Major version (breaking changes).
-static constexpr uint16_t VERSION_MAJOR = 2;
+static constexpr uint16_t VERSION_MAJOR = 3;
 
 /// @brief Minor version (backward-compatible features).
 static constexpr uint16_t VERSION_MINOR = 0;
 
 /// @brief Patch version (backward-compatible fixes).
-static constexpr uint16_t VERSION_PATCH = 0;
+static constexpr uint16_t VERSION_PATCH = 1;
 
 /// @brief Full semantic version string.
 static constexpr const char* VERSION = LDC1614_VERSION_STRING;
 
 /// @brief Encoded version for numeric comparison: MAJOR*10000 + MINOR*100 + PATCH.
-static constexpr uint32_t VERSION_CODE = 20000;
+static constexpr uint32_t VERSION_CODE = 30001;
 
 /// @brief Backward-compatible alias used by older repositories.
-static constexpr int VERSION_INT = 20000;
+static constexpr int VERSION_INT = 30001;
 
 /// @brief Build date string.
 static constexpr const char* BUILD_DATE = LDC1614_BUILD_DATE;

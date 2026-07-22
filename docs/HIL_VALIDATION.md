@@ -6,21 +6,23 @@ field-readiness claims. Captured run artifacts live under `docs/reports/`.
 Use:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --json-out hil.json --markdown-out hil.md
+python -m pip install --requirement requirements-dev.txt
+python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --markdown-out hil.md
 ```
 
 For a board with the LDC1614 chip present but no LC sensor/coil attached, use
 the no-sensor fixture matrix:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --json-out hil-no-sensor.json --markdown-out hil-no-sensor.md
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --markdown-out hil-no-sensor.md
 ```
 
-This mode exercises identity, I2C register read/write paths, configuration
-setters/readback, sleep/wake, soft reset/reapply, explicit reset/re-init, and
-manual recovery. It intentionally excludes DRDY-gated reads, fresh conversion
-reads, sample-rate checks, and sensor-frequency evidence because those require
-a valid LC tank.
+This v3 mode exercises identity, selected safe register reads, cached profile
+reporting, cooperative progress reporting, and sleep/wake. It intentionally
+excludes acquisition, analog configuration mutation, reset/reapply, stress,
+and sample-rate claims. Those require a sensor-aware fixture and a command
+protocol that correlates the asynchronous terminal `OperationResult`, not just
+the immediate command prompt.
 
 To stress the same no-sensor matrix repeatedly in one captured run, add
 `--repeat-command-set N`. The runner records both the base command count and
@@ -33,6 +35,16 @@ Supplying `--port` only proves that a serial port was requested. The runner
 marks `hardware_attached=true` only when it captures real command/startup
 payload from the target firmware. A port open with no firmware payload is
 reported as `evidence_type=serial_not_run`.
+
+For a real run, `--operator` and `--board` are mandatory evidence. The runner
+requires the target `version` response to report a clean firmware Git revision,
+compares it with `--expected-firmware-commit` (or the host HEAD when omitted),
+and stores the host checkout identity separately. A host SHA is never treated
+as proof of the flashed image. Firmware cleanliness includes tracked and
+untracked source-tree changes; a failed Git-status query reports `unknown` and
+cannot pass acceptance. Missing address, variant channel count, exact TI
+identity, or target build identity makes the run fail. `UNKNOWN` is also a
+nonzero verification exit, not a successful run.
 
 ## No Hardware Attached Audit
 
@@ -54,9 +66,9 @@ be stored or described as pass logs.
 
 | Profile | Intended firmware | Default safe commands |
 | --- | --- | --- |
-| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `probe`, `id`, `drv`, `cfg`, `status`, `drdy`, `sleep`, `wake`, `readfresh`, `readstaged 0x01 8 1`, `read`, `recover`, `timing 0 43000000`, `selftest` |
-| `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Destructive identity/config/register/reset matrix; excludes conversion checks |
-| `idf` | `examples/esp_idf/basic` | `help`, `version`, `probe`, `drv`, `cfg`, `status`, `ready`, `sleep`, `wake`, `read`, `readall`, `recover`, `timing 0 43000000`, `selftest` |
+| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `drdy`, `timing 0x01`, `selftest` |
+| `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Identity, safe register reads, cached profile/progress, sleep/wake, timing; excludes conversion jobs |
+| `idf` | `examples/esp_idf/basic` | `help`, `version`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `ready`, `timing 0x01`, `selftest` |
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
@@ -65,11 +77,12 @@ documented fixture-specific cases. Expected-failure tokens are intended for
 negative tests such as proving an invalid channel is rejected; default failure
 classification remains strict.
 
-The IDF diagnostic CLI exposes bounded `sleep` / `wake` controls, but it does
-not currently expose `scan`, `probeaddr`, or stress commands. Its `read` /
-`readall` commands are useful as bounded I2C/data-register smoke checks, but
-live-conversion evidence still requires firmware that starts conversions for the
-tested configuration and captures the resulting transcript.
+Both CLIs expose cooperative jobs for interactive use, but the maintained HIL
+runner's safe defaults intentionally use prompt-bounded commands only. A v3
+sensor-acceptance fixture must capture the scheduled operation ID and matching
+terminal result; an immediate `IN_PROGRESS` response is not a pass. The IDF
+CLI does not expose scan, runtime address changes, stress, or sample-rate
+commands.
 
 ## Safe Default Procedure
 
@@ -78,24 +91,27 @@ tested configuration and captures the resulting transcript.
 2. Open the serial port and capture startup output.
 3. Run the selected profile's safe commands.
 4. Classify each command from the transcript. Ambiguous command output is
-   `UNKNOWN`, not a pass. Device ID/probe/read failures are failures, not skips.
+   `UNKNOWN`, not a pass. Maintained commands require command-specific output;
+   arbitrary nonempty text and a bare `code=0` probe are failures. Device
+   ID/probe/read failures are failures, not skips.
 5. Write JSON and Markdown artifacts with command classification evidence.
-   Release artifacts may omit repeated per-command serial output when they keep
-   metadata, command counts, per-base-command outcomes, firmware/device
-   identity, and any non-pass details.
+   Repeated stress output may be condensed when metadata, command counts,
+   per-base-command outcomes, firmware/device identity, and every non-pass
+   detail remain available. Production acceptance must additionally retain at
+   least one raw target transcript or logic-analyzer trace for the exact release
+   fixture; a condensed summary is not a substitute for that raw artifact.
 
 ## Optional Opt-in Procedure
 
 Run these only when hardware and operator setup explicitly support them:
-- Address `0x2B` strap/probe with `--include-address-0x2b`.
-- Short diagnostic stress/soak with `--include-stress --stress-count N` on the
-  Arduino profile.
-- Bounded sample-rate smoke command with `--sample-rate-count N` on the Arduino
-  profile; the runner appends `samplerate <channel> <N>`, which uses
-  DRDY-gated blocking reads and records observed count, failures, elapsed time,
-  and effective hertz.
-- `--fixture no-sensor` skips stress and sample-rate options because those
-  paths depend on meaningful conversion data.
+
+- Address `0x2B` requires rebuilding with an explicit `ADDR_VDD` profile; the
+  runner records `--include-address-0x2b` as a skipped external setup item.
+- `--include-stress` and `--sample-rate-count` are recorded as skipped because
+  the v3 diagnostic CLIs intentionally provide no production-cadence loop.
+  Use a bounded fixture application that owns scheduling and correlates every
+  operation ID/result instead of treating a diagnostic CLI loop as production
+  evidence.
 - SD shutdown/wake if SD is wired and controlled.
 - INTB observation if INTB is wired to a host GPIO or analyzer.
 - Unplug/replug or induced NACK.
@@ -108,16 +124,16 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | COM8 no-sensor HIL PASS at `0x2A` | Repeat for each release fixture |
-| Address `0x2A` | Yes | ADDR strapped low | COM8 no-sensor HIL PASS | Probe/read logs for each production board |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Historical v2 COM8 chip-only evidence; no v3 run | Repeat at the exact v3 revision for each fixture |
+| Address `0x2A` | Yes | ADDR strapped low | Historical v2 COM8 chip-only evidence; no v3 run | Probe/read logs for each production board |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
-| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | COM8 no-sensor HIL PASS | Repeat on target board variant |
+| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Historical v2 only | Repeat cooperative initialization/readback on target variant |
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
-| Config readback | Yes | Hardware | COM8 no-sensor HIL PASS | Repeat on target board variant |
-| Reset/reapply and recovery | Yes | Hardware | COM8 no-sensor HIL PASS | Repeat on target board variant |
-| Bounded precondition/error paths | Yes | Hardware | COM8 no-sensor HIL PASS | Repeat after API changes |
+| Config readback | Yes | Hardware | Historical v2 only | Repeat on target board variant |
+| Reset/reapply and owner recovery | Yes | Hardware | Historical v2 does not validate v3 ownership contract | Correlated v3 job result plus owner recovery/replay trace |
+| Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
 | Induced address NACK | No | Operator/fault fixture | Not run | Controlled NACK transcript with precise status |
@@ -131,7 +147,11 @@ Run these only when hardware and operator setup explicitly support them:
 - JSON and Markdown outputs must be retained with the release artifacts. Compact
   summaries are acceptable for repeated stress runs when they preserve counts,
   command outcomes, and non-pass details.
+- At least one raw serial transcript or logic-analyzer trace must be retained
+  for production acceptance of the exact board, sensor, wiring, configuration,
+  and release revision. No such raw artifact is currently committed.
 - Hardware logs must name the board, sensor/coil, address strap, channel count,
-  firmware profile, Git commit, and operator.
+  firmware profile, firmware-reported Git commit/status, host checkout, and
+  operator.
 - Simulation, native tests, and PlatformIO/CI builds are useful software
   evidence, but they are not hardware validation.
