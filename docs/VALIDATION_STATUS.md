@@ -17,10 +17,16 @@ The current working branch has software hardening evidence for:
   uint64 rollover corrections; `native_cov` also passed 29/29. `native_cov` is
   coverage-instrumented only: the repository does not generate a report or
   enforce a threshold, so it is not measured coverage.
-- Arduino-framework ESP32-S2 and ESP32-S3 build evidence is refreshed after
-  final HIL acceptance. The maintained platform is pioarduino `55.03.39`
-  (Arduino 3.3.9 / ESP-IDF 5.5.4), selected because it contains Espressif's
-  NACK-state correction; see the transport-regression report below.
+- Arduino-framework ESP32-S2 and ESP32-S3 builds passed locally at `cf790f9`
+  with pioarduino `55.03.39` (Arduino 3.3.9 / ESP-IDF 5.5.4). The ESP32-S2
+  image used 49,800 bytes RAM and 337,652 bytes flash; the ESP32-S3 image used
+  23,268 bytes RAM and 351,482 bytes flash. This maintained platform was
+  selected because it contains Espressif's NACK-state correction; see the
+  transport-regression report below.
+- The ESP32-S2 generated upload environment was inspected at `cf790f9`: one
+  automatic 1200-baud loader entry is followed by esptool `no-reset`,
+  `write-flash --no-progress`, and `hard-reset`. This prevents a redundant
+  pre-flash reset and avoids Unicode progress output on Windows consoles.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
@@ -71,9 +77,15 @@ adds native-IDF scan parity, an automated soak mode, and wrap-safe deadline
 behavior, the next release is a SemVer MINOR release, not a v3.0.0 rewrite or a
 patch-only release.
 
-Pure ESP-IDF build status is separate evidence. Claim it only from `idf.py`
-output or CI logs for `examples/esp_idf/basic`. `idf.py` is unavailable in the
-current local validation context, so no local pure-IDF build is claimed.
+GitHub pull request #4 CI run
+[`29946002857`](https://github.com/janhavelka/LDC1614/actions/runs/29946002857)
+completed successfully for `04d6571`. It passed both Arduino builds, `native`
+and `native_cov`, all validation/package checks, Doxygen, and native ESP-IDF
+6.0.2 builds of `examples/esp_idf/basic` for ESP32-S2 and ESP32-S3.
+
+Pure ESP-IDF local build status is separate evidence. `idf.py` is unavailable
+in the current local validation context, so no local pure-IDF build is claimed;
+the successful CI jobs above are the current compile evidence.
 
 ## Documentation Evidence
 

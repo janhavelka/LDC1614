@@ -147,14 +147,14 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | Historical v2 COM8 chip-only evidence; no v3 run | Repeat at the exact v3 revision for each fixture |
-| Address `0x2A` | Yes | ADDR strapped low | Historical v2 COM8 chip-only evidence; no v3 run | Probe/read logs for each production board |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Post-v3 COM8 runs reached valid identity reads, but every retained candidate run failed overall transport acceptance | Clean exact-revision positive probe/read artifact for each fixture |
+| Address `0x2A` | Yes | ADDR strapped low | Post-v3 COM8 negative artifacts confirm the chip at `0x2A`; no positive candidate run | Clean probe/read logs for each production board |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
-| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Historical v2 only | Repeat cooperative initialization/readback on target variant |
+| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Some post-v3 initialization jobs completed, but retained runs failed overall transport acceptance | Clean cooperative initialization/readback on target variant |
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
-| Config readback | Yes | Hardware | Historical v2 only | Repeat on target board variant |
+| Config readback | Yes | Hardware | Post-v3 negative runs include successful individual reads but no accepted complete candidate run | Repeat cleanly on target board variant |
 | Reset/reapply and owner recovery | Yes | Hardware | Historical v2 does not validate v3 ownership contract | Correlated v3 job result plus owner recovery/replay trace |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
@@ -162,7 +162,7 @@ Run these only when hardware and operator setup explicitly support them:
 | Induced address NACK | No | Operator/fault fixture | Not run | Controlled NACK transcript with precise status |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | Not run | Duration, complete cycles, command/unknown/reset counts, worst latency |
+| Bounded soak | No | Stable fixture | Not run; the Windows COM8 USB endpoint blocked the clean ESP-IDF 5.5.4 candidate flash | Duration, complete cycles, command/unknown/reset counts, worst latency |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules
