@@ -12,20 +12,27 @@ The current working branch has software hardening evidence for:
   identity/FIFO/backpressure, behavioral DATA/STATUS/INTB effects, atomic
   acquisition, full physical-channel profile validation, quality/provenance,
   exact LDC1612/LDC1614 replay payloads, four-channel fault/cancel/deadline
-  paths, lifecycle, and helper boundaries. On 2026-07-19 both environments
-  passed 29/29 tests. `native_cov` is coverage-instrumented only: the repository does
-  not generate a report or enforce a threshold, so it is not measured coverage.
-- Arduino-framework PlatformIO builds on 2026-07-19 passed for ESP32-S3
-  (23,104 bytes RAM; 369,594 bytes flash) and ESP32-S2 (37,536 bytes RAM;
-  360,013 bytes flash), using pinned platform release 54.03.20. Both clean-tree
-  build objects embed reviewed implementation `d06e39b` with status `clean`.
+  paths, lifecycle, and helper boundaries. On 2026-07-22 `native` passed 29/29
+  after the post-v3 identity/state, sample-quality, offset-validation, and
+  uint64 rollover corrections; `native_cov` also passed 29/29. `native_cov` is
+  coverage-instrumented only: the repository does not generate a report or
+  enforce a threshold, so it is not measured coverage.
+- Arduino-framework ESP32-S2 and ESP32-S3 candidate builds passed on
+  2026-07-22 using pinned pioarduino `53.03.13`: ESP32-S2 used 36,196 bytes RAM
+  and 357,163 bytes flash; ESP32-S3 used 21,596 bytes RAM and 363,608 bytes
+  flash. This pin was selected after a COM8 comparison found intermittent
+  combined-read `ESP_ERR_INVALID_STATE` failures on `54.03.20`; see the
+  transport-regression report below. These were dirty-tree candidate builds;
+  the final clean firmware identity is recorded by the HIL artifact.
 - Core timing/framework-boundary guard.
 - Arduino diagnostic CLI command-contract guard.
 - Native ESP-IDF example source-contract guard.
 - Readiness wording guard.
-- HIL runner host parser/no-port/no-sensor artifact tests. The current 26-test
+- HIL runner host parser/no-port/no-sensor artifact tests. The current 33-test
   host suite rejects missing command payloads, identity/config/build facts,
-  dirty or mismatched flashed revisions, and ambiguous zero-exit results.
+  dirty or mismatched flashed revisions, non-finite timing values, stale or
+  mismatched async results, incomplete soak cycles, invalid final driver state,
+  unexpected reset banners, and ambiguous zero-exit results.
 - Historical v2 ESP32-S2 no-sensor HIL exists for an LDC1614 at `0x2A`.
   It predates the v3 cooperative API and cannot be counted as v3 execution
   evidence. The fixture also had no LC sensor or physical DRDY/INTB wiring.
@@ -34,9 +41,25 @@ The current working branch has software hardening evidence for:
 - PlatformIO package creation, with generated package archives removed after
   review.
 
+Post-v3 COM8 transport evidence is recorded in:
+
+- `docs/reports/hil-validation-COM8-20260722-transport-regression.md`
+- `docs/reports/hil-validation-COM8-20260722-v3-smoke.runner.json`
+- `docs/reports/hil-validation-COM8-20260722-v3-smoke.runner.md`
+
+The v3.0.0 smoke is intentionally retained as a negative `FAIL` artifact for
+the pioarduino 54.03.20 transport regression. It is not positive release
+evidence. A clean post-tag candidate smoke and one-hour soak are required before
+this section can record a positive COM8 result.
+
+The annotated `v3.0.0` tag is not moved by this work. Because `[Unreleased]`
+adds native-IDF scan parity, an automated soak mode, and wrap-safe deadline
+behavior, the next release is a SemVer MINOR release, not a v3.0.0 rewrite or a
+patch-only release.
+
 Pure ESP-IDF build status is separate evidence. Claim it only from `idf.py`
-output or CI logs for `examples/esp_idf/basic`. `idf.py` was unavailable in the
-2026-07-19 local validation context, so no local pure-IDF build is claimed.
+output or CI logs for `examples/esp_idf/basic`. `idf.py` is unavailable in the
+current local validation context, so no local pure-IDF build is claimed.
 
 ## Documentation Evidence
 

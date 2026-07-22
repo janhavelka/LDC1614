@@ -100,6 +100,25 @@ LDC1614::Status ldc1614IdfIntbAsserted(bool& asserted, void* user) {
   return LDC1614::Status::Ok();
 }
 
+Ldc1614IdfProbeResult ldc1614IdfI2cProbeAddress(
+    Ldc1614IdfI2c& context, uint8_t address, uint32_t timeoutMs) {
+  if (context.bus == nullptr || address == 0U || address >= 0x7FU) {
+    return Ldc1614IdfProbeResult::ERROR;
+  }
+  const esp_err_t err = i2c_master_probe(
+      context.bus, address, clampTimeoutMs(timeoutMs));
+  if (err == ESP_OK) {
+    return Ldc1614IdfProbeResult::ACK;
+  }
+  if (err == ESP_ERR_NOT_FOUND) {
+    return Ldc1614IdfProbeResult::NACK;
+  }
+  if (err == ESP_ERR_TIMEOUT) {
+    return Ldc1614IdfProbeResult::TIMEOUT;
+  }
+  return Ldc1614IdfProbeResult::ERROR;
+}
+
 uint64_t ldc1614IdfUptimeMs() {
   return static_cast<uint64_t>(esp_timer_get_time() / 1000);
 }

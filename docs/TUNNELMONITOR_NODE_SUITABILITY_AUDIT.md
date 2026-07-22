@@ -1,8 +1,6 @@
 # TunnelMonitor-node suitability audit
 
-Date: 2026-07-19
-
-Documentation/release consolidation: 2026-07-22
+Date: 2026-07-22
 
 Result: **the reusable library findings are addressed by the v3 cooperative
 contract; TunnelMonitor integration remains blocked by missing product and
@@ -17,11 +15,9 @@ product intent.
 
 | Repository | Revision or release reference | Working-tree basis |
 | --- | --- | --- |
-| LDC1614 baseline | `a09f492659d4eb8299dc9fa41524bf6014b62dd6` on `hardening/tunnelmonitor-suitability-reaudit` | Clean baseline before the v3 implementation. |
-| LDC1614 v3 reviewed implementation | `d06e39bd3067b2ab37f1c4395c48864f336d4647` | Clean corrective implementation after independent core, test, documentation, and final-integration review. Exact native, target-build, Doxygen, package, and guard results are recorded in `VALIDATION_STATUS.md`. |
-| LDC1614 consolidated release | annotated `v3.0.0` | Single final v3 release authority containing the reviewed implementation, corrective fixes, documentation cleanup, and release validation. Verify the remote tag's peeled commit before downstream pinning. |
-| TunnelMonitor-node baseline | `0897f12c1a1369367747d1063936906005391580` on `develop` | Clean when the contract inspection and native/target validation began; left unchanged by this work. |
-| TunnelMonitor-node final checkout | `b708f511964db6c51e949e99c67820476f00f9c7` on `docs/mb85rc-suitability-contract-facts` | Clean. Its tree `1e7ae125548addb34dea22a6c58a65d623f642e3` is identical to the inspected baseline tree, so the source/contracts validated here did not change when the checkout branch moved externally. |
+| LDC1614 tagged baseline | annotated `v3.0.0` at `a11fcb4c497de691c514a2a841a1fa1e94d47979` | Clean baseline before the post-release COM8 transport investigation. |
+| LDC1614 current work | `hardening/com8-hil-transport`, based on `v3.0.0` | Post-tag corrections are not part of `v3.0.0`. Exact validation revisions are recorded in `VALIDATION_STATUS.md` and the HIL artifacts. A new reviewed annotated release is required before production consumption. |
+| TunnelMonitor-node current checkout | `710d3acd8812704d974f04a76a22bc73efa087ad` on `prompt-45-platformization` | Read-only inspection. The checkout contained unrelated in-progress user changes, which this audit neither modified nor treated as a validated baseline. |
 
 The previous audit evaluated LDC1614 v2 and an older TunnelMonitor revision.
 Old line numbers and proposed type spellings were not treated as authority. The
@@ -31,12 +27,11 @@ were re-read. The corrective re-audit added literal replay transcripts and
 exact stage/fault tables rather than relying only on transfer counts or
 non-sentinel provenance.
 
-The initial v3 implementation review ended at
-**546c2b59eadd0dd660db6e1674414e7effb938ac**. Corrective re-audit changes use
-the reviewed implementation recorded above. At maintainer direction, the v3
-staging history was consolidated into one final annotated `v3.0.0` tag; earlier
-v3 staging tags are not release authorities. Downstream integration still pins
-the final tag's full peeled commit SHA rather than a movable branch name.
+The annotated `v3.0.0` tag remains immutable. The COM8 investigation found
+additional fixes after that tag; they must not be described as part of v3.0.0
+or consumed from a dirty branch. TunnelMonitor's current dependency policy
+requires an exact annotated `vMAJOR.MINOR.PATCH` release tag for a sibling I2C
+library.
 
 Primary chip behavior was checked against the bundled TI LDC1612/LDC1614
 datasheet, SNOSCY9A Revision A (March 2018), whose official URL, repository
@@ -61,28 +56,31 @@ The inspected authorities were:
 - `include/TunnelMonitor/contracts/FieldBus.h`, `Health.h`, `Capacities.h`, and
   `Sample.h`;
 - `include/TunnelMonitor/i2c/I2cConfig.h` and
-  `src/i2c/I2cDiagnostics.cpp`; and
+  `src/i2c/I2cTask.cpp`, `src/i2c/Rv3032Adapter.cpp`, and
+  `src/i2c/IdfI2cBackend.cpp`; and
 - measurement/settings guidelines and current dependency metadata.
 
 Current concrete facts:
 
 - board profile `tunnelmonitor_s3_hw200` is ESP32-S3-N16R8 hardware `2.0.0`,
   with I2C on GPIO8/GPIO9;
-- the five known I2C devices are OLED `0x3C`, RTC `0x51`, FRAM `0x50`, ENV
-  `0x76`, and INA `0x41`; no LDC row or operation exists;
-- device health uses all 16 fixed entries; service health uses 15 of 16;
-- the `tm.v1.vw8_shzk16_env_power` sample schema has 37 numeric fields in a
-  capacity of 48; its vibration-wire frequency fields are not an LDC contract;
-- redacted settings status uses 49 of 51 fixed rows; and
-- production dependencies must be private behind their owner and pinned to an
-  exact immutable commit.
+- the selected shared bus runs at 400 kHz, which is within the LDC1614 limit;
+- no LDC `DeviceKind`, `DeviceId`, `I2cOperation`, build-profile row, reading
+  catalog entry, schema mapping, cadence, health role, or electrical profile
+  exists;
+- existing vibration-wire frequency fields are not an LDC contract; and
+- sibling I2C dependencies must remain private behind their owner and use an
+  exact annotated release tag.
 
 The v3 library fits that ownership shape: its operation ID can be derived from
 or stored with the owner reservation, `poll(..., 1)` respects the normal
 callback budget, `cancelJob()` is bus-silent, terminal results are fixed and
 exactly once, and library transport statistics never take over health policy.
-An eventual adapter must translate owner deadline expiry or a future withdrawal
-path into `cancelJob()` and consume the correlated terminal result.
+An eventual owner-private concrete LDC device module must let `poll(now, 1)`
+observe deadline expiry and consume the correlated terminal result immediately.
+It must call `cancelJob()` only for explicit withdrawal, shutdown, or
+replacement; cancellation is not a substitute for the driver's `TIMED_OUT`
+result.
 
 ## Hard-finding disposition
 
@@ -100,6 +98,7 @@ path into `cancelJob()` and consume the correlated terminal result.
 | H-10: clock/frequency/timing facts ambiguous | **Resolved for reusable chip calculations; Tunnel product choice open** | `ReferenceClock` is validated configuration. Frequency returns `Status` plus `double`; frame timing uses conservative integer units and explicit transfer count. Host scheduling and physical calibration remain outside the helper. | `pure_error_status_frequency_and_timing_helpers_cover_boundaries`. |
 | H-11: variant/electrical assumptions appear implicit | **Resolved in v3; physical values still external** | Explicit `DeviceVariant`, `I2cAddress`, `Channel`, `ChannelMask`, reference clock, known register values for every physical variant channel, and expected sensor ranges for selected channels replace inferred/default facts. Default config cannot bind. The common device ID is not presented as variant detection. | explicit-profile bind/validation test; pure helper boundaries; lifecycle/rebind test. |
 | H-12: conflicting synchronous/cooperative models | **Resolved in v3** | `AGENTS.md`, headers, README, integration docs, Arduino example, and native IDF example now specify one zero-I2C start / budgeted poll / exactly-once result model. `tick()`, blocking lifecycle, synchronous recovery, and split staged-read API were removed. | compile/source guards plus all job budget/lifecycle tests. |
+| H-13: owner deadline rollover mismatch | **Resolved after v3.0.0** | Deadline comparison now uses the same unsigned half-range rule as TunnelMonitor. A live deadline immediately after `uint64_t` wrap remains live, receives the correct callback timeout budget, and expires bus-silently at the deadline. | `deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout`. |
 
 ## Architecture selected
 
@@ -140,6 +139,7 @@ On first failure a job stops. A write failure may be indeterminate because the
 transport cannot prove whether silicon accepted it; the result preserves that
 fact and the driver never performs a blind retry. Deadline evaluation with
 budget zero is bus-silent. Callback timeout is capped by remaining deadline.
+Deadline comparison is wrap-safe for horizons shorter than 2^63 ms.
 
 ## Remaining TunnelMonitor product decisions
 
@@ -168,12 +168,12 @@ RS485 VibWire frequency fields as implicit LDC outputs.
 
 | Item | Status |
 | --- | --- |
-| Exact-pin PlatformIO and maintained Espressif platform | **Closed:** `requirements-dev.txt` pins PlatformIO 6.1.18; `platformio.ini` pins pioarduino platform-espressif32 release 54.03.20. CI installs the requirements file. |
+| Exact-pin PlatformIO and maintained Espressif platform | **Closed:** `requirements-dev.txt` pins PlatformIO 6.1.18; `platformio.ini` pins pioarduino platform-espressif32 release 53.03.13 after the COM8 comparison. CI installs the requirements file. |
 | Pin serial-HIL host dependency | **Closed:** `pyserial==3.5` is recorded with the host tools. |
 | Honest `native_cov` wording | **Closed:** it is documented as instrumentation only; no report or threshold is claimed. |
 | Primary datasheet provenance | **Closed:** vendor, title, SNOSCY9A Revision A, official URL, repository date, and SHA-256 are indexed. |
-| Annotated release tag | **Closed procedure:** `v3.0.0` is the only final v3 tag and is created after the exact release commit passes CI. Verify its remote peeled target and pin that full commit SHA downstream. |
-| Raw physical transcript/logic trace | **Open physical gate:** no raw v3 target artifact is committed. Historical compact v2 chip-only summaries are insufficient. |
+| Annotated release tag | **Open for post-v3 fixes:** `v3.0.0` predates the current corrections. TunnelMonitor must wait for a reviewed new annotated release tag; do not move or reinterpret `v3.0.0`. |
+| Raw physical transcript/logic trace | **Partial:** the failing v3.0.0 COM8 smoke transcript records the 54.03.20 transport regression. A clean positive candidate smoke/soak is still required. |
 
 ## Validation and remaining physical gates
 
@@ -182,10 +182,21 @@ stage-failure/cancellation coverage for binding, initialization, apply,
 reset/reapply, acquisition, deadline and callback caps, result identity/FIFO,
 behavioral DATA/STATUS/INTB side effects, atomic publication, data loss and
 quality, applied-state invalidation/replay, transport statistics, and pure
-frequency/timing helpers. On 2026-07-19 both `native` and the
-coverage-instrumented `native_cov` environments passed 29/29 tests. Exact build
+frequency/timing helpers. On 2026-07-22 the `native` environment passed 29/29
+tests after the rollover correction; final `native_cov` repetition is recorded
+in `VALIDATION_STATUS.md`. Exact build
 results are maintained in `VALIDATION_STATUS.md`; no CI run or hardware result
 is inferred here.
+
+The COM8 comparison does not prove TunnelMonitor's native ESP-IDF backend is
+immune. Arduino 3.2.0 Wire's repeated-start path and TunnelMonitor both reach
+the ESP-IDF new-master driver, and Espressif issue
+<https://github.com/espressif/esp-idf/issues/14030> records a NACK followed by
+persistent `ESP_ERR_INVALID_STATE`. TunnelMonitor creates a device handle per
+transfer, so its behavior may differ, but current recovery classification and
+HIL do not close this risk. Before integration, run an ESP32-S3 native-backend
+test consisting of a controlled NACK, repeated valid combined reads, then
+explicit reset/rebegin recovery while retaining raw backend codes.
 
 Before a TunnelMonitor integration or field decision, capture on the exact
 ESP32-S3 board and selected sensors:
@@ -207,17 +218,25 @@ reports do not satisfy that gate.
 
 ## Final recommendation
 
-Use the exact reviewed patch revision, not a moving branch. The reusable driver no
-longer requires an application-side state machine to compensate for blocking
+Use a new exact reviewed annotated release tag, not this working branch and not
+the older v3.0.0 contents. The reusable driver no longer requires an
+application-side state machine to compensate for blocking
 initialization, missing cancellation, destructive evidence loss, partial batch
 publication, or driver-owned recovery policy.
 
 Do not integrate it into TunnelMonitor until H-01's product decisions and the
-selected-board HIL gates are complete. When they are, add one small private
-adapter inside `I2cTask`; keep queueing, deadline, retry, health, recovery, and
+selected-board HIL gates are complete. When they are, add one owner-private
+concrete LDC device module called only by `I2cTask`; do not add a parallel
+public adapter. Retain the complete TunnelMonitor request identity in the owner
+job, give the LDC job a private nonzero operation ID, pass the original owner
+deadline unchanged, call `poll(now, 1)`, and immediately drain and validate the
+matching terminal result. Keep queueing, deadline, retry, health, recovery, and
 public DTO policy in TunnelMonitor, and keep all LDC register protocol inside
 this library. The LDC transport callback must be exactly one physical attempt:
 it must bypass TunnelMonitor's generic hidden per-transfer retry/recovery path.
+Because TunnelMonitor's generic NACK does not prove address versus data phase,
+map a write NACK conservatively to data-NACK or generic I2C error, never to
+confirmed address-NACK.
 After an indeterminate LDC write, terminate the job, invalidate applied state
 after owner recovery, and schedule a new complete initialize/replay job; never
 resend only the failed register write.

@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "Ldc1614IdfI2cTransport.h"
+
 namespace {
 
 constexpr uint64_t JOB_DEADLINE_MS = 2000;
@@ -47,8 +49,9 @@ const char* outcomeName(LDC1614::TerminalOutcome outcome) {
 }  // namespace
 
 Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device,
-                             const LDC1614::Config& defaultConfig)
-    : _device(device), _defaultConfig(defaultConfig) {}
+                             const LDC1614::Config& defaultConfig,
+                             Ldc1614IdfI2c& transport)
+    : _device(device), _defaultConfig(defaultConfig), _transport(transport) {}
 
 void Ldc1614IdfCli::printBanner() const {
   std::printf("LDC1614 v%s native ESP-IDF diagnostic CLI\n", LDC1614::VERSION);
@@ -79,9 +82,41 @@ LDC1614::OperationId Ldc1614IdfCli::nextOperationId() {
 void Ldc1614IdfCli::printHelp() const {
   println("jobs: init, apply, resetreapply, acquire/read [mask], cancel, progress");
   println("controls: status, ready, sleep, wake, initdrive <channel>");
-  println("diagnostics: version, probe/id, drv, cfg, reg, wreg, selftest");
+  println("diagnostics: version, scan, probe/id, drv, cfg, reg, wreg, selftest");
   println("pure helpers: timing [mask], freq <channel> <raw28>");
   println("lifecycle: bind, invalidate, end");
+}
+
+void Ldc1614IdfCli::scanI2c() const {
+  if (_device.jobProgress().active) {
+    printStatus(LDC1614::Status::Error(
+        LDC1614::Err::BUSY, "scan unavailable while job active"));
+    return;
+  }
+  uint8_t found = 0;
+  uint8_t probes = 0;
+  for (uint8_t address = 1U; address < 0x7FU; ++address) {
+    ++probes;
+    const Ldc1614IdfProbeResult result = ldc1614IdfI2cProbeAddress(
+        _transport, address, _defaultConfig.i2cTimeoutMs);
+    if (result == Ldc1614IdfProbeResult::ACK) {
+      ++found;
+      std::printf("I2C device at 0x%02X\n", address);
+    } else if (result == Ldc1614IdfProbeResult::TIMEOUT) {
+      std::printf("scan failed address=0x%02X\n", address);
+      printStatus(LDC1614::Status::Error(
+          LDC1614::Err::I2C_TIMEOUT, "I2C scan probe timed out", address));
+      return;
+    } else if (result == Ldc1614IdfProbeResult::ERROR) {
+      std::printf("scan failed address=0x%02X\n", address);
+      printStatus(LDC1614::Status::Error(
+          LDC1614::Err::I2C_BUS, "I2C scan probe failed", address));
+      return;
+    }
+  }
+  std::printf("scan complete found=%u probes=%u\n",
+              static_cast<unsigned>(found), static_cast<unsigned>(probes));
+  printStatus(LDC1614::Status::Ok());
 }
 
 void Ldc1614IdfCli::printDriver() const {
@@ -254,14 +289,19 @@ void Ldc1614IdfCli::processLine(const char* line) {
         "version: %s firmware_git=%s firmware_status=%s build_timestamp=%s\n",
         LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
         LDC1614::BUILD_TIMESTAMP);
+  } else if (std::strcmp(command, "scan") == 0) {
+    scanI2c();
   } else if (std::strcmp(command, "bind") == 0) {
     printStatus(_device.bind(_defaultConfig));
   } else if (std::strcmp(command, "init") == 0 ||
              std::strcmp(command, "begin") == 0) {
     startInitialize(false, _lastNowMs);
   } else if (std::strcmp(command, "apply") == 0) {
-    printStatus(_device.startApplyConfig(nextOperationId(),
-                                         _lastNowMs + JOB_DEADLINE_MS));
+    const LDC1614::OperationId operationId = nextOperationId();
+    const LDC1614::Status status = _device.startApplyConfig(
+        operationId, _lastNowMs + JOB_DEADLINE_MS);
+    std::printf("scheduled operation=%" PRIu64 " kind=apply\n", operationId);
+    printStatus(status);
   } else if (std::strcmp(command, "resetreapply") == 0) {
     startInitialize(true, _lastNowMs);
   } else if (std::strcmp(command, "cancel") == 0) {

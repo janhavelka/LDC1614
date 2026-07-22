@@ -28,8 +28,9 @@ The driver never calls a transport callback from `bind()`, `updateDesiredConfig(
 1. Build and `bind()` one explicit desired profile. Binding performs zero I2C.
 2. Reserve the application's request/result identity and choose a nonzero
    `OperationId` plus immutable absolute 64-bit deadline. Deadlines and
-   `poll(nowMs, ...)` use one monotonic, nondecreasing owner timeline. Extend a
-   wrapping 32-bit millisecond clock to 64 bits before passing it to the driver.
+   `poll(nowMs, ...)` use one owner timeline. Natural `uint64_t` wrap is safe
+   for deadline horizons shorter than 2^63 ms; extend a wrapping 32-bit
+   millisecond clock to 64 bits before passing it to the driver.
 3. Start one job. Starting validates and reserves state but performs zero I2C.
 4. On each owner service pass, call `poll(nowMs, budget)`. A normal shared-bus
    policy can use budget one. A larger explicit budget is allowed for startup
@@ -69,7 +70,7 @@ diagnostic writes are bounded single transactions and never retried blindly.
 ## Failure, cancellation, and hardware effects
 
 Jobs stop on the first transport failure. `OperationResult::effects` records
-whether destructive reads occurred and whether configuration writes are known
+whether at least one destructive read succeeded and whether configuration writes are known
 partial or may have taken effect despite an error. `ConfigFault` retains the
 full original status, job, exact phase, register, channel, and effect flags.
 
@@ -97,7 +98,9 @@ external chip reset, or shared-bus recovery, it calls
 `invalidateAppliedState(reason)` with the original evidence. This is bus-silent.
 After the device returns, run `startInitialize()` to check both identity
 registers and replay every configured register. A matching identity alone is
-not proof that configuration survived.
+not proof that configuration survived. If either identity transaction fails,
+the driver makes applied configuration unknown and records the exact fault;
+normal acquisition remains blocked until a complete initialization succeeds.
 
 The library has no OFFLINE admission latch, retry count, recovery backoff,
 bus-reset callback, or hard-reset callback. `TransportStats` is diagnostic

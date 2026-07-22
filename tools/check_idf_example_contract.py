@@ -10,6 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 IDF_COMMANDS = [
     "help",
     "version",
+    "scan",
     "probe",
     "bind",
     "init",
@@ -35,6 +36,7 @@ REQUIRED_IDF_TOKENS = [
     '#include "driver/i2c_master.h"',
     "i2c_new_master_bus",
     "i2c_master_bus_add_device",
+    "i2c_master_probe",
     "Ldc1614IdfCli",
     "ldc1614IdfI2cWrite",
     "ldc1614IdfI2cWriteRead",

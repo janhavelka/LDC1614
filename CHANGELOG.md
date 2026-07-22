@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Bounded Arduino no-sensor HIL soak execution with explicit duration, complete
+  cycle counts, per-command outcomes, latency/reset counters, exact final
+  active-state checks, and optional raw transcript output.
+- Native ESP-IDF diagnostic bus scanning with the same bounded NACK/timeout/
+  bus-error contract as the Arduino bring-up CLI.
+
+### Changed
+
+- Pin maintained Arduino builds to pioarduino `53.03.13` (Arduino 3.1.3,
+  ESP-IDF 5.3 libraries), the COM8-tested transport baseline. A reviewed
+  upgrade must repeat combined write/read and post-NACK recovery testing.
+
+### Fixed
+
+- The no-sensor HIL classifier now accepts observed silicon sensor-condition
+  flags only when the command still supplies its required structured evidence;
+  transport, identity, timeout, and nonzero-status failures remain failures.
+- Failed identity reads during re-initialization now invalidate previously
+  trusted applied configuration and retain exact `ConfigFault` provenance.
+- Acquisition reports destructive-read effects only after a STATUS or DATA-MSB
+  transaction succeeds; an address NACK before any read no longer claims a
+  hardware side effect.
+- Amplitude-high/low fault samples remain explicit but are no longer included
+  in `validChannels`.
+- OFFSET validation now includes `FIN_DIVIDER`, matching the public frequency
+  calculation and preventing an accepted offset from masking the configured
+  minimum sensor frequency.
+- Diagnostic bus scans now refuse to interleave with an active cooperative
+  driver job.
+- Absolute 64-bit job deadlines now use half-range wrap-safe comparison, so a
+  valid deadline immediately after `uint64_t` rollover is not timed out early.
+- The HIL runner rejects non-finite timing arguments and applies one absolute
+  command timeout across both scheduled and terminal async responses.
+
 ## [3.0.0] - 2026-07-22
 
 ### Added

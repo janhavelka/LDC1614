@@ -12,6 +12,9 @@ are consumed through `takeResult()` exactly once.
 
 The ESP32 Wire adapter treats its repeated-start address and read phases as one
 callback and gives the read only the timeout remaining after the address phase.
+The repository pins pioarduino `53.03.13`; do not upgrade the example toolchain
+without repeating combined-read and post-NACK recovery testing on real LDC
+hardware.
 
 Useful commands:
 

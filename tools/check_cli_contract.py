@@ -43,6 +43,7 @@ MANDATORY_COMMANDS = [
 IDF_DIAGNOSTIC_COMMANDS = [
     "help",
     "version",
+    "scan",
     "probe",
     "bind",
     "init",

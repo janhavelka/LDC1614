@@ -249,7 +249,7 @@ extern "C" void app_main(void) {
   const LDC1614::Status gpioStatus = configureGpio();
   printSetupStatus("gpio", gpioStatus);
 
-  Ldc1614IdfCli cli(device, makeDefaultConfig(&app));
+  Ldc1614IdfCli cli(device, makeDefaultConfig(&app), app.transport);
   cli.printBanner();
 
   if (i2cStatus.ok() && gpioStatus.ok()) {

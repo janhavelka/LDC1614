@@ -2,14 +2,16 @@
 """Conservative serial HIL runner for LDC1614 diagnostic firmware.
 
 The runner never reports PASS when no serial hardware is supplied. Without a
-port it emits a NOT_RUN artifact. Optional fault/soak/address checks are gated
-behind flags because they require board/operator control.
+port it emits a NOT_RUN artifact. Optional fault/address checks remain gated
+for board/operator control; the Arduino no-sensor profile also provides an
+explicit-duration bounded soak.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
@@ -26,6 +28,8 @@ MAX_COMMAND_TIMEOUT_S = 60.0
 MAX_WRITE_TIMEOUT_S = 10.0
 MAX_IDLE_GAP_S = 10.0
 MAX_COMMAND_SET_REPETITIONS = 100
+MAX_SOAK_DURATION_S = 24 * 60 * 60
+MAX_SOAK_CYCLE_DELAY_S = 60.0
 SERIAL_LINE_STATES = ("on", "off", "unchanged")
 
 ARDUINO_DEFAULT_COMMANDS = [
@@ -66,11 +70,30 @@ ARDUINO_NO_SENSOR_COMMANDS = [
     "timing 0x01",
     "selftest",
     "sleep",
+    "init",
+    "apply",
+    "resetreapply",
+    "wake",
+    "acquire 0x01",
+    "sleep",
+    "cancel",
+    "invalidate",
+    "drv",
+    "init",
+    "wreg 0x1B 0x0209",
+    "init",
+    "end",
+    "bind",
+    "init",
+    "freq 0 0x01000000",
+    "drv",
+    "sleep",
 ]
 
 IDF_DEFAULT_COMMANDS = [
     "help",
     "version",
+    "scan",
     "probe",
     "drv",
     "cfg",
@@ -82,6 +105,24 @@ IDF_DEFAULT_COMMANDS = [
     "timing 0x01",
     "selftest",
 ]
+
+# A bounded no-sensor soak exercises target identity, chip identity, a
+# destructive STATUS observation, two bounded CONFIG writes, and cached
+# driver state. Each cycle ends awake even when the requested duration expires
+# while the cycle is running.
+NO_SENSOR_SOAK_COMMANDS = [
+    "version",
+    "probe",
+    "status",
+    "sleep",
+    "wake",
+    "drv",
+]
+
+ASYNC_COMMAND_NAMES = ("init", "apply", "resetreapply", "acquire", "read", "readall")
+SCHEDULED_OPERATION_PATTERN = re.compile(
+    r"\bscheduled(?:\s+acquire)?\s+operation=(\d+)\b", re.IGNORECASE
+)
 
 COMMAND_EVIDENCE_PATTERNS = {
     "help": (re.compile(r"(?:\bOwner-driven jobs\b|\bjobs:)", re.IGNORECASE),),
@@ -128,14 +169,48 @@ COMMAND_EVIDENCE_PATTERNS = {
         re.compile(r"\bactive=[01]\b.*\boperation=\d+\b.*\btransfers=\d+/\d+\b",
                    re.IGNORECASE),
     ),
-    "status": (re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
-                          re.IGNORECASE),),
-    "status_raw": (re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
-                              re.IGNORECASE),),
-    "drdy": (re.compile(r"\bready=[01]\b", re.IGNORECASE),),
-    "ready": (re.compile(r"\bready=[01]\b", re.IGNORECASE),),
+    "status": (
+        re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
+                   re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "status_raw": (
+        re.compile(r"\bSTATUS observed=[01]\b.*\braw=0x[0-9a-f]{4}\b",
+                   re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "drdy": (
+        re.compile(r"\bready=[01]\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "ready": (
+        re.compile(r"\bready=[01]\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
     "timing": (
         re.compile(r"\bwakeSettleUs=\d+\b.*\bconversionUs=\d+\b", re.IGNORECASE),
+    ),
+    "freq": (
+        re.compile(r"\bfrequencyHz=[0-9.]+\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "init": (
+        re.compile(r"\bresult operation=\d+\b.*\boutcome=SUCCESS\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "apply": (
+        re.compile(r"\bresult operation=\d+\b.*\boutcome=SUCCESS\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "resetreapply": (
+        re.compile(r"\bresult operation=\d+\b.*\boutcome=SUCCESS\b", re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    ),
+    "acquire": (
+        re.compile(r"\bresult operation=\d+\b.*\boutcome=SUCCESS\b", re.IGNORECASE),
+        re.compile(r"\bbatch selected=0x[0-9a-f]{2}\b.*\bvalid=0x[0-9a-f]{2}\b",
+                   re.IGNORECASE),
+        re.compile(r"\bcode=0\b", re.IGNORECASE),
     ),
     "initidrive": (
         re.compile(r"\bchannel=\d+\s+initDriveCode=\d+\b", re.IGNORECASE),
@@ -164,12 +239,20 @@ FAIL_PATTERNS = [
         r"\bconfig_readback_failures=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
         r"\bfailed\s*[:=]\s*[1-9][0-9]*\b",
         r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
-        r"\berr=1\b",
-        r"\b(?:errUR|errOR|errWD|errAmp|ur|or|wd|ah|al|zc)=1\b",
         r"not bound",
         r"code=[1-9][0-9]*",
     )
 ]
+SENSOR_CONDITION_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\berr=1\b",
+        r"\b(?:errUR|errOR|errWD|errAmp|ur|or|wd|ah|al|zc)=1\b",
+    )
+]
+NO_SENSOR_CONDITION_COMMANDS = (
+    "status", "status_raw", "ready", "drdy", "acquire", "read", "readall"
+)
 OK_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -269,6 +352,7 @@ def classify_command(
     expected_patterns: Optional[List[re.Pattern[str]]] = None,
     failure_patterns: Optional[List[re.Pattern[str]]] = None,
     expected_failure_patterns: Optional[List[re.Pattern[str]]] = None,
+    fixture: str = "default",
 ) -> Tuple[str, str]:
     if timed_out:
         return "FAIL", "command response timed out"
@@ -284,9 +368,34 @@ def classify_command(
             return "PASS", f"matched configured expected-failure token: {pattern.pattern}"
 
     name = command_name(command)
+    failure_scan_output = output
+    if name in ASYNC_COMMAND_NAMES:
+        scheduled = SCHEDULED_OPERATION_PATTERN.search(output)
+        terminal = re.search(
+            r"\bresult operation=(\d+)\b[^\r\n]*\boutcome=([A-Z_]+)\b",
+            output,
+            re.IGNORECASE,
+        )
+        if scheduled is None or terminal is None:
+            return "FAIL", "missing scheduled or terminal operation evidence"
+        if scheduled.group(1) != terminal.group(1):
+            return "FAIL", "scheduled and terminal operation IDs differ"
+        failure_scan_output = re.sub(
+            r"\bstatus:\s*code=5\b[^\r\n]*", "", output,
+            flags=re.IGNORECASE,
+        )
     for pattern in FAIL_PATTERNS:
-        if pattern.search(output):
+        if pattern.search(failure_scan_output):
             return "FAIL", f"matched failure pattern: {pattern.pattern}"
+
+    sensor_condition_observed = any(
+        pattern.search(output) for pattern in SENSOR_CONDITION_PATTERNS
+    )
+    sensor_condition_expected = (
+        fixture == "no-sensor" and name in NO_SENSOR_CONDITION_COMMANDS
+    )
+    if sensor_condition_observed and not sensor_condition_expected:
+        return "FAIL", "sensor-condition fault flag was asserted"
 
     required_evidence = COMMAND_EVIDENCE_PATTERNS.get(name)
     if required_evidence is not None:
@@ -294,6 +403,8 @@ def classify_command(
                    if pattern.search(output) is None]
         if missing:
             return "FAIL", "missing command-specific evidence: " + ", ".join(missing)
+        if sensor_condition_expected and sensor_condition_observed:
+            return "PASS", "command evidence parsed; sensor-condition flags expected for no-sensor fixture"
         return "PASS", "all command-specific evidence parsed"
 
     for pattern in OK_PATTERNS:
@@ -593,20 +704,74 @@ def summarize_sample_rate(args: argparse.Namespace,
     return summary
 
 
-def summarize_soak(args: argparse.Namespace) -> Dict[str, object]:
+def summarize_soak(
+    args: argparse.Namespace,
+    observed: Optional[Dict[str, object]] = None,
+) -> Dict[str, object]:
     if not args.include_long_soak:
         return make_not_run_summary("long soak was not requested")
+    if args.fixture != "no-sensor" or args.profile != "arduino":
+        return {
+            "status": "NOT_RUN",
+            "reason": "automatic soak is defined only for the Arduino no-sensor fixture",
+            "requested_duration_s": args.soak_duration_s,
+            "elapsed_s": 0.0,
+        }
+    if args.soak_duration_s <= 0.0:
+        return {
+            "status": "NOT_RUN",
+            "reason": "--soak-duration-s must be supplied to run the bounded soak",
+            "requested_duration_s": 0.0,
+            "elapsed_s": 0.0,
+        }
+    if observed is not None:
+        return observed
     return {
         "status": "NOT_RUN",
-        "reason": "manual/fixture evidence required; no safe automatic firmware command is defined",
-        "requested_duration_s": 8 * 60 * 60,
+        "reason": "serial soak did not start",
+        "requested_duration_s": args.soak_duration_s,
         "elapsed_s": 0.0,
         "command_counts": {},
         "failure_count": None,
-        "recovery_count": None,
+        "unknown_count": None,
         "reset_count": None,
         "worst_latency_s": None,
     }
+
+
+def soak_outcome(
+    cycle_count: int,
+    failure_count: int,
+    unknown_count: int,
+    reset_count: int,
+) -> Tuple[str, str]:
+    if cycle_count == 0:
+        return "FAIL", "no complete soak cycle executed"
+    if failure_count > 0:
+        return "FAIL", "one or more soak commands failed"
+    if reset_count > 0:
+        return "FAIL", "unexpected firmware reset/banner observed during soak"
+    if unknown_count > 0:
+        return "UNKNOWN", "one or more soak commands had ambiguous output"
+    return "PASS", "requested duration completed with all commands passing"
+
+
+def enforce_soak_invariant(
+    command: str,
+    result: Dict[str, object],
+) -> Dict[str, object]:
+    if command_name(command) != "drv" or result.get("status") != "PASS":
+        return result
+    if re.search(
+        r"\bbound=1\b.*\bapplied=APPLIED_ACTIVE\b",
+        str(result.get("output", "")),
+        re.IGNORECASE | re.DOTALL,
+    ) is not None:
+        return result
+    failed = dict(result)
+    failed["status"] = "FAIL"
+    failed["reason"] = "soak cycle did not end bound with applied state APPLIED_ACTIVE"
+    return failed
 
 
 def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Iterable[str]) -> Tuple[str, bool]:
@@ -657,7 +822,7 @@ def not_run_command_results(commands: List[str], reason: str) -> List[Dict[str, 
 def run_serial_commands(
     args: argparse.Namespace,
     commands: List[str],
-) -> Tuple[List[Dict[str, object]], str, str, float]:
+) -> Tuple[List[Dict[str, object]], str, str, float, Optional[Dict[str, object]]]:
     try:
         import serial  # type: ignore[import-not-found]
     except Exception as exc:
@@ -670,6 +835,7 @@ def run_serial_commands(
     transcript_parts: List[str] = []
     results: List[Dict[str, object]] = []
     startup_elapsed_s = 0.0
+    soak_summary: Optional[Dict[str, object]] = None
 
     with serial.Serial(
         args.port,
@@ -692,16 +858,35 @@ def run_serial_commands(
         startup_elapsed_s = time.monotonic() - startup_start
         transcript_parts.append("### startup\n" + startup)
 
-        for index, command in enumerate(commands, start=1):
+        def execute(command: str) -> Dict[str, object]:
             command_start = time.monotonic()
+            command_deadline = command_start + args.command_timeout_s
             ser.write((command + "\n").encode("utf-8"))
             ser.flush()
             output, timed_out = read_available(
                 ser,
-                time.monotonic() + args.command_timeout_s,
+                command_deadline,
                 args.idle_gap_s,
                 prompt_patterns,
             )
+            name = command_name(command)
+            scheduled = SCHEDULED_OPERATION_PATTERN.search(output)
+            if (name in ASYNC_COMMAND_NAMES and scheduled is not None and
+                    re.search(r"\bstatus:\s*code=5\b", output,
+                              re.IGNORECASE) is not None and
+                    re.search(
+                        rf"\bresult operation={re.escape(scheduled.group(1))}\b",
+                        output,
+                        re.IGNORECASE,
+                    ) is None):
+                completion, completion_timed_out = read_available(
+                    ser,
+                    command_deadline,
+                    args.idle_gap_s,
+                    (),
+                )
+                output += completion
+                timed_out = timed_out or completion_timed_out
             elapsed_s = time.monotonic() - command_start
             status, reason = classify_command(
                 command,
@@ -710,21 +895,105 @@ def run_serial_commands(
                 expected_patterns,
                 failure_patterns,
                 expected_failure_patterns,
+                args.fixture,
             )
-            transcript_parts.append(f"### command {index}: {command}\n{output}")
+            return {
+                "command": command,
+                "status": status,
+                "reason": reason,
+                "timed_out": timed_out,
+                "elapsed_s": elapsed_s,
+                "output": output,
+            }
+
+        for index, command in enumerate(commands, start=1):
+            result = execute(command)
+            result["index"] = index
+            transcript_parts.append(
+                f"### command {index}: {command}\n{result['output']}"
+            )
             if args.verbose:
-                print(f"[{index}/{len(commands)}] {command}: {status} ({elapsed_s:.3f}s)")
-            results.append(
-                {
-                    "index": index,
-                    "command": command,
-                    "status": status,
-                    "reason": reason,
-                    "timed_out": timed_out,
-                    "elapsed_s": elapsed_s,
-                    "output": output,
-                }
+                print(
+                    f"[{index}/{len(commands)}] {command}: {result['status']} "
+                    f"({float(result['elapsed_s']):.3f}s)"
+                )
+            results.append(result)
+
+        if (args.include_long_soak and args.soak_duration_s > 0.0 and
+                args.fixture == "no-sensor" and args.profile == "arduino"):
+            soak_start = time.monotonic()
+            soak_deadline = soak_start + args.soak_duration_s
+            cycle_count = 0
+            command_count = 0
+            failure_count = 0
+            unknown_count = 0
+            reset_count = 0
+            worst_latency_s = 0.0
+            command_counts: Dict[str, Dict[str, int]] = {
+                command: {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}
+                for command in NO_SENSOR_SOAK_COMMANDS
+            }
+            non_pass_details: List[Dict[str, object]] = []
+
+            while cycle_count == 0 or time.monotonic() < soak_deadline:
+                cycle_count += 1
+                for command in NO_SENSOR_SOAK_COMMANDS:
+                    command_count += 1
+                    result = enforce_soak_invariant(command, execute(command))
+                    status = str(result["status"])
+                    command_counts[command][status] += 1
+                    latency_s = float(result["elapsed_s"])
+                    worst_latency_s = max(worst_latency_s, latency_s)
+                    output = str(result["output"])
+                    if "=== LDC1614" in output:
+                        reset_count += 1
+                    if status == "FAIL":
+                        failure_count += 1
+                    elif status == "UNKNOWN":
+                        unknown_count += 1
+                    if status != "PASS" and len(non_pass_details) < 20:
+                        non_pass_details.append(
+                            {
+                                "cycle": cycle_count,
+                                "command": command,
+                                "status": status,
+                                "reason": result["reason"],
+                                "output": output,
+                            }
+                        )
+                    transcript_parts.append(
+                        f"### soak cycle {cycle_count} command {command_count}: "
+                        f"{command}\n{output}"
+                    )
+
+                if args.verbose:
+                    elapsed_s = time.monotonic() - soak_start
+                    print(
+                        f"[soak cycle {cycle_count}] elapsed={elapsed_s:.1f}s "
+                        f"fail={failure_count} unknown={unknown_count}"
+                    )
+                remaining_s = soak_deadline - time.monotonic()
+                if remaining_s > 0.0 and args.soak_cycle_delay_s > 0.0:
+                    time.sleep(min(args.soak_cycle_delay_s, remaining_s))
+
+            elapsed_s = time.monotonic() - soak_start
+            soak_status, soak_reason = soak_outcome(
+                cycle_count, failure_count, unknown_count, reset_count
             )
+            soak_summary = {
+                "status": soak_status,
+                "reason": soak_reason,
+                "requested_duration_s": args.soak_duration_s,
+                "elapsed_s": elapsed_s,
+                "cycle_count": cycle_count,
+                "command_count": command_count,
+                "command_counts": command_counts,
+                "failure_count": failure_count,
+                "unknown_count": unknown_count,
+                "reset_count": reset_count,
+                "worst_latency_s": worst_latency_s,
+                "non_pass_details": non_pass_details,
+            }
 
     full_transcript = "\n".join(transcript_parts)
     firmware_version = "unknown"
@@ -732,7 +1001,7 @@ def run_serial_commands(
                               full_transcript, re.IGNORECASE)
     if version_match:
         firmware_version = version_match.group(1).strip()
-    return results, full_transcript, firmware_version, startup_elapsed_s
+    return results, full_transcript, firmware_version, startup_elapsed_s, soak_summary
 
 
 def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped: List[Dict[str, str]]) -> None:
@@ -787,7 +1056,6 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
         ("intb_observation", args.include_intb),
         ("unplug_replug", args.include_unplug),
         ("stuck_bus", args.include_stuck_bus),
-        ("long_soak", args.include_long_soak),
         ("drive_current_tuning", args.include_drive_tuning),
     ):
         if enabled:
@@ -797,6 +1065,19 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
                     "reason": "manual/fixture evidence required; no safe automatic firmware command is defined",
                 }
             )
+
+    if args.include_long_soak and (
+            args.soak_duration_s <= 0.0 or args.fixture != "no-sensor" or
+            args.profile != "arduino"):
+        skipped.append(
+            {
+                "name": "long_soak",
+                "reason": (
+                    "automatic soak requires the Arduino no-sensor fixture "
+                    "and an explicit positive --soak-duration-s"
+                ),
+            }
+        )
 
 
 def overall_status(command_results: List[Dict[str, object]],
@@ -815,6 +1096,14 @@ def overall_status(command_results: List[Dict[str, object]],
     return "PASS"
 
 
+def combine_overall_and_soak(base_status: str, soak_status: str) -> str:
+    if base_status == "FAIL" or soak_status == "FAIL":
+        return "FAIL"
+    if base_status == "UNKNOWN" or soak_status == "UNKNOWN":
+        return "UNKNOWN"
+    return base_status
+
+
 def make_result(args: argparse.Namespace) -> Dict[str, object]:
     skipped: List[Dict[str, str]] = []
     commands = [] if args.skip_default_commands else default_commands(args.profile, args.fixture)
@@ -828,6 +1117,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     transcript = ""
     firmware_version = "unknown"
     startup_elapsed_s = 0.0
+    observed_soak: Optional[Dict[str, object]] = None
 
     if args.dry_run:
         not_run_reason = "dry-run requested; no serial commands were sent"
@@ -836,10 +1126,8 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         not_run_reason = "serial port was not supplied"
     else:
         try:
-            command_results, transcript, firmware_version, startup_elapsed_s = run_serial_commands(
-                args,
-                commands,
-            )
+            (command_results, transcript, firmware_version, startup_elapsed_s,
+             observed_soak) = run_serial_commands(args, commands)
             append_expectation_results(args, command_results, transcript)
         except Exception as exc:
             not_run_reason = str(exc)
@@ -898,16 +1186,22 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "expected_failure_tokens": args.expected_failure_token,
         "sample_rate_count": args.sample_rate_count,
         "sample_rate_channel": args.sample_rate_channel,
+        "soak_duration_s": args.soak_duration_s,
+        "soak_cycle_delay_s": args.soak_cycle_delay_s,
         "commands": commands,
         "command_results": command_results,
         "skipped_optional_tests": skipped,
         "not_run_reason": not_run_reason,
         "transcript": transcript,
     }
-    result["overall_status"] = overall_status(command_results, not_run_reason, transcript)
     result["stress"] = summarize_stress(args, command_results)
     result["sample_rate"] = summarize_sample_rate(args, command_results)
-    result["soak"] = summarize_soak(args)
+    result["soak"] = summarize_soak(args, observed_soak)
+    result["overall_status"] = overall_status(command_results, not_run_reason, transcript)
+    soak_status = str(result["soak"].get("status", "NOT_RUN"))
+    result["overall_status"] = combine_overall_and_soak(
+        str(result["overall_status"]), soak_status
+    )
     return result
 
 
@@ -1004,8 +1298,10 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Reason: {soak.get('reason', '')}",
         f"Requested duration s: `{soak.get('requested_duration_s', 0)}`",
         f"Elapsed s: `{float(soak.get('elapsed_s', 0.0)):.3f}`",
+        f"Cycles: `{soak.get('cycle_count', None)}`",
+        f"Commands: `{soak.get('command_count', None)}`",
         f"Failure count: `{soak.get('failure_count', None)}`",
-        f"Recovery count: `{soak.get('recovery_count', None)}`",
+        f"Unknown count: `{soak.get('unknown_count', None)}`",
         f"Reset count: `{soak.get('reset_count', None)}`",
         f"Worst latency s: `{soak.get('worst_latency_s', None)}`",
     ])
@@ -1022,6 +1318,10 @@ def write_outputs(args: argparse.Namespace, result: Dict[str, object]) -> None:
         Path(args.json_out).write_text(json_text, encoding="utf-8", newline="\n")
     if args.markdown_out:
         Path(args.markdown_out).write_text(markdown_text, encoding="utf-8", newline="\n")
+    if args.raw_transcript_out:
+        Path(args.raw_transcript_out).write_text(
+            str(result.get("transcript", "")), encoding="utf-8", newline="\n"
+        )
 
     if not args.quiet:
         print(markdown_text)
@@ -1075,12 +1375,25 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--include-unplug", action="store_true")
     parser.add_argument("--include-stuck-bus", action="store_true")
     parser.add_argument("--include-long-soak", action="store_true")
+    parser.add_argument(
+        "--soak-duration-s",
+        type=float,
+        default=0.0,
+        help=f"Bounded Arduino no-sensor soak duration, >0..{MAX_SOAK_DURATION_S}",
+    )
+    parser.add_argument(
+        "--soak-cycle-delay-s",
+        type=float,
+        default=1.0,
+        help=f"Delay between complete soak cycles, 0..{MAX_SOAK_CYCLE_DELAY_S}",
+    )
     parser.add_argument("--include-drive-tuning", action="store_true")
     parser.add_argument("--sample-rate-count", type=int, default=0,
                         help=f"Arduino profile only: append a bounded counted read (1..{MAX_SAMPLE_RATE_COUNT})")
     parser.add_argument("--sample-rate-channel", type=int, default=0)
     parser.add_argument("--json-out", default="")
     parser.add_argument("--markdown-out", default="")
+    parser.add_argument("--raw-transcript-out", default="")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--require-run", action="store_true", help="Exit nonzero when result is NOT_RUN")
     args = parser.parse_args(argv)
@@ -1096,6 +1409,17 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     if (args.expected_firmware_commit and
             re.fullmatch(r"[0-9a-fA-F]{7,40}", args.expected_firmware_commit) is None):
         parser.error("--expected-firmware-commit must be a 7..40 digit hexadecimal SHA")
+    timing_values = {
+        "--startup-delay-s": args.startup_delay_s,
+        "--command-timeout-s": args.command_timeout_s,
+        "--write-timeout-s": args.write_timeout_s,
+        "--idle-gap-s": args.idle_gap_s,
+        "--soak-duration-s": args.soak_duration_s,
+        "--soak-cycle-delay-s": args.soak_cycle_delay_s,
+    }
+    for option, value in timing_values.items():
+        if not math.isfinite(value):
+            parser.error(f"{option} must be finite")
     if args.startup_delay_s < 0.0 or args.startup_delay_s > MAX_STARTUP_DELAY_S:
         parser.error(f"--startup-delay-s must be 0..{MAX_STARTUP_DELAY_S}")
     if args.command_timeout_s <= 0.0 or args.command_timeout_s > MAX_COMMAND_TIMEOUT_S:
@@ -1108,6 +1432,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error(f"--repeat-command-set must be 1..{MAX_COMMAND_SET_REPETITIONS}")
     if args.stress_count < 1 or args.stress_count > MAX_STRESS_COUNT:
         parser.error(f"--stress-count must be 1..{MAX_STRESS_COUNT}")
+    if args.soak_duration_s < 0.0 or args.soak_duration_s > MAX_SOAK_DURATION_S:
+        parser.error(f"--soak-duration-s must be 0..{MAX_SOAK_DURATION_S}")
+    if args.soak_cycle_delay_s < 0.0 or args.soak_cycle_delay_s > MAX_SOAK_CYCLE_DELAY_S:
+        parser.error(f"--soak-cycle-delay-s must be 0..{MAX_SOAK_CYCLE_DELAY_S}")
+    if args.soak_duration_s > 0.0 and not args.include_long_soak:
+        parser.error("--soak-duration-s requires --include-long-soak")
     return args
 
 
@@ -1117,14 +1447,16 @@ def parser_self_test() -> Tuple[bool, List[str]]:
         failures.append("arduino default commands missing version")
     if "drdy" in default_commands("arduino", "no-sensor"):
         failures.append("no-sensor commands must exclude DRDY")
-    if any(command.startswith("acquire") for command in default_commands("arduino", "no-sensor")):
-        failures.append("no-sensor commands must exclude acquisition")
+    if "acquire 0x01" not in default_commands("arduino", "no-sensor"):
+        failures.append("no-sensor commands missing status-aware acquisition")
     if "progress" not in default_commands("arduino", "no-sensor"):
         failures.append("no-sensor commands missing cooperative progress snapshot")
     if "wake" not in default_commands("arduino"):
         failures.append("arduino default commands missing wake")
     if "ready" not in default_commands("idf"):
         failures.append("idf default commands missing ready")
+    if "scan" not in default_commands("idf"):
+        failures.append("idf default commands missing scan")
     if "wake" not in default_commands("idf"):
         failures.append("idf default commands missing wake")
 

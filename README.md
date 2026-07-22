@@ -27,8 +27,9 @@ recorded in the maintained validation status and HIL guides.
 - One job may be active. Each `poll(nowMs, maxTransfers)` call invokes no more
   than the supplied number of transport callbacks; zero is bus-silent.
 - Each start carries a caller-selected nonzero `OperationId` and absolute
-  64-bit deadline. `nowMs` and deadlines share one owner-supplied monotonic,
-  nondecreasing timeline; extend a wrapping 32-bit clock before use. A terminal
+  64-bit deadline. `nowMs` and deadlines share one owner-supplied timeline;
+  natural `uint64_t` wrap is safe for deadline horizons shorter than 2^63 ms.
+  Extend a wrapping 32-bit clock before use. A terminal
   `OperationResult` retains identity, outcome,
   status, side-effect flags, configuration revision, and fault provenance.
 - The fixed two-entry result FIFO delivers each terminal result exactly once
@@ -57,7 +58,12 @@ The repository root is also an ESP-IDF component. Add it through
 example is under `examples/esp_idf/basic`.
 
 Host validation tools are pinned in `requirements-dev.txt`; the maintained
-Espressif PlatformIO platform is pinned in `platformio.ini`.
+Arduino build uses pioarduino `53.03.13` (Arduino 3.1.3 with ESP-IDF 5.3
+libraries), pinned in `platformio.ini`. COM8 testing selected this baseline
+after the `54.03.20` Arduino Wire path produced intermittent combined-read
+`ESP_ERR_INVALID_STATE` failures. This pin is example/build-tool policy, not a
+dependency of the framework-neutral core; native ESP-IDF owner backends still
+require their own target validation.
 
 ## Explicit profile
 
@@ -206,8 +212,10 @@ STATUS snapshots, and reports detected overrun/data-loss evidence. DATAx is
 read MSB before LSB. Under-range zero and over-range `0x0FFFFFFF` are classified
 even when corresponding device reporting bits are disabled. Watchdog,
 amplitude, zero-count, stale, and data-loss conditions remain visible separately
-from transport success. Configuration trust is reported by `AppliedConfigState`;
-acquisition is rejected before I2C unless that state is `APPLIED_ACTIVE`.
+from transport success. All of those conditions exclude the affected channel
+from `validChannels`; `errorChannels` and per-channel quality retain the cause.
+Configuration trust is reported by `AppliedConfigState`; acquisition is
+rejected before I2C unless that state is `APPLIED_ACTIVE`.
 
 LDC multi-channel conversion is sequential. Atomic batch publication means the
 software result is committed together; it does not mean channels were sampled

@@ -1,0 +1,60 @@
+# COM8 I2C transport regression investigation
+
+Date: 2026-07-22
+
+Fixture: ESP32-S2 on COM8, LDC1614 at address `0x2A`, another responding
+device at `0x3C`, and no LC sensor attached. The absence of a sensor permits
+silicon conversion-condition flags; it does not permit transport, identity, or
+nonzero-status failures.
+
+## Result
+
+The maintained Arduino target is pinned to pioarduino `53.03.13` (Arduino
+3.1.3 with ESP-IDF 5.3 libraries). On this fixture, the `54.03.20` stack
+(Arduino 3.2.0 with ESP-IDF 5.4 libraries) intermittently failed combined
+write/read operations with `ESP_ERR_INVALID_STATE` and read-length mismatch.
+Changing bus speed and removing the startup scan did not correct it. A full
+power cycle was required before the comparison stack produced stable results.
+
+This is a target transport-stack decision, not a dependency or workaround in
+the framework-neutral LDC core. It does not prove that every ESP-IDF new-master
+backend is affected or that the TunnelMonitor ESP32-S3 backend is safe.
+
+## Observations
+
+| Stack / condition | Observation |
+| --- | --- |
+| Clean v3.0.0 firmware, pioarduino `54.03.20`, 400 kHz | Scan found `0x2A` and `0x3C`; combined identity reads intermittently returned length mismatch, zero/`0xFFFF` words, and raw `ESP_ERR_INVALID_STATE` (`259`). The committed failing smoke artifact is listed below. |
+| Same stack, 100 kHz | Same failure class; lowering frequency did not correct the state failure. |
+| Same stack without startup scan | Same failure class; the diagnostic scan was not the root cause. |
+| pioarduino `53.03.13`, 400 kHz, after full power cycle | 25 repeated groups of `probe`, `reg 0x7E`, and `reg 0x7F` completed 75/75 identity transactions with `0x5449` / `0x3055`. This targeted A/B console evidence selected the candidate stack; it is not a substitute for the clean candidate smoke and one-hour artifact. |
+| 1 MHz | Deliberately not run. The LDC1614 I2C interface maximum is 400 kHz, so 1 MHz would be outside the device contract even if another shared-bus device supports it. |
+
+The failing clean v3.0.0 evidence is retained in:
+
+- `hil-validation-COM8-20260722-v3-smoke.runner.json`
+- `hil-validation-COM8-20260722-v3-smoke.runner.md`
+
+The Markdown artifact embeds the raw command transcript. It is intentionally a
+`FAIL` record and must not be cited as positive HIL acceptance.
+
+## Integration consequence
+
+TunnelMonitor uses the ESP-IDF new I2C master API directly and creates a device
+handle per transfer, whereas this Arduino fixture used Wire. The implementations
+are not identical, but both reach the same driver family. Espressif issue
+<https://github.com/espressif/esp-idf/issues/14030> records a NACK followed by
+persistent `ESP_ERR_INVALID_STATE`; the issue remained open when checked on
+2026-07-22. A product-neutral ESP32-S3 TunnelMonitor HIL gate is therefore still
+required: induce a confirmed absent-address NACK, execute repeated valid
+combined reads, then exercise explicit owner recovery while capturing raw
+backend codes.
+
+## Acceptance boundary
+
+The stack comparison establishes a defensible Arduino candidate and a real
+negative regression record. Release-grade positive evidence still requires a
+clean firmware identity match, the full no-sensor command matrix, a one-hour
+bounded soak with no unexpected reset or ambiguous response, and exact output
+artifacts. Sensor accuracy, channel physics, INTB, SD, address `0x2B`, LDC1612,
+and TunnelMonitor ESP32-S3 backend behavior remain outside this fixture.

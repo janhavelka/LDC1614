@@ -17,16 +17,38 @@ the no-sensor fixture matrix:
 python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --markdown-out hil-no-sensor.md
 ```
 
-This v3 mode exercises identity, selected safe register reads, cached profile
-reporting, cooperative progress reporting, and sleep/wake. It intentionally
-excludes acquisition, analog configuration mutation, reset/reapply, stress,
-and sample-rate claims. Those require a sensor-aware fixture and a command
-protocol that correlates the asynchronous terminal `OperationResult`, not just
-the immediate command prompt.
+This v3 mode exercises identity, selected register reads, cached profile and
+progress, sleep/wake, initialization, full apply, reset/reapply, one
+status-aware channel acquisition, invalidation/re-initialization, a diagnostic
+write followed by full replay, end/bind/re-initialization, cancellation while
+idle, and pure timing/frequency helpers. For every asynchronous job the runner
+requires the scheduled operation ID to match a successful terminal
+`OperationResult`; the immediate `IN_PROGRESS` status is never a pass. With no
+LC sensor, acquisition validates transport/protocol/error reporting only. It
+does not validate conversion accuracy, channel physics, sample rate, or drive
+current.
 
 To stress the same no-sensor matrix repeatedly in one captured run, add
 `--repeat-command-set N`. The runner records both the base command count and
 the expanded command count in the artifact.
+
+For a time-bounded no-sensor soak, request the duration explicitly. The soak
+keeps the port open, executes only complete cycles, and ends every cycle awake:
+
+```sh
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --markdown-out hil-soak.md --raw-transcript-out hil-soak.serial.log
+```
+
+The fixed soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, and
+`drv`. Every `drv` response must prove `bound=1` and
+`applied=APPLIED_ACTIVE`. The summary records requested/actual duration,
+complete cycles, command counts, failures, ambiguous responses, unexpected
+startup banners, and worst command latency. A serial exception, unexpected
+reset, or command failure is not converted into a pass. The explicit no-sensor
+classifier permits LDC under/over-range,
+watchdog, amplitude, or zero-count flags only after the command's structured
+response and successful transport status are present; it never permits an I2C,
+identity, timeout, or nonzero-status failure.
 
 If no serial port and real LDC1614/LDC1612 hardware are supplied, the runner
 reports `NOT_RUN`. It must not be interpreted as a pass.
@@ -67,8 +89,8 @@ be stored or described as pass logs.
 | Profile | Intended firmware | Default safe commands |
 | --- | --- | --- |
 | `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `drdy`, `timing 0x01`, `selftest` |
-| `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Identity, safe register reads, cached profile/progress, sleep/wake, timing; excludes conversion jobs |
-| `idf` | `examples/esp_idf/basic` | `help`, `version`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `ready`, `timing 0x01`, `selftest` |
+| `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Identity/registers, state/progress, init/apply/reset/reapply/acquire correlation, invalidation/replay, diagnostic write/replay, end/bind, sleep/wake, timing/frequency |
+| `idf` | `examples/esp_idf/basic` | `help`, `version`, `scan`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `ready`, `timing 0x01`, `selftest` |
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
@@ -77,12 +99,11 @@ documented fixture-specific cases. Expected-failure tokens are intended for
 negative tests such as proving an invalid channel is rejected; default failure
 classification remains strict.
 
-Both CLIs expose cooperative jobs for interactive use, but the maintained HIL
-runner's safe defaults intentionally use prompt-bounded commands only. A v3
-sensor-acceptance fixture must capture the scheduled operation ID and matching
-terminal result; an immediate `IN_PROGRESS` response is not a pass. The IDF
-CLI does not expose scan, runtime address changes, stress, or sample-rate
-commands.
+Both CLIs expose cooperative jobs for interactive use. The runner handles those
+commands as two-phase responses and requires matching scheduled/terminal IDs.
+A sensor-acceptance fixture must additionally validate physical results and
+cadence. Neither CLI exposes runtime address changes, production stress, or a
+sample-rate benchmark.
 
 ## Safe Default Procedure
 
@@ -116,7 +137,9 @@ Run these only when hardware and operator setup explicitly support them:
 - INTB observation if INTB is wired to a host GPIO or analyzer.
 - Unplug/replug or induced NACK.
 - Stuck-bus fixture tests.
-- Long soak.
+- A bounded automated no-sensor soak may use `--include-long-soak` with
+  `--soak-duration-s <seconds>`. Sensor-equipped production-cadence soak still
+  requires an application fixture that correlates operation results.
 - Drive-current/coil tuning with oscilloscope or an application-specific
   amplitude procedure.
 
@@ -139,7 +162,7 @@ Run these only when hardware and operator setup explicitly support them:
 | Induced address NACK | No | Operator/fault fixture | Not run | Controlled NACK transcript with precise status |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | Not run | Duration, command count, failure count, recovery count |
+| Bounded soak | No | Stable fixture | Not run | Duration, complete cycles, command/unknown/reset counts, worst latency |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules

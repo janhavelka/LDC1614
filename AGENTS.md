@@ -59,8 +59,9 @@ Framework boundaries:
 - Use `static constexpr` for constants. Macros are only for conditional compilation or example logging.
 - Public APIs are not ISR-safe. Driver instances are not internally thread-safe. Document application serialization.
 - Injected transport and INTB callbacks must not re-enter the same driver
-  instance. Owner time supplied to jobs/polling is monotonic and nondecreasing;
-  wrapping hardware clocks are extended before entering the core.
+  instance. Owner time supplied to jobs/polling is one modulo-`uint64_t`
+  monotonic timeline; deadline horizons are shorter than 2^63 ms. Wrapping
+  hardware clocks narrower than 64 bits are extended before entering the core.
 - Conversion timing, settling timing, and sensor-frequency calculations are checked against explicit clock/count/divider facts.
 
 ## I2C Manager and Transport (Required)

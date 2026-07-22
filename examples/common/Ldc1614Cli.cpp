@@ -260,6 +260,11 @@ void Cli::printProgress() const {
 }
 
 void Cli::scanI2c() const {
+  if (_device.jobProgress().active) {
+    printStatus(LDC1614::Status::Error(LDC1614::Err::BUSY,
+                                       "scan unavailable while job active"));
+    return;
+  }
   if (_platform.i2cProbe == nullptr) {
     printStatus(LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                        "scan unavailable"));
@@ -325,7 +330,10 @@ void Cli::processCommand(const char* commandLine) {
   } else if (std::strcmp(command, "apply") == 0 ||
              std::strcmp(command, "sync") == 0) {
     const LDC1614::OperationId id = nextOperationId();
-    printStatus(_device.startApplyConfig(id, deadlineFromNow()));
+    const LDC1614::Status status =
+        _device.startApplyConfig(id, deadlineFromNow());
+    printf("scheduled operation=%" PRIu64 " kind=apply\n", id);
+    printStatus(status);
   } else if (std::strcmp(command, "resetreapply") == 0) {
     startInitialize(true);
   } else if (std::strcmp(command, "cancel") == 0) {
