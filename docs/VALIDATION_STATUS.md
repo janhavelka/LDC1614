@@ -89,7 +89,7 @@ the clean package consumer and v3.0.0 package build passed as well.
 ## Checks To Run Before Merge Review
 
 ```sh
-python -B -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
+python -B -m py_compile scripts/generate_version.py scripts/configure_esptool_upload.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
 python tools/check_core_timing_guard.py
 python tools/check_cli_contract.py
 python tools/check_idf_example_contract.py

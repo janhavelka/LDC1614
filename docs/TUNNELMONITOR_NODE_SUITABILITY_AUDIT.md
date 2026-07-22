@@ -17,7 +17,7 @@ product intent.
 | --- | --- | --- |
 | LDC1614 tagged baseline | annotated `v3.0.0` at `a11fcb4c497de691c514a2a841a1fa1e94d47979` | Clean baseline before the post-release COM8 transport investigation. |
 | LDC1614 current work | `hardening/com8-hil-transport`, based on `v3.0.0` | Post-tag corrections are not part of `v3.0.0`. Exact validation revisions are recorded in `VALIDATION_STATUS.md` and the HIL artifacts. A new reviewed annotated release is required before production consumption. |
-| TunnelMonitor-node current checkout | `710d3acd8812704d974f04a76a22bc73efa087ad` on `prompt-45-platformization` | Read-only inspection. The checkout contained unrelated in-progress user changes, which this audit neither modified nor treated as a validated baseline. |
+| TunnelMonitor-node current checkout | `4d7555a2306b38032d7f6cbb15ccb29674fcecca` on `prompt-45-platformization` | Read-only inspection. The checkout contained unrelated in-progress module/binding changes, which this audit neither modified nor treated as a validated baseline. |
 
 The previous audit evaluated LDC1614 v2 and an older TunnelMonitor revision.
 Old line numbers and proposed type spellings were not treated as authority. The
@@ -39,14 +39,22 @@ retrieval date, and SHA-256 are recorded in `reference/README.md`.
 
 ## Current TunnelMonitor contract
 
-TunnelMonitor's `I2cTask` is the only shared-bus owner. It owns request
-admission, locking/serialization, absolute deadlines, callback timeout,
-retries, device presence, health, backoff, bus reset/SCL recovery, and result
-publication/lifetime. It has deadline expiry and result take/reclaim, but no
-current public I2C withdrawal/cancellation API. Normal work advances one
-backend/library callback per owner poll. Foreground identity is the tuple
-`(requestId, submissionToken, device, operation)`; result reservations are
-fixed and reclaimed exactly once.
+TunnelMonitor's `I2cTask` is the only shared-bus owner. Its in-progress concrete
+module boundary now injects an `I2cOwnerTransport` with `transferOnce()` and
+`probeOnce()` callbacks into fixed `I2cDeviceBinding` rows. Those callbacks cap
+the timeout to the absolute owner deadline and call the backend exactly once;
+they do not enter the older generic retry/recovery path. `I2cTask` retains
+request admission, locking/serialization, presence and health projection,
+backoff, bus reset/SCL recovery, and result publication/lifetime.
+
+The new binding has explicit `cancel()` and `onBusInvalidated()` callbacks.
+Queued or active measurement work can be cancelled by exact
+`(instanceId, requestId)` identity; the application-command path still relies
+on its deadline and terminal-result lifecycle rather than an arbitrary command
+withdrawal API. Measurement identity is `(requestId, instanceId, kind,
+deadline)`. Application-command identity remains `(requestId,
+submissionToken, instanceId, device, operation)`. Reservations are fixed and
+reclaimed exactly once.
 
 The inspected authorities were:
 
@@ -55,9 +63,10 @@ The inspected authorities were:
 - `include/TunnelMonitor/BoardPins.h`;
 - `include/TunnelMonitor/contracts/FieldBus.h`, `Health.h`, `Capacities.h`, and
   `Sample.h`;
-- `include/TunnelMonitor/i2c/I2cConfig.h` and
-  `src/i2c/I2cTask.cpp`, `src/i2c/Rv3032Adapter.cpp`, and
-  `src/i2c/IdfI2cBackend.cpp`; and
+- `include/TunnelMonitor/i2c/I2cConfig.h`, `I2cDeviceBinding.h`, and
+  `I2cOwnerTransport.h`;
+- `src/i2c/I2cTask.cpp`, `src/i2c/IdfI2cBackend.cpp`, and the in-progress
+  `src/devices/i2c/Rv3032Module.*` concrete-module reference; and
 - measurement/settings guidelines and current dependency metadata.
 
 Current concrete facts:
@@ -73,14 +82,17 @@ Current concrete facts:
   exact annotated release tag.
 
 The v3 library fits that ownership shape: its operation ID can be derived from
-or stored with the owner reservation, `poll(..., 1)` respects the normal
-callback budget, `cancelJob()` is bus-silent, terminal results are fixed and
-exactly once, and library transport statistics never take over health policy.
-An eventual owner-private concrete LDC device module must let `poll(now, 1)`
-observe deadline expiry and consume the correlated terminal result immediately.
-It must call `cancelJob()` only for explicit withdrawal, shutdown, or
-replacement; cancellation is not a substitute for the driver's `TIMED_OUT`
-result.
+or stored with the owner reservation, one `poll(now, 1)` call respects the
+one-transfer owner callback boundary, `cancelJob()` is bus-silent, terminal
+results are fixed and exactly once, and library transport statistics never
+take over health policy. An eventual owner-private concrete LDC device module
+must pass each library callback through `transferOnce()` exactly once, call
+`poll(now, 1)` no more than once per module poll, let that poll observe deadline
+expiry, and immediately consume and validate the correlated terminal result.
+Its binding `cancel()` must call `cancelJob()` only for explicit withdrawal,
+shutdown, or replacement; cancellation is not a substitute for the driver's
+`TIMED_OUT` result. Its `onBusInvalidated()` callback must invalidate applied
+state and require a complete initialize/replay before acquisition resumes.
 
 ## Hard-finding disposition
 
@@ -242,8 +254,10 @@ job, give the LDC job a private nonzero operation ID, pass the original owner
 deadline unchanged, call `poll(now, 1)`, and immediately drain and validate the
 matching terminal result. Keep queueing, deadline, retry, health, recovery, and
 public DTO policy in TunnelMonitor, and keep all LDC register protocol inside
-this library. The LDC transport callback must be exactly one physical attempt:
-it must bypass TunnelMonitor's generic hidden per-transfer retry/recovery path.
+this library. Route each LDC transport callback through the injected
+`I2cOwnerTransport::transferOnce()` boundary, which is exactly one physical
+backend attempt and bypasses TunnelMonitor's generic per-transfer
+retry/recovery path.
 Because TunnelMonitor's generic NACK does not prove address versus data phase,
 map a write NACK conservatively to data-NACK or generic I2C error, never to
 confirmed address-NACK.

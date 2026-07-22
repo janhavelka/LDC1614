@@ -48,8 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Arduino example startup. The example HIL sequence explicitly reinitializes
   the application-owned bus and replays configuration after scan NACK traffic.
 - ESP32-S2 internal-USB uploads now use automatic 1200-baud bootloader entry,
-  wait for port re-enumeration, and hard-reset back into the application instead
-  of requiring operator reset cycles or remaining in the flasher stub.
+  wait for port re-enumeration, avoid a second pre-flash reset, and hard-reset
+  back into the application instead of requiring operator reset cycles or
+  remaining in the flasher stub.
+- Maintained ESP32 PlatformIO uploads suppress esptool's Unicode progress bar,
+  avoiding Windows console-encoding failures that can interrupt a flash and
+  leave the native USB loader endpoint occupied.
 - Absolute 64-bit job deadlines now use half-range wrap-safe comparison, so a
   valid deadline immediately after `uint64_t` rollover is not timed out early.
 - The HIL runner rejects non-finite timing arguments and applies one absolute

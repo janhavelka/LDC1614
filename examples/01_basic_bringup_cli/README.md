@@ -19,8 +19,11 @@ controller through `i2c_master_bus_reset()`. The repository pins pioarduino
 recovery testing on real LDC hardware.
 
 The maintained ESP32-S2 PlatformIO profile uses its internal USB CDC upload
-path: automatic bootloader entry, port re-enumeration, and return to the
-application. Routine firmware updates must not require operator reset cycles.
+path: one automatic bootloader entry, port re-enumeration, no redundant
+pre-flash reset, and return to the application. The upload command also
+suppresses esptool's Unicode progress bar so Windows console encoding cannot
+interrupt the flash. Routine firmware updates must not require operator reset
+cycles.
 
 Useful commands:
 
