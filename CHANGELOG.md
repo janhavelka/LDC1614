@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-07-22
+
 ### Changed
 
 - Curated Doxygen now publishes the public headers plus maintained integration,
@@ -17,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in CI.
 - Reconciled README navigation, contribution checks, validation evidence, and
   the exact published v3.0.1 tag identity.
+
+### Fixed
+
+- Install Graphviz with Doxygen in CI so enabled include and collaboration
+  diagrams do not fail documentation generation when `dot` is unavailable.
 
 ### Removed
 
@@ -286,7 +293,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.2...HEAD
+[3.0.2]: https://github.com/janhavelka/LDC1614/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
