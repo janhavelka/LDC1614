@@ -29,6 +29,7 @@ backend is affected or that the TunnelMonitor ESP32-S3 backend is safe.
 | Same stack without startup scan | Same failure class; the diagnostic scan was not the root cause. |
 | pioarduino `53.03.13`, 400 kHz, after full power cycle | 25 repeated groups of `probe`, `reg 0x7E`, and `reg 0x7F` completed 75/75 identity transactions with `0x5449` / `0x3055`. This targeted A/B console evidence selected the candidate stack; it is not a substitute for the clean candidate smoke and one-hour artifact. |
 | Clean post-tag `bf44cf1`, pioarduino `53.03.13`, 400 kHz | The NACK-heavy startup scan found `0x2A` and `0x3C`, after which combined reads latched at zero-length while address probes and register writes still completed. The 39-command smoke correctly failed 24 commands. The MCU and serial CLI remained responsive; the missing capability was explicit application-owned controller reinitialization without an MCU reset. |
+| Clean `ac710c1`, Wire teardown/rebegin after each scan | The ESP32-S2 remained responsive for all 200 commands. All 25 scans and recovery commands returned success, but 16/25 following initialization reads failed and only 9/25 succeeded. A recovery operation that reports success while the next combined read remains unusable is not a valid ownership contract; this run forced removal of the duplicate Wire backend. |
 | 1 MHz | Deliberately not run. The LDC1614 I2C interface maximum is 400 kHz, so 1 MHz would be outside the device contract even if another shared-bus device supports it. |
 
 The failing clean v3.0.0 evidence is retained in:
@@ -37,24 +38,27 @@ The failing clean v3.0.0 evidence is retained in:
 - `hil-validation-COM8-20260722-v3-smoke.runner.md`
 - `hil-validation-COM8-20260722-bf44cf1-smoke.runner.json`
 - `hil-validation-COM8-20260722-bf44cf1-smoke.runner.md`
+- `hil-validation-COM8-20260722-ac710c1-recovery-stress.runner.json`
+- `hil-validation-COM8-20260722-ac710c1-recovery-stress.runner.md`
 
 The Markdown artifacts embed their raw command transcripts. Both are
 intentional `FAIL` records and must not be cited as positive HIL acceptance.
 
 The resulting example-owner correction removes the implicit startup scan,
-limits diagnostic scans to usable addresses `0x08..0x77`, adds one explicit
-`busrecover` operation that recreates the bus and invalidates trusted applied
-state, and requires complete `init` replay. The ESP32-S2 upload profile also
-uses automatic internal-USB bootloader entry, waits for port re-enumeration,
-and requests return to the application after flashing instead of requiring
-operator reset cycles or remaining in the flasher stub. These are candidate
-changes until clean-firmware HIL passes.
+limits diagnostic scans to usable addresses `0x08..0x77`, and consolidates both
+maintained ESP32 diagnostics on one ESP-IDF new-master transport. `busrecover`
+deletes and recreates its device/bus handles, invalidates trusted applied state,
+and requires complete `init` replay. The ESP32-S2 upload profile also uses
+automatic internal-USB bootloader entry, waits for port re-enumeration, and
+returns to the application after flashing. These are candidate changes until
+clean-firmware HIL passes.
 
 ## Integration consequence
 
-TunnelMonitor uses the ESP-IDF new I2C master API directly and creates a device
-handle per transfer, whereas this Arduino fixture used Wire. The implementations
-are not identical, but both reach the same driver family. Espressif issue
+The failing Arduino artifacts used Wire. The corrected Arduino diagnostic and
+the native ESP-IDF diagnostic now use the same ESP-IDF new-master API family as
+TunnelMonitor, while TunnelMonitor still creates a device handle per transfer.
+The ownership implementations are therefore closer but not identical. Espressif issue
 <https://github.com/espressif/esp-idf/issues/14030> records a NACK followed by
 persistent `ESP_ERR_INVALID_STATE`; the issue remained open when checked on
 2026-07-22. A product-neutral ESP32-S3 TunnelMonitor HIL gate is therefore still

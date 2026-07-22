@@ -4,6 +4,11 @@ This native ESP-IDF application uses `app_main`, `driver/i2c_master.h`, a
 fixed-buffer CLI, one application owner task, ESP timer timekeeping, and native GPIO
 and task APIs. It contains no Arduino facade.
 
+It shares the example-owned ESP-IDF new-master transport in
+`examples/esp32/I2cMasterTransport.*` with the Arduino diagnostic. This keeps
+combined-transfer error mapping, bounded timeouts, probe semantics, and handle
+teardown/recreation in one owner rather than maintaining parallel backends.
+
 The example binds an explicit profile without I2C, schedules cooperative
 initialization, and advances at most one driver transport callback per console
 service pass. This diagnostic has one task and therefore no redundant mutex;

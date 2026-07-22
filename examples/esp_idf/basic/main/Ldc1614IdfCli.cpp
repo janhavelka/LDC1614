@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "Ldc1614IdfI2cTransport.h"
+#include "I2cMasterTransport.h"
 
 namespace {
 
@@ -50,7 +50,7 @@ const char* outcomeName(LDC1614::TerminalOutcome outcome) {
 
 Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device,
                              const LDC1614::Config& defaultConfig,
-                             Ldc1614IdfI2c& transport,
+                             esp32_i2c::Context& transport,
                              I2cRecoverFn i2cRecover,
                              void* recoverUser)
     : _device(device),
@@ -104,17 +104,17 @@ void Ldc1614IdfCli::scanI2c() const {
   uint8_t probes = 0;
   for (uint8_t address = 0x08U; address <= 0x77U; ++address) {
     ++probes;
-    const Ldc1614IdfProbeResult result = ldc1614IdfI2cProbeAddress(
+    const esp32_i2c::ProbeResult result = esp32_i2c::probe(
         _transport, address, _defaultConfig.i2cTimeoutMs);
-    if (result == Ldc1614IdfProbeResult::ACK) {
+    if (result == esp32_i2c::ProbeResult::ACK) {
       ++found;
       std::printf("I2C device at 0x%02X\n", address);
-    } else if (result == Ldc1614IdfProbeResult::TIMEOUT) {
+    } else if (result == esp32_i2c::ProbeResult::TIMEOUT) {
       std::printf("scan failed address=0x%02X\n", address);
       printStatus(LDC1614::Status::Error(
           LDC1614::Err::I2C_TIMEOUT, "I2C scan probe timed out", address));
       return;
-    } else if (result == Ldc1614IdfProbeResult::ERROR) {
+    } else if (result == esp32_i2c::ProbeResult::ERROR) {
       std::printf("scan failed address=0x%02X\n", address);
       printStatus(LDC1614::Status::Error(
           LDC1614::Err::I2C_BUS, "I2C scan probe failed", address));

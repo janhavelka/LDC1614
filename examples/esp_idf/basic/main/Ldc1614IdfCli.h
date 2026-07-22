@@ -4,7 +4,9 @@
 
 #include "LDC1614/LDC1614.h"
 
-struct Ldc1614IdfI2c;
+namespace esp32_i2c {
+struct Context;
+}
 
 /// Native fixed-buffer ESP-IDF diagnostic CLI.
 class Ldc1614IdfCli {
@@ -13,7 +15,7 @@ class Ldc1614IdfCli {
 
   Ldc1614IdfCli(LDC1614::LDC1614& device,
                 const LDC1614::Config& defaultConfig,
-                Ldc1614IdfI2c& transport,
+                esp32_i2c::Context& transport,
                 I2cRecoverFn i2cRecover,
                 void* recoverUser);
 
@@ -39,7 +41,7 @@ class Ldc1614IdfCli {
 
   LDC1614::LDC1614& _device;
   LDC1614::Config _defaultConfig;
-  Ldc1614IdfI2c& _transport;
+  esp32_i2c::Context& _transport;
   I2cRecoverFn _i2cRecover = nullptr;
   void* _recoverUser = nullptr;
   LDC1614::OperationId _nextOperationId = 1;

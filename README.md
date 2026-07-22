@@ -61,9 +61,10 @@ Host validation tools are pinned in `requirements-dev.txt`; the maintained
 Arduino build uses pioarduino `53.03.13` (Arduino 3.1.3 with ESP-IDF 5.3
 libraries), pinned in `platformio.ini`. COM8 testing selected this baseline
 after the `54.03.20` Arduino Wire path produced intermittent combined-read
-`ESP_ERR_INVALID_STATE` failures. This pin is example/build-tool policy, not a
-dependency of the framework-neutral core; native ESP-IDF owner backends still
-require their own target validation.
+`ESP_ERR_INVALID_STATE` failures. Both maintained ESP32 diagnostics now use one
+example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
+this is example/build-tool policy, not a dependency of the framework-neutral
+core. Each product owner still requires target validation.
 
 ## Explicit profile
 

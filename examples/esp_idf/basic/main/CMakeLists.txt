@@ -1,9 +1,9 @@
 idf_component_register(
   SRCS
     "main.cpp"
-    "Ldc1614IdfI2cTransport.cpp"
+    "../../../esp32/I2cMasterTransport.cpp"
     "Ldc1614IdfCli.cpp"
-  INCLUDE_DIRS "."
+  INCLUDE_DIRS "." "../../../esp32"
   REQUIRES LDC1614 esp_driver_i2c esp_driver_gpio esp_timer freertos
 )
 

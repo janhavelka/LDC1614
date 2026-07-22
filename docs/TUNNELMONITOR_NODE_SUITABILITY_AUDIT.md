@@ -203,6 +203,10 @@ the ESP32-S2 remained responsive and address/write traffic continued while
 combined reads were unusable. Recovery must recreate the application-owned
 controller/device handles, invalidate LDC applied state, and replay the complete
 profile; rebooting the MCU is not an acceptable routine recovery policy.
+The maintained Arduino diagnostic now uses the same shared ESP-IDF new-master
+transport as the native IDF diagnostic, removing Wire as a second behavior to
+interpret. TunnelMonitor's per-transfer handle lifecycle remains different and
+still requires the ESP32-S3 HIL gate below.
 
 Before a TunnelMonitor integration or field decision, capture on the exact
 ESP32-S3 board and selected sensors:

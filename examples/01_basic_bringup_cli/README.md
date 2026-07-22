@@ -4,17 +4,19 @@ This PlatformIO/Arduino example demonstrates the v3 cooperative owner contract.
 It is diagnostic firmware, not a production bus manager or hardware-validation
 claim.
 
-The application owns `Wire`, pins, serialization, the 64-bit monotonic time
-extension, absolute job deadlines, transfer budget, and recovery policy. It
-first calls bus-silent `bind()`, schedules `startInitialize()`, then advances
-the active job by at most one I2C callback per `loop()` pass. Terminal results
-are consumed through `takeResult()` exactly once.
+The application owns the ESP-IDF new-master bus/device handles, pins,
+serialization, the 64-bit monotonic time extension, absolute job deadlines,
+transfer budget, and recovery policy. It first calls bus-silent `bind()`,
+schedules `startInitialize()`, then advances the active job by at most one I2C
+callback per `loop()` pass. Terminal results are consumed through
+`takeResult()` exactly once.
 
-The ESP32 Wire adapter treats its repeated-start address and read phases as one
-callback and gives the read only the timeout remaining after the address phase.
-The repository pins pioarduino `53.03.13`; do not upgrade the example toolchain
-without repeating combined-read and post-NACK recovery testing on real LDC
-hardware.
+The Arduino and native ESP-IDF diagnostics share
+`examples/esp32/I2cMasterTransport.*`. A combined register read is one bounded
+`i2c_master_transmit_receive()` transaction, and owner recovery deletes and
+recreates the device and bus handles. The repository pins pioarduino
+`53.03.13`; do not upgrade it without repeating combined-read and post-NACK
+recovery testing on real LDC hardware.
 
 The maintained ESP32-S2 PlatformIO profile uses its internal USB CDC upload
 path: automatic bootloader entry, port re-enumeration, and return to the
@@ -24,8 +26,8 @@ Useful commands:
 
 - `init`, `apply`, `resetreapply`, `acquire [mask]`, `cancel`, `progress`;
 - `status`, `ready`, `sleep`, `wake`, `initdrive <channel>`;
-- `busrecover` for one explicit owner-controlled `Wire.end()`/reinitialize,
-  followed by a complete `init` replay;
+- `busrecover` for one explicit owner-controlled device/bus handle teardown and
+  recreation, followed by a complete `init` replay;
 - `drv`, `cfg`, `probe`, `reg`, `wreg`, `timing`, and `freq`; and
 - `invalidate` after owner-observed power loss, reset, removal, or bus recovery.
 

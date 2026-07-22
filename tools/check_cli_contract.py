@@ -9,7 +9,6 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 REQUIRED_COMMON = [
     "BoardConfig.h",
-    "I2cTransport.h",
     "Ldc1614Cli.h",
     "Ldc1614Cli.cpp",
 ]
@@ -90,7 +89,7 @@ def main() -> int:
     idf_cmake = ROOT / "examples" / "esp_idf" / "basic" / "main" / "CMakeLists.txt"
     idf_cli = ROOT / "examples" / "esp_idf" / "basic" / "main" / "Ldc1614IdfCli.cpp"
     shared_cli = common_dir / "Ldc1614Cli.cpp"
-    transport = common_dir / "I2cTransport.h"
+    transport = ROOT / "examples" / "esp32" / "I2cMasterTransport.cpp"
     version_script = ROOT / "scripts" / "generate_version.py"
     gitignore = ROOT / ".gitignore"
 
@@ -100,7 +99,7 @@ def main() -> int:
     ensure_exists(idf_cmake, "ESP-IDF example build definition")
     ensure_exists(idf_cli, "ESP-IDF diagnostic CLI implementation")
     ensure_exists(shared_cli, "shared CLI implementation")
-    ensure_exists(transport, "Arduino example transport")
+    ensure_exists(transport, "shared ESP32 example transport")
     ensure_exists(version_script, "version generator")
     ensure_exists(gitignore, "Git ignore rules")
 
@@ -124,6 +123,10 @@ def main() -> int:
 
     if "Ldc1614Cli.h" not in arduino_text:
         fail("Arduino example must use shared Ldc1614Cli.h")
+    if "Wire" in arduino_text or "TwoWire" in arduino_text:
+        fail("Arduino example must use the explicit ESP-IDF new-master owner, not Wire")
+    if "esp32_i2c::writeRead" not in arduino_text:
+        fail("Arduino example must inject the shared ESP32 new-master transport")
     if "Ldc1614Cli.h" in idf_text:
         fail("ESP-IDF example must use native fixed-buffer CLI, not shared Ldc1614Cli.h")
     if "I2cProbeResult::NACK" not in arduino_text:
@@ -132,11 +135,9 @@ def main() -> int:
         fail("Arduino scan must expose bounded completion and transport failure")
     if "i2cRecover" not in text or "Owner reinitialized I2C bus" not in text:
         fail("Arduino CLI must expose explicit owner-controlled bus reinitialization")
-    if (
-        "esp_timer_get_time()" not in transport_text
-        or "wire->setTimeOut(remainingMs);" not in transport_text
-    ):
-        fail("Arduino combined write-read must share one callback timeout budget")
+    if ("i2c_master_transmit_receive" not in transport_text or
+            "clampTimeoutMs(timeoutMs)" not in transport_text):
+        fail("ESP32 combined write-read must use one bounded new-master transaction")
 
     for source_name, source_text in (
         ("PlatformIO version generator", version_text),
