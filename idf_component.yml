@@ -1,4 +1,4 @@
-version: "3.0.2"
+version: "3.0.0"
 description: "Framework-neutral cooperative LDC1614/LDC1612 inductance-to-digital converter driver."
 license: "MIT"
 url: "https://github.com/janhavelka/LDC1614"

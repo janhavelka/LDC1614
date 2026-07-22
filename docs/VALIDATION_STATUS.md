@@ -40,14 +40,14 @@ output or CI logs for `examples/esp_idf/basic`. `idf.py` was unavailable in the
 
 ## Documentation Evidence
 
-On 2026-07-21, Doxygen 1.13.2 generated the public headers and maintained guides
+On 2026-07-22, Doxygen 1.13.2 generated the public headers and maintained guides
 with undocumented-member, missing-parameter, and documentation-error warnings
 enabled as errors. It completed without warnings. Generated HTML was inspected
-for the v3.0.1 release identity and the compatibility-only `CONFIG_UNKNOWN`
+for the consolidated v3.0.0 release identity and the compatibility-only `CONFIG_UNKNOWN`
 wording, then removed because `docs/doxygen/` is ignored build output.
 The maintained Markdown local-link check also passed. Both native environments
 were repeated after the public-header documentation changes and passed 29/29;
-the clean package consumer and v3.0.1 package build passed as well.
+the clean package consumer and v3.0.0 package build passed as well.
 
 ## Checks To Run Before Merge Review
 

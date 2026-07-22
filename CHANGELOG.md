@@ -7,70 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.0.2] - 2026-07-22
-
-### Changed
-
-- Curated Doxygen now publishes the public headers plus maintained integration,
-  validation, and HIL guides while excluding internal instructions and
-  raw vendor/reference trace material.
-- Documentation generation now fails on undocumented public API, missing
-  parameter documentation, and Doxygen documentation errors, and is exercised
-  in CI.
-- Reconciled README navigation, contribution checks, validation evidence, and
-  the exact published v3.0.1 tag identity.
-
-### Fixed
-
-- Install Graphviz with Doxygen in CI so enabled include and collaboration
-  diagrams do not fail documentation generation when `dot` is unavailable.
-
-### Removed
-
-- Removed one-time implementation instructions and superseded COM8 dry-run and
-  empty-payload audit artifacts. Current guides, cited chip-only hardware
-  evidence, and vendor-source traceability remain.
-
-## [3.0.1] - 2026-07-19
-
-### Fixed
-
-- Divide each poll's remaining deadline across the callbacks actually left in
-  the job, so a large caller budget cannot spuriously shorten callback
-  timeouts near completion.
-- Validate external reference-clock tolerance and the datasheet OFFSET versus
-  minimum-sensor-frequency constraint with overflow-safe worst-case arithmetic.
-- Treat a confirmed address NACK as a known no-device-mutation result while
-  retaining conservative ambiguity for timeout, bus, and data-NACK failures.
-- Make advanced raw access variant-aware and reject writes to read-only
-  DATA/STATUS/identity registers.
-- Require trusted active configuration before destructive readiness polling.
-- Correct the behavioral fake so wrong-address transactions cannot mutate
-  device or destructive-read state.
-- Require command-specific HIL evidence, exact device identity, configured
-  address/channel facts, clean firmware-reported Git identity, and nonzero exit
-  for ambiguous verification runs. Host and flashed firmware revisions are now
-  recorded separately.
-- Distinguish normal address NACK from Arduino scan transport failures and stop
-  the bounded diagnostic scan on timeout/bus error.
-- Share one timeout budget across the Arduino combined write/read phases instead
-  of allowing each phase to consume the full callback timeout.
-- Include untracked source files in flashed-firmware cleanliness metadata and
-  report Git status failures as unknown rather than clean.
-
-### Changed
-
-- Expanded native tests with exact LDC1612/LDC1614 replay transcripts, precise
-  phase/register/channel provenance, four-channel acquisition faults,
-  cancellation/deadline paths, freshness, lifecycle, one-transfer boundaries,
-  clock/OFFSET/frequency endpoints, and individual register-field encodings.
-- Removed unused v2-era example helper headers and their stale guard
-  requirements; current examples retain only their actual owners.
-- Clarified monotonic 64-bit owner time, non-reentrant callbacks, poll-boundary
-  timestamps, TunnelMonitor retry boundaries, immutable release tags, and HIL
-  evidence limits.
-
-## [3.0.0] - 2026-07-19
+## [3.0.0] - 2026-07-22
 
 ### Added
 
@@ -101,6 +38,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Curated Doxygen now publishes the public headers plus maintained integration,
+  validation, and HIL guides while excluding internal instructions and raw
+  vendor/reference trace material.
+- Documentation generation now fails on undocumented public API, missing
+  parameter documentation, and Doxygen documentation errors, and is exercised
+  in CI.
+- Reconciled README navigation, contribution checks, validation evidence, and
+  the consolidated v3.0.0 release identity.
+- Expanded native tests with exact LDC1612/LDC1614 replay transcripts, precise
+  phase/register/channel provenance, four-channel acquisition faults,
+  cancellation/deadline paths, freshness, lifecycle, one-transfer boundaries,
+  clock/OFFSET/frequency endpoints, and individual register-field encodings.
+- Removed unused v2-era example helper headers and their stale guard
+  requirements; current examples retain only their actual owners.
+- Clarified monotonic 64-bit owner time, non-reentrant callbacks, poll-boundary
+  timestamps, TunnelMonitor retry boundaries, release-tag verification, and HIL
+  evidence limits.
 - **Breaking:** `begin(config)` is replaced by zero-I2C `bind(config)` followed
   by `startInitialize(id, deadline)`, budgeted `poll()`, and exactly-once
   `takeResult()`.
@@ -130,8 +84,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `native_cov` is described as coverage instrumentation only because no report
   or threshold is produced.
 
+### Removed
+
+- Removed one-time implementation instructions and superseded COM8 dry-run and
+  empty-payload audit artifacts. Current guides, cited chip-only hardware
+  evidence, and vendor-source traceability remain.
+
 ### Fixed
 
+- Divide each poll's remaining deadline across the callbacks actually left in
+  the job, so a large caller budget cannot spuriously shorten callback timeouts
+  near completion.
+- Validate external reference-clock tolerance and the datasheet OFFSET versus
+  minimum-sensor-frequency constraint with overflow-safe worst-case arithmetic.
+- Treat a confirmed address NACK as a known no-device-mutation result while
+  retaining conservative ambiguity for timeout, bus, and data-NACK failures.
+- Make advanced raw access variant-aware and reject writes to read-only
+  DATA/STATUS/identity registers.
+- Require trusted active configuration before destructive readiness polling.
+- Correct the behavioral fake so wrong-address transactions cannot mutate
+  device or destructive-read state.
+- Require command-specific HIL evidence, exact device identity, configured
+  address/channel facts, clean firmware-reported Git identity, and nonzero exit
+  for ambiguous verification runs. Host and flashed firmware revisions are now
+  recorded separately.
+- Distinguish normal address NACK from Arduino scan transport failures and stop
+  the bounded diagnostic scan on timeout/bus error.
+- Share one timeout budget across the Arduino combined write/read phases instead
+  of allowing each phase to consume the full callback timeout.
+- Include untracked source files in flashed-firmware cleanliness metadata and
+  report Git status failures as unknown rather than clean.
+- Install Graphviz with Doxygen in CI so enabled include and collaboration
+  diagrams do not fail documentation generation when `dot` is unavailable.
 - Cold initialization, configuration replay, and reset/reapply can no longer
   monopolize an external bus owner in one library call.
 - Deadline or application cancellation cannot leave an old job busy or permit
@@ -293,9 +277,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.2...HEAD
-[3.0.2]: https://github.com/janhavelka/LDC1614/compare/v3.0.1...v3.0.2
-[3.0.1]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...v3.0.1
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...HEAD
 [3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0

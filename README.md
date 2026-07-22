@@ -11,7 +11,7 @@ address strap, reference clock, LC sensors, channel mapping, INTB/SD wiring,
 fault policy, calibration, cadence, and soak conditions. Retained ESP32-S2
 chip-only evidence predates v3 and does not validate sensor-attached behavior.
 
-The latest tagged API release is **v3.0.2**. Hardware-validation boundaries are
+The latest tagged API release is **v3.0.0**. Hardware-validation boundaries are
 recorded in the maintained validation status and HIL guides.
 
 ## Core contract
