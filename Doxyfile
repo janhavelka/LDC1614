@@ -39,8 +39,7 @@ INPUT                  = README.md \
                          docs/HARDWARE_INTEGRATION.md \
                          docs/IDF_PORT.md \
                          docs/HIL_VALIDATION.md \
-                         docs/VALIDATION_STATUS.md \
-                         docs/TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md
+                         docs/VALIDATION_STATUS.md
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */.pio/* */.git/* */test/* */docs/doxygen/* */docs/reference/extracted-md/* */docs/reference/pdf-extracted-md/* */docs/_pdf_extracts/*

@@ -98,7 +98,7 @@ jobs:
         run: python tools/check_readiness_claims.py
 
       - name: Check Python tooling syntax
-        run: python -B -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
+        run: python -B -m py_compile scripts/generate_version.py scripts/configure_esptool_upload.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
 
       - name: Check HIL parser and no-hardware path
         run: |

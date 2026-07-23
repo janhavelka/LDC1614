@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -23,18 +24,24 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)
         self.assertIn("drv", commands)
+        self.assertIn("busrecover", commands)
+        self.assertLess(commands.index("scan"), commands.index("busrecover"))
+        self.assertLess(commands.index("busrecover"), commands.index("init"))
         self.assertIn("progress", commands)
         self.assertIn("timing 0x01", commands)
         self.assertFalse(any(command.startswith("acquire") for command in commands))
 
-    def test_no_sensor_fixture_excludes_conversion_checks(self) -> None:
+    def test_no_sensor_fixture_uses_acquisition_without_drdy_wait(self) -> None:
         commands = runner.default_commands("arduino", "no-sensor")
 
         self.assertIn("progress", commands)
+        self.assertIn("busrecover", commands)
+        self.assertLess(commands.index("scan"), commands.index("busrecover"))
+        self.assertLess(commands.index("busrecover"), commands.index("init"))
         self.assertIn("reg 0x7E", commands)
         self.assertIn("reg 0x7F", commands)
         self.assertNotIn("drdy", commands)
-        self.assertFalse(any(command.startswith("acquire") for command in commands))
+        self.assertIn("acquire 0x01", commands)
         self.assertNotIn("samplerate 0 10", commands)
 
     def test_default_idf_commands_cover_supported_safe_diagnostics(self) -> None:
@@ -44,9 +51,12 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertIn("probe", commands)
         self.assertIn("cfg", commands)
         self.assertIn("drv", commands)
+        self.assertIn("busrecover", commands)
+        self.assertLess(commands.index("scan"), commands.index("busrecover"))
+        self.assertLess(commands.index("busrecover"), commands.index("init"))
         self.assertIn("progress", commands)
         self.assertIn("timing 0x01", commands)
-        self.assertNotIn("scan", commands)
+        self.assertIn("scan", commands)
 
     def test_serial_line_defaults_match_known_esp32s2_fixture(self) -> None:
         args = runner.parse_args([])
@@ -56,9 +66,9 @@ class HilRunnerParserTests(unittest.TestCase):
     def test_classifier_accepts_common_informational_outputs(self) -> None:
         cases = (
             ("version", "version: 1.0.0 firmware_git=abcdef1 firmware_status=clean\n> "),
-            ("scan", "I2C device at 0x2A\nscan complete found=1 probes=126\nstatus: code=0\n> "),
+            ("scan", "I2C device at 0x2A\nscan complete found=1 probes=112\nstatus: code=0\n> "),
             ("settings", "address=0x2a variant=2 variantChannels=4 selected=0x01 timeoutMs=10\n> "),
-            ("status", "STATUS observed=1 raw=0x0000 drdy=0 unread=0x00 errCh=4\n> "),
+            ("status", "STATUS observed=1 raw=0x0000 drdy=0 unread=0x00 errCh=4\nstatus: code=0\n> "),
             ("health", "bound=1 applied=APPLIED_SLEEPING revision=1\n> "),
             ("progress", "active=0 operation=0 transfers=0/0\n> "),
             ("reg 0x7E", "reg 0x7E = 0x5449\n> "),
@@ -98,6 +108,33 @@ class HilRunnerParserTests(unittest.TestCase):
                 status, reason = runner.classify_command("probe", output, False)
                 self.assertEqual("FAIL", status, reason)
 
+    def test_no_sensor_classifier_accepts_sensor_flags_but_not_transport_failure(self) -> None:
+        output = (
+            "STATUS observed=1 raw=0x2840 drdy=1 unread=0x01 errCh=0 "
+            "UR=1 OR=0 WD=0 AH=0 AL=0 ZC=0\nstatus: code=0\n> "
+        )
+        status, _ = runner.classify_command("status", output, False)
+        self.assertEqual("FAIL", status)
+
+        status, reason = runner.classify_command(
+            "status", output, False, fixture="no-sensor"
+        )
+        self.assertEqual("PASS", status, reason)
+
+        status, _ = runner.classify_command(
+            "status", output.replace("status: code=0\n", ""), False,
+            fixture="no-sensor",
+        )
+        self.assertEqual("FAIL", status)
+
+        status, _ = runner.classify_command(
+            "status",
+            output + "status: I2C_TIMEOUT code=7\n> ",
+            False,
+            fixture="no-sensor",
+        )
+        self.assertEqual("FAIL", status)
+
     def test_classifier_accepts_terminal_operation_result(self) -> None:
         status, reason = runner.classify_command(
             "custom-acquire",
@@ -110,6 +147,27 @@ class HilRunnerParserTests(unittest.TestCase):
         )
 
         self.assertEqual("PASS", status, reason)
+
+    def test_async_classifier_requires_matching_successful_terminal_result(self) -> None:
+        output = (
+            "scheduled operation=42 reset=0\n"
+            "status: code=5 detail=0 msg=Operation in progress\n> "
+            "result operation=42 kind=1 outcome=SUCCESS effects=0x00\n"
+            "status: code=0 detail=0 msg=OK\n"
+        )
+        status, reason = runner.classify_command("init", output, False)
+        self.assertEqual("PASS", status, reason)
+
+        status, _ = runner.classify_command(
+            "init", output.replace("result operation=42", "result operation=43"),
+            False,
+        )
+        self.assertEqual("FAIL", status)
+
+        status, _ = runner.classify_command(
+            "init", output.replace("outcome=SUCCESS", "outcome=FAILED"), False
+        )
+        self.assertEqual("FAIL", status)
 
     def test_classifier_supports_configured_tokens(self) -> None:
         expected = runner.compile_token_patterns(["fixture ready"])
@@ -237,6 +295,16 @@ class HilRunnerParserTests(unittest.TestCase):
             self.assertIn("Evidence type: `no_hardware_audit`", markdown)
             self.assertIn("No serial command transcript captured", markdown)
 
+    def test_markdown_transcript_has_no_trailing_whitespace(self) -> None:
+        args = runner.parse_args(["--dry-run"])
+        result = runner.make_result(args)
+        result["transcript"] = "command output  \n> \n"
+
+        markdown = runner.render_markdown(result)
+
+        self.assertFalse(any(line.endswith((" ", "\t")) for line in markdown.splitlines()))
+        self.assertIn("command output\n>\n", markdown)
+
     def test_dry_run_lists_bounded_not_run_command_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             json_out = Path(temp_dir) / "hil.json"
@@ -344,6 +412,209 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertEqual(0, summary["failure_count"])
         self.assertEqual(40.0, summary["effective_hz"])
 
+    def test_soak_summary_requires_explicit_supported_fixture_and_uses_observation(self) -> None:
+        unsupported = runner.parse_args(["--include-long-soak"])
+        self.assertEqual("NOT_RUN", runner.summarize_soak(unsupported)["status"])
+
+        args = runner.parse_args(
+            [
+                "--profile", "arduino", "--fixture", "no-sensor",
+                "--include-long-soak", "--soak-duration-s", "3600",
+            ]
+        )
+        observed = {
+            "status": "PASS",
+            "reason": "complete",
+            "requested_duration_s": 3600.0,
+            "elapsed_s": 3600.1,
+        }
+        self.assertIs(observed, runner.summarize_soak(args, observed))
+
+    def test_soak_outcome_and_overall_failure_precedence(self) -> None:
+        self.assertEqual(
+            ("FAIL", "no complete soak cycle executed"),
+            runner.soak_outcome(0, 0, 0, 0),
+        )
+        status, reason = runner.soak_outcome(1, 0, 0, 1)
+        self.assertEqual("FAIL", status, reason)
+        self.assertIn("reset", reason)
+        self.assertEqual(
+            "FAIL", runner.combine_overall_and_soak("UNKNOWN", "FAIL")
+        )
+        self.assertEqual(
+            "UNKNOWN", runner.combine_overall_and_soak("PASS", "UNKNOWN")
+        )
+        self.assertEqual(
+            "FAIL", runner.combine_overall_and_soak("FAIL", "PASS")
+        )
+
+    def test_soak_drv_invariant_requires_bound_active_state(self) -> None:
+        passed = {
+            "status": "PASS",
+            "reason": "matched",
+            "output": "bound=1 applied=APPLIED_ACTIVE revision=2\n> ",
+        }
+        self.assertIs(passed, runner.enforce_soak_invariant("drv", passed))
+
+        stale = {
+            "status": "PASS",
+            "reason": "matched",
+            "output": "bound=1 applied=APPLIED_SLEEP revision=2\n> ",
+        }
+        checked = runner.enforce_soak_invariant("drv", stale)
+        self.assertEqual("FAIL", checked["status"])
+        self.assertIn("APPLIED_ACTIVE", checked["reason"])
+        self.assertEqual("PASS", stale["status"])
+
+    def test_serial_async_command_waits_for_matching_terminal_result(self) -> None:
+        class FakeSerial:
+            def __init__(self, *_args, **_kwargs):
+                self.buffer = bytearray(b"> ")
+                self.pending = bytearray()
+                self.dtr = False
+                self.rts = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            @property
+            def in_waiting(self):
+                if not self.buffer and self.pending:
+                    self.buffer.extend(self.pending)
+                    self.pending.clear()
+                return len(self.buffer)
+
+            def read(self, length):
+                result = bytes(self.buffer[:length])
+                del self.buffer[:length]
+                return result
+
+            def write(self, payload):
+                self.assert_command = payload.decode("utf-8").strip()
+                self.buffer.extend(
+                    b"scheduled operation=42 reset=0\n"
+                    b"status: code=5 detail=0 msg=Operation in progress\n> "
+                )
+                self.pending.extend(
+                    b"result operation=42 kind=1 outcome=SUCCESS effects=0x00\n"
+                    b"status: code=0 detail=0 msg=OK\n"
+                )
+                return len(payload)
+
+            def flush(self):
+                return None
+
+        original_serial = sys.modules.get("serial")
+        sys.modules["serial"] = types.SimpleNamespace(Serial=FakeSerial)
+        try:
+            args = runner.parse_args(
+                [
+                    "--port", "FAKE", "--profile", "arduino",
+                    "--fixture", "no-sensor", "--startup-delay-s", "0",
+                    "--idle-gap-s", "0.01", "--operator", "test",
+                    "--board", "fake",
+                ]
+            )
+            results, _transcript, _version, _startup, soak = (
+                runner.run_serial_commands(args, ["init"])
+            )
+        finally:
+            if original_serial is None:
+                del sys.modules["serial"]
+            else:
+                sys.modules["serial"] = original_serial
+
+        self.assertIsNone(soak)
+        self.assertEqual(1, len(results))
+        self.assertEqual("PASS", results[0]["status"], results[0]["reason"])
+
+    def test_bounded_no_sensor_soak_executes_complete_awake_cycles(self) -> None:
+        commit = runner.git_value(["rev-parse", "--short", "HEAD"])
+
+        class FakeSerial:
+            def __init__(self, *_args, **_kwargs):
+                self.buffer = bytearray(b"> ")
+                self.dtr = False
+                self.rts = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            @property
+            def in_waiting(self):
+                return len(self.buffer)
+
+            def read(self, length):
+                result = bytes(self.buffer[:length])
+                del self.buffer[:length]
+                return result
+
+            def write(self, payload):
+                command = payload.decode("utf-8").strip()
+                outputs = {
+                    "version": (
+                        f"version: 3.0.0 firmware_git={commit} "
+                        "firmware_status=clean build_timestamp=test\n> "
+                    ),
+                    "cfg": "address=0x2A variantChannels=4\n> ",
+                    "probe": (
+                        "MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055\n"
+                        "status: code=0\n> "
+                    ),
+                    "status": (
+                        "STATUS observed=1 raw=0x2840 drdy=1 unread=0x01 "
+                        "errCh=0 UR=1 OR=0 WD=0 AH=0 AL=0 ZC=0\n"
+                        "status: code=0\n> "
+                    ),
+                    "sleep": "status: code=0\n> ",
+                    "wake": "status: code=0\n> ",
+                    "drv": "bound=1 applied=APPLIED_ACTIVE revision=1\n> ",
+                }
+                self.buffer.extend(outputs[command].encode("utf-8"))
+                return len(payload)
+
+            def flush(self):
+                return None
+
+        original_serial = sys.modules.get("serial")
+        sys.modules["serial"] = types.SimpleNamespace(Serial=FakeSerial)
+        try:
+            args = runner.parse_args(
+                [
+                    "--port", "FAKE", "--profile", "arduino",
+                    "--fixture", "no-sensor", "--skip-default-commands",
+                    "--command", "version", "--command", "cfg",
+                    "--expected-firmware-commit", commit,
+                    "--operator", "test", "--board", "fake",
+                    "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+                    "--include-long-soak", "--soak-duration-s", "0.03",
+                    "--soak-cycle-delay-s", "0.01",
+                ]
+            )
+            result = runner.make_result(args)
+        finally:
+            if original_serial is None:
+                del sys.modules["serial"]
+            else:
+                sys.modules["serial"] = original_serial
+
+        self.assertEqual("PASS", result["overall_status"])
+        self.assertEqual("PASS", result["soak"]["status"])
+        self.assertGreaterEqual(result["soak"]["elapsed_s"], 0.03)
+        self.assertGreaterEqual(result["soak"]["cycle_count"], 1)
+        self.assertEqual(0, result["soak"]["command_count"] % 6)
+        self.assertEqual(0, result["soak"]["failure_count"])
+        self.assertEqual(
+            result["soak"]["command_counts"]["sleep"]["PASS"],
+            result["soak"]["command_counts"]["wake"]["PASS"],
+        )
+
     def test_serial_open_failure_is_not_hardware_hil_evidence(self) -> None:
         args = runner.parse_args(["--port", "COM404"])
         original = runner.run_serial_commands
@@ -362,6 +633,17 @@ class HilRunnerParserTests(unittest.TestCase):
         self.assertEqual("serial_not_run", result["evidence_type"])
 
     def test_parse_args_rejects_unbounded_timeouts_and_stress(self) -> None:
+        for option in (
+            "--startup-delay-s",
+            "--command-timeout-s",
+            "--write-timeout-s",
+            "--idle-gap-s",
+            "--soak-duration-s",
+            "--soak-cycle-delay-s",
+        ):
+            with self.subTest(option=option):
+                with self.assertRaises(SystemExit):
+                    runner.parse_args([option, "nan"])
         with self.assertRaises(SystemExit):
             runner.parse_args(["--command-timeout-s", "-1"])
         with self.assertRaises(SystemExit):
@@ -370,6 +652,13 @@ class HilRunnerParserTests(unittest.TestCase):
             runner.parse_args(["--address", "0x29"])
         with self.assertRaises(SystemExit):
             runner.parse_args(["--expected-firmware-commit", "not-a-sha"])
+        with self.assertRaises(SystemExit):
+            runner.parse_args(["--soak-duration-s", "3600"])
+        with self.assertRaises(SystemExit):
+            runner.parse_args(
+                ["--include-long-soak", "--soak-duration-s",
+                 str(runner.MAX_SOAK_DURATION_S + 1)]
+            )
 
     def test_unknown_verification_result_exits_nonzero(self) -> None:
         original_make = runner.make_result

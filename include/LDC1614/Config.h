@@ -177,7 +177,7 @@ struct ChannelConfig {
   uint16_t settleCount = 0;         ///< Reference-clock settling count.
   uint8_t finDivider = 0;           ///< 0 is unspecified; valid range is 1..15.
   uint16_t frefDivider = 0;         ///< 0 is unspecified; valid range is 1..1023.
-  uint16_t offset = 0;              ///< Conversion offset constrained by the sensor/clock ratio.
+  uint16_t offset = 0;              ///< Offset including FIN divider must remain below sensor minimum.
   DriveCurrentCode driveCurrentCode{};  ///< Explicit code 0..31.
   uint32_t expectedSensorMinHz = 0; ///< Expected minimum sensor frequency in hertz.
   uint32_t expectedSensorMaxHz = 0; ///< Expected maximum sensor frequency in hertz.

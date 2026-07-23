@@ -14,8 +14,6 @@
 #include <Arduino.h>
 #include <stdint.h>
 
-#include "examples/common/I2cTransport.h"
-
 namespace board {
 
 // ====================================================================
@@ -65,27 +63,11 @@ static constexpr int LED = 48;
 /// Set to -1 to disable.
 static constexpr int INTB_PIN = -1;
 
-/// @brief Initialize I2C for examples using the default config.
-inline bool initI2c() {
-  return transport::initWire(I2C_SDA, I2C_SCL, I2C_FREQ_HZ, I2C_TIMEOUT_MS);
-}
-
 /// @brief Initialize INTB pin for examples.
 inline void initIntbPin() {
   if (INTB_PIN >= 0) {
     pinMode(INTB_PIN, INPUT);
   }
-}
-
-/// @brief Read the active-low INTB signal without performing I2C.
-inline LDC1614::Status readIntbAsserted(bool& asserted, void*) {
-  if (INTB_PIN < 0) {
-    asserted = false;
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
-                                  "INTB pin is not configured");
-  }
-  asserted = digitalRead(INTB_PIN) == 0;
-  return LDC1614::Status::Ok();
 }
 
 /// @brief Initialize Serial for examples.

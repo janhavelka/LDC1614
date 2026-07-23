@@ -21,6 +21,7 @@ src/                     - Implementation (.cpp)
 examples/
   01_*/
   common/                - Example-only helpers
+  esp32/                 - Native ESP32 transport shared by target examples
 platformio.ini
 library.json
 README.md
@@ -29,6 +30,8 @@ AGENTS.md
 ```
 
 - `examples/common/` is not part of the library. It simulates project glue and keeps examples self-contained.
+- `examples/esp32/` is also example-only application glue. It owns native
+  ESP-IDF bus/device handles for the maintained ESP32 diagnostics.
 - No board-specific pins or bus objects in library code; inject non-owning callbacks through `Config`.
 - Public headers live only in `include/LDC1614/`.
 - Keep the layout boring and predictable.
@@ -39,6 +42,9 @@ Framework boundaries:
 - Core/public headers and `src/` must not depend on Arduino, Wire, ESP-IDF, FreeRTOS, logging frameworks, global bus objects, framework delays, or heap-heavy framework types.
 - Arduino examples may use Arduino APIs.
 - Native ESP-IDF examples use `app_main`, `driver/i2c_master.h`, and native GPIO/timer/task APIs. They must not use Arduino compatibility facades.
+- Arduino and native ESP-IDF diagnostics may share the ESP-IDF new-master
+  transport in `examples/esp32/`. It remains example-only and contains no
+  Arduino API dependency.
 - Keep Arduino/IDF example command parity through repo-local contracts/checkers, not by compiling one framework's sources into the other.
 
 ## Core Engineering Rules (Mandatory)
@@ -59,8 +65,9 @@ Framework boundaries:
 - Use `static constexpr` for constants. Macros are only for conditional compilation or example logging.
 - Public APIs are not ISR-safe. Driver instances are not internally thread-safe. Document application serialization.
 - Injected transport and INTB callbacks must not re-enter the same driver
-  instance. Owner time supplied to jobs/polling is monotonic and nondecreasing;
-  wrapping hardware clocks are extended before entering the core.
+  instance. Owner time supplied to jobs/polling is one modulo-`uint64_t`
+  monotonic timeline; deadline horizons are shorter than 2^63 ms. Wrapping
+  hardware clocks narrower than 64 bits are extended before entering the core.
 - Conversion timing, settling timing, and sensor-frequency calculations are checked against explicit clock/count/divider facts.
 
 ## I2C Manager and Transport (Required)

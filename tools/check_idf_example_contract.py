@@ -10,6 +10,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 IDF_COMMANDS = [
     "help",
     "version",
+    "busrecover",
+    "scan",
     "probe",
     "bind",
     "init",
@@ -35,11 +37,13 @@ REQUIRED_IDF_TOKENS = [
     '#include "driver/i2c_master.h"',
     "i2c_new_master_bus",
     "i2c_master_bus_add_device",
+    "i2c_master_probe",
+    "i2c_master_bus_reset",
     "Ldc1614IdfCli",
-    "ldc1614IdfI2cWrite",
-    "ldc1614IdfI2cWriteRead",
-    "ldc1614IdfIntbAsserted",
-    "ldc1614IdfUptimeMs",
+    "esp32_i2c::write",
+    "esp32_i2c::writeRead",
+    "esp32_i2c::intbAsserted",
+    "esp32_i2c::uptimeMs",
     ".bind(",
     ".startInitialize(",
     ".poll(",
@@ -135,23 +139,28 @@ def main() -> int:
     idf_main_dir = idf_main.parent.resolve()
     examples_common = (ROOT / "examples" / "common").resolve()
     arduino_bringup = (ROOT / "examples" / "01_basic_bringup_cli").resolve()
+    shared_transport_dir = (ROOT / "examples" / "esp32").resolve()
+    shared_transport_source = (shared_transport_dir / "I2cMasterTransport.cpp").resolve()
+    shared_transport_header = (shared_transport_dir / "I2cMasterTransport.h").resolve()
 
     cmake_text = read(idf_cmake)
     cmake_lists = parse_idf_register_lists(idf_cmake)
     compiled_paths = cmake_lists["SRCS"]
     for path in compiled_paths:
-        if not path_is_within(path, idf_main_dir):
+        if not path_is_within(path, idf_main_dir) and path != shared_transport_source:
             fail(f"ESP-IDF compiled source must stay under examples/esp_idf/basic/main: {rel(path)}")
         if path_is_within(path, examples_common) or path_is_within(path, arduino_bringup):
             fail(f"ESP-IDF compiled source must not use Arduino/common example path: {rel(path)}")
 
     for key in ("INCLUDE_DIRS", "PRIV_INCLUDE_DIRS"):
         for path in cmake_lists[key]:
-            if path_is_within(path, examples_common) or path_is_within(path, arduino_bringup):
+            if ((path_is_within(path, examples_common) or
+                 path_is_within(path, arduino_bringup)) and
+                    path != shared_transport_dir):
                 fail(f"ESP-IDF {key} must not include Arduino/common example path: {rel(path)}")
 
     header_paths = sorted(set(idf_main.parent.glob("*.h")) | set(idf_main.parent.glob("*.hpp")))
-    scan_paths = compiled_paths + header_paths
+    scan_paths = compiled_paths + header_paths + [shared_transport_header]
 
     for path in scan_paths:
         if not path.exists():
@@ -173,7 +182,7 @@ def main() -> int:
     compiled_rels = {rel(path) for path in compiled_paths}
     expected_sources = {
         "examples/esp_idf/basic/main/main.cpp",
-        "examples/esp_idf/basic/main/Ldc1614IdfI2cTransport.cpp",
+        "examples/esp32/I2cMasterTransport.cpp",
         "examples/esp_idf/basic/main/Ldc1614IdfCli.cpp",
     }
     missing_sources = sorted(expected_sources - compiled_rels)

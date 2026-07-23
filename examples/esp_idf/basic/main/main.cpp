@@ -5,8 +5,8 @@
 #include <unistd.h>
 
 #include "LDC1614/LDC1614.h"
+#include "I2cMasterTransport.h"
 #include "Ldc1614IdfCli.h"
-#include "Ldc1614IdfI2cTransport.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_err.h"
@@ -23,7 +23,7 @@ constexpr uint32_t I2C_TIMEOUT_MS = 50;
 constexpr uint8_t LDC1614_ADDRESS = 0x2A;
 
 struct AppContext {
-  Ldc1614IdfI2c transport{};
+  esp32_i2c::Context transport{};
 };
 
 LDC1614::LDC1614 device;
@@ -32,8 +32,8 @@ AppContext app{};
 LDC1614::Config makeDefaultConfig(void* user) {
   auto* ctx = static_cast<AppContext*>(user);
   LDC1614::Config cfg{};
-  cfg.i2cWrite = ldc1614IdfI2cWrite;
-  cfg.i2cWriteRead = ldc1614IdfI2cWriteRead;
+  cfg.i2cWrite = esp32_i2c::write;
+  cfg.i2cWriteRead = esp32_i2c::writeRead;
   cfg.i2cUser = &ctx->transport;
   cfg.i2cTimeoutMs = I2C_TIMEOUT_MS;
   cfg.i2cAddress = LDC1614::I2cAddress::ADDR_GND;
@@ -65,7 +65,7 @@ LDC1614::Config makeDefaultConfig(void* user) {
   cfg.errorReporting = LDC1614::ErrorReporting::all();
 
   if (ctx->transport.intb != GPIO_NUM_NC) {
-    cfg.intbAsserted = ldc1614IdfIntbAsserted;
+    cfg.intbAsserted = esp32_i2c::intbAsserted;
     cfg.intbUser = &ctx->transport;
   }
   return cfg;
@@ -139,36 +139,27 @@ LDC1614::Status configureGpio() {
   return LDC1614::Status::Ok();
 }
 
-LDC1614::Status configureI2c() {
-  app.transport.address = LDC1614_ADDRESS;
-  app.transport.intb = INTB_PIN;
+LDC1614::Status configureI2c(esp32_i2c::Context& transport) {
+  transport.address = LDC1614_ADDRESS;
+  transport.intb = INTB_PIN;
 
-  i2c_master_bus_config_t busConfig{};
-  busConfig.clk_source = I2C_CLK_SRC_DEFAULT;
-  busConfig.i2c_port = I2C_NUM_0;
-  busConfig.sda_io_num = I2C_SDA;
-  busConfig.scl_io_num = I2C_SCL;
-  busConfig.glitch_ignore_cnt = 7;
+  esp32_i2c::BusConfig busConfig{};
+  busConfig.port = I2C_NUM_0;
+  busConfig.sda = I2C_SDA;
+  busConfig.scl = I2C_SCL;
+  busConfig.frequencyHz = I2C_FREQ_HZ;
   // Diagnostic convenience only; production hardware needs sized external pull-ups.
-  busConfig.flags.enable_internal_pullup = true;
-  LDC1614::Status status = statusFromEspErr(
-      i2c_new_master_bus(&busConfig, &app.transport.bus), "I2C bus init failed");
-  if (!status.ok()) {
-    return status;
-  }
+  busConfig.enableInternalPullups = true;
+  return esp32_i2c::open(transport, busConfig);
+}
 
-  i2c_device_config_t devConfig{};
-  devConfig.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-  devConfig.device_address = LDC1614_ADDRESS;
-  devConfig.scl_speed_hz = I2C_FREQ_HZ;
-  status = statusFromEspErr(
-      i2c_master_bus_add_device(app.transport.bus, &devConfig, &app.transport.dev),
-      "I2C device add failed");
-  if (!status.ok()) {
-    return status;
+LDC1614::Status recoverI2c(void* user) {
+  auto* context = static_cast<AppContext*>(user);
+  if (context == nullptr) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "I2C recovery context missing");
   }
-
-  return LDC1614::Status::Ok();
+  return esp32_i2c::reset(context->transport);
 }
 
 int readConsoleChar(uint32_t timeoutMs) {
@@ -202,7 +193,7 @@ void readCliInputForever(Ldc1614IdfCli& cli) {
   while (true) {
     // This diagnostic task is the sole driver owner. One pass consumes at most
     // one driver transport callback.
-    cli.service(ldc1614IdfUptimeMs());
+    cli.service(esp32_i2c::uptimeMs());
     const int c = readConsoleChar(20);
     if (c < 0) {
       vTaskDelay(pdMS_TO_TICKS(1));
@@ -244,12 +235,13 @@ extern "C" void app_main(void) {
   setvbuf(stdout, nullptr, _IONBF, 0);
 
   std::printf("=== LDC1614 ESP-IDF diagnostic bring-up example ===\n");
-  const LDC1614::Status i2cStatus = configureI2c();
+  const LDC1614::Status i2cStatus = configureI2c(app.transport);
   printSetupStatus("i2c", i2cStatus);
   const LDC1614::Status gpioStatus = configureGpio();
   printSetupStatus("gpio", gpioStatus);
 
-  Ldc1614IdfCli cli(device, makeDefaultConfig(&app));
+  Ldc1614IdfCli cli(device, makeDefaultConfig(&app), app.transport,
+                    recoverI2c, &app);
   cli.printBanner();
 
   if (i2cStatus.ok() && gpioStatus.ok()) {
@@ -259,7 +251,7 @@ extern "C" void app_main(void) {
       printSetupStatus("bind", st);
     } else {
       cli.println("profile bound with zero I2C; scheduling initialization");
-      cli.service(ldc1614IdfUptimeMs());
+      cli.service(esp32_i2c::uptimeMs());
       cli.processLine("init");
     }
   } else {

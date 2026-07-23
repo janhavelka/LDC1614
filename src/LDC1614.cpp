@@ -26,6 +26,11 @@ constexpr uint64_t WAKE_DELAY_CYCLES = 16384ULL;
 constexpr uint64_t CHANNEL_SWITCH_BASE_NS = 692ULL;
 constexpr uint64_t CHANNEL_SWITCH_CYCLES = 5ULL;
 
+// Wrap-safe for deadline horizons shorter than half the uint64_t range.
+bool dueOrPast(uint64_t nowMs, uint64_t deadlineMs) {
+  return (nowMs - deadlineMs) < (static_cast<uint64_t>(1) << 63);
+}
+
 uint8_t channelIndex(Channel channel) {
   return static_cast<uint8_t>(channel);
 }
@@ -458,9 +463,6 @@ Status LDC1614::_startJob(JobKind kind, ChannelMask channels,
   if (operationId == 0U) {
     return Status::Error(Err::INVALID_PARAM, "Operation id must be nonzero");
   }
-  if (deadlineMs == 0U) {
-    return Status::Error(Err::INVALID_PARAM, "Deadline must be nonzero");
-  }
   if (_operationIdInUse(operationId)) {
     return Status::Error(Err::DUPLICATE_OPERATION_ID,
                          "Operation id already active or pending");
@@ -510,7 +512,7 @@ Status LDC1614::poll(uint64_t nowMs, uint8_t maxTransfers) {
   if (!_progress.active) {
     return Status::Ok();
   }
-  if (nowMs >= _progress.deadlineMs) {
+  if (dueOrPast(nowMs, _progress.deadlineMs)) {
     const Status timeout =
         Status::Error(Err::TIMEOUT, "Operation deadline expired");
     if (_progress.kind != JobKind::ACQUIRE &&
@@ -653,12 +655,11 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        if (resetFirst) {
-          _appliedState = AppliedConfigState::DIRTY;
-          _recordConfigFault(status, JobPhase::VERIFY_MANUFACTURER,
-                             cmd::REG_MANUFACTURER_ID, Channel::NONE,
-                             _progress.effects);
-        }
+        _appliedState = resetFirst ? AppliedConfigState::DIRTY
+                                   : AppliedConfigState::UNKNOWN;
+        _recordConfigFault(status, JobPhase::VERIFY_MANUFACTURER,
+                           cmd::REG_MANUFACTURER_ID, Channel::NONE,
+                           _progress.effects);
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       if (value != cmd::MANUFACTURER_ID_VALUE) {
@@ -689,12 +690,11 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        if (resetFirst) {
-          _appliedState = AppliedConfigState::DIRTY;
-          _recordConfigFault(status, JobPhase::VERIFY_DEVICE,
-                             cmd::REG_DEVICE_ID, Channel::NONE,
-                             _progress.effects);
-        }
+        _appliedState = resetFirst ? AppliedConfigState::DIRTY
+                                   : AppliedConfigState::UNKNOWN;
+        _recordConfigFault(status, JobPhase::VERIFY_DEVICE,
+                           cmd::REG_DEVICE_ID, Channel::NONE,
+                           _progress.effects);
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       if (value != cmd::DEVICE_ID_VALUE) {
@@ -770,7 +770,6 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
     if (_progress.phase == JobPhase::READ_STATUS_BEFORE) {
       _progress.registerAddress = cmd::REG_STATUS;
       _progress.channel = Channel::NONE;
-      _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       uint16_t raw = 0;
       Status status = _readRegister(cmd::REG_STATUS, raw, transferTimeoutMs);
       --remainingTransfers;
@@ -778,6 +777,7 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       if (!status.ok()) {
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
+      _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       _scratchStatusBefore = decodeDeviceStatus(raw);
       _jobChannel = firstChannel(_progress.requestedChannels);
       _progress.phase = _jobChannel == Channel::NONE
@@ -794,7 +794,6 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
     if (_progress.phase == JobPhase::READ_DATA_MSB) {
       _progress.registerAddress = cmd::regDataMsb(channelIndex(_jobChannel));
       _progress.channel = _jobChannel;
-      _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       uint16_t value = 0;
       Status status =
           _readRegister(cmd::regDataMsb(channelIndex(_jobChannel)), value,
@@ -804,6 +803,7 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       if (!status.ok()) {
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
+      _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       _scratchMsb = value;
       _progress.phase = JobPhase::READ_DATA_LSB;
       _progress.registerAddress = cmd::regDataLsb(channelIndex(_jobChannel));
@@ -841,7 +841,6 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
     if (_progress.phase == JobPhase::READ_STATUS_AFTER) {
       _progress.registerAddress = cmd::REG_STATUS;
       _progress.channel = Channel::NONE;
-      _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       uint16_t raw = 0;
       Status status = _readRegister(cmd::REG_STATUS, raw, transferTimeoutMs);
       --remainingTransfers;
@@ -849,6 +848,7 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       if (!status.ok()) {
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
+      _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       _scratchStatusAfter = decodeDeviceStatus(raw);
       return _finishJob(TerminalOutcome::SUCCESS, Status::Ok(), nowMs);
     }
@@ -944,6 +944,7 @@ SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
         sampleQualityFlag(SampleQualityFlag::UNDER_RANGE) |
         sampleQualityFlag(SampleQualityFlag::OVER_RANGE) |
         sampleQualityFlag(SampleQualityFlag::WATCHDOG) |
+        sampleQualityFlag(SampleQualityFlag::AMPLITUDE_SUSPECT) |
         sampleQualityFlag(SampleQualityFlag::ZERO_COUNT) |
         sampleQualityFlag(SampleQualityFlag::DATA_LOST);
     if ((sample.quality & invalidFlags) == 0U) {
@@ -951,10 +952,8 @@ SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
     }
     const SampleQualityFlags errorFlags =
         static_cast<SampleQualityFlags>(
-            (invalidFlags &
-             static_cast<SampleQualityFlags>(
-                 ~sampleQualityFlag(SampleQualityFlag::STALE))) |
-            sampleQualityFlag(SampleQualityFlag::AMPLITUDE_SUSPECT));
+            invalidFlags & static_cast<SampleQualityFlags>(
+                               ~sampleQualityFlag(SampleQualityFlag::STALE)));
     if ((sample.quality & errorFlags) != 0U) {
       batch.errorChannels.bits |= bit;
     }
@@ -1404,7 +1403,8 @@ Status LDC1614::_validateConfig(const Config& config) const {
                            "Channel reference clock tolerance exceeds limit",
                            index);
     }
-    if (static_cast<uint64_t>(channel.offset) * frefMax >=
+    if (static_cast<uint64_t>(channel.offset) * frefMax *
+            channel.finDivider >=
         static_cast<uint64_t>(channel.expectedSensorMinHz) * 65536ULL) {
       return Status::Error(Err::INVALID_CONFIG,
                            "OFFSET masks expected sensor minimum", index);

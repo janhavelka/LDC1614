@@ -1,58 +1,25 @@
 # LDC1614 Validation Status
 
-This page records the maintained validation boundary. It is not a release
+This page tracks repeatable release checks and evidence that is still missing.
+It is not a journal of completed implementation work and is not a release
 certificate.
 
-## Current Local Evidence
+## Release state
 
-The current working branch has software hardening evidence for:
+`library.json` and the latest annotated tag identify `v3.0.0`. The current
+branch contains unreleased features and corrections, including the wrap-safe
+deadline behavior required by external owners. The next release must be a
+reviewed annotated SemVer minor release; do not move or reinterpret `v3.0.0`.
 
-- Native PlatformIO tests in `native` and `native_cov` environments, including
-  per-transfer fault injection, every-phase cancellation/deadline silence,
-  identity/FIFO/backpressure, behavioral DATA/STATUS/INTB effects, atomic
-  acquisition, full physical-channel profile validation, quality/provenance,
-  exact LDC1612/LDC1614 replay payloads, four-channel fault/cancel/deadline
-  paths, lifecycle, and helper boundaries. On 2026-07-19 both environments
-  passed 29/29 tests. `native_cov` is coverage-instrumented only: the repository does
-  not generate a report or enforce a threshold, so it is not measured coverage.
-- Arduino-framework PlatformIO builds on 2026-07-19 passed for ESP32-S3
-  (23,104 bytes RAM; 369,594 bytes flash) and ESP32-S2 (37,536 bytes RAM;
-  360,013 bytes flash), using pinned platform release 54.03.20. Both clean-tree
-  build objects embed reviewed implementation `d06e39b` with status `clean`.
-- Core timing/framework-boundary guard.
-- Arduino diagnostic CLI command-contract guard.
-- Native ESP-IDF example source-contract guard.
-- Readiness wording guard.
-- HIL runner host parser/no-port/no-sensor artifact tests. The current 26-test
-  host suite rejects missing command payloads, identity/config/build facts,
-  dirty or mismatched flashed revisions, and ambiguous zero-exit results.
-- Historical v2 ESP32-S2 no-sensor HIL exists for an LDC1614 at `0x2A`.
-  It predates the v3 cooperative API and cannot be counted as v3 execution
-  evidence. The fixture also had no LC sensor or physical DRDY/INTB wiring.
-- Generated `Version.h` consistency check.
-- Clean package consumer compile guard.
-- PlatformIO package creation, with generated package archives removed after
-  review.
+No retained run is positive acceptance evidence for the current code on an
+exact sensor-equipped target.
 
-Pure ESP-IDF build status is separate evidence. Claim it only from `idf.py`
-output or CI logs for `examples/esp_idf/basic`. `idf.py` was unavailable in the
-2026-07-19 local validation context, so no local pure-IDF build is claimed.
+## Required software checks
 
-## Documentation Evidence
-
-On 2026-07-22, Doxygen 1.13.2 generated the public headers and maintained guides
-with undocumented-member, missing-parameter, and documentation-error warnings
-enabled as errors. It completed without warnings. Generated HTML was inspected
-for the consolidated v3.0.0 release identity and the compatibility-only `CONFIG_UNKNOWN`
-wording, then removed because `docs/doxygen/` is ignored build output.
-The maintained Markdown local-link check also passed. Both native environments
-were repeated after the public-header documentation changes and passed 29/29;
-the clean package consumer and v3.0.0 package build passed as well.
-
-## Checks To Run Before Merge Review
+Run these checks on the final review revision:
 
 ```sh
-python -B -m py_compile scripts/generate_version.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
+python -B -m py_compile scripts/generate_version.py scripts/configure_esptool_upload.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
 python tools/check_core_timing_guard.py
 python tools/check_cli_contract.py
 python tools/check_idf_example_contract.py
@@ -69,41 +36,56 @@ python -m platformio run -e esp32s2dev
 python -m platformio pkg pack
 ```
 
-Remove any generated `.tar.gz` package after `pkg pack` unless it is explicitly
-being prepared as a release artifact outside the source tree.
+`native_cov` is coverage-instrumented only. The repository does not generate a
+coverage report or enforce a threshold. Remove generated package archives
+after review unless they are intentionally retained outside the source tree as
+release artifacts.
 
-## Hardware Validation
+CI additionally builds the native ESP-IDF diagnostic for ESP32-S2 and ESP32-S3
+and generates Doxygen with warnings treated as errors. A successful build or
+software test is not HIL evidence.
 
-Committed compact COM8 HIL logs record historical v2 ESP32-S2 + LDC1614
-chip-only validation with no LC sensor attached:
+## Retained hardware evidence boundary
 
-- `docs/reports/hil-validation-COM8-20260701.md`
-- `docs/reports/hil-validation-COM8-20260701.no-sensor-stress.runner.json`
-- `docs/reports/hil-validation-COM8-20260701.no-sensor-negative-stress.runner.json`
+The [committed 2026-07-01 ESP32-S2 evidence](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/hil-validation-COM8-20260701.md)
+is a historical v2 chip-only run with an LDC1614 at `0x2A` and no LC sensor. It
+does not validate the v3 operation-ID, deadline, budget, cancellation,
+applied-state, or atomic acquisition contract.
 
-For the recorded v2 revision, these logs exercised identity, register access,
-configuration write/readback, sleep/wake, reset/reapply, recovery, and bounded
-precondition/error behavior. They do not validate v3 operation IDs, deadlines,
-transfer budgets, cancellation, exact-once results, applied-state invalidation,
-or atomic acquisition. The repeated serial transcript is not retained. The
-compact evidence therefore does not satisfy the raw transcript/logic-trace
-gate and does not validate live conversion behavior.
+The retained 2026-07-22 post-v3 artifacts are intentional negative transport
+records. They show NACK-related combined-read failure on older ESP-IDF stacks
+and justify the maintained pioarduino `55.03.39` selection. The
+[transport-regression report](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/hil-validation-COM8-20260722-transport-regression.md)
+indexes those artifacts and their embedded transcripts. None is positive
+release evidence.
 
-Before target deployment decisions or full sensing claims, capture hardware logs
-for:
+Keep these reports under `docs/reports/` while they remain cited here. Follow
+the [artifact retention rules](https://github.com/janhavelka/LDC1614/blob/main/docs/hil/README.md);
+do not replace evidence with a handwritten pass summary.
 
-- Device identity and expected I2C address strap for each board variant.
-- LDC1612/LDC1614 channel availability.
-- Sensor-attached configuration readback for timing, mode, drive-current, offset,
-  and error registers.
-- DATAx read ordering and DATAx/STATUS side effects.
-- v3 initialization/acquisition transfer budgets, operation ID correlation,
-  bus-silent cancellation/deadline expiry, and exact-once result collection.
-- INTB behavior when wired.
-- SD shutdown/wake behavior when wired.
-- Address NACK, unplug/replug, timeout/fault, recovery, and bounded soak cases.
-- Sensor clock plan, coil tuning, deglitch selection, and IDRIVE calibration.
+## Missing hardware evidence
 
-Use `HIL_VALIDATION.md` and `../tools/ldc1614_hil_runner.py` to collect JSON and
-Markdown evidence. A runner result without real hardware is `NOT_RUN`, not a
-pass.
+Before release or target-deployment claims, capture evidence for:
+
+- device identity and expected address strap for every board variant;
+- LDC1612/LDC1614 channel availability and populated-channel mapping;
+- sensor-attached configuration readback for timing, mode, drive current,
+  offset, deglitch, clock, and error policy;
+- live DATA MSB/LSB ordering plus DATA/STATUS/UNREAD/INTB side effects;
+- correlated v3 initialization, apply, reset, acquisition, cancellation,
+  deadline, invalidation, and exactly-once result behavior;
+- address NACK, timeout, unplug/replug, controlled power loss, owner bus
+  recovery, and complete replay while another shared-bus device remains usable;
+- INTB and SD behavior when those pins are wired;
+- sensor clock plan, coil tuning, target response, deglitch choice, and IDRIVE
+  calibration; and
+- a bounded soak at the production channel mask, cadence, and clock profile.
+
+A clean ESP-IDF 5.5.4 candidate no-sensor smoke and one-hour soak are also
+required to close the COM8 transport regression. Product-specific consumers
+may impose additional gates; TunnelMonitor's remaining requirements are listed
+in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).
+
+Use [HIL validation](HIL_VALIDATION.md) to collect structured JSON, Markdown,
+and raw transcript evidence. Without real hardware and matching
+firmware-reported revision/status, a runner result is `NOT_RUN`, not a pass.

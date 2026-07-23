@@ -5,14 +5,11 @@ converter driver for externally owned I2C buses. The v3 API is cooperative:
 multi-register procedures execute only when the application calls `poll()` and
 never exceed its transfer budget.
 
-The software has native fault-injection tests and maintained Arduino and native
-ESP-IDF build paths. Deployment still requires evidence for the exact board,
+The latest tagged API release is **v3.0.0**; the current branch contains
+unreleased changes. Deployment still requires evidence for the exact board,
 address strap, reference clock, LC sensors, channel mapping, INTB/SD wiring,
-fault policy, calibration, cadence, and soak conditions. Retained ESP32-S2
-chip-only evidence predates v3 and does not validate sensor-attached behavior.
-
-The latest tagged API release is **v3.0.0**. Hardware-validation boundaries are
-recorded in the maintained validation status and HIL guides.
+fault policy, calibration, cadence, and soak conditions. See the maintained
+validation status and HIL guide before selecting a release.
 
 ## Core contract
 
@@ -27,8 +24,9 @@ recorded in the maintained validation status and HIL guides.
 - One job may be active. Each `poll(nowMs, maxTransfers)` call invokes no more
   than the supplied number of transport callbacks; zero is bus-silent.
 - Each start carries a caller-selected nonzero `OperationId` and absolute
-  64-bit deadline. `nowMs` and deadlines share one owner-supplied monotonic,
-  nondecreasing timeline; extend a wrapping 32-bit clock before use. A terminal
+  64-bit deadline. `nowMs` and deadlines share one owner-supplied timeline;
+  natural `uint64_t` wrap is safe for deadline horizons shorter than 2^63 ms.
+  Extend a wrapping 32-bit clock before use. A terminal
   `OperationResult` retains identity, outcome,
   status, side-effect flags, configuration revision, and fault provenance.
 - The fixed two-entry result FIFO delivers each terminal result exactly once
@@ -57,7 +55,13 @@ The repository root is also an ESP-IDF component. Add it through
 example is under `examples/esp_idf/basic`.
 
 Host validation tools are pinned in `requirements-dev.txt`; the maintained
-Espressif PlatformIO platform is pinned in `platformio.ini`.
+Arduino build uses pioarduino `55.03.39` (Arduino 3.3.9 with ESP-IDF 5.5.4),
+pinned in `platformio.ini`. This version contains Espressif's NACK-state driver
+correction; earlier COM8 runs on ESP-IDF 5.3/5.4 could leave combined reads in
+`ESP_ERR_INVALID_STATE`. Both maintained ESP32 diagnostics use one
+example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
+this is example/build-tool policy, not a dependency of the framework-neutral
+core. Each product owner still requires target validation.
 
 ## Explicit profile
 
@@ -206,8 +210,10 @@ STATUS snapshots, and reports detected overrun/data-loss evidence. DATAx is
 read MSB before LSB. Under-range zero and over-range `0x0FFFFFFF` are classified
 even when corresponding device reporting bits are disabled. Watchdog,
 amplitude, zero-count, stale, and data-loss conditions remain visible separately
-from transport success. Configuration trust is reported by `AppliedConfigState`;
-acquisition is rejected before I2C unless that state is `APPLIED_ACTIVE`.
+from transport success. All of those conditions exclude the affected channel
+from `validChannels`; `errorChannels` and per-channel quality retain the cause.
+Configuration trust is reported by `AppliedConfigState`; acquisition is
+rejected before I2C unless that state is `APPLIED_ACTIVE`.
 
 LDC multi-channel conversion is sequential. Atomic batch publication means the
 software result is committed together; it does not mean channels were sampled
@@ -292,8 +298,11 @@ v3 is a deliberate breaking release.
 - [Hardware integration](docs/HARDWARE_INTEGRATION.md): board, sensor, timing,
   and physical-evidence checklist.
 - [HIL validation](docs/HIL_VALIDATION.md): target procedure and evidence rules.
-- [Validation status](docs/VALIDATION_STATUS.md): exact software evidence and
-  remaining physical gates.
+- [Validation status](docs/VALIDATION_STATUS.md): repeatable release checks,
+  retained evidence boundaries, and remaining physical gates.
+- [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md):
+  product-specific decisions, owner-module constraints, release selection, and
+  target HIL still required before that integration.
 - [Documentation index](https://github.com/janhavelka/LDC1614/blob/main/docs/README.md): maintained guides, references, and
   archive boundaries.
 

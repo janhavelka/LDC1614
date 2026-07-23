@@ -4,6 +4,11 @@ This native ESP-IDF application uses `app_main`, `driver/i2c_master.h`, a
 fixed-buffer CLI, one application owner task, ESP timer timekeeping, and native GPIO
 and task APIs. It contains no Arduino facade.
 
+It shares the example-owned ESP-IDF new-master transport in
+`examples/esp32/I2cMasterTransport.*` with the Arduino diagnostic. This keeps
+combined-transfer error mapping, bounded timeouts, probe semantics, and handle
+reset in one owner rather than maintaining parallel backends.
+
 The example binds an explicit profile without I2C, schedules cooperative
 initialization, and advances at most one driver transport callback per console
 service pass. This diagnostic has one task and therefore no redundant mutex;
@@ -14,8 +19,16 @@ presence policy. The library's transport statistics are diagnostic only.
 
 Commands cover initialization/apply/reset jobs, acquisition, bus-silent
 cancellation and invalidation, STATUS/readiness, sleep/wake, raw diagnostics,
-and pure timing/frequency helpers. `probe` deliberately performs two diagnostic
-identity reads; it is not the production initialization path.
+bounded bus `scan`, explicit owner `busrecover`, and pure timing/frequency
+helpers. `scan` covers usable addresses `0x08..0x77`, treats address NACK as
+normal absence, stops on timeout/bus failure, and refuses to interleave with an
+active driver job. `busrecover` explicitly resets the native bus controller,
+invalidates applied state, and requires a complete `init` replay.
+Run `busrecover` and `init` after scan diagnostics before resuming device
+operations; this explicitly covers backends that retain a failed state after
+address NACKs without requiring an MCU reboot.
+`probe` deliberately performs two diagnostic
+identity reads; neither command is the production initialization path.
 
 This is not a production bus manager. The internal pull-up setting and example
 sensor profile are bring-up conveniences. No sensor, INTB, SD, address-strap,
