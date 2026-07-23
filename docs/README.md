@@ -12,10 +12,10 @@ cited hardware evidence and vendor references. Start with the repository
   cancellation, result identity, applied-state, and recovery contracts.
 - [Native ESP-IDF integration](IDF_PORT.md) - component and diagnostic example boundaries.
 - [HIL validation](HIL_VALIDATION.md) - hardware-in-the-loop procedure and evidence matrix.
-- [Validation status](VALIDATION_STATUS.md) - current software checks, local evidence boundaries,
-  and hardware evidence still required.
-- [TunnelMonitor suitability audit](TUNNELMONITOR_NODE_SUITABILITY_AUDIT.md) - external-owner suitability
-  findings, dispositions, and the still-external TunnelMonitor product gate.
+- [Validation status](VALIDATION_STATUS.md) - repeatable release checks,
+  retained evidence boundaries, and hardware evidence still required.
+- [TunnelMonitor integration gates](TUNNELMONITOR_INTEGRATION_GATES.md) -
+  unresolved product, release, owner-module, and target-HIL requirements.
 - [HIL artifact rules](https://github.com/janhavelka/LDC1614/blob/main/docs/hil/README.md) - retention rules for real HIL output artifacts.
 
 The maintained examples have their own guides:
@@ -26,15 +26,15 @@ The maintained examples have their own guides:
 ## Generated Doxygen Site
 
 Run `doxygen Doxyfile` from the repository root. The generated site starts at
-`docs/doxygen/html/index.html` and includes the public headers and the uniquely
-named integration, hardware, IDF, HIL, validation, and suitability guides.
+`docs/doxygen/html/index.html` and includes the public headers and the reusable
+integration, hardware, IDF, HIL, and validation guides.
 Repository/example `README.md` files remain linked from the main page rather
 than duplicated as generated pages. Generation fails on undocumented public
 API, missing parameter documentation, or documentation errors.
 
-`docs/doxygen/` is ignored build output. Do not edit or commit it. Internal
-engineering instructions, historical reports, and raw extracted vendor text
-are deliberately excluded from the public site.
+`docs/doxygen/` is ignored build output. Do not edit or commit it.
+Product-specific gates, internal engineering instructions, historical reports,
+and raw extracted vendor text are deliberately excluded from the public site.
 
 ## Reference Material
 

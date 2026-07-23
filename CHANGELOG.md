@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced the completed TunnelMonitor suitability-audit ledger with a concise
+  open-gates guide, and reduced validation status to repeatable release checks,
+  retained evidence boundaries, and unresolved physical validation.
 - Pin maintained Arduino builds to pioarduino `55.03.39` (Arduino 3.3.9,
   ESP-IDF 5.5.4 libraries), which includes Espressif's NACK-state correction.
   PlatformIO is pinned to the required 6.1.19 host version. A reviewed upgrade

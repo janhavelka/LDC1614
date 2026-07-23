@@ -68,21 +68,20 @@ cannot pass acceptance. Missing address, variant channel count, exact TI
 identity, or target build identity makes the run fail. `UNKNOWN` is also a
 nonzero verification exit, not a successful run.
 
-## No Hardware Attached Audit
+## No-hardware runner checks
 
-When no board with an LDC1614/LDC1612 is attached, do not run hardware commands
-against an arbitrary serial port. Use the runner in no-port or dry-run mode to
-produce software audit artifacts only:
+When no LDC1614/LDC1612 fixture is attached, do not run hardware commands
+against an arbitrary serial port. Check the host tooling without creating
+repository evidence:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --dry-run --baud 115200 --operator "<name>" --board "no LDC1614/LDC1612 fixture attached" --note "no hardware audit only" --json-out docs/reports/hil-validation-COM8-YYYYMMDD.runner.json --markdown-out docs/reports/hil-validation-COM8-YYYYMMDD.runner.md --quiet
+python tools/ldc1614_hil_runner.py --parser-self-test
+python tools/ldc1614_hil_runner.py --profile arduino --dry-run --quiet
 ```
 
-Dry-run artifacts list the planned bounded command sequence and are marked
-`overall_status=NOT_RUN`, `hardware_attached=false`, and
-`evidence_type=no_hardware_audit`. They are useful for review setup, parser
-self-tests, and report traceability, but they are not HIL evidence and must not
-be stored or described as pass logs.
+If review needs generated no-hardware output, write it to a temporary directory.
+Dry-run and no-port results are `NOT_RUN`; do not commit or describe them as HIL
+evidence.
 
 ## Firmware Profiles
 
@@ -162,7 +161,7 @@ Run these only when hardware and operator setup explicitly support them:
 | Induced address NACK | No | Operator/fault fixture | Not run | Controlled NACK transcript with precise status |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | Not run; the Windows COM8 USB endpoint blocked the clean ESP-IDF 5.5.4 candidate flash | Duration, complete cycles, command/unknown/reset counts, worst latency |
+| Bounded soak | No | Stable fixture | No accepted positive exact-revision run | Duration, complete cycles, command/unknown/reset counts, worst latency |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules

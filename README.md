@@ -5,14 +5,11 @@ converter driver for externally owned I2C buses. The v3 API is cooperative:
 multi-register procedures execute only when the application calls `poll()` and
 never exceed its transfer budget.
 
-The software has native fault-injection tests and maintained Arduino and native
-ESP-IDF build paths. Deployment still requires evidence for the exact board,
+The latest tagged API release is **v3.0.0**; the current branch contains
+unreleased changes. Deployment still requires evidence for the exact board,
 address strap, reference clock, LC sensors, channel mapping, INTB/SD wiring,
-fault policy, calibration, cadence, and soak conditions. Retained ESP32-S2
-chip-only evidence predates v3 and does not validate sensor-attached behavior.
-
-The latest tagged API release is **v3.0.0**. Hardware-validation boundaries are
-recorded in the maintained validation status and HIL guides.
+fault policy, calibration, cadence, and soak conditions. See the maintained
+validation status and HIL guide before selecting a release.
 
 ## Core contract
 
@@ -301,8 +298,11 @@ v3 is a deliberate breaking release.
 - [Hardware integration](docs/HARDWARE_INTEGRATION.md): board, sensor, timing,
   and physical-evidence checklist.
 - [HIL validation](docs/HIL_VALIDATION.md): target procedure and evidence rules.
-- [Validation status](docs/VALIDATION_STATUS.md): exact software evidence and
-  remaining physical gates.
+- [Validation status](docs/VALIDATION_STATUS.md): repeatable release checks,
+  retained evidence boundaries, and remaining physical gates.
+- [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md):
+  product-specific decisions, owner-module constraints, release selection, and
+  target HIL still required before that integration.
 - [Documentation index](https://github.com/janhavelka/LDC1614/blob/main/docs/README.md): maintained guides, references, and
   archive boundaries.
 
