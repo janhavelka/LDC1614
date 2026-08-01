@@ -54,7 +54,9 @@ applied-state, or atomic acquisition contract.
 
 The retained 2026-07-22 post-v3 artifacts are intentional negative transport
 records. They show NACK-related combined-read failure on older ESP-IDF stacks
-and justify the maintained pioarduino `55.03.39` selection. The
+and justify the original pioarduino `55.03.39` selection. The maintained
+`55.03.311` baseline retains that NACK-state correction and adds ESP-IDF 5.5.5
+I2C reset, allocation, and ISR fixes. The
 [transport-regression report](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/hil-validation-COM8-20260722-transport-regression.md)
 indexes those artifacts and their embedded transcripts. None is positive
 release evidence.
@@ -81,9 +83,10 @@ Before release or target-deployment claims, capture evidence for:
   calibration; and
 - a bounded soak at the production channel mask, cadence, and clock profile.
 
-A clean ESP-IDF 5.5.4 candidate no-sensor smoke and one-hour soak are also
-required to close the COM8 transport regression. Product-specific consumers
-may impose additional gates; TunnelMonitor's remaining requirements are listed
+A clean pioarduino `55.03.311` / ESP-IDF 5.5.5 candidate no-sensor smoke and
+one-hour soak are also required to close the COM8 transport regression.
+Product-specific consumers may impose additional gates; TunnelMonitor's
+remaining requirements are listed
 in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).
 
 Use [HIL validation](HIL_VALIDATION.md) to collect structured JSON, Markdown,
