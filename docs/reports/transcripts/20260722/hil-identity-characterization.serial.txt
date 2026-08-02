@@ -1,0 +1,1802 @@
+### startup
+
+### command 1: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 2: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 3: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 4: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 5: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 6: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 7: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 8: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 9: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 10: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 11: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 12: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 13: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 14: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 15: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 16: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 17: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 18: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 19: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 20: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 21: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 22: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 23: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 24: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 25: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 26: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 27: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 28: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 29: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 30: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 31: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 32: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 33: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 34: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 35: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 36: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 37: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 38: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 39: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 40: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 41: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 42: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 43: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 44: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 45: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 46: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 47: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 48: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 49: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 50: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 51: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 52: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 53: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 54: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 55: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 56: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 57: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 58: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 59: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 60: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 61: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 62: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 63: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 64: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 65: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 66: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 67: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 68: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 69: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 70: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 71: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 72: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 73: probe
+MANUFACTURER_ID=0xFFFF DEVICE_ID=0x3055
+status: code=9 detail=0 msg=Identity mismatch
+> 
+### command 74: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 75: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 76: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 77: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 78: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 79: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 80: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 81: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 82: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 83: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 84: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 85: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 86: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 87: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 88: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 89: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 90: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 91: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 92: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 93: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 94: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 95: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 96: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 97: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 98: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 99: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 100: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 101: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 102: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 103: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 104: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 105: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 106: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 107: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 108: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 109: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 110: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 111: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 112: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 113: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 114: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 115: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 116: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 117: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 118: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 119: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 120: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 121: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 122: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 123: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 124: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 125: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 126: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 127: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 128: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 129: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 130: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 131: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 132: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 133: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 134: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 135: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 136: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 137: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 138: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 139: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 140: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 141: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 142: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 143: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 144: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 145: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 146: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 147: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 148: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 149: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 150: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 151: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 152: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 153: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 154: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 155: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 156: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 157: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 158: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 159: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 160: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 161: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 162: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 163: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 164: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 165: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 166: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 167: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 168: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 169: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 170: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 171: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 172: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 173: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 174: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 175: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 176: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 177: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 178: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 179: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 180: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 181: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 182: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 183: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 184: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 185: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 186: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 187: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 188: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 189: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 190: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 191: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 192: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 193: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 194: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 195: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 196: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 197: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 198: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 199: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 200: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 201: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 202: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 203: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 204: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 205: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 206: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 207: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 208: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 209: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 210: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 211: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 212: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 213: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 214: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 215: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 216: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 217: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 218: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 219: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 220: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 221: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 222: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 223: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 224: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 225: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 226: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 227: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 228: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 229: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 230: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 231: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 232: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 233: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 234: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 235: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 236: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 237: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 238: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 239: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 240: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 241: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 242: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 243: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 244: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 245: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 246: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 247: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 248: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 249: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 250: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 251: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 252: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 253: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 254: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 255: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 256: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 257: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 258: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 259: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 260: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 261: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 262: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 263: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 264: reg 0x7E
+reg 0x7E = 0xFFFF
+status: code=0 detail=0 msg=OK
+> 
+### command 265: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 266: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 267: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 268: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 269: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 270: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 271: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 272: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 273: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 274: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 275: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 276: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 277: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 278: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 279: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 280: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 281: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 282: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 283: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 284: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 285: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 286: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 287: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 288: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 289: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 290: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 291: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 292: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 293: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 294: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 295: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 296: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 297: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 298: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 299: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 300: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 301: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 302: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 303: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 304: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 305: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 306: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 307: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 308: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 309: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 310: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 311: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 312: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 313: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 314: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 315: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 316: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 317: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 318: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 319: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 320: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 321: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 322: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 323: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 324: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 325: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 326: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 327: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 328: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 329: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 330: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 331: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 332: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 333: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 334: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 335: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 336: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 337: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 338: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 339: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 340: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 341: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 342: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 343: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 344: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 345: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 346: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 347: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 348: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 349: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 350: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 351: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 352: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 353: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 354: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 355: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 356: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 357: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 358: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 359: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 360: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 361: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 362: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 363: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 364: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 365: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 366: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 367: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 368: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 369: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 370: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 371: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 372: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 373: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 374: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 375: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 376: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 377: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 378: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 379: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 380: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 381: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 382: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 383: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 384: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 385: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 386: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 387: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 388: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 389: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 390: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 391: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 392: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 393: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 394: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 395: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 396: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 397: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 398: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 399: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 400: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 401: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 402: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 403: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 404: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 405: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 406: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 407: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 408: probe
+MANUFACTURER_ID=0xFFFF DEVICE_ID=0x3055
+status: code=9 detail=0 msg=Identity mismatch
+> 
+### command 409: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 410: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 411: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 412: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 413: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 414: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 415: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 416: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 417: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 418: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 419: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 420: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 421: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 422: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 423: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 424: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 425: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 426: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 427: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 428: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 429: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 430: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 431: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 432: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 433: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 434: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 435: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 436: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 437: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 438: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 439: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 440: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 441: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 442: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 443: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 444: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 445: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 446: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 447: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 448: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 449: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 450: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 451: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 452: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 453: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 454: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 455: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 456: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 457: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 458: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 459: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 460: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 461: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 462: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 463: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 464: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 465: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 466: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 467: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 468: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 469: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 470: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 471: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 472: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 473: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 474: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 475: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 476: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 477: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 478: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 479: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 480: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 481: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 482: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 483: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 484: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 485: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 486: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 487: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 488: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 489: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 490: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 491: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 492: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 493: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 494: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 495: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 496: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=clean build_timestamp=2026-07-22 15:34:34
+> 
+### command 497: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 498: probe
+MANUFACTURER_ID=0x0000 DEVICE_ID=0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 499: reg 0x7E
+reg 0x7E = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 
+### command 500: reg 0x7F
+reg 0x7F = 0x0000
+status: code=14 detail=0 msg=I2C read length mismatch
+> 

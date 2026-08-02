@@ -134,8 +134,8 @@ Before publishing:
 ```sh
 python scripts/generate_version.py check
 python tools/check_clean_consumer_compile.py
-python -m platformio pkg pack
 ```
 
-Remove the generated package archive after review. `Version.h` is generated
-from `library.json`; never edit it directly.
+The clean-consumer check packs the library in a temporary directory and compiles
+against the extracted package. `Version.h` is generated from `library.json`;
+never edit it directly.

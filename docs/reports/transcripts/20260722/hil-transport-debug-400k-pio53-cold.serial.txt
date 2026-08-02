@@ -1,0 +1,377 @@
+### startup
+
+### command 1: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 2: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 3: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 4: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 5: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 6: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 7: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 8: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 9: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 10: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 11: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 12: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 13: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 14: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 15: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 16: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 17: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 18: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 19: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 20: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 21: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 22: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 23: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 24: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 25: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 26: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 27: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 28: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 29: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 30: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 31: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 32: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 33: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 34: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 35: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 36: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 37: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 38: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 39: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 40: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 41: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 42: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 43: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 44: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 45: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 46: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 47: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 48: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 49: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 50: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 51: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 52: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 53: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 54: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 55: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 56: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 57: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 58: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 59: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 60: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 61: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 62: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 63: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 64: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 65: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 66: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 67: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 68: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 69: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 70: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 71: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 72: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 73: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 74: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 75: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 76: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 77: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 78: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 79: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 80: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 81: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 82: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 83: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 84: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 85: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 86: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 87: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 88: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 89: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 90: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 91: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 92: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 93: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 94: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 95: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 96: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 97: version
+version: 3.0.0 firmware_git=a11fcb4 firmware_status=dirty build_timestamp=2026-07-22 17:49:25
+> 
+### command 98: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 99: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 100: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 

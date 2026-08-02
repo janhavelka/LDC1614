@@ -97,7 +97,18 @@ def compile_consumer(compiler: str, package_root: Path, temp: Path) -> int:
     source_file = package_root / "src" / "LDC1614.cpp"
     version_header = include_dir / "LDC1614" / "Version.h"
     library_json = package_root / "library.json"
-    for required in (include_dir, source_file, version_header, library_json):
+    documentation = (
+        package_root / "CONTRIBUTING.md",
+        package_root / "Doxyfile",
+        package_root / "docs" / "README.md",
+        package_root / "docs" / "HARDWARE_INTEGRATION.md",
+        package_root / "docs" / "HIL_VALIDATION.md",
+        package_root / "docs" / "I2C_INTEGRATION.md",
+        package_root / "docs" / "IDF_PORT.md",
+        package_root / "docs" / "VALIDATION_STATUS.md",
+        package_root / "docs" / "reference" / "LDC1614_datasheet.pdf",
+    )
+    for required in (include_dir, source_file, version_header, library_json, *documentation):
         if not required.exists():
             return fail(f"packed package is missing {required.relative_to(package_root)}")
 

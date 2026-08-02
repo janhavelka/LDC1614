@@ -40,33 +40,6 @@ MANDATORY_COMMANDS = [
     "selftest",
 ]
 
-IDF_DIAGNOSTIC_COMMANDS = [
-    "help",
-    "version",
-    "busrecover",
-    "scan",
-    "probe",
-    "bind",
-    "init",
-    "apply",
-    "resetreapply",
-    "acquire",
-    "cancel",
-    "progress",
-    "status",
-    "drv",
-    "cfg",
-    "read",
-    "ready",
-    "sleep",
-    "wake",
-    "invalidate",
-    "timing",
-    "freq",
-    "selftest",
-]
-
-
 def fail(msg: str) -> None:
     print(f"CLI contract FAILED: {msg}")
     raise SystemExit(1)
@@ -87,7 +60,6 @@ def main() -> int:
     bringup_main = ROOT / "examples" / "01_basic_bringup_cli" / "main.cpp"
     idf_main = ROOT / "examples" / "esp_idf" / "basic" / "main" / "main.cpp"
     idf_cmake = ROOT / "examples" / "esp_idf" / "basic" / "main" / "CMakeLists.txt"
-    idf_cli = ROOT / "examples" / "esp_idf" / "basic" / "main" / "Ldc1614IdfCli.cpp"
     shared_cli = common_dir / "Ldc1614Cli.cpp"
     transport = ROOT / "examples" / "esp32" / "I2cMasterTransport.cpp"
     version_script = ROOT / "scripts" / "generate_version.py"
@@ -97,7 +69,6 @@ def main() -> int:
     ensure_exists(bringup_main, "bringup CLI example")
     ensure_exists(idf_main, "ESP-IDF CLI example")
     ensure_exists(idf_cmake, "ESP-IDF example build definition")
-    ensure_exists(idf_cli, "ESP-IDF diagnostic CLI implementation")
     ensure_exists(shared_cli, "shared CLI implementation")
     ensure_exists(transport, "shared ESP32 example transport")
     ensure_exists(version_script, "version generator")
@@ -115,7 +86,6 @@ def main() -> int:
     arduino_text = bringup_main.read_text(encoding="utf-8", errors="replace")
     idf_text = idf_main.read_text(encoding="utf-8", errors="replace")
     idf_cmake_text = idf_cmake.read_text(encoding="utf-8", errors="replace")
-    idf_cli_text = idf_cli.read_text(encoding="utf-8", errors="replace")
     text = shared_cli.read_text(encoding="utf-8", errors="replace")
     transport_text = transport.read_text(encoding="utf-8", errors="replace")
     version_text = version_script.read_text(encoding="utf-8", errors="replace")
@@ -162,10 +132,6 @@ def main() -> int:
     for cmd in MANDATORY_COMMANDS:
         if re.search(rf"\b{re.escape(cmd)}\b", text) is None:
             fail(f"mandatory command '{cmd}' missing in {shared_cli.as_posix()}")
-
-    for cmd in IDF_DIAGNOSTIC_COMMANDS:
-        if re.search(rf"\b{re.escape(cmd)}\b", idf_cli_text) is None:
-            fail(f"mandatory IDF diagnostic command '{cmd}' missing in {idf_cli.as_posix()}")
 
     if re.search(r"\bcfg\b", text) is None and re.search(r"\bsettings\b", text) is None:
         fail("either 'cfg' or 'settings' command must be present")

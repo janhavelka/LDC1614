@@ -1,20 +1,21 @@
 # LDC1614 Hardware-in-the-Loop Validation
 
 This document defines the HIL procedure and evidence expected before release or
-field-readiness claims. Captured run artifacts live under `docs/reports/`.
+field-readiness claims. Reviewed repository evidence is indexed under
+[`docs/reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md).
 
 Use:
 
 ```sh
 python -m pip install --requirement requirements-dev.txt
-python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --markdown-out hil.md
+python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --raw-transcript-out hil.serial.txt
 ```
 
 For a board with the LDC1614 chip present but no LC sensor/coil attached, use
 the no-sensor fixture matrix:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --markdown-out hil-no-sensor.md
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
 ```
 
 This v3 mode exercises identity, selected register reads, cached profile and
@@ -36,7 +37,7 @@ For a time-bounded no-sensor soak, request the duration explicitly. The soak
 keeps the port open, executes only complete cycles, and ends every cycle awake:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --markdown-out hil-soak.md --raw-transcript-out hil-soak.serial.log
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
 ```
 
 The fixed soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, and
@@ -114,12 +115,13 @@ sample-rate benchmark.
    `UNKNOWN`, not a pass. Maintained commands require command-specific output;
    arbitrary nonempty text and a bare `code=0` probe are failures. Device
    ID/probe/read failures are failures, not skips.
-5. Write JSON and Markdown artifacts with command classification evidence.
+5. Write a JSON result with command classification evidence and retain a raw
+   target transcript or logic-analyzer trace for the exact release fixture.
    Repeated stress output may be condensed when metadata, command counts,
    per-base-command outcomes, firmware/device identity, and every non-pass
-   detail remain available. Production acceptance must additionally retain at
-   least one raw target transcript or logic-analyzer trace for the exact release
-   fixture; a condensed summary is not a substitute for that raw artifact.
+   detail remain available. `--markdown-out` is an optional review rendering;
+   do not commit it beside the canonical JSON when it only duplicates the same
+   transcript and results.
 
 ## Optional Opt-in Procedure
 
@@ -166,13 +168,19 @@ Run these only when hardware and operator setup explicitly support them:
 
 ## Evidence Rules
 
-- JSON and Markdown outputs must be retained with the release artifacts. Compact
-  summaries are acceptable for repeated stress runs when they preserve counts,
-  command outcomes, and non-pass details.
+- Retain the JSON result and raw transcript with the release artifacts. Do not
+  create pass artifacts by hand. Compact JSON is acceptable for repeated stress
+  only when it preserves counts, command outcomes, and every non-pass detail.
 - At least one raw serial transcript or logic-analyzer trace must be retained
   for production acceptance of the exact board, sensor, wiring, configuration,
   and release revision. The committed post-v3 transcripts are negative
   transport-regression evidence; no positive exact-release raw artifact exists.
+- Standalone `*.log` files are ignored as temporary output. Use a nonignored
+  extension such as `.serial.txt` for a reviewed repository capture; release-only
+  captures may instead remain attached to the release.
+- Dry-run, no-port, `NOT_RUN`, and empty-payload outputs are temporary review
+  aids, not HIL evidence. Do not commit them unless a maintainer explicitly
+  requires one for an active audit.
 - Hardware logs must name the board, sensor/coil, address strap, channel count,
   firmware profile, firmware-reported Git commit/status, host checkout, and
   operator.

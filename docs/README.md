@@ -16,12 +16,11 @@ cited hardware evidence and vendor references. Start with the repository
   retained evidence boundaries, and hardware evidence still required.
 - [TunnelMonitor integration gates](TUNNELMONITOR_INTEGRATION_GATES.md) -
   unresolved product, release, owner-module, and target-HIL requirements.
-- [HIL artifact rules](https://github.com/janhavelka/LDC1614/blob/main/docs/hil/README.md) - retention rules for real HIL output artifacts.
 
 The maintained examples have their own guides:
 
-- [Arduino diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/01_basic_bringup_cli/README.md)
-- [Native ESP-IDF diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/esp_idf/basic/README.md)
+- [Arduino diagnostic CLI](../examples/01_basic_bringup_cli/README.md)
+- [Native ESP-IDF diagnostic CLI](../examples/esp_idf/basic/README.md)
 
 ## Generated Doxygen Site
 
@@ -33,27 +32,25 @@ than duplicated as generated pages. Generation fails on undocumented public
 API, missing parameter documentation, or documentation errors.
 
 `docs/doxygen/` is ignored build output. Do not edit or commit it.
-Product-specific gates, internal engineering instructions, historical reports,
-and raw extracted vendor text are deliberately excluded from the public site.
+Product-specific gates, internal engineering instructions, historical evidence,
+and vendor reference material are deliberately excluded from the public site.
 
 ## Reference Material
 
 - [Primary LDC1612/LDC1614 datasheet](reference/LDC1614_datasheet.pdf).
-- `reference/extracted-md/` - compact curated device notes used while
+- [Vendor PDF manifest](https://github.com/janhavelka/LDC1614/blob/main/docs/reference/PDF_MANIFEST.md) - page counts and verified
+  SHA-256 checksums for every retained PDF.
+- Repository-only `reference/extracted-md/` - compact curated device notes used while
   implementing and reviewing the driver.
-- `reference/application_notes/` - vendor application-note PDFs and concise
+- Repository-only `reference/application_notes/` - vendor application-note PDFs and concise
   local summaries.
-- `reference/howto_guides/` - vendor how-to PDFs and concise local summaries.
-- `reference/pdf-extracted-md/` - raw generated markdown from source PDFs. This
-  is trace material, not implementation guidance.
+- Repository-only `reference/howto_guides/` - vendor how-to PDFs and concise local summaries.
 
 ## Evidence Boundaries
 
-`reports/` retains only hardware evidence cited by the maintained validation
-status. One-time implementation instructions and no-hardware or empty-payload
-run artifacts are not retained; Git history preserves them if an audit needs
-them.
-Raw PDF extraction under `reference/pdf-extracted-md/` is source traceability,
-not implementation authority. Current behavior is defined by the public
-headers, root README, maintained guides above, and changelog. Hardware readiness
-still requires the evidence defined by the HIL procedure.
+The repository-only [`reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md) archive retains structured HIL evidence and raw serial transcripts, not
+generated Markdown copies or finished audit narratives. One-time implementation
+instructions and no-hardware or empty-payload artifacts are not retained; Git
+history preserves them if an audit needs them. Current behavior is defined by
+the public headers, root README, maintained guides above, and changelog.
+Hardware readiness still requires the evidence defined by the HIL procedure.

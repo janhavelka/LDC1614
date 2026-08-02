@@ -3,7 +3,6 @@
 
 #include "LDC1614/LDC1614.h"
 
-#include <climits>
 #include <cmath>
 #include <cstdint>
 
@@ -439,7 +438,7 @@ Status LDC1614::startAcquire(ChannelMask channels, OperationId operationId,
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
   }
-  if (_bound && _appliedState != AppliedConfigState::APPLIED_ACTIVE) {
+  if (_appliedState != AppliedConfigState::APPLIED_ACTIVE) {
     return Status::Error(Err::CONFIG_DIRTY,
                          "Acquisition requires verified active configuration");
   }

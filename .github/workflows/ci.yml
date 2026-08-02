@@ -71,9 +71,6 @@ jobs:
       - name: Run native tests
         run: pio test -e native
 
-      - name: Run native coverage-instrumented tests
-        run: pio test -e native_cov
-
   validate-library:
     runs-on: ubuntu-latest
     steps:
@@ -97,14 +94,6 @@ jobs:
       - name: Enforce readiness wording contract
         run: python tools/check_readiness_claims.py
 
-      - name: Check Python tooling syntax
-        run: python -B -m py_compile scripts/generate_version.py scripts/configure_esptool_upload.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
-
-      - name: Check HIL parser and no-hardware path
-        run: |
-          python tools/ldc1614_hil_runner.py --parser-self-test
-          python tools/ldc1614_hil_runner.py --dry-run --quiet
-
       - name: Run HIL runner host tests
         run: python tools/test_ldc1614_hil_runner.py
 
@@ -113,9 +102,6 @@ jobs:
 
       - name: Check clean consumer compile
         run: python tools/check_clean_consumer_compile.py
-
-      - name: Validate library package
-        run: pio pkg pack
 
   idf-build:
     name: ESP-IDF build (${{ matrix.target }})

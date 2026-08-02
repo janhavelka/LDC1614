@@ -42,7 +42,7 @@ INPUT                  = README.md \
                          docs/VALIDATION_STATUS.md
 FILE_PATTERNS          = *.h *.md
 RECURSIVE              = YES
-EXCLUDE_PATTERNS       = */.pio/* */.git/* */test/* */docs/doxygen/* */docs/reference/extracted-md/* */docs/reference/pdf-extracted-md/* */docs/_pdf_extracts/*
+EXCLUDE_PATTERNS       = */.pio/* */.git/* */test/* */docs/doxygen/*
 USE_MDFILE_AS_MAINPAGE = README.md
 FULL_PATH_NAMES        = NO
 SORT_MEMBER_DOCS       = YES

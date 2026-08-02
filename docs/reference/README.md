@@ -18,9 +18,12 @@ is intentionally separated from the maintained integration docs in `docs/`.
 - `application_notes/` - vendor application-note PDFs and concise local
   summaries.
 - `howto_guides/` - vendor how-to PDFs and concise local summaries.
-- `pdf-extracted-md/` - raw generated markdown from source PDFs. These files
-  preserve extraction traceability and can contain encoding artifacts, legal
-  notices, and table/figure noise.
+
+The PDFs are the retained full-text vendor sources. Rebuildable raw text and
+Markdown extraction dumps are intentionally not kept; use the concise sibling
+summaries and curated notes for search and review, then verify exact claims in
+the source PDF. [PDF_MANIFEST.md](PDF_MANIFEST.md) records verified page counts
+and SHA-256 checksums for the complete retained set.
 
 The `extracted-md/00_document_inventory.md` through
 `extracted-md/08_variant_differences_and_open_questions.md` files are curated

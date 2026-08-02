@@ -22,6 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced the completed TunnelMonitor suitability-audit ledger with a concise
   open-gates guide, and reduced validation status to repeatable release checks,
   retained evidence boundaries, and unresolved physical validation.
+- Consolidated HIL artifact guidance into the maintained validation procedure;
+  retained transcript-bearing JSON and raw serial captures while removing
+  generated Markdown copies and completed report/audit narratives.
+- Removed both rebuildable raw PDF extraction trees. All vendor PDFs, concise
+  per-document summaries, and curated implementation notes remain.
+- Removed unused library/example includes, an orphaned example LED constant,
+  dead HIL and cross-project version-generator helpers, redundant CLI checks,
+  stale PlatformIO flags, and the coverage environment that produced no report.
+- Reduced CI to distinct checks; the HIL host suite already covers parser and
+  no-port behavior, while the clean-consumer check already packs the library.
+- Exported the maintained guides, contribution and Doxygen configuration, and
+  primary datasheet so documentation links in packaged README files remain
+  usable.
+- The version generator now synchronizes and checks `idf_component.yml` and
+  Doxygen project metadata from the authoritative `library.json` version.
 - Pin maintained Arduino builds to pioarduino `55.03.311` (Arduino 3.3.11,
   ESP-IDF 5.5.5 libraries), which retains Espressif's NACK-state correction and
   adds I2C reset, allocation, and ISR fixes. PlatformIO is pinned to the
@@ -207,8 +222,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clean package consumer compile guard that packs the library, extracts the
   archive, and compiles a consumer against the packaged public headers and
   source.
-- HIL procedure and conservative runner: `docs/HIL_VALIDATION.md`,
-  `docs/hil/README.md`, and `tools/ldc1614_hil_runner.py`. A no-hardware run is
+- HIL procedure and conservative runner: `docs/HIL_VALIDATION.md` and
+  `tools/ldc1614_hil_runner.py`. A no-hardware run is
   `NOT_RUN`, not a pass.
 - Reproducible version metadata controls through `SOURCE_DATE_EPOCH` and
   `LDC1614_REPRODUCIBLE_BUILD=1`.

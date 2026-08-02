@@ -28,15 +28,7 @@ void arduinoVPrintf(void*, const char* fmt, va_list args) {
 }
 
 uint64_t arduinoNowMs(void*) {
-  // Extend the framework's wrapping 32-bit counter for operation deadlines.
-  static uint32_t previous = 0;
-  static uint64_t high = 0;
-  const uint32_t current = static_cast<uint32_t>(millis());
-  if (current < previous) {
-    high += (UINT64_C(1) << 32U);
-  }
-  previous = current;
-  return high | current;
+  return esp32_i2c::uptimeMs();
 }
 
 LDC1614::Status configureI2c(esp32_i2c::Context& context) {

@@ -55,10 +55,6 @@ static_assert(LDC_I2C_ADDRESS == 0x2A || LDC_I2C_ADDRESS == 0x2B,
 static_assert(LDC_CHANNEL_COUNT == 2 || LDC_CHANNEL_COUNT == 4,
               "LDC example variant must have 2 or 4 channels");
 
-/// @brief LED pin. Example default for ESP32-S3 (RGB LED on GPIO48).
-/// Set to -1 to disable.
-static constexpr int LED = 48;
-
 /// @brief INTB pin from LDC1614 (push-pull, active low).
 /// Set to -1 to disable.
 static constexpr int INTB_PIN = -1;

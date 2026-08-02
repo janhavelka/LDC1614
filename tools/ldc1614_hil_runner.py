@@ -540,11 +540,6 @@ def append_expectation_results(
                 )
 
 
-def ensure_wake_command(commands: List[str]) -> None:
-    if not any(command_name(command) == "wake" for command in commands):
-        commands.append("wake")
-
-
 def repeat_commands(commands: List[str], repeat_count: int) -> List[str]:
     if repeat_count <= 1:
         return list(commands)

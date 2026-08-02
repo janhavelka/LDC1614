@@ -98,7 +98,6 @@ def parse_idf_register_lists(cmake_path: pathlib.Path) -> dict[str, list[pathlib
         "SRCS",
         "INCLUDE_DIRS",
         "PRIV_INCLUDE_DIRS",
-        "INCLUDE_DIRS",
         "REQUIRES",
         "PRIV_REQUIRES",
         "EMBED_FILES",

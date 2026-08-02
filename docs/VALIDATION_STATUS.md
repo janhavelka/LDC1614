@@ -19,27 +19,21 @@ exact sensor-equipped target.
 Run these checks on the final review revision:
 
 ```sh
-python -B -m py_compile scripts/generate_version.py scripts/configure_esptool_upload.py tools/ldc1614_hil_runner.py tools/test_ldc1614_hil_runner.py tools/check_readiness_claims.py tools/check_clean_consumer_compile.py
 python tools/check_core_timing_guard.py
 python tools/check_cli_contract.py
 python tools/check_idf_example_contract.py
 python tools/check_readiness_claims.py
-python tools/ldc1614_hil_runner.py --parser-self-test
-python tools/ldc1614_hil_runner.py --dry-run --quiet
 python tools/test_ldc1614_hil_runner.py
 python scripts/generate_version.py check
 python tools/check_clean_consumer_compile.py
 python -m platformio test -e native
-python -m platformio test -e native_cov
 python -m platformio run -e esp32s3dev
 python -m platformio run -e esp32s2dev
-python -m platformio pkg pack
 ```
 
-`native_cov` is coverage-instrumented only. The repository does not generate a
-coverage report or enforce a threshold. Remove generated package archives
-after review unless they are intentionally retained outside the source tree as
-release artifacts.
+The HIL runner host tests include parser self-test and no-port behavior. The
+clean-consumer check creates and removes its own package archive in a temporary
+directory.
 
 CI additionally builds the native ESP-IDF diagnostic for ESP32-S2 and ESP32-S3
 and generates Doxygen with warnings treated as errors. A successful build or
@@ -47,23 +41,19 @@ software test is not HIL evidence.
 
 ## Retained hardware evidence boundary
 
-The [committed 2026-07-01 ESP32-S2 evidence](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/hil-validation-COM8-20260701.md)
-is a historical v2 chip-only run with an LDC1614 at `0x2A` and no LC sensor. It
-does not validate the v3 operation-ID, deadline, budget, cancellation,
-applied-state, or atomic acquisition contract.
+The [retained evidence index](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md) records five intentional
+negative 2026-07-22 post-v3 runs and eight raw serial debug captures. The JSON
+artifacts embed their complete transcripts, command results, and target
+firmware identities. They show NACK-related combined-read failure on older
+ESP-IDF stacks and justify upgrading beyond the original pioarduino `55.03.39`
+selection. The maintained `55.03.311` baseline retains the upstream NACK-state
+correction and adds ESP-IDF 5.5.5 I2C reset, allocation, and ISR fixes.
 
-The retained 2026-07-22 post-v3 artifacts are intentional negative transport
-records. They show NACK-related combined-read failure on older ESP-IDF stacks
-and justify the original pioarduino `55.03.39` selection. The maintained
-`55.03.311` baseline retains that NACK-state correction and adds ESP-IDF 5.5.5
-I2C reset, allocation, and ISR fixes. The
-[transport-regression report](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/hil-validation-COM8-20260722-transport-regression.md)
-indexes those artifacts and their embedded transcripts. None is positive
-release evidence.
-
-Keep these reports under `docs/reports/` while they remain cited here. Follow
-the [artifact retention rules](https://github.com/janhavelka/LDC1614/blob/main/docs/hil/README.md);
-do not replace evidence with a handwritten pass summary.
+None of the retained records is positive release evidence. Earlier compact v2
+artifacts contained no raw transcript and did not validate operation IDs,
+deadlines, budgets, cancellation, applied state, or atomic acquisition, so they
+remain available only through Git history. Follow the [HIL artifact rules](HIL_VALIDATION.md#evidence-rules)
+and never replace target evidence with a handwritten pass summary.
 
 ## Missing hardware evidence
 
@@ -89,6 +79,6 @@ Product-specific consumers may impose additional gates; TunnelMonitor's
 remaining requirements are listed
 in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).
 
-Use [HIL validation](HIL_VALIDATION.md) to collect structured JSON, Markdown,
-and raw transcript evidence. Without real hardware and matching
+Use [HIL validation](HIL_VALIDATION.md) to collect structured JSON and raw
+transcript evidence. Without real hardware and matching
 firmware-reported revision/status, a runner result is `NOT_RUN`, not a pass.
