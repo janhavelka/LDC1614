@@ -223,7 +223,7 @@ Run these only when hardware and operator setup explicitly support them:
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
 | Config readback | Yes | Hardware | Clean `c3e2ed8` default and extended matrices passed | Repeat cleanly with the production profile |
-| Reset/reapply and owner recovery | Yes | Hardware | Clean `c3e2ed8` default and extended matrices each passed one reset/reapply, then the full soak gate reproduced detail 259; repeated bus-reset/ACK recovery later failed its next identity read | Provide a deterministic recovery/replay path and repeated valid combined reads without a power cycle |
+| Reset/reapply and owner recovery | Yes | Hardware | Clean `c3e2ed8` default and extended matrices each passed one reset/reapply, then the full soak gate reproduced detail 259; a clean post-fix runner correctly classified the following initialization failure after bus-reset/ACK recovery | Provide a deterministic recovery/replay path and repeated valid combined reads without a power cycle |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |

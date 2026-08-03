@@ -88,8 +88,10 @@ Before release or target-deployment claims, capture evidence for:
 Clean `c3e2ed8` passed the 49-command default matrix, a 171-command extended
 matrix with all configuration/invalid-input coverage, and 1,000/1,000 hardware
 stress operations. Its full one-hour gate later reproduced detail 259 at
-`resetreapply`, so that acceptance soak correctly did not start. A separately
-labeled `custom_reduced` gate then passed scan, owner recovery, full replay,
+`resetreapply`, so that acceptance soak correctly did not start. The clean
+post-fix runner then classified a following `init` failure correctly after
+`busrecover` had returned success and target ACK. A separately labeled
+`custom_reduced` gate passed scan, owner recovery, full replay,
 wake, identity, and active-state checks before completing exactly 3,600 seconds:
 3,197 cycles, 19,182 commands, zero soak-command failures/unknowns/resets, and
 32 ms worst latency. This is positive steady-state evidence only. Repeated

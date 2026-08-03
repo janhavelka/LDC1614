@@ -110,6 +110,12 @@ The final clean diagnostic firmware for this session was `c3e2ed8`:
   not start. The retained pre-fix JSON mislabeled that gate reason as a reboot
   banner because normal `help` output contained `=== LDC1614 CLI ===`; the
   corrected classifier reports the actual command failure first.
+- `runner-81f0faa-c3e2ed8-corrected-gate-failure.*`: the clean post-fix runner,
+  still exercising clean `c3e2ed8` firmware without an intervening power
+  cycle, correctly reported `base command init was FAIL`. The preceding
+  `busrecover` had returned success and target ACK, but the first initialization
+  identity read again returned detail 259. The requested one-second
+  confirmation soak did not start.
 - `final-c3e2ed8-one-hour-reduced.*`: an explicitly labeled `custom_reduced`
   gate passed scan, owner recovery, full replay, wake, identity, and final
   active-state checks, then completed exactly 3,600 seconds: 3,197 complete
