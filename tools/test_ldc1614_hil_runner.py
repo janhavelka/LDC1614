@@ -1070,6 +1070,7 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                 "--startup-delay-s", "0", "--idle-gap-s", "0.01",
                 "--skip-default-commands", "--command", "version", "--command", "cfg",
                 "--command", "drv",
+                "--allow-reduced-soak-gate",
                 "--expected-firmware-commit", commit, "--operator", "test", "--board", "fake",
                 "--include-long-soak", "--soak-duration-s", "0.02",
                 "--soak-cycle-delay-s", "0", "--raw-transcript-out", str(raw),
@@ -1124,6 +1125,20 @@ class BoundsAndSelfTestTests(unittest.TestCase):
         self.assert_parse_fails(["--stress-count", str(runner.MAX_STRESS_COUNT + 1)])
         self.assert_parse_fails(["--sample-rate-count", "1", "--sample-rate-channel", "4"])
         self.assert_parse_fails(["--address", "0x29"])
+
+    def test_reduced_soak_requires_explicit_scope_acknowledgement(self) -> None:
+        arguments = [
+            "--dry-run", "--fixture", "no-sensor", "--skip-default-commands",
+            "--command", "version", "--include-long-soak",
+            "--soak-duration-s", "1",
+        ]
+        self.assert_parse_fails(arguments)
+        args = runner.parse_args(arguments + ["--allow-reduced-soak-gate"])
+        result = runner.make_result(args)
+        self.assertEqual("custom_reduced", result["base_matrix_scope"])
+        self.assertFalse(result["default_matrix_included"])
+        self.assertEqual("custom_reduced", result["soak"]["base_matrix_scope"])
+        self.assertIn("Base matrix scope: `custom_reduced`", runner.render_markdown(result))
 
     def test_parser_self_test_passes(self) -> None:
         self.assertEqual(0, runner.main(["--parser-self-test", "--quiet"]))

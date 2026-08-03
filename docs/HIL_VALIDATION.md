@@ -139,6 +139,11 @@ operation inside a larger recovery sequence; its token cannot mask a later
 recovery, replay, or identity failure. Built-in invalid-input coverage instead
 requires each exact usage contract and proves that no job was admitted.
 
+A soak with `--skip-default-commands` is rejected unless
+`--allow-reduced-soak-gate` is also present. Such an artifact is labeled
+`custom_reduced` and can support only the commands in its recorded base gate;
+it never qualifies the omitted reset/reapply or complete default matrix.
+
 Both CLIs expose the same cooperative core jobs and bounded diagnostic
 sessions. The runner requires matching command/session scheduled and terminal
 records. Runtime address and variant changes remain deliberately unavailable:

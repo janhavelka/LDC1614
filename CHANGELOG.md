@@ -113,6 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of losing the complete run before output creation.
 - Expected HIL failures can be scoped to one normalized command so a known
   negative reset result cannot mask recovery, replay, or identity failures.
+- Reduced custom soak gates require explicit opt-in and are labeled separately
+  from the complete default matrix in both JSON and rendered reports.
 - The HIL runner now refuses to enter a timed soak unless every base command,
   firmware/fixture expectation, and reset-banner check passes; complete-cycle
   accounting no longer treats a partially executed cycle as complete.

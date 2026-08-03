@@ -1780,6 +1780,10 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "idle_gap_s": args.idle_gap_s,
         "repeat_command_set": args.repeat_command_set,
         "base_command_count": base_command_count,
+        "base_matrix_scope": (
+            "custom_reduced" if args.skip_default_commands else "default"
+        ),
+        "default_matrix_included": not args.skip_default_commands,
         "expect_tokens": args.expect_token,
         "failure_tokens": args.failure_token,
         "expected_failure_tokens": args.expected_failure_token,
@@ -1798,6 +1802,10 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     result["stress"] = summarize_stress(args, command_results)
     result["sample_rate"] = summarize_sample_rate(args, command_results)
     result["soak"] = summarize_soak(args, observed_soak)
+    result["soak"]["base_matrix_scope"] = result["base_matrix_scope"]
+    result["soak"]["default_matrix_included"] = result[
+        "default_matrix_included"
+    ]
     result["overall_status"] = overall_status(command_results, not_run_reason, transcript)
     if serial_failure is not None:
         result["overall_status"] = "FAIL"
@@ -1840,6 +1848,8 @@ def render_markdown(result: Dict[str, object]) -> str:
         f"Idle gap: `{result['idle_gap_s']}` s",
         f"Repeat command set: `{result.get('repeat_command_set', 1)}`",
         f"Base command count: `{result.get('base_command_count', len(result.get('commands', [])))}`",
+        f"Base matrix scope: `{result.get('base_matrix_scope', 'default')}`",
+        f"Default matrix included: `{result.get('default_matrix_included', True)}`",
     ]
     if result.get("not_run_reason"):
         lines.append(f"Not-run reason: `{result['not_run_reason']}`")
@@ -1905,6 +1915,8 @@ def render_markdown(result: Dict[str, object]) -> str:
         "",
         f"Status: `{soak.get('status', 'NOT_RUN')}`",
         f"Reason: {soak.get('reason', '')}",
+        f"Base matrix scope: `{soak.get('base_matrix_scope', 'default')}`",
+        f"Default matrix included: `{soak.get('default_matrix_included', True)}`",
         f"Requested duration s: `{soak.get('requested_duration_s', 0)}`",
         f"Elapsed s: `{float(soak.get('elapsed_s', 0.0)):.3f}`",
         f"Cycles: `{soak.get('cycle_count', None)}`",
@@ -2000,6 +2012,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--include-stuck-bus", action="store_true")
     parser.add_argument("--include-long-soak", action="store_true")
     parser.add_argument(
+        "--allow-reduced-soak-gate", action="store_true",
+        help="Explicitly permit a labeled custom reduced base gate before soak",
+    )
+    parser.add_argument(
         "--soak-duration-s",
         type=float,
         default=0.0,
@@ -2064,6 +2080,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error(f"--soak-cycle-delay-s must be 0..{MAX_SOAK_CYCLE_DELAY_S}")
     if args.soak_duration_s > 0.0 and not args.include_long_soak:
         parser.error("--soak-duration-s requires --include-long-soak")
+    if (args.skip_default_commands and args.include_long_soak and
+            not args.allow_reduced_soak_gate):
+        parser.error(
+            "--skip-default-commands with --include-long-soak requires "
+            "--allow-reduced-soak-gate"
+        )
     try:
         compile_scoped_expected_failures(args.expected_failure)
     except ValueError as exc:
