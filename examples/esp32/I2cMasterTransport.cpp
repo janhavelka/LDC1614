@@ -143,10 +143,14 @@ LDC1614::Status reopen(Context& context) {
   return open(context, config);
 }
 
-LDC1614::Status recover(Context& context) {
+LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
   if (!context.hasBusConfig) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                   "I2C bus configuration unavailable");
+  }
+  if (timeoutMs == 0U) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                                  "I2C recovery timeout must be nonzero");
   }
   if (context.device != nullptr && context.bus == nullptr) {
     return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
@@ -156,7 +160,26 @@ LDC1614::Status recover(Context& context) {
   if (!status.ok()) {
     return status;
   }
-  return reopen(context);
+  status = reopen(context);
+  if (!status.ok()) {
+    return status;
+  }
+
+  // The pinned ESP-IDF 5.5.5 backend uses one generic INVALID_STATE result for
+  // several failed synchronous-transaction outcomes. Its bounded probe path
+  // both proves that the rebuilt target is responding and normalizes the
+  // new-master terminal status before the caller starts combined reads.
+  const esp_err_t probeError = i2c_master_probe(
+      context.bus, context.address, clampTimeoutMs(timeoutMs));
+  if (probeError == ESP_OK) {
+    return LDC1614::Status::Ok();
+  }
+  if (probeError == ESP_ERR_NOT_FOUND) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_NACK_ADDR,
+                                  "I2C recovery target did not ACK",
+                                  static_cast<int32_t>(probeError));
+  }
+  return mapEspErr(probeError, "I2C recovery target probe failed");
 }
 
 LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,

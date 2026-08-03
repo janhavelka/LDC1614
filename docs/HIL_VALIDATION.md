@@ -41,22 +41,27 @@ To stress the same no-sensor matrix repeatedly in one captured run, add
 `--repeat-command-set N`. The runner records both the base command count and
 the expanded command count in the artifact.
 
-After any persistent post-NACK `ESP_ERR_INVALID_STATE`, physically remove and
-reapply power to the ESP32 and LDC/shared bus before collecting another
-candidate run. A firmware reboot is not a device power cycle. The first cold
-gate must read `version`, `cfg`, `probe`, `init`, and `probe` without a preceding
-scan. Then run a controlled absent-address NACK/scan, explicit owner recovery,
-initialization, and repeated valid combined reads. Run at least 100 correlated
-reset/reapply cycles before the full matrix. Stop on the first failed gate; do
-not soak an already-poisoned transport state.
+After any persistent post-NACK `ESP_ERR_INVALID_STATE`, first capture the
+failure and attempt the explicit reconstructed-owner recovery. Recovery must
+recreate the diagnostic's bus/device lifecycle, obtain one bounded target ACK,
+then complete initialization/replay and repeated combined reads without a
+power cycle. If that gate fails, physically remove and reapply power to the
+ESP32 and LDC/shared bus before collecting another candidate run. A firmware
+reboot is not a device power cycle. The first cold gate must read `version`,
+`cfg`, `probe`, `init`, and `probe` without a preceding scan. Then run a
+controlled absent-address NACK/scan, explicit owner recovery, initialization,
+and repeated valid combined reads. Run at least 100 correlated reset/reapply
+cycles before the full matrix. Stop on the first failed gate; do not soak an
+already-poisoned transport state.
 
 The maintained runner enforces that stop rule: after the first unexpected base
 result it sends no later command and records the remaining matrix entries as
 `NOT_RUN`. The diagnostic `busrecover` command reconstructs its sole owned
-ESP-IDF bus/device lifecycle, invalidates applied state, and still
-requires `init`. A production shared-bus manager must coordinate and recreate
-all registered device handles; do not copy the single-device example as a
-general shared-bus policy.
+ESP-IDF bus/device lifecycle, requires a bounded target ACK, invalidates applied
+state, and still requires `init`. A production shared-bus manager must
+coordinate and recreate all registered device handles and re-admit every
+required peer; do not copy the single-device example as a general shared-bus
+policy.
 
 For a time-bounded no-sensor soak, request the duration explicitly. The soak
 keeps the port open, executes only complete cycles, and ends every cycle awake:

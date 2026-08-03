@@ -36,11 +36,17 @@ application then owns any bus/device recovery and complete reinitialization.
 
 The maintained ESP32 diagnostic demonstrates one explicit recovery policy for
 its sole owned device handle: remove the device, delete and recreate the bus,
-then recreate the handle. This is not library behavior and is not a general
-shared-bus recipe. A production owner must serialize the operation, rebuild
-every registered device handle, invalidate each affected driver's applied
-state, and surface any failed recovery phase without a hidden transaction
-retry.
+recreate the handle, then require one bounded target-address ACK probe. The
+probe is owner recovery evidence, not a register retry; on the pinned ESP-IDF
+5.5.5 baseline it also normalizes the new-master terminal state after the
+reproduced NACK failure and before the required initialization replay. This is
+not library behavior and is not a general shared-bus recipe. A production owner
+must serialize the operation,
+rebuild any owner-retained device handles, require bounded device-specific
+admission before each affected module resumes, invalidate each affected
+driver's applied state, and surface any failed recovery phase without a hidden
+transaction retry. Not every I2C device supports address-only probing, so peer
+admission is a product/device contract rather than a universal probe sweep.
 
 ## Request lifecycle
 

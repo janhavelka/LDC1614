@@ -85,6 +85,10 @@ module called only by TunnelMonitor's `I2cTask`. The module must:
   deadline expiry must be observed by `poll()`;
 - call `invalidateAppliedState()` on owner bus invalidation and require a
   complete initialize/replay before acquisition resumes; and
+- after a serialized shared-bus reconstruction, recreate any owner-retained
+  device handles and require each affected module's bounded device-specific
+  admission before that module resumes combined reads or configuration replay;
+  and
 - keep queueing, retry, health, recovery, settings, calibration, and public DTO
   policy in TunnelMonitor.
 

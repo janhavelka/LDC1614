@@ -75,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
   explicit recovery. Recovery removes the owned device, deletes/recreates the
-  owned bus, and recreates the device handle; initial
+  owned bus, recreates the device handle, and requires one bounded target ACK
+  probe before reporting success; initial
   open now rolls back the bus if device registration fails. The redundant Wire
   adapter and unused host framework stubs were removed. This contains recovery
   policy in the diagnostic owner and is not a claim that the upstream
@@ -95,6 +96,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the experimental fixed post-reset delay after COM8 evidence showed it
   did not correct the ESP-IDF transport failure. Reset/reapply remains fully
   cooperative and reports the first reset-adjacent transport error unchanged.
+- ESP32 example recovery no longer reports success merely because handle
+  reconstruction succeeded. Its final target-address probe exposes NACK and
+  timeout, and normalizes the new-master terminal state on the pinned ESP-IDF
+  5.5.5 baseline before the required complete initialization/replay.
 - `selftest` is now a real bounded diagnostic rather than an alias for two
   identity reads; it reports explicit pass, failure, and fixture-dependent skip
   counts.
