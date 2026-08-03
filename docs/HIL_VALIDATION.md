@@ -43,8 +43,8 @@ the expanded command count in the artifact.
 
 After any persistent post-NACK `ESP_ERR_INVALID_STATE`, first capture the
 failure and attempt the explicit reconstructed-owner recovery. Recovery must
-recreate the diagnostic's bus/device lifecycle, run the driver's bounded bus
-reset/line-clear, obtain one bounded target ACK, then complete
+recreate the diagnostic's bus, run the driver's bounded bus reset/line-clear,
+register a fresh device handle, obtain one bounded target ACK, then complete
 initialization/replay and repeated combined reads without a power cycle. If
 that gate fails, physically remove and reapply power to the
 ESP32 and LDC/shared bus before collecting another candidate run. A firmware

@@ -57,9 +57,8 @@ LDC1614::Status validateContext(uint8_t address, void* user,
   return LDC1614::Status::Ok();
 }
 
-}  // namespace
-
-LDC1614::Status open(Context& context, const BusConfig& config) {
+LDC1614::Status openWithPolicy(Context& context, const BusConfig& config,
+                               bool resetBeforeDevice) {
   if (context.bus != nullptr || context.device != nullptr) {
     return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
                                   "I2C context is already open");
@@ -87,6 +86,19 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
     return status;
   }
 
+  if (resetBeforeDevice) {
+    status = mapEspErr(i2c_master_bus_reset(bus),
+                       "I2C recovery bus reset failed");
+    if (!status.ok()) {
+      const esp_err_t rollback = i2c_del_master_bus(bus);
+      if (rollback != ESP_OK) {
+        context.bus = bus;
+        return mapEspErr(rollback, "I2C bus rollback failed");
+      }
+      return status;
+    }
+  }
+
   i2c_device_config_t deviceConfig{};
   deviceConfig.dev_addr_length = I2C_ADDR_BIT_LEN_7;
   deviceConfig.device_address = context.address;
@@ -107,6 +119,12 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
   context.bus = bus;
   context.device = device;
   return LDC1614::Status::Ok();
+}
+
+}  // namespace
+
+LDC1614::Status open(Context& context, const BusConfig& config) {
+  return openWithPolicy(context, config, false);
 }
 
 LDC1614::Status close(Context& context) {
@@ -140,7 +158,7 @@ LDC1614::Status reopen(Context& context) {
                                   "I2C bus configuration unavailable");
   }
   const BusConfig config = context.busConfig;
-  return open(context, config);
+  return openWithPolicy(context, config, false);
 }
 
 LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
@@ -160,13 +178,7 @@ LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
   if (!status.ok()) {
     return status;
   }
-  status = reopen(context);
-  if (!status.ok()) {
-    return status;
-  }
-
-  status = mapEspErr(i2c_master_bus_reset(context.bus),
-                     "I2C recovery bus reset failed");
+  status = openWithPolicy(context, context.busConfig, true);
   if (!status.ok()) {
     return status;
   }

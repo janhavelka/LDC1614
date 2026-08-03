@@ -36,8 +36,8 @@ application then owns any bus/device recovery and complete reinitialization.
 
 The maintained ESP32 diagnostic demonstrates one explicit recovery policy for
 its sole owned device handle: remove the device, delete and recreate the bus,
-recreate the handle, run the ESP-IDF driver's bounded bus reset/line-clear, then
-require one bounded target-address ACK probe. The reset and probe are owner
+run the ESP-IDF driver's bounded bus reset/line-clear, recreate the device
+handle, then require one bounded target-address ACK probe. The reset and probe are owner
 recovery evidence, not register retries; on the pinned ESP-IDF 5.5.5 baseline
 they normalize the new-master terminal state after the reproduced NACK failure
 and before the required initialization replay. This is not library behavior and
