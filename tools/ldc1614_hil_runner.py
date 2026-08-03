@@ -604,6 +604,19 @@ def compile_token_patterns(tokens: Iterable[str]) -> List[re.Pattern[str]]:
     ]
 
 
+def compile_scoped_expected_failures(
+    entries: Iterable[str],
+) -> Dict[str, List[re.Pattern[str]]]:
+    scoped: Dict[str, List[re.Pattern[str]]] = {}
+    for entry in entries:
+        command, separator, token = entry.partition("=")
+        normalized = normalized_command(command)
+        if not separator or not normalized or not token.strip():
+            raise ValueError("expected COMMAND=TOKEN")
+        scoped.setdefault(normalized, []).extend(compile_token_patterns((token,)))
+    return scoped
+
+
 def classify_command(
     command: str,
     output: str,
@@ -1201,6 +1214,9 @@ def run_serial_commands(
     expected_patterns = compile_token_patterns(args.expect_token)
     failure_patterns = compile_token_patterns(args.failure_token)
     expected_failure_patterns = compile_token_patterns(args.expected_failure_token)
+    scoped_expected_failures = compile_scoped_expected_failures(
+        args.expected_failure
+    )
     transcript_parts = journal.parts
     results: List[Dict[str, object]] = []
     startup_elapsed_s = 0.0
@@ -1263,7 +1279,9 @@ def run_serial_commands(
                 timed_out,
                 expected_patterns,
                 failure_patterns,
-                expected_failure_patterns,
+                expected_failure_patterns + scoped_expected_failures.get(
+                    normalized_command(command), []
+                ),
                 args.fixture,
             )
             return {
@@ -1765,6 +1783,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "expect_tokens": args.expect_token,
         "failure_tokens": args.failure_token,
         "expected_failure_tokens": args.expected_failure_token,
+        "scoped_expected_failures": args.expected_failure,
         "sample_rate_count": args.sample_rate_count,
         "sample_rate_channel": args.sample_rate_channel,
         "soak_duration_s": args.soak_duration_s,
@@ -1958,6 +1977,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--failure-token", action="append", default=[], help="Additional token that classifies output as FAIL")
     parser.add_argument("--expected-failure-token", action="append", default=[],
                         help="Token that classifies an intentional negative-test error as PASS")
+    parser.add_argument(
+        "--expected-failure", action="append", default=[], metavar="COMMAND=TOKEN",
+        help="Expected-failure token scoped to one normalized command",
+    )
     parser.add_argument("--skip-default-commands", action="store_true")
     parser.add_argument("--command", action="append", default=[], help="Additional command to send")
     parser.add_argument("--include-address-0x2b", action="store_true")
@@ -2041,6 +2064,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error(f"--soak-cycle-delay-s must be 0..{MAX_SOAK_CYCLE_DELAY_S}")
     if args.soak_duration_s > 0.0 and not args.include_long_soak:
         parser.error("--soak-duration-s requires --include-long-soak")
+    try:
+        compile_scoped_expected_failures(args.expected_failure)
+    except ValueError as exc:
+        parser.error(f"--expected-failure {exc}")
     return args
 
 

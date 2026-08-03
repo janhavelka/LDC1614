@@ -908,6 +908,35 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
         )
         self.assertEqual("FAIL", malformed)
 
+    def test_expected_failure_can_be_scoped_to_one_command(self) -> None:
+        class FakeSerial(FakeSerialBase):
+            writes = []
+
+            def write(self, payload: bytes) -> int:
+                command = payload.decode().strip()
+                type(self).writes.append(command)
+                canonical = runner.canonical_command_name(command)
+                failed = async_output(
+                    canonical, 1, "detail=259 I2C_BUS code=18\n"
+                ).replace("outcome=SUCCESS code=0", "outcome=FAILED code=18")
+                self.buffer.extend(failed.encode())
+                return len(payload)
+
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            "--expected-failure", "resetreapply confirm=detail=259",
+        ])
+        results, _, _, _, _ = runner.run_serial_commands(
+            args, ["resetreapply confirm", "init"]
+        )
+        self.assertEqual(["resetreapply confirm", "init"], FakeSerial.writes)
+        self.assertEqual("PASS", results[0]["status"])
+        self.assertEqual("FAIL", results[1]["status"])
+
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            runner.parse_args(["--expected-failure", "missing-token"])
+
     def test_missing_base_expectation_prevents_soak_commands(self) -> None:
         commit = runner.git_value(["rev-parse", "--short", "HEAD"])
 

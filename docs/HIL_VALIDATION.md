@@ -134,8 +134,10 @@ Use `--expect-token`, `--failure-token`, and `--expected-failure-token` only for
 documented fixture-specific cases. An expected-failure token can accept only a
 structurally correlated failed asynchronous or immediate CLI result; it cannot
 override timeout, missing-envelope, mismatched-session, or malformed normal
-command output. Built-in invalid-input coverage instead requires each exact
-usage contract and proves that no job was admitted.
+command output. Prefer `--expected-failure "COMMAND=TOKEN"` for one negative
+operation inside a larger recovery sequence; its token cannot mask a later
+recovery, replay, or identity failure. Built-in invalid-input coverage instead
+requires each exact usage contract and proves that no job was admitted.
 
 Both CLIs expose the same cooperative core jobs and bounded diagnostic
 sessions. The runner requires matching command/session scheduled and terminal

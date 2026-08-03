@@ -111,6 +111,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Long HIL runs journal raw serial evidence incrementally and convert serial
   command or serial-context close exceptions into explicit failed artifacts
   instead of losing the complete run before output creation.
+- Expected HIL failures can be scoped to one normalized command so a known
+  negative reset result cannot mask recovery, replay, or identity failures.
 - The HIL runner now refuses to enter a timed soak unless every base command,
   firmware/fixture expectation, and reset-banner check passes; complete-cycle
   accounting no longer treats a partially executed cycle as complete.
