@@ -75,8 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
   explicit recovery. Recovery removes the owned device, deletes/recreates the
-  owned bus, runs the driver's bounded bus reset/line-clear, recreates the
-  device handle, and requires one bounded target ACK probe before reporting
+  owned bus, recreates the device handle, runs the driver's bounded bus
+  reset/line-clear, and requires one bounded target ACK probe before reporting
   success; initial
   open now rolls back the bus if device registration fails. The redundant Wire
   adapter and unused host framework stubs were removed. This contains recovery

@@ -65,8 +65,7 @@ Both maintained ESP32 diagnostics use one
 example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
 its explicit `busrecover` path now reconstructs the diagnostic's sole owned
 bus/device lifecycle, runs the ESP-IDF driver's bounded bus reset/line-clear on
-the recreated bus before registering a fresh device handle, and requires one
-bounded target-address ACK before it
+the recreated bus, and requires one bounded target-address ACK before it
 reports success. The reset and target probe also normalize the new-master
 terminal status on the pinned ESP-IDF 5.5.5 baseline after a reproduced NACK
 failure. This is containment for a failed backend, not a hidden register retry

@@ -48,8 +48,8 @@ The application owns bus handles, serialization, pins, per-transfer timeout,
 scheduling, recovery, and device-presence policy. The shared example transport
 in `examples/esp32/I2cMasterTransport.*` owns native combined transfers, error
 mapping, bounded probe operations, transactional open/rollback, and explicit
-bus reconstruction, the driver's bounded bus reset/line-clear, fresh device
-registration, and one bounded target-address ACK probe. The diagnostic owns only one registered
+bus/device reconstruction followed by the driver's bounded bus reset/line-clear
+and one bounded target-address ACK probe. The diagnostic owns only one registered
 device handle; a production shared-bus owner must coordinate every handle.
 Transport counters are diagnostic facts, not applied-configuration authority.
 
