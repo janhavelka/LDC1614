@@ -38,11 +38,11 @@ The maintained ESP32 diagnostic demonstrates one explicit recovery policy for
 its sole owned device handle: remove the device, delete and recreate the bus,
 recreate the handle, run the ESP-IDF driver's bounded bus reset/line-clear, then
 require one bounded target-address ACK probe. The reset and probe are owner
-recovery evidence, not register retries; on the pinned ESP-IDF 5.5.5 baseline
-they normalize the new-master terminal state after the reproduced NACK failure
-and before the required initialization replay. This is not library behavior and
-is not a general shared-bus recipe. A production owner must serialize the
-operation,
+recovery evidence, not register retries. On the pinned ESP-IDF 5.5.5 baseline,
+repeated COM8 testing showed that this sequence can report ACK while the next
+combined read still returns `ESP_ERR_INVALID_STATE`; only the required complete
+initialization replay establishes recovery. This is not library behavior and is
+not a general shared-bus recipe. A production owner must serialize the operation,
 rebuild any owner-retained device handles, require bounded device-specific
 admission before each affected module resumes, invalidate each affected
 driver's applied state, and surface any failed recovery phase without a hidden

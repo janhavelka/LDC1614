@@ -1,0 +1,411 @@
+### startup
+
+### command 1: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 2: cfg
+Configuration: desired revision=1 applied=APPLIED_SLEEPING staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_SLEEPING
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_SLEEPING staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_SLEEPING
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 3: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=2 deadline_ms=34122 mask=0x00
+Operation result: operation=2 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=32127 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 4: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 5: init
+CLI scheduled: command=init session=0 operation=3 deadline_ms=34164 mask=0x00
+Operation result: operation=3 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=32169 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 6: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 7: probe
+CLI scheduled: command=probe session=1
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=1 outcome=SUCCESS code=0
+> 
+### command 8: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 9: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 10: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=4 deadline_ms=34270 mask=0x00
+Operation result: operation=4 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=32275 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 11: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 12: init
+CLI scheduled: command=init session=0 operation=5 deadline_ms=34311 mask=0x00
+Operation result: operation=5 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=32316 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 13: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 14: probe
+CLI scheduled: command=probe session=2
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=2 outcome=SUCCESS code=0
+> 
+### command 15: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 16: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 17: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=6 deadline_ms=34415 mask=0x00
+Operation result: operation=6 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=32421 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 18: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 19: init
+CLI scheduled: command=init session=0 operation=7 deadline_ms=34457 mask=0x00
+Operation result: operation=7 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=32463 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 20: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 21: probe
+CLI scheduled: command=probe session=3
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=3 outcome=SUCCESS code=0
+> 
+### command 22: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 23: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 24: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=8 deadline_ms=34562 mask=0x00
+Operation result: operation=8 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=32568 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 25: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 26: init
+CLI scheduled: command=init session=0 operation=9 deadline_ms=34604 mask=0x00
+Operation result: operation=9 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=32609 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 27: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 28: probe
+CLI scheduled: command=probe session=4
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=4 outcome=SUCCESS code=0
+> 
+### command 29: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 30: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 31: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=10 deadline_ms=34709 mask=0x00
+Operation result: operation=10 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=32715 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 32: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 33: init
+CLI scheduled: command=init session=0 operation=11 deadline_ms=34752 mask=0x00
+Operation result: operation=11 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=32757 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 34: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 35: probe
+CLI scheduled: command=probe session=5
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=5 outcome=SUCCESS code=0
+> 
+### command 36: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 37: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 38: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=12 deadline_ms=34857 mask=0x00
+Operation result: operation=12 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=32863 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 39: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 40: init
+CLI scheduled: command=init session=0 operation=13 deadline_ms=34899 mask=0x00
+Operation result: operation=13 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=32904 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 41: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 42: probe
+CLI scheduled: command=probe session=6
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=6 outcome=SUCCESS code=0
+> 
+### command 43: version
+version=3.1.0 firmware_git=24a198b firmware_status=clean build_timestamp=2026-08-03 18:44:53
+> 
+### command 44: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 45: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=14 deadline_ms=35004 mask=0x00
+Operation result: operation=14 kind=RESET_AND_REAPPLY outcome=FAILED effects=0x02 revision=1 completed_ms=33005 phase=VERIFY_MANUFACTURER reg=0x7E channel=255 transfers=2 maximum=27 code=18 detail=259 msg=I2C write-read failed
+  Status: [31mI2C_BUS[0m (code=18, detail=259)
+  Message: I2C write-read failed
+config_fault valid=1 job=RESET_AND_REAPPLY phase=VERIFY_MANUFACTURER register=0x7E channel=255 effects=0x02
+  Status: [31mI2C_BUS[0m (code=18, detail=259)
+  Message: I2C write-read failed
+CLI result: command=resetreapply session=0 outcome=FAILED code=18
+> 
+### command 46: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 47: init
+CLI scheduled: command=init session=0 operation=15 deadline_ms=35046 mask=0x00
+Operation result: operation=15 kind=INITIALIZE outcome=FAILED effects=0x00 revision=1 completed_ms=33046 phase=VERIFY_MANUFACTURER reg=0x7E channel=255 transfers=1 maximum=26 code=18 detail=259 msg=I2C write-read failed
+  Status: [31mI2C_BUS[0m (code=18, detail=259)
+  Message: I2C write-read failed
+config_fault valid=1 job=INITIALIZE phase=VERIFY_MANUFACTURER register=0x7E channel=255 effects=0x00
+  Status: [31mI2C_BUS[0m (code=18, detail=259)
+  Message: I2C write-read failed
+CLI result: command=init session=0 outcome=FAILED code=18
+> 
+### runner fail-fast after command 47: init
+not sent after base command 47 (init) was FAIL

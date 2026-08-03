@@ -99,9 +99,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cooperative and reports the first reset-adjacent transport error unchanged.
 - ESP32 example recovery no longer reports success merely because handle
   reconstruction succeeded. Its bounded bus reset/line-clear and final
-  target-address probe expose each failed phase and normalize the new-master
-  terminal state on the pinned ESP-IDF 5.5.5 baseline before the required
-  complete initialization/replay.
+  target-address probe expose each failed phase before the required complete
+  initialization/replay. Repeated COM8 testing proved that an ACK is not enough
+  to qualify recovery: the following combined identity read can still fail on
+  the pinned ESP-IDF 5.5.5 baseline.
 - `selftest` is now a real bounded diagnostic rather than an alias for two
   identity reads; it reports explicit pass, failure, and fixture-dependent skip
   counts.
@@ -118,6 +119,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The HIL runner now refuses to enter a timed soak unless every base command,
   firmware/fixture expectation, and reset-banner check passes; complete-cycle
   accounting no longer treats a partially executed cycle as complete.
+- Firmware-restart detection now matches only the maintained Arduino/native
+  boot banners. Normal `help` output no longer blocks every full soak, and an
+  actual base-command failure takes precedence in the recorded gate reason.
 - Raw writes, destructive all-register dumps, silicon reset/reapply, owner bus
   recovery, invalidation, mixed stress, and example-owned shutdown transitions
   require explicit confirmation and preserve dirty/unknown state evidence.

@@ -59,7 +59,9 @@ detail 259 on the first identity read after a successful software-reset write.
 These positive subsets narrow the trigger but do not close the intermittent
 backend regression or qualify recovery.
 
-None of the retained records is positive release evidence. Earlier compact v2
+The current clean candidate has positive no-sensor diagnostic and steady-state
+subsets, but none is a release certificate or sensor-equipped product evidence.
+Earlier compact v2
 artifacts contained no raw transcript and did not validate operation IDs,
 deadlines, budgets, cancellation, applied state, or atomic acquisition, so they
 remain available only through Git history. Follow the [HIL artifact rules](HIL_VALIDATION.md#evidence-rules)
@@ -83,12 +85,17 @@ Before release or target-deployment claims, capture evidence for:
   calibration; and
 - a bounded soak at the production channel mask, cadence, and clock profile.
 
-A clean pioarduino `55.03.311` / ESP-IDF 5.5.5 candidate passed preflight, a
-full no-sensor matrix, 25 repeated matrices (1,025 command results), the cold
-gates above, and post-NACK identity stress. Its one-hour invocation and the
-later comprehensive run both failed base `resetreapply` before a valid soak
-could begin. A proven owner recovery/replay after the observed failure and a
-completed passing one-hour soak are still required to close the COM8 transport
+Clean `c3e2ed8` passed the 49-command default matrix, a 171-command extended
+matrix with all configuration/invalid-input coverage, and 1,000/1,000 hardware
+stress operations. Its full one-hour gate later reproduced detail 259 at
+`resetreapply`, so that acceptance soak correctly did not start. A separately
+labeled `custom_reduced` gate then passed scan, owner recovery, full replay,
+wake, identity, and active-state checks before completing exactly 3,600 seconds:
+3,197 cycles, 19,182 commands, zero soak-command failures/unknowns/resets, and
+32 ms worst latency. This is positive steady-state evidence only. Repeated
+recovery stress still showed bus-reset plus target ACK followed by an
+initialization failure, so a proven reset/recovery path remains required to
+close the COM8 transport
 regression.
 Product-specific consumers may impose additional gates; TunnelMonitor's
 remaining requirements are listed

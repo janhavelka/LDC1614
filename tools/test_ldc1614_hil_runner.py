@@ -783,6 +783,18 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
         self.assertIsNone(
             runner.base_acceptance_failure(args, commands, results, transcript)
         )
+        default_commands = runner.default_commands("arduino", "no-sensor")
+        golden_outputs = base_golden_outputs()
+        default_results = [
+            {"command": command, "status": "PASS", "output": golden_outputs[command]}
+            for command in default_commands
+        ]
+        self.assertIsNone(
+            runner.base_acceptance_failure(
+                args, default_commands, default_results,
+                "\n".join(golden_outputs[command] for command in default_commands),
+            )
+        )
 
         cases = [
             ("empty", [], [], transcript, "empty"),
@@ -791,12 +803,6 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                 "unknown", commands,
                 [results[0], {**results[1], "status": "UNKNOWN"}, results[2]],
                 transcript, "was UNKNOWN",
-            ),
-            (
-                "restart", commands,
-                [results[0], {**results[1], "output": "=== LDC1614 reboot ===\n"},
-                 results[2]],
-                transcript, "restart banner",
             ),
             (
                 "active-job", commands,
@@ -820,6 +826,21 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                 )
                 self.assertIsNotNone(failure)
                 self.assertIn(reason, failure)
+
+        boot_banners = (
+            "=== LDC1614 Arduino Diagnostic Bring-up Example ===",
+            "=== LDC1614 Native ESP-IDF Diagnostic Bring-up Example ===",
+        )
+        for banner in boot_banners:
+            with self.subTest(banner=banner):
+                restarted = [
+                    results[0], {**results[1], "output": f"{banner}\n"}, results[2]
+                ]
+                failure = runner.base_acceptance_failure(
+                    args, commands, restarted, transcript
+                )
+                self.assertIsNotNone(failure)
+                self.assertIn("restart banner", failure)
 
         expectation_cases = [
             ("address", "address", "0x2B", "address"),
@@ -968,6 +989,55 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
         self.assertIsNotNone(soak)
         self.assertFalse(soak["started"])
         self.assertIn("operator", soak["reason"])
+
+    def test_exact_firmware_boot_banners_are_counted_during_soak(self) -> None:
+        commit = runner.git_value(["rev-parse", "--short", "HEAD"])
+        boot_banners = (
+            "=== LDC1614 Arduino Diagnostic Bring-up Example ===",
+            "=== LDC1614 Native ESP-IDF Diagnostic Bring-up Example ===",
+        )
+
+        for boot_banner in boot_banners:
+            with self.subTest(banner=boot_banner):
+                class FakeSerial(FakeSerialBase):
+                    version_writes = 0
+
+                    def write(self, payload: bytes) -> int:
+                        command = payload.decode().strip()
+                        if command == "version":
+                            type(self).version_writes += 1
+                            output = version_output(commit)
+                            if type(self).version_writes > 1:
+                                output = f"{boot_banner}\n{output}"
+                        else:
+                            outputs = {
+                                "cfg": cfg_output(),
+                                "drv": drv_output(),
+                                "probe": probe_output(),
+                                "status": status_output(),
+                                "sleep": sync_output("sleep"),
+                                "wake": sync_output("wake"),
+                            }
+                            output = outputs[command]
+                        self.buffer.extend(output.encode())
+                        return len(payload)
+
+                self.install_serial(FakeSerial)
+                args = runner.parse_args([
+                    "--port", "FAKE", "--profile", "arduino",
+                    "--fixture", "no-sensor", "--startup-delay-s", "0",
+                    "--idle-gap-s", "0.01", "--expected-firmware-commit", commit,
+                    "--operator", "test", "--board", "fake",
+                    "--include-long-soak", "--soak-duration-s", "0.01",
+                ])
+                _, _, _, _, soak = runner.run_serial_commands(
+                    args, ["version", "cfg", "drv"]
+                )
+                self.assertIsNotNone(soak)
+                self.assertTrue(soak["started"])
+                self.assertEqual("FAIL", soak["status"])
+                self.assertEqual(soak["cycle_count"], soak["reset_count"])
+                self.assertGreater(soak["reset_count"], 0)
 
     def test_mid_soak_exception_counts_no_partial_cycle(self) -> None:
         commit = runner.git_value(["rev-parse", "--short", "HEAD"])

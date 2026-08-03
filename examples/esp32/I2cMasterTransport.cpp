@@ -172,9 +172,10 @@ LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
   }
 
   // The pinned ESP-IDF 5.5.5 backend uses one generic INVALID_STATE result for
-  // several failed synchronous-transaction outcomes. Its bounded probe path
-  // both proves that the rebuilt target is responding and normalizes the
-  // new-master terminal status before the caller starts combined reads.
+  // several failed synchronous-transaction outcomes. This bounded probe proves
+  // only that the rebuilt target acknowledges its address. It does not prove
+  // that a following combined read will succeed; the caller must still perform
+  // complete initialization and replay before accepting recovery.
   const esp_err_t probeError = i2c_master_probe(
       context.bus, context.address, clampTimeoutMs(timeoutMs));
   if (probeError == ESP_OK) {

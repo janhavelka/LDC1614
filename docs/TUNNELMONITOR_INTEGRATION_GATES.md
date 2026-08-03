@@ -8,10 +8,10 @@ repeated here.
 Last cross-repository review: 2026-08-03.
 
 - LDC1614 checkout: unreleased `3.1.0` candidate. Clean COM8 firmware
-  `2358c30eaa37ea560dcc8a858b08ba13ea6baa8e` supplied the current cold/reset/
-  NACK evidence; the branch also contains later runner and diagnostic-owner
-  recovery hardening. Replace this line with the final reviewed release commit
-  before integration.
+  `c3e2ed876dd884ceefc46ac6e579effa83e45325` passed the current default and
+  extended matrices plus a labeled one-hour steady-state soak. Reset/recovery
+  remained intermittent, so replace this line with a reviewed release commit
+  only after the platform recovery gate is closed.
 - TunnelMonitor-node checkout:
   `f05cd296d59c62ad4dfe293ca63f9b3798053ce8` on
   `prompt-45-platformization`, clean and synchronized with its upstream.
@@ -66,7 +66,9 @@ candidate and qualify it on the exact ESP32-S3 target across I2C, OTA, USB,
 RMT, Wi-Fi, SD, and PSRAM before changing TunnelMonitor's active pin. Preserve
 TunnelMonitor's existing failed-read bus-recreation fence until target fault
 injection proves a simpler policy safe. A successful build alone does not
-close this gate.
+close this gate. The COM8 diagnostic's bus reset and target ACK also failed to
+guarantee the following combined read, reinforcing that TunnelMonitor must
+require module-specific replay/admission after its owner recovery.
 
 ## Owner-module gate
 

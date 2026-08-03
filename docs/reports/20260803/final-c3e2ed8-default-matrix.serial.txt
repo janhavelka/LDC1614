@@ -1,0 +1,598 @@
+### startup
+
+### command 1: help
+[36m=== LDC1614 CLI ===[0m
+
+[32m[Common][0m
+  [36mhelp / ?                        [0m - Show the complete command reference (alias available)
+  [36mversion / ver                   [0m - Show library and firmware identity (alias available)
+  [36mcolor [on|off]                  [0m - Show or change ANSI colors
+  [36mverbose [0|1]                   [0m - Show or change per-step diagnostics
+
+[32m[Lifecycle and owner jobs][0m
+  [36mbind                            [0m - Bind the platform default profile (zero I2C)
+  [36mend                             [0m - Bus-silent cancel, discard results, and unbind
+  [36minit [deadline_ms]              [0m - Verify identity and replay the full profile
+  [36mapply [deadline_ms]             [0m - Replay the committed desired profile
+  [36mresetreapply [ms] confirm       [0m - Software-reset, verify identity, and replay
+  [36msleep                           [0m - Enter sleep with one bounded write
+  [36mwake                            [0m - Leave sleep with one bounded write
+  [36mcancel / stop                   [0m - Bus-silently cancel active CLI work (alias available)
+  [36mjob / progress                  [0m - Show core job and CLI session progress (alias available)
+  [36mresult                          [0m - Show the cached terminal operation
+  [36minvalidate confirm              [0m - Bus-silently mark applied hardware state unknown
+  [36mbusrecover confirm              [0m - Rebuild owner bus/device, then require init
+
+[32m[Measurements][0m
+  [36mread / acquire [mask]           [0m - Acquire one sequential readout batch (alias available)
+  [36mlast [channel]                  [0m - Show the cached complete sample batch
+  [36mwatch <mask> <count> [ms]       [0m - Cooperatively print bounded periodic batches
+  [36msamplerate <channel> <count>    [0m - Measure cooperative acquisition throughput
+  [36mready / drdy                    [0m - Read readiness and retain STATUS evidence (alias available)
+  [36mstatus                          [0m - Read and decode destructive STATUS evidence
+  [36mstatus_raw                      [0m - Read destructive STATUS as a raw word
+  [36mintb                            [0m - Observe optional application-owned INTB
+  [36minitdrive <channel>             [0m - Read INIT_IDRIVE and nominal current
+
+[32m[Staged configuration][0m
+  [36mcfg / settings                  [0m - Show desired and staged profiles (alias available)
+  [36mprofile show|reset|discard      [0m - Manage the bus-silent staged profile
+  [36mprofile validate                [0m - continued
+  [36mprofile commit confirm          [0m - continued
+  [36maddr                            [0m - Show display-only binding address
+  [36mvariant                         [0m - Show display-only silicon variant
+  [36mmode <single ch|seq count>      [0m - Stage mode, channel mask, active channel, and RR atomically
+  [36mrefclk <src> <hz> <ppm>         [0m - Stage the explicit reference-clock fact
+  [36mdeglitch <1|3|10|33>            [0m - Stage input deglitch bandwidth in MHz
+  [36mactivation <full|low>           [0m - Stage sensor activation current policy
+  [36mtimeout <ms>                    [0m - Stage per-callback timeout
+  [36mrp <0|1>                        [0m - Stage RP override
+  [36mautoamp <0|1>                   [0m - Stage automatic amplitude correction
+  [36mhighcurrent <0|1>               [0m - Stage CH0 high-current drive
+  [36mintbconfig <0|1>                [0m - Stage INTB output enable
+  [36merrors [show|all|none]          [0m - Show or stage all error routes
+  [36merror <field> <0|1>             [0m - Stage one named DATA/STATUS/DRDY route
+  [36mrcount <ch> <value>             [0m - Stage channel RCOUNT
+  [36msettle <ch> <value>             [0m - Stage channel SETTLECOUNT
+  [36mfindiv <ch> <value>             [0m - Stage channel FIN divider
+  [36mfrefdiv <ch> <value>            [0m - Stage channel FREF divider
+  [36moffset <ch> <value>             [0m - Stage channel OFFSET
+  [36mdrive <ch> <code>               [0m - Stage channel IDRIVE code
+  [36msensorbounds <ch> <lo> <hi>     [0m - Stage expected channel sensor-frequency bounds
+
+[32m[Registers and helpers][0m
+  [36mprobe / id                      [0m - Cooperatively read and verify both IDs (alias available)
+  [36mscan                            [0m - Cooperatively probe 0x08..0x77
+  [36mdump config                     [0m - Cooperatively dump mapped registers
+  [36mdump all confirm                [0m - continued
+  [36mverify                          [0m - Compare every persistent register to desired
+  [36mreg / rreg <addr> [confirm]     [0m - Read one mapped register; DATA/STATUS require confirm (alias available)
+  [36mwreg <addr> <value> confirm     [0m - Write one mapped writable register and invalidate trust
+  [36mdecode status <raw16>           [0m - Run pure STATUS or DATA decoding
+  [36mdecode data <msb> <lsb>         [0m - continued
+  [36mfreq <channel> <raw28>          [0m - Calculate sensor frequency
+  [36mtiming [mask]                   [0m - Estimate conservative chip timing
+  [36mdriveua <code>                  [0m - Convert IDRIVE code to nominal uA
+
+[32m[Driver diagnostics][0m
+  [36mdrv / health                    [0m - Show driver, transport, and fault provenance (alias available)
+  [36mstate                           [0m - Show compact parseable driver state
+  [36mselftest                        [0m - Run full cooperative safe self-test
+  [36mstress <count> [mask]           [0m - Stress cooperative acquisitions
+  [36mstress_mix <n> [mask] confirm   [0m - Stress mixed STATUS/INTB/IDRIVE/acquisition paths
+  [36msoak <seconds> [mask]           [0m - Run bounded periodic acquisition soak
+  [36msd status|assert|release confirm[0m - Use optional application-owned shutdown pin
+
+Settings edit a staged profile with zero I2C. Validate and commit explicitly.
+DATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.
+command_count=64
+> 
+### command 2: color off
+color enabled=0
+> 
+### command 3: help
+=== LDC1614 CLI ===
+
+[Common]
+  help / ?                         - Show the complete command reference (alias available)
+  version / ver                    - Show library and firmware identity (alias available)
+  color [on|off]                   - Show or change ANSI colors
+  verbose [0|1]                    - Show or change per-step diagnostics
+
+[Lifecycle and owner jobs]
+  bind                             - Bind the platform default profile (zero I2C)
+  end                              - Bus-silent cancel, discard results, and unbind
+  init [deadline_ms]               - Verify identity and replay the full profile
+  apply [deadline_ms]              - Replay the committed desired profile
+  resetreapply [ms] confirm        - Software-reset, verify identity, and replay
+  sleep                            - Enter sleep with one bounded write
+  wake                             - Leave sleep with one bounded write
+  cancel / stop                    - Bus-silently cancel active CLI work (alias available)
+  job / progress                   - Show core job and CLI session progress (alias available)
+  result                           - Show the cached terminal operation
+  invalidate confirm               - Bus-silently mark applied hardware state unknown
+  busrecover confirm               - Rebuild owner bus/device, then require init
+
+[Measurements]
+  read / acquire [mask]            - Acquire one sequential readout batch (alias available)
+  last [channel]                   - Show the cached complete sample batch
+  watch <mask> <count> [ms]        - Cooperatively print bounded periodic batches
+  samplerate <channel> <count>     - Measure cooperative acquisition throughput
+  ready / drdy                     - Read readiness and retain STATUS evidence (alias available)
+  status                           - Read and decode destructive STATUS evidence
+  status_raw                       - Read destructive STATUS as a raw word
+  intb                             - Observe optional application-owned INTB
+  initdrive <channel>              - Read INIT_IDRIVE and nominal current
+
+[Staged configuration]
+  cfg / settings                   - Show desired and staged profiles (alias available)
+  profile show|reset|discard       - Manage the bus-silent staged profile
+  profile validate                 - continued
+  profile commit confirm           - continued
+  addr                             - Show display-only binding address
+  variant                          - Show display-only silicon variant
+  mode <single ch|seq count>       - Stage mode, channel mask, active channel, and RR atomically
+  refclk <src> <hz> <ppm>          - Stage the explicit reference-clock fact
+  deglitch <1|3|10|33>             - Stage input deglitch bandwidth in MHz
+  activation <full|low>            - Stage sensor activation current policy
+  timeout <ms>                     - Stage per-callback timeout
+  rp <0|1>                         - Stage RP override
+  autoamp <0|1>                    - Stage automatic amplitude correction
+  highcurrent <0|1>                - Stage CH0 high-current drive
+  intbconfig <0|1>                 - Stage INTB output enable
+  errors [show|all|none]           - Show or stage all error routes
+  error <field> <0|1>              - Stage one named DATA/STATUS/DRDY route
+  rcount <ch> <value>              - Stage channel RCOUNT
+  settle <ch> <value>              - Stage channel SETTLECOUNT
+  findiv <ch> <value>              - Stage channel FIN divider
+  frefdiv <ch> <value>             - Stage channel FREF divider
+  offset <ch> <value>              - Stage channel OFFSET
+  drive <ch> <code>                - Stage channel IDRIVE code
+  sensorbounds <ch> <lo> <hi>      - Stage expected channel sensor-frequency bounds
+
+[Registers and helpers]
+  probe / id                       - Cooperatively read and verify both IDs (alias available)
+  scan                             - Cooperatively probe 0x08..0x77
+  dump config                      - Cooperatively dump mapped registers
+  dump all confirm                 - continued
+  verify                           - Compare every persistent register to desired
+  reg / rreg <addr> [confirm]      - Read one mapped register; DATA/STATUS require confirm (alias available)
+  wreg <addr> <value> confirm      - Write one mapped writable register and invalidate trust
+  decode status <raw16>            - Run pure STATUS or DATA decoding
+  decode data <msb> <lsb>          - continued
+  freq <channel> <raw28>           - Calculate sensor frequency
+  timing [mask]                    - Estimate conservative chip timing
+  driveua <code>                   - Convert IDRIVE code to nominal uA
+
+[Driver diagnostics]
+  drv / health                     - Show driver, transport, and fault provenance (alias available)
+  state                            - Show compact parseable driver state
+  selftest                         - Run full cooperative safe self-test
+  stress <count> [mask]            - Stress cooperative acquisitions
+  stress_mix <n> [mask] confirm    - Stress mixed STATUS/INTB/IDRIVE/acquisition paths
+  soak <seconds> [mask]            - Run bounded periodic acquisition soak
+  sd status|assert|release confirm - Use optional application-owned shutdown pin
+
+Settings edit a staged profile with zero I2C. Validate and commit explicitly.
+DATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.
+command_count=64
+> 
+### command 4: color on
+color enabled=1
+> 
+### command 5: verbose 1
+verbose enabled=1
+> 
+### command 6: verbose 0
+verbose enabled=0
+> 
+### command 7: version
+version=3.1.0 firmware_git=c3e2ed8 firmware_status=clean build_timestamp=2026-08-03 18:50:16
+> 
+### command 8: scan
+CLI scheduled: command=scan session=1
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112 code=0
+CLI result: command=scan session=1 outcome=SUCCESS code=0
+> 
+### command 9: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 10: init
+CLI scheduled: command=init session=0 operation=2 deadline_ms=19936 mask=0x00
+Operation result: operation=2 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=17941 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 11: apply
+CLI scheduled: command=apply session=0 operation=3 deadline_ms=19957 mask=0x00
+Operation result: operation=3 kind=APPLY_CONFIG outcome=SUCCESS effects=0x00 revision=1 completed_ms=17962 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=24 maximum=24 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=apply session=0 outcome=SUCCESS code=0
+> 
+### command 12: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=4 deadline_ms=19978 mask=0x00
+Operation result: operation=4 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=17984 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=resetreapply session=0 outcome=SUCCESS code=0
+> 
+### command 13: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 14: probe
+CLI scheduled: command=probe session=2
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=2 outcome=SUCCESS code=0
+> 
+### command 15: reg 0x7E
+register=0x7E value=0x5449 code=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 16: reg 0x7F
+register=0x7F value=0x3055 code=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 17: status
+STATUS=0x0208 observed=1 raw=0x0208 drdy=0 unread=0x01 err_ch=0 ur=0 or=0 wd=0 ah=0 al=1 zc=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 18: status_raw
+status_raw=0x0208 code=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 19: ready
+ready=0 code=0
+ready_status=0x0808 observed=1 raw=0x0808 drdy=0 unread=0x01 err_ch=0 ur=0 or=0 wd=1 ah=0 al=0 zc=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 20: cfg
+Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 21: job
+job active=0 operation=0 kind=NONE phase=NONE transfers=0 maximum=0 requested=0x00 completed=0x00 deadline_ms=0 effects=0x00 revision=0
+session active=0 id=0 kind=NONE phase=0 completed=0/0 pass=0 fail=0 skip=0
+> 
+### command 22: result
+Operation result: operation=4 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x00 revision=1 completed_ms=17984 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=27 maximum=27 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+> 
+### command 23: state
+bound=1 applied=APPLIED_ACTIVE config_revision=1 job_active=0 result_available=0 session=NONE staged_dirty=0
+state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 session_kind=NONE active=0 pending_result=0
+> 
+### command 24: profile show
+Configuration: staged revision=1 applied=APPLIED_ACTIVE staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 25: profile validate
+profile field=all channel=all dirty=0 valid=1 outcome=VALID code=0 i2c_attempts=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 26: profile discard
+CLI preview: field=profile dirty=0 valid=unknown channel=none outcome=DISCARDED code=0 i2c_attempts=0
+> 
+### command 27: dump config
+CLI scheduled: command=dump session=3
+dump scope=config register=0x08 value=0x04D6
+dump scope=config register=0x09 value=0x04D6
+dump scope=config register=0x0A value=0x04D6
+dump scope=config register=0x0B value=0x04D6
+dump scope=config register=0x10 value=0x000A
+dump scope=config register=0x11 value=0x000A
+dump scope=config register=0x12 value=0x000A
+dump scope=config register=0x13 value=0x000A
+dump scope=config register=0x14 value=0x2002
+dump scope=config register=0x15 value=0x2002
+dump scope=config register=0x16 value=0x2002
+dump scope=config register=0x17 value=0x2002
+dump scope=config register=0x0C value=0x0000
+dump scope=config register=0x0D value=0x0000
+dump scope=config register=0x0E value=0x0000
+dump scope=config register=0x0F value=0x0000
+dump scope=config register=0x1E value=0x5280
+dump scope=config register=0x1F value=0x5000
+dump scope=config register=0x20 value=0x5000
+dump scope=config register=0x21 value=0x5000
+dump scope=config register=0x19 value=0xF8FD
+dump scope=config register=0x1B value=0x020D
+dump scope=config register=0x1A value=0x1481
+dump complete scope=config count=23 failures=0
+CLI result: command=dump session=3 outcome=SUCCESS code=0
+> 
+### command 28: dump all confirm
+[33m[W][0m DATA and STATUS reads consume destructive evidence
+CLI scheduled: command=dump session=4
+dump scope=all register=0x00 value=0x3FFF
+dump scope=all register=0x01 value=0xFFFF
+dump scope=all register=0x02 value=0x0000
+dump scope=all register=0x03 value=0x0000
+dump scope=all register=0x04 value=0x0000
+dump scope=all register=0x05 value=0x0000
+dump scope=all register=0x06 value=0x0000
+dump scope=all register=0x07 value=0x0000
+dump scope=all register=0x08 value=0x04D6
+dump scope=all register=0x09 value=0x04D6
+dump scope=all register=0x0A value=0x04D6
+dump scope=all register=0x0B value=0x04D6
+dump scope=all register=0x0C value=0x0000
+dump scope=all register=0x0D value=0x0000
+dump scope=all register=0x0E value=0x0000
+dump scope=all register=0x0F value=0x0000
+dump scope=all register=0x10 value=0x000A
+dump scope=all register=0x11 value=0x000A
+dump scope=all register=0x12 value=0x000A
+dump scope=all register=0x13 value=0x000A
+dump scope=all register=0x14 value=0x2002
+dump scope=all register=0x15 value=0x2002
+dump scope=all register=0x16 value=0x2002
+dump scope=all register=0x17 value=0x2002
+dump scope=all register=0x18 value=0x0208
+dump scope=all register=0x19 value=0xF8FD
+dump scope=all register=0x1A value=0x1481
+dump scope=all register=0x1B value=0x020D
+dump scope=all register=0x1C value=0x0000
+dump scope=all register=0x1E value=0x5280
+dump scope=all register=0x1F value=0x5000
+dump scope=all register=0x20 value=0x5000
+dump scope=all register=0x21 value=0x5000
+dump scope=all register=0x7E value=0x5449
+dump scope=all register=0x7F value=0x3055
+dump complete scope=all count=35 failures=0
+CLI result: command=dump session=4 outcome=SUCCESS code=0
+> 
+### command 29: verify
+CLI scheduled: command=verify session=5
+verify register=0x08 actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+verify register=0x09 actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+verify register=0x0A actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+verify register=0x0B actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+verify register=0x10 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+verify register=0x11 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+verify register=0x12 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+verify register=0x13 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+verify register=0x14 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+verify register=0x15 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+verify register=0x16 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+verify register=0x17 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+verify register=0x0C actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+verify register=0x0D actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+verify register=0x0E actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+verify register=0x0F actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+verify register=0x1E actual=0x5280 expected=0x5000 mask=0xF83F match=YES
+verify register=0x1F actual=0x5000 expected=0x5000 mask=0xF83F match=YES
+verify register=0x20 actual=0x5000 expected=0x5000 mask=0xF83F match=YES
+verify register=0x21 actual=0x5000 expected=0x5000 mask=0xF83F match=YES
+verify register=0x19 actual=0xF8FD expected=0xF8FD mask=0xFFFF match=YES
+verify register=0x1B actual=0x020D expected=0x020D mask=0xFFFF match=YES
+verify register=0x1A actual=0x1481 expected=0x3481 mask=0xDFFF match=YES
+verify complete checked=23 matched=23 mismatched=0 read_failures=0
+CLI result: command=verify session=5 outcome=SUCCESS code=0
+> 
+### command 30: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 31: selftest
+CLI scheduled: command=selftest session=6
+[32m[PASS][0m desired configuration validation
+[32m[PASS][0m frame timing helper
+[32m[PASS][0m drive-current helper
+[32m[PASS][0m STATUS/DATA decode helpers
+[32m[PASS][0m error-routing encoder
+[32m[PASS][0m MANUFACTURER_ID
+[32m[PASS][0m DEVICE_ID
+[32m[PASS][0m STATUS transport/decode
+[32m[PASS][0m readiness API
+[33m[SKIP][0m INTB observation: callback/output not configured
+[32m[PASS][0m INIT_IDRIVE channel 0
+[32m[PASS][0m INIT_IDRIVE channel 1
+[32m[PASS][0m INIT_IDRIVE channel 2
+[32m[PASS][0m INIT_IDRIVE channel 3
+verify register=0x08 actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x09 actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x0A actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x0B actual=0x04D6 expected=0x04D6 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x10 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x11 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x12 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x13 actual=0x000A expected=0x000A mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x14 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x15 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x16 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x17 actual=0x2002 expected=0x2002 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x0C actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x0D actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x0E actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x0F actual=0x0000 expected=0x0000 mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x1E actual=0x5280 expected=0x5000 mask=0xF83F match=YES
+[32m[PASS][0m configuration register
+verify register=0x1F actual=0x5000 expected=0x5000 mask=0xF83F match=YES
+[32m[PASS][0m configuration register
+verify register=0x20 actual=0x5000 expected=0x5000 mask=0xF83F match=YES
+[32m[PASS][0m configuration register
+verify register=0x21 actual=0x5000 expected=0x5000 mask=0xF83F match=YES
+[32m[PASS][0m configuration register
+verify register=0x19 actual=0xF8FD expected=0xF8FD mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x1B actual=0x020D expected=0x020D mask=0xFFFF match=YES
+[32m[PASS][0m configuration register
+verify register=0x1A actual=0x1481 expected=0x3481 mask=0xDFFF match=YES
+[32m[PASS][0m configuration register
+[32m[PASS][0m acquisition transport
+[33m[SKIP][0m sensor quality: transport passed but fixture/sample flags are not acceptance evidence
+selftest identity=completed config=completed status=completed helpers=completed
+Selftest result: pass=37 fail=0 skip=2
+session_latency samples=1 total_ms=1 min_ms=1 max_ms=1 mean_ms=1
+CLI result: command=selftest session=6 outcome=SUCCESS code=0
+> 
+### command 32: read 0x01
+CLI scheduled: command=read session=0 operation=6 deadline_ms=20462 mask=0x01
+Operation result: operation=6 kind=ACQUIRE outcome=SUCCESS effects=0x01 revision=1 completed_ms=18463 phase=READ_STATUS_AFTER reg=0x18 channel=255 transfers=4 maximum=4 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+batch type=SEQUENTIAL_READOUT selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 revision=1 completed_ms=18463 simultaneous=0
+status_before=0x0208 observed=1 raw=0x0208 drdy=0 unread=0x01 err_ch=0 ur=0 or=0 wd=0 ah=0 al=1 zc=0
+status_after=0x0800 observed=1 raw=0x0800 drdy=0 unread=0x00 err_ch=0 ur=0 or=0 wd=1 ah=0 al=0 zc=0
+sample channel=0 msb=0x3FFF lsb=0xFFFF raw=0xFFFFFFF raw28=0xFFFFFFF quality=0x0039 quality_names=FRESH|OVER_RANGE|WATCHDOG|AMPLITUDE_SUSPECT frequency_hz=42999999.839813 bounds=OUT_OF_RANGE
+CLI result: command=read session=0 outcome=SUCCESS code=0
+> 
+### command 33: sleep
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=sleep outcome=SUCCESS code=0
+> 
+### command 34: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 35: decode status 0x0040
+decode kind=status decoded_status=0x0040 observed=1 raw=0x0040 drdy=1 unread=0x00 err_ch=255 ur=0 or=0 wd=0 ah=0 al=0 zc=0
+> 
+### command 36: decode data 0x0000 0x0000
+decode kind=data raw=0x0000 msb=0x0000 lsb=0x0000 count=0x0000000 quality=0x0004 quality_names=UNDER_RANGE
+> 
+### command 37: freq 0 0x0100000
+channel=0 raw=0x0100000 frequency_hz=167968.750000 code=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 38: timing 0x01
+mask=0x01 wake_settle_us=479 conversion_us=1133 sequential_frame_us=1613 acquisition_transfers=4 code=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 39: driveua 0
+code=0 microamps=16
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 40: wreg 0x1A 0x3481 confirm
+register=0x1A value=0x3481 code=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+> 
+### command 41: init
+CLI scheduled: command=init session=0 operation=7 deadline_ms=20650 mask=0x00
+Operation result: operation=7 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=18656 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 42: invalidate confirm
+CLI result: command=invalidate outcome=SUCCESS code=0
+bound=1 applied=UNKNOWN config_revision=1 job_active=0 result_available=0 session=NONE staged_dirty=0
+state bound=1 applied=UNKNOWN profile_dirty=0 session_kind=NONE active=0 pending_result=0
+> 
+### command 43: init
+CLI scheduled: command=init session=0 operation=8 deadline_ms=20694 mask=0x00
+Operation result: operation=8 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=18700 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 44: end
+CLI result: command=end outcome=SUCCESS code=0
+> 
+### command 45: bind
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=bind outcome=SUCCESS code=0 detail=0 msg=OK
+> 
+### command 46: init
+CLI scheduled: command=init session=0 operation=9 deadline_ms=20757 mask=0x00
+Operation result: operation=9 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=18763 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 47: cancel
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=cancel outcome=SUCCESS code=0 session=0
+> 
+### command 48: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 49: drv
+bound=1 applied=APPLIED_ACTIVE config_revision=1 job_active=0 result_available=0 session=NONE staged_dirty=0
+state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 session_kind=NONE active=0 pending_result=0
+drv bound=1 applied=APPLIED_ACTIVE revision=1 active=0 result_available=0 attempts=27 success=27 failures=0 last_code=0
+transport attempts=27 success=27 failures=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+> 

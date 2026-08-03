@@ -96,8 +96,40 @@ ESP-IDF backend again, so the intended one-hour acceptance soak did not start.
 Temporary dirty-firmware investigations are intentionally excluded from this
 curated evidence bundle and are not used to support acceptance conclusions.
 
-Positive acceptance still requires a clean firmware identity match, the full
-no-sensor matrix, a proven explicit recovery/replay after the observed failure,
-and a bounded soak with no reset or ambiguous response.
+### Final clean candidate and recovery experiments
+
+The final clean diagnostic firmware for this session was `c3e2ed8`:
+
+- `final-c3e2ed8-default-matrix.*`: 49/49 commands passed, including the
+  default reset/reapply path.
+- `final-c3e2ed8-extended-matrix.*`: 171/171 commands passed, including all
+  cache-only configuration boundaries, invalid-input rejection, and
+  1,000/1,000 hardware stress operations.
+- `final-c3e2ed8-one-hour-default-gate-failure.*`: the later complete soak gate
+  reproduced detail 259 at base command 12 (`resetreapply`), so the soak did
+  not start. The retained pre-fix JSON mislabeled that gate reason as a reboot
+  banner because normal `help` output contained `=== LDC1614 CLI ===`; the
+  corrected classifier reports the actual command failure first.
+- `final-c3e2ed8-one-hour-reduced.*`: an explicitly labeled `custom_reduced`
+  gate passed scan, owner recovery, full replay, wake, identity, and final
+  active-state checks, then completed exactly 3,600 seconds: 3,197 complete
+  cycles, 19,182 commands, zero soak-command failures, zero unknowns, zero
+  resets, and 32 ms worst latency. It is steady-state evidence, not reset
+  qualification.
+- `recovery-efce1be-live-pass.*`: one exact clean failed-state recovery/replay
+  passed without a power cycle.
+- `recovery-d5ce61b-repeat-failure.*`: the next repeated recovery stress failed
+  its first initialization identity read after bus reset and target ACK.
+- `recovery-24a198b-order-experiment-failure.*`: moving device registration
+  after bus reset still failed at cycle 7; source review showed the reordering
+  was hardware-state equivalent, so commit `24a198b` was reverted by `51c9a68`.
+
+Together these artifacts demonstrate stable non-reset traffic while preserving
+the unresolved ESP-IDF 5.5.5 reset/recovery regression as a hard acceptance
+failure.
+
+Positive release acceptance still requires a proven explicit recovery/replay
+after the observed failure and a production sensor-cadence soak whose complete
+gate includes that recovery behavior.
 Sensor conversion, INTB, SD, `0x2B`, LDC1612, coil behavior, and ESP32-S3
 product-owner behavior remain outside this archive.

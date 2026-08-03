@@ -1,0 +1,232 @@
+### startup
+
+### command 1: help
+[36m=== LDC1614 CLI ===[0m
+
+[32m[Common][0m
+  [36mhelp / ?                        [0m - Show the complete command reference (alias available)
+  [36mversion / ver                   [0m - Show library and firmware identity (alias available)
+  [36mcolor [on|off]                  [0m - Show or change ANSI colors
+  [36mverbose [0|1]                   [0m - Show or change per-step diagnostics
+
+[32m[Lifecycle and owner jobs][0m
+  [36mbind                            [0m - Bind the platform default profile (zero I2C)
+  [36mend                             [0m - Bus-silent cancel, discard results, and unbind
+  [36minit [deadline_ms]              [0m - Verify identity and replay the full profile
+  [36mapply [deadline_ms]             [0m - Replay the committed desired profile
+  [36mresetreapply [ms] confirm       [0m - Software-reset, verify identity, and replay
+  [36msleep                           [0m - Enter sleep with one bounded write
+  [36mwake                            [0m - Leave sleep with one bounded write
+  [36mcancel / stop                   [0m - Bus-silently cancel active CLI work (alias available)
+  [36mjob / progress                  [0m - Show core job and CLI session progress (alias available)
+  [36mresult                          [0m - Show the cached terminal operation
+  [36minvalidate confirm              [0m - Bus-silently mark applied hardware state unknown
+  [36mbusrecover confirm              [0m - Rebuild owner bus/device, then require init
+
+[32m[Measurements][0m
+  [36mread / acquire [mask]           [0m - Acquire one sequential readout batch (alias available)
+  [36mlast [channel]                  [0m - Show the cached complete sample batch
+  [36mwatch <mask> <count> [ms]       [0m - Cooperatively print bounded periodic batches
+  [36msamplerate <channel> <count>    [0m - Measure cooperative acquisition throughput
+  [36mready / drdy                    [0m - Read readiness and retain STATUS evidence (alias available)
+  [36mstatus                          [0m - Read and decode destructive STATUS evidence
+  [36mstatus_raw                      [0m - Read destructive STATUS as a raw word
+  [36mintb                            [0m - Observe optional application-owned INTB
+  [36minitdrive <channel>             [0m - Read INIT_IDRIVE and nominal current
+
+[32m[Staged configuration][0m
+  [36mcfg / settings                  [0m - Show desired and staged profiles (alias available)
+  [36mprofile show|reset|discard      [0m - Manage the bus-silent staged profile
+  [36mprofile validate                [0m - continued
+  [36mprofile commit confirm          [0m - continued
+  [36maddr                            [0m - Show display-only binding address
+  [36mvariant                         [0m - Show display-only silicon variant
+  [36mmode <single ch|seq count>      [0m - Stage mode, channel mask, active channel, and RR atomically
+  [36mrefclk <src> <hz> <ppm>         [0m - Stage the explicit reference-clock fact
+  [36mdeglitch <1|3|10|33>            [0m - Stage input deglitch bandwidth in MHz
+  [36mactivation <full|low>           [0m - Stage sensor activation current policy
+  [36mtimeout <ms>                    [0m - Stage per-callback timeout
+  [36mrp <0|1>                        [0m - Stage RP override
+  [36mautoamp <0|1>                   [0m - Stage automatic amplitude correction
+  [36mhighcurrent <0|1>               [0m - Stage CH0 high-current drive
+  [36mintbconfig <0|1>                [0m - Stage INTB output enable
+  [36merrors [show|all|none]          [0m - Show or stage all error routes
+  [36merror <field> <0|1>             [0m - Stage one named DATA/STATUS/DRDY route
+  [36mrcount <ch> <value>             [0m - Stage channel RCOUNT
+  [36msettle <ch> <value>             [0m - Stage channel SETTLECOUNT
+  [36mfindiv <ch> <value>             [0m - Stage channel FIN divider
+  [36mfrefdiv <ch> <value>            [0m - Stage channel FREF divider
+  [36moffset <ch> <value>             [0m - Stage channel OFFSET
+  [36mdrive <ch> <code>               [0m - Stage channel IDRIVE code
+  [36msensorbounds <ch> <lo> <hi>     [0m - Stage expected channel sensor-frequency bounds
+
+[32m[Registers and helpers][0m
+  [36mprobe / id                      [0m - Cooperatively read and verify both IDs (alias available)
+  [36mscan                            [0m - Cooperatively probe 0x08..0x77
+  [36mdump config                     [0m - Cooperatively dump mapped registers
+  [36mdump all confirm                [0m - continued
+  [36mverify                          [0m - Compare every persistent register to desired
+  [36mreg / rreg <addr> [confirm]     [0m - Read one mapped register; DATA/STATUS require confirm (alias available)
+  [36mwreg <addr> <value> confirm     [0m - Write one mapped writable register and invalidate trust
+  [36mdecode status <raw16>           [0m - Run pure STATUS or DATA decoding
+  [36mdecode data <msb> <lsb>         [0m - continued
+  [36mfreq <channel> <raw28>          [0m - Calculate sensor frequency
+  [36mtiming [mask]                   [0m - Estimate conservative chip timing
+  [36mdriveua <code>                  [0m - Convert IDRIVE code to nominal uA
+
+[32m[Driver diagnostics][0m
+  [36mdrv / health                    [0m - Show driver, transport, and fault provenance (alias available)
+  [36mstate                           [0m - Show compact parseable driver state
+  [36mselftest                        [0m - Run full cooperative safe self-test
+  [36mstress <count> [mask]           [0m - Stress cooperative acquisitions
+  [36mstress_mix <n> [mask] confirm   [0m - Stress mixed STATUS/INTB/IDRIVE/acquisition paths
+  [36msoak <seconds> [mask]           [0m - Run bounded periodic acquisition soak
+  [36msd status|assert|release confirm[0m - Use optional application-owned shutdown pin
+
+Settings edit a staged profile with zero I2C. Validate and commit explicitly.
+DATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.
+command_count=64
+> 
+### command 2: color off
+color enabled=0
+> 
+### command 3: help
+=== LDC1614 CLI ===
+
+[Common]
+  help / ?                         - Show the complete command reference (alias available)
+  version / ver                    - Show library and firmware identity (alias available)
+  color [on|off]                   - Show or change ANSI colors
+  verbose [0|1]                    - Show or change per-step diagnostics
+
+[Lifecycle and owner jobs]
+  bind                             - Bind the platform default profile (zero I2C)
+  end                              - Bus-silent cancel, discard results, and unbind
+  init [deadline_ms]               - Verify identity and replay the full profile
+  apply [deadline_ms]              - Replay the committed desired profile
+  resetreapply [ms] confirm        - Software-reset, verify identity, and replay
+  sleep                            - Enter sleep with one bounded write
+  wake                             - Leave sleep with one bounded write
+  cancel / stop                    - Bus-silently cancel active CLI work (alias available)
+  job / progress                   - Show core job and CLI session progress (alias available)
+  result                           - Show the cached terminal operation
+  invalidate confirm               - Bus-silently mark applied hardware state unknown
+  busrecover confirm               - Rebuild owner bus/device, then require init
+
+[Measurements]
+  read / acquire [mask]            - Acquire one sequential readout batch (alias available)
+  last [channel]                   - Show the cached complete sample batch
+  watch <mask> <count> [ms]        - Cooperatively print bounded periodic batches
+  samplerate <channel> <count>     - Measure cooperative acquisition throughput
+  ready / drdy                     - Read readiness and retain STATUS evidence (alias available)
+  status                           - Read and decode destructive STATUS evidence
+  status_raw                       - Read destructive STATUS as a raw word
+  intb                             - Observe optional application-owned INTB
+  initdrive <channel>              - Read INIT_IDRIVE and nominal current
+
+[Staged configuration]
+  cfg / settings                   - Show desired and staged profiles (alias available)
+  profile show|reset|discard       - Manage the bus-silent staged profile
+  profile validate                 - continued
+  profile commit confirm           - continued
+  addr                             - Show display-only binding address
+  variant                          - Show display-only silicon variant
+  mode <single ch|seq count>       - Stage mode, channel mask, active channel, and RR atomically
+  refclk <src> <hz> <ppm>          - Stage the explicit reference-clock fact
+  deglitch <1|3|10|33>             - Stage input deglitch bandwidth in MHz
+  activation <full|low>            - Stage sensor activation current policy
+  timeout <ms>                     - Stage per-callback timeout
+  rp <0|1>                         - Stage RP override
+  autoamp <0|1>                    - Stage automatic amplitude correction
+  highcurrent <0|1>                - Stage CH0 high-current drive
+  intbconfig <0|1>                 - Stage INTB output enable
+  errors [show|all|none]           - Show or stage all error routes
+  error <field> <0|1>              - Stage one named DATA/STATUS/DRDY route
+  rcount <ch> <value>              - Stage channel RCOUNT
+  settle <ch> <value>              - Stage channel SETTLECOUNT
+  findiv <ch> <value>              - Stage channel FIN divider
+  frefdiv <ch> <value>             - Stage channel FREF divider
+  offset <ch> <value>              - Stage channel OFFSET
+  drive <ch> <code>                - Stage channel IDRIVE code
+  sensorbounds <ch> <lo> <hi>      - Stage expected channel sensor-frequency bounds
+
+[Registers and helpers]
+  probe / id                       - Cooperatively read and verify both IDs (alias available)
+  scan                             - Cooperatively probe 0x08..0x77
+  dump config                      - Cooperatively dump mapped registers
+  dump all confirm                 - continued
+  verify                           - Compare every persistent register to desired
+  reg / rreg <addr> [confirm]      - Read one mapped register; DATA/STATUS require confirm (alias available)
+  wreg <addr> <value> confirm      - Write one mapped writable register and invalidate trust
+  decode status <raw16>            - Run pure STATUS or DATA decoding
+  decode data <msb> <lsb>          - continued
+  freq <channel> <raw28>           - Calculate sensor frequency
+  timing [mask]                    - Estimate conservative chip timing
+  driveua <code>                   - Convert IDRIVE code to nominal uA
+
+[Driver diagnostics]
+  drv / health                     - Show driver, transport, and fault provenance (alias available)
+  state                            - Show compact parseable driver state
+  selftest                         - Run full cooperative safe self-test
+  stress <count> [mask]            - Stress cooperative acquisitions
+  stress_mix <n> [mask] confirm    - Stress mixed STATUS/INTB/IDRIVE/acquisition paths
+  soak <seconds> [mask]            - Run bounded periodic acquisition soak
+  sd status|assert|release confirm - Use optional application-owned shutdown pin
+
+Settings edit a staged profile with zero I2C. Validate and commit explicitly.
+DATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.
+command_count=64
+> 
+### command 4: color on
+color enabled=1
+> 
+### command 5: verbose 1
+verbose enabled=1
+> 
+### command 6: verbose 0
+verbose enabled=0
+> 
+### command 7: version
+version=3.1.0 firmware_git=c3e2ed8 firmware_status=clean build_timestamp=2026-08-03 18:50:16
+> 
+### command 8: scan
+CLI scheduled: command=scan session=16
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112 code=0
+CLI result: command=scan session=16 outcome=SUCCESS code=0
+> 
+### command 9: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 10: init
+CLI scheduled: command=init session=0 operation=2020 deadline_ms=79126 mask=0x00
+Operation result: operation=2020 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=77131 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 11: apply
+CLI scheduled: command=apply session=0 operation=2021 deadline_ms=79147 mask=0x00
+Operation result: operation=2021 kind=APPLY_CONFIG outcome=SUCCESS effects=0x00 revision=1 completed_ms=77152 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=24 maximum=24 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=apply session=0 outcome=SUCCESS code=0
+> 
+### command 12: resetreapply confirm
+CLI scheduled: command=resetreapply session=0 operation=2022 deadline_ms=79168 mask=0x00
+Operation result: operation=2022 kind=RESET_AND_REAPPLY outcome=FAILED effects=0x02 revision=1 completed_ms=77169 phase=VERIFY_MANUFACTURER reg=0x7E channel=255 transfers=2 maximum=27 code=18 detail=259 msg=I2C write-read failed
+  Status: [31mI2C_BUS[0m (code=18, detail=259)
+  Message: I2C write-read failed
+config_fault valid=1 job=RESET_AND_REAPPLY phase=VERIFY_MANUFACTURER register=0x7E channel=255 effects=0x02
+  Status: [31mI2C_BUS[0m (code=18, detail=259)
+  Message: I2C write-read failed
+CLI result: command=resetreapply session=0 outcome=FAILED code=18
+> 
+### runner fail-fast after command 12: resetreapply confirm
+not sent after base command 12 (resetreapply confirm) was FAIL

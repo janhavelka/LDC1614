@@ -509,6 +509,11 @@ FIRMWARE_GIT_PATTERN = re.compile(r"\bfirmware_git=([0-9a-f]{7,40}|unknown)\b",
                                   re.IGNORECASE)
 FIRMWARE_STATUS_PATTERN = re.compile(r"\bfirmware_status=(clean|dirty|unknown)\b",
                                      re.IGNORECASE)
+FIRMWARE_STARTUP_BANNER_PATTERN = re.compile(
+    r"===\s*LDC1614\s+(?:Arduino|Native ESP-IDF)\s+"
+    r"Diagnostic Bring-up Example\s*===",
+    re.IGNORECASE,
+)
 
 
 def git_value(args: List[str], default: str = "unknown") -> str:
@@ -867,7 +872,9 @@ def base_acceptance_failure(
                 f"base command {result.get('command', '<unknown>')} "
                 f"was {result.get('status', 'UNKNOWN')}"
             )
-        if "=== LDC1614" in str(result.get("output", "")):
+
+    for result in command_results:
+        if has_firmware_startup_banner(str(result.get("output", ""))):
             return "unexpected firmware restart banner occurred during the base matrix"
 
     final_driver = command_results[-1] if command_results else None
@@ -891,6 +898,11 @@ def base_acceptance_failure(
         first_failure = expectation_preview[len(command_results)]
         return str(first_failure.get("reason", "base transcript expectation failed"))
     return None
+
+
+def has_firmware_startup_banner(text: str) -> bool:
+    """Return whether target output contains a maintained firmware boot banner."""
+    return FIRMWARE_STARTUP_BANNER_PATTERN.search(ANSI_PATTERN.sub("", text)) is not None
 
 
 def repeat_commands(commands: List[str], repeat_count: int) -> List[str]:
@@ -1419,7 +1431,7 @@ def run_serial_commands(
                     latency_s = float(result["elapsed_s"])
                     worst_latency_s = max(worst_latency_s, latency_s)
                     output = str(result["output"])
-                    if "=== LDC1614" in output:
+                    if has_firmware_startup_banner(output):
                         reset_count += 1
                     if status == "FAIL":
                         failure_count += 1

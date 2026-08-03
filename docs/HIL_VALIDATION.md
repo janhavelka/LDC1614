@@ -215,22 +215,22 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `1263ab1` preflight, matrix, and 25x diagnostic subsets passed; no complete release-acceptance run exists | Clean exact-revision positive probe/read artifact for each fixture |
-| Address `0x2A` | Yes | ADDR strapped low | Clean passing diagnostic subsets confirm the chip at `0x2A`; no complete release-acceptance run exists | Clean probe/read logs for each production board |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `c3e2ed8` default/extended matrices and 3,197-cycle reduced soak passed exact identity checks | Repeat on each sensor-equipped production fixture |
+| Address `0x2A` | Yes | ADDR strapped low | Clean `c3e2ed8` matrices and reduced soak confirm the chip at `0x2A` | Repeat on each production board |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
-| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Passing clean diagnostic subsets include complete initialization; no current-code release-acceptance readback run exists | Clean cooperative initialization/readback on target variant |
+| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Clean `c3e2ed8` extended matrix passed complete profile/readback and configuration boundaries | Repeat with the production sensor profile |
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
-| Config readback | Yes | Hardware | Retained clean subsets include successful individual reads and matrix passes, but no complete current-code release-acceptance set | Repeat cleanly on target board variant |
-| Reset/reapply and owner recovery | Yes | Hardware | Clean `2358c30` passed 100 cold reset/reapply cycles, controlled scan/recovery, and 100 post-NACK probes, then a later comprehensive reset reproduced detail 259; a 2 ms guard did not correct it | Reproduce failure, explicit reconstructed-owner recovery, full replay, and repeated valid combined reads without a power cycle |
+| Config readback | Yes | Hardware | Clean `c3e2ed8` default and extended matrices passed | Repeat cleanly with the production profile |
+| Reset/reapply and owner recovery | Yes | Hardware | Clean `c3e2ed8` default and extended matrices each passed one reset/reapply, then the full soak gate reproduced detail 259; repeated bus-reset/ACK recovery later failed its next identity read | Provide a deterministic recovery/replay path and repeated valid combined reads without a power cycle |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
-| Induced address NACK | No | Operator/fault fixture | One clean controlled scan/recovery plus 100 post-NACK probes passed, but a later reset still produced persistent `ESP_ERR_INVALID_STATE` on pioarduino `55.03.311` | Repeat controlled NACK, recovery/replay, valid combined reads, and shared-device proof across the final recovery implementation |
+| Induced address NACK | No | Operator/fault fixture | Clean scans observed `0x2A` and peer `0x3C`; individual recovery/replay passed, but repeated reset/recovery still failed on pioarduino `55.03.311` | Controlled NACK, deterministic recovery/replay, valid combined reads, and shared-device proof |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | A 3,600-second invocation failed its base matrix before a valid soak; the old runner's continued cycles are negative evidence only | Passing base gate plus duration, complete cycles, command/unknown/reset counts, worst latency |
+| Bounded soak | No | Stable fixture | Clean `c3e2ed8` completed a labeled reduced 3,600-second soak: 3,197 cycles/19,182 commands, zero soak-command failures/unknowns/resets, 32 ms worst latency; the complete default gate separately failed reset/reapply | Repeat at production sensor cadence after the full reset/recovery gate passes |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules
