@@ -41,6 +41,12 @@ Thank you for considering contributing to this project!
 - Run `doxygen Doxyfile`; warnings are errors.
 - Do not edit or commit `docs/doxygen/`. It is generated output.
 - Keep hardware and CI claims evidence-based. A build or dry run is not HIL.
+- On Windows, run PlatformIO only through `.\scripts\pio.cmd`; do not install a
+  second PlatformIO Core for this repository.
+- Update both diagnostic CLI implementations, the host CLI manifest, behavioral
+  tests, and HIL parser together when the command or output contract changes.
+- Hardware claims require a retained structured result and its raw transcript
+  with matching firmware-reported revision and source status.
 
 ### What We Accept
 - Bug fixes

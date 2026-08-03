@@ -23,10 +23,10 @@ identity, timeout, and nonzero-status failures were not.
 | `05a71d7` | Shared new-master delete/recreate | 20 of 25 following initialization reads failed with explicit `ESP_ERR_INVALID_STATE`; scans also produced false devices or timeouts. |
 | `3036579` | ESP-IDF 5.3 public bus reset | 87 of 200 commands failed, including 19 of 25 initialization attempts; bus reset did not repair the stale state. |
 
-This comparison selected an upgrade containing Espressif's NACK-state fix
-(`459b75f`) instead of another core-library workaround. The current pioarduino
-`55.03.311` baseline retains that correction. This rationale remains negative
-regression evidence, not proof that the current candidate passes.
+This comparison selected an upgrade containing Espressif's earlier NACK
+reporting fix (`459b75f`) instead of another core-library workaround. It did
+not close the separate persistent-invalid-state problem tracked by
+[Espressif issue #14030](https://github.com/espressif/esp-idf/issues/14030).
 
 Compact 2026-07-01 v2 artifacts had no raw transcript and did not exercise the
 v3 ownership contract, so they are available only through Git history.
@@ -47,6 +47,30 @@ old PlatformIO work directory before build-output cleanup:
 
 These captures are historical debug evidence, including failures and dirty
 firmware runs. They are not positive exact-release acceptance evidence.
+
+## 2026-08-03 pioarduino 55.03.311 run
+
+`20260803/` retains the exact clean-firmware diagnostics and the failed
+one-hour invocation for ESP32-S2 COM8, LDC1614 at `0x2A`, a second device at
+`0x3C`, and no LC sensor:
+
+- `preflight.*`: 5/5 commands passed on clean `1263ab1`.
+- `full-matrix.*`: 41/41 commands passed.
+- `full-matrix-25x.*`: 1,025/1,025 command results passed.
+- `hil-one-hour.*`: completed the requested 3,600-second duration, but base command 26
+  (`resetreapply`) failed at the first identity read with backend detail 259
+  (`ESP_ERR_INVALID_STATE`). The old runner incorrectly continued into 3,204
+  meaningless soak cycles; its 9,674 subsequent failures are retained as
+  negative evidence, not counted as an accepted soak.
+- `postfix-matrix.*`: clean `fd5ccb3` firmware with an experimental 2 ms
+  post-reset guard reproduced the same failure, disproving that delay as a
+  corrective fix.
+
+The runner now gates soak entry on a complete passing base matrix, preserves
+partial serial evidence on exceptions, and counts only complete cycles. A
+physical power cycle is required before the next controlled cold-start gate.
+Temporary dirty-firmware investigations are intentionally excluded from this
+curated evidence bundle and are not used to support acceptance conclusions.
 
 Positive acceptance still requires a clean firmware identity match, the full
 no-sensor matrix, and a bounded soak with no reset or ambiguous response.

@@ -8,44 +8,65 @@ Use:
 
 ```sh
 python -m pip install --requirement requirements-dev.txt
-python tools/ldc1614_hil_runner.py --profile arduino --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --raw-transcript-out hil.serial.txt
+python tools/ldc1614_hil_runner.py --profile arduino --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --raw-transcript-out hil.serial.txt
 ```
 
 For a board with the LDC1614 chip present but no LC sensor/coil attached, use
 the no-sensor fixture matrix:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
 ```
 
-This v3 mode exercises identity, selected register reads, cached profile and
-progress, sleep/wake, initialization, full apply, reset/reapply, one
-status-aware channel acquisition, invalidation/re-initialization, a diagnostic
-write followed by full replay, end/bind/re-initialization, cancellation while
-idle, and pure timing/frequency helpers. For every asynchronous job the runner
-requires the scheduled operation ID to match a successful terminal
-`OperationResult`; the immediate `IN_PROGRESS` status is never a pass. With no
-LC sensor, acquisition validates transport/protocol/error reporting only. It
-does not validate conversion accuracy, channel physics, sample rate, or drive
-current.
+The no-sensor mode exercises target/device identity, exhaustive desired-profile
+output, masked configuration readback, STATUS and selected register reads,
+sleep/wake, initialization, full apply, confirmed reset/reapply, one
+status-aware acquisition, invalidation/re-initialization, confirmed diagnostic
+write followed by full replay, end/bind/re-initialization, idle cancellation, true
+self-test, and pure helpers. With `--include-stress`, it also runs bounded
+protocol-only stress. Every asynchronous command
+prints `CLI scheduled: command=<name> session=<id>` and exactly one correlated
+terminal `CLI result`. A prompt or immediate in-progress status is never a
+pass. With no LC sensor, acquisition and stress validate transport, protocol,
+state, and error reporting only. They do not validate conversion accuracy,
+channel physics, fresh sensor cadence, or drive suitability.
+
+Here, `cancel` is the bus-silent idle-cancel command check. The base runner does
+not claim active-job cancellation timing evidence; that remains an explicit
+`NOT_RUN` gate requiring an interactive timing fixture. The confirmed raw
+CONFIG write writes the known sleeping example-profile value and is immediately followed
+by complete initialization/replay. It is not a general arbitrary-write test.
 
 To stress the same no-sensor matrix repeatedly in one captured run, add
 `--repeat-command-set N`. The runner records both the base command count and
 the expanded command count in the artifact.
 
+After any persistent post-NACK `ESP_ERR_INVALID_STATE`, physically remove and
+reapply power to the ESP32 and LDC/shared bus before collecting another
+candidate run. A firmware reboot is not a device power cycle. The first cold
+gate must read `version`, `cfg`, `probe`, `init`, and `probe` without a preceding
+scan. Then run a controlled absent-address NACK/scan, explicit owner recovery,
+initialization, and repeated valid combined reads. Run at least 100 correlated
+reset/reapply cycles before the full matrix. Stop on the first failed gate; do
+not soak an already-poisoned transport state.
+
 For a time-bounded no-sensor soak, request the duration explicitly. The soak
 keeps the port open, executes only complete cycles, and ends every cycle awake:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port COM7 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
 ```
 
-The fixed soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, and
-`drv`. Every `drv` response must prove `bound=1` and
+The runner first requires every base-matrix command and firmware identity check
+to pass. It will not spend an hour soaking an ambiguous candidate. The fixed
+soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, and `drv`. Every `drv` response must prove `bound=1` and
 `applied=APPLIED_ACTIVE`. The summary records requested/actual duration,
 complete cycles, command counts, failures, ambiguous responses, unexpected
-startup banners, and worst command latency. A serial exception, unexpected
-reset, or command failure is not converted into a pass. The explicit no-sensor
+startup banners, incomplete cycle, and worst command latency. Raw output is
+journaled and flushed after startup and every command; a serial or close-time
+exception after target payload produces an explicit failed artifact instead of
+discarding the run.
+A serial exception, unexpected reset, or command failure is not converted into a pass. The explicit no-sensor
 classifier permits LDC under/over-range,
 watchdog, amplitude, or zero-count flags only after the command's structured
 response and successful transport status are present; it never permits an I2C,
@@ -88,9 +109,9 @@ evidence.
 
 | Profile | Intended firmware | Default safe commands |
 | --- | --- | --- |
-| `arduino` | `examples/01_basic_bringup_cli` | `help`, `version`, `scan`, `busrecover`, `init`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `drdy`, `timing 0x01`, `selftest` |
-| `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Identity/registers, state/progress, init/apply/reset/reapply/acquire correlation, invalidation/replay, diagnostic write/replay, end/bind, sleep/wake, timing/frequency |
-| `idf` | `examples/esp_idf/basic` | `help`, `version`, `scan`, `busrecover`, `init`, `probe`, `drv`, `cfg`, `progress`, `status`, `sleep`, `wake`, `ready`, `timing 0x01`, `selftest` |
+| `arduino` | `examples/01_basic_bringup_cli` | Manifest-derived safe identity, profile, verify, status, timing, readiness, and self-test commands. Sensor acquisition/cadence commands require a sensor fixture. |
+| `arduino --fixture no-sensor` | `examples/01_basic_bringup_cli` with chip but no LC sensor | Manifest-derived lifecycle, identity, full profile/readback, protocol acquisition, state/fault, raw-write/replay, decoder/timing, and self-test commands; stress is added by `--include-stress`. |
+| `idf` | `examples/esp_idf/basic` | The same manifest-derived command and evidence contract, implemented by the native fixed-buffer CLI. |
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
@@ -99,11 +120,25 @@ documented fixture-specific cases. Expected-failure tokens are intended for
 negative tests such as proving an invalid channel is rejected; default failure
 classification remains strict.
 
-Both CLIs expose cooperative jobs for interactive use. The runner handles those
-commands as two-phase responses and requires matching scheduled/terminal IDs.
-A sensor-acceptance fixture must additionally validate physical results and
-cadence. Neither CLI exposes runtime address changes, production stress, or a
-sample-rate benchmark.
+Both CLIs expose the same cooperative core jobs and bounded diagnostic
+sessions. The runner requires matching command/session scheduled and terminal
+records. Runtime address and variant changes remain deliberately unavailable:
+they are physical binding facts. Stress is diagnostic, not a production
+scheduler. Sample-rate acceptance is enabled only for a sensor-equipped fixture
+and counts fresh, valid, in-range samples with no error/overrun evidence.
+
+The runner follows the same coverage categories used by the maintained BME280
+and INA228 I2C libraries, adapted to the LDC1614 ownership contract:
+
+| Category | Automatic LDC1614 evidence | Deliberate boundary |
+| --- | --- | --- |
+| Base | Ordered lifecycle, identity, profile/readback, destructive-status, helper, self-test, and final-state matrix | No sensor-physics claim |
+| Configuration matrix | `--include-config-matrix`; staged legal values and numeric boundaries, then reset/validate/discard | No profile commit or live tuning |
+| Invalid input | `--include-invalid-inputs`; exact usage rejection and no job admission | Does not substitute for core API invalid-parameter tests |
+| Benchmark/stress | `--include-stress` for bounded protocol stress | Sample rate and physical quality require a sensor fixture |
+| Cooperative job API | Scheduled/terminal command-session correlation, progress/result snapshots, and idle cancel | Active cancellation timing remains `NOT_RUN` without an interactive fixture |
+| Destructive paths | Confirmed all-register dump and known CONFIG write followed immediately by full replay | Arbitrary raw writes are not automatic |
+| Manual fixtures | Explicit `NOT_RUN` rows in every artifact | INTB, SD, 0x2B/LDC1612, coil/drive, unplug, and stuck-bus evidence must be collected on the named fixture |
 
 ## Safe Default Procedure
 
@@ -129,11 +164,19 @@ Run these only when hardware and operator setup explicitly support them:
 
 - Address `0x2B` requires rebuilding with an explicit `ADDR_VDD` profile; the
   runner records `--include-address-0x2b` as a skipped external setup item.
-- `--include-stress` and `--sample-rate-count` are recorded as skipped because
-  the v3 diagnostic CLIs intentionally provide no production-cadence loop.
-  Use a bounded fixture application that owns scheduling and correlates every
-  operation ID/result instead of treating a diagnostic CLI loop as production
-  evidence.
+- `--include-stress` runs the bounded cooperative `stress`, confirmed
+  `stress_mix`, and short CLI `soak` sessions for either firmware profile. A
+  no-sensor run proves protocol/transport stability only.
+- `--include-config-matrix` exercises every safe cache-only setting family,
+  legal enum values and per-physical-channel numeric boundaries. It never
+  commits the staged profile; it finishes with profile reset, validation,
+  discard, and a live-driver state snapshot.
+- `--include-invalid-inputs` verifies bounded numeric, enum, argument-count,
+  and confirmation rejection without admitting an asynchronous job or changing
+  the staged/live profile.
+- `--sample-rate-count` appends a counted DRDY/acquisition session only for a
+  sensor-equipped fixture. Every requested sample must be fresh, valid,
+  in-range, non-error, and non-overrun; otherwise acceptance fails.
 - SD shutdown/wake if SD is wired and controlled.
 - INTB observation if INTB is wired to a host GPIO or analyzer.
 - Unplug/replug or induced NACK.
@@ -148,22 +191,22 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | Post-v3 COM8 runs reached valid identity reads, but every retained candidate run failed overall transport acceptance | Clean exact-revision positive probe/read artifact for each fixture |
-| Address `0x2A` | Yes | ADDR strapped low | Post-v3 COM8 negative artifacts confirm the chip at `0x2A`; no positive candidate run | Clean probe/read logs for each production board |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `1263ab1` preflight, matrix, and 25x diagnostic subsets passed; no complete release-acceptance run exists | Clean exact-revision positive probe/read artifact for each fixture |
+| Address `0x2A` | Yes | ADDR strapped low | Clean passing diagnostic subsets confirm the chip at `0x2A`; no complete release-acceptance run exists | Clean probe/read logs for each production board |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
-| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Some post-v3 initialization jobs completed, but retained runs failed overall transport acceptance | Clean cooperative initialization/readback on target variant |
+| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Passing clean diagnostic subsets include complete initialization; no current-code release-acceptance readback run exists | Clean cooperative initialization/readback on target variant |
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
-| Config readback | Yes | Hardware | Post-v3 negative runs include successful individual reads but no accepted complete candidate run | Repeat cleanly on target board variant |
-| Reset/reapply and owner recovery | Yes | Hardware | Historical v2 does not validate v3 ownership contract | Correlated v3 job result plus owner recovery/replay trace |
+| Config readback | Yes | Hardware | Retained clean subsets include successful individual reads and matrix passes, but no complete current-code release-acceptance set | Repeat cleanly on target board variant |
+| Reset/reapply and owner recovery | Yes | Hardware | Clean 2026-08-03 candidates failed the first post-reset identity read with backend detail 259; a 2 ms guard did not correct it | Cold-start 100-cycle correlated reset gate plus owner recovery/replay trace |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
-| Induced address NACK | No | Operator/fault fixture | Not run | Controlled NACK transcript with precise status |
+| Induced address NACK | No | Operator/fault fixture | COM8 scans reproduced persistent `ESP_ERR_INVALID_STATE` even on pioarduino `55.03.311`; recovery was not deterministic | Controlled NACK followed by repeated valid combined reads and shared-device proof |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | No accepted positive exact-revision run | Duration, complete cycles, command/unknown/reset counts, worst latency |
+| Bounded soak | No | Stable fixture | A 3,600-second invocation failed its base matrix before a valid soak; the old runner's continued cycles are negative evidence only | Passing base gate plus duration, complete cycles, command/unknown/reset counts, worst latency |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules

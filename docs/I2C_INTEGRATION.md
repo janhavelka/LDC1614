@@ -21,7 +21,18 @@ recovery decision.
 
 The driver never calls a transport callback from `bind()`, `updateDesiredConfig()`,
 `cancelJob()`, `jobProgress()`, `takeResult()`, `invalidateAppliedState()`, or
-`end()`.
+`end()`. `validateConfig()` and `expectedConfigurationRegister()` are also
+bus-silent pure helpers. A successful masked register comparison is diagnostic
+evidence only; it does not authorize the helper or CLI to mark hardware
+configuration trusted. Only a complete successful driver replay establishes an
+applied state.
+
+TI specifies the software-reset command but no software-reset recovery
+interval. The core therefore neither guesses one nor retries a reset-adjacent
+failure. Use `poll(nowMs, 1)` when the owner needs a scheduling boundary between
+the reset write and the next identity read. A NACK or backend failure terminates
+the job, preserves reset/write provenance, and leaves applied state dirty; the
+application then owns any bus/device recovery and complete reinitialization.
 
 ## Request lifecycle
 

@@ -56,6 +56,7 @@ struct FakeLdc1614Device {
   uint16_t transferCalls = 0;
   uint16_t writeCalls = 0;
   uint16_t readCalls = 0;
+  uint16_t intbCalls = 0;
   uint8_t transferLogCount = 0;
 
   uint16_t failTransfer = 0;
@@ -97,6 +98,7 @@ struct FakeLdc1614Device {
     transferCalls = 0;
     writeCalls = 0;
     readCalls = 0;
+    intbCalls = 0;
     transferLogCount = 0;
     failTransfer = 0;
     commitWriteBeforeFailure = false;
@@ -222,11 +224,12 @@ struct FakeLdc1614Device {
   }
 
   static Status readIntb(bool& asserted, void* user) {
-    const auto* self = static_cast<const FakeLdc1614Device*>(user);
+    auto* self = static_cast<FakeLdc1614Device*>(user);
     if (self == nullptr) {
       asserted = false;
       return Status::Error(Err::INVALID_PARAM, "invalid fake INTB context");
     }
+    ++self->intbCalls;
     asserted = self->intbAsserted;
     return Status::Ok();
   }

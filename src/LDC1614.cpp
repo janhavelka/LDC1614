@@ -316,6 +316,32 @@ ConfigWrite configWriteAt(const Config& config, uint8_t channelCount,
   return write;
 }
 
+uint16_t configurationComparisonMask(uint8_t reg) {
+  if ((reg >= cmd::REG_RCOUNT0 && reg <= cmd::REG_RCOUNT3) ||
+      (reg >= cmd::REG_OFFSET0 && reg <= cmd::REG_OFFSET3) ||
+      (reg >= cmd::REG_SETTLECOUNT0 && reg <= cmd::REG_SETTLECOUNT3)) {
+    return 0xFFFFU;
+  }
+  if (reg >= cmd::REG_CLOCK_DIVIDERS0 &&
+      reg <= cmd::REG_CLOCK_DIVIDERS3) {
+    return 0xFFFFU;
+  }
+  if (reg == cmd::REG_ERROR_CONFIG) {
+    return 0xFFFFU;
+  }
+  if (reg == cmd::REG_CONFIG) {
+    return static_cast<uint16_t>(0xFFFFU & ~cmd::MASK_CFG_SLEEP_MODE_EN);
+  }
+  if (reg == cmd::REG_MUX_CONFIG) {
+    return 0xFFFFU;
+  }
+  if (reg >= cmd::REG_DRIVE_CURRENT0 &&
+      reg <= cmd::REG_DRIVE_CURRENT3) {
+    return static_cast<uint16_t>(0xFFFFU & ~cmd::MASK_INIT_IDRIVE);
+  }
+  return 0U;
+}
+
 uint64_t ceilDivide(uint64_t numerator, uint64_t denominator) {
   return denominator == 0U ? 0U : (numerator + denominator - 1U) / denominator;
 }
@@ -334,7 +360,7 @@ Status LDC1614::bind(const Config& config) {
   if (_bound) {
     return Status::Error(Err::BUSY, "Driver already bound; call end first");
   }
-  Status validation = _validateConfig(config);
+  Status validation = validateConfig(config);
   if (!validation.ok()) {
     return validation;
   }
@@ -380,7 +406,7 @@ Status LDC1614::updateDesiredConfig(const Config& config) {
     return Status::Error(Err::BUSY,
                          "Sleep device before replacing desired config");
   }
-  Status validation = _validateConfig(config);
+  Status validation = validateConfig(config);
   if (!validation.ok()) {
     return validation;
   }
@@ -1253,7 +1279,32 @@ Status LDC1614::readIntb(bool& asserted) const {
   return _config.intbAsserted(asserted, _config.intbUser);
 }
 
-Status LDC1614::_validateConfig(const Config& config) const {
+Status LDC1614::expectedConfigurationRegister(
+    const Config& config, uint8_t reg, uint16_t& expectedValue,
+    uint16_t& comparisonMask) {
+  expectedValue = 0U;
+  comparisonMask = 0U;
+  const Status validation = validateConfig(config);
+  if (!validation.ok()) {
+    return validation;
+  }
+
+  const uint8_t channelCount = channelCountFor(config.variant);
+  const uint8_t transferCount = configurationTransferCount(channelCount);
+  for (uint8_t step = 0U; step < transferCount; ++step) {
+    const ConfigWrite write = configWriteAt(config, channelCount, step);
+    if (write.valid && write.reg == reg) {
+      expectedValue = write.value;
+      comparisonMask = configurationComparisonMask(reg);
+      return Status::Ok();
+    }
+  }
+  return Status::Error(
+      Err::INVALID_PARAM,
+      "Register is not part of selected configuration profile", reg);
+}
+
+Status LDC1614::validateConfig(const Config& config) {
   if (config.i2cWrite == nullptr || config.i2cWriteRead == nullptr) {
     return Status::Error(Err::INVALID_CONFIG, "I2C callbacks required");
   }
@@ -1512,8 +1563,7 @@ Status LDC1614::calculateSensorFrequencyHz(const Config& config,
                                            uint32_t rawCount28,
                                            double& frequencyHz) {
   frequencyHz = 0.0;
-  LDC1614 validator;
-  Status validation = validator._validateConfig(config);
+  Status validation = validateConfig(config);
   if (!validation.ok()) {
     return validation;
   }
@@ -1544,8 +1594,7 @@ Status LDC1614::estimateFrameTiming(const Config& config,
                                     ChannelMask channels,
                                     FrameTiming& timing) {
   timing = FrameTiming{};
-  LDC1614 validator;
-  Status validation = validator._validateConfig(config);
+  Status validation = validateConfig(config);
   if (!validation.ok()) {
     return validation;
   }

@@ -6,10 +6,11 @@ certificate.
 
 ## Release state
 
-`library.json` and the latest annotated tag identify `v3.0.0`. The current
-branch contains unreleased features and corrections, including the wrap-safe
-deadline behavior required by external owners. The next release must be a
-reviewed annotated SemVer minor release; do not move or reinterpret `v3.0.0`.
+The latest annotated tag is `v3.0.0`. `library.json` identifies the current
+unreleased `3.1.0` candidate, including the public validation/readback helpers,
+comprehensive diagnostic CLIs, and wrap-safe deadline behavior required by
+external owners. The next release must be a reviewed annotated SemVer minor
+release; do not move or reinterpret `v3.0.0`.
 
 No retained run is positive acceptance evidence for the current code on an
 exact sensor-equipped target.
@@ -18,7 +19,7 @@ exact sensor-equipped target.
 
 Run these checks on the final review revision:
 
-```sh
+```powershell
 python tools/check_core_timing_guard.py
 python tools/check_cli_contract.py
 python tools/check_idf_example_contract.py
@@ -26,9 +27,9 @@ python tools/check_readiness_claims.py
 python tools/test_ldc1614_hil_runner.py
 python scripts/generate_version.py check
 python tools/check_clean_consumer_compile.py
-python -m platformio test -e native
-python -m platformio run -e esp32s3dev
-python -m platformio run -e esp32s2dev
+.\scripts\pio.cmd test -e native
+.\scripts\pio.cmd run -e esp32s3dev
+.\scripts\pio.cmd run -e esp32s2dev
 ```
 
 The HIL runner host tests include parser self-test and no-port behavior. The
@@ -41,13 +42,14 @@ software test is not HIL evidence.
 
 ## Retained hardware evidence boundary
 
-The [retained evidence index](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md) records five intentional
-negative 2026-07-22 post-v3 runs and eight raw serial debug captures. The JSON
-artifacts embed their complete transcripts, command results, and target
-firmware identities. They show NACK-related combined-read failure on older
-ESP-IDF stacks and justify upgrading beyond the original pioarduino `55.03.39`
-selection. The maintained `55.03.311` baseline retains the upstream NACK-state
-correction and adds ESP-IDF 5.5.5 I2C reset, allocation, and ISR fixes.
+The [retained evidence index](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md)
+records the intentional 2026-07-22 negative investigations plus the 2026-08-03
+COM8 matrix and one-hour regression evidence. The JSON artifacts embed their
+complete command results and target firmware identities; raw serial captures
+are retained beside them. Both the older stacks and the maintained
+pioarduino `55.03.311` / ESP-IDF 5.5.5 baseline exhibited NACK-related combined
+read failures. The upstream issue remains open, so the platform update must not
+be presented as a recovery fix.
 
 None of the retained records is positive release evidence. Earlier compact v2
 artifacts contained no raw transcript and did not validate operation IDs,
@@ -73,8 +75,11 @@ Before release or target-deployment claims, capture evidence for:
   calibration; and
 - a bounded soak at the production channel mask, cadence, and clock profile.
 
-A clean pioarduino `55.03.311` / ESP-IDF 5.5.5 candidate no-sensor smoke and
-one-hour soak are also required to close the COM8 transport regression.
+A clean pioarduino `55.03.311` / ESP-IDF 5.5.5 candidate passed preflight, a
+full no-sensor matrix, and 25 repeated matrices (1,025 command results), but its
+one-hour invocation failed the base `resetreapply` command before a valid soak
+could begin. A fresh cold-start reset/NACK gate and a completed passing
+one-hour soak are still required to close the COM8 transport regression.
 Product-specific consumers may impose additional gates; TunnelMonitor's
 remaining requirements are listed
 in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).

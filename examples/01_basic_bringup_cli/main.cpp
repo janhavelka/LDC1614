@@ -134,13 +134,22 @@ ldc1614_cli::Cli::Platform makeCliPlatform() {
 
 ldc1614_cli::Cli ldcCli(device, makeCliPlatform());
 
+void emitPrompt(ldc1614_cli::PromptAction action) {
+  if (action == ldc1614_cli::PromptAction::PRINT) {
+    ldcCli.printPrompt();
+  }
+}
+
 void readCliInput() {
+  static constexpr uint8_t INPUT_CHARACTERS_PER_LOOP = 32;
   static char inputBuffer[128];
   static size_t inputLen = 0;
   static bool overflow = false;
 
-  while (Serial.available() > 0) {
+  uint8_t consumed = 0;
+  while (Serial.available() > 0 && consumed < INPUT_CHARACTERS_PER_LOOP) {
     const char c = static_cast<char>(Serial.read());
+    ++consumed;
     if (c == '\b' || c == 0x7F) {
       if (!overflow && inputLen > 0U) {
         inputLen--;
@@ -152,12 +161,15 @@ void readCliInput() {
         inputLen = 0;
         overflow = false;
         ldcCli.println("input too long");
-        ldcCli.printPrompt();
+        if (!ldcCli.asynchronousWorkActive()) ldcCli.printPrompt();
+        // At most one complete line is handled per application pass. Leave
+        // any pasted commands in the Serial buffer for later passes.
+        return;
       } else if (inputLen > 0U) {
         inputBuffer[inputLen] = '\0';
-        ldcCli.processCommand(inputBuffer);
+        emitPrompt(ldcCli.processCommand(inputBuffer));
         inputLen = 0;
-        ldcCli.printPrompt();
+        return;
       }
       continue;
     }
@@ -186,6 +198,7 @@ void setup() {
   if (!i2cStatus.ok()) {
     ldcCli.logError("Failed to initialize I2C");
     ldcCli.printStatus(i2cStatus);
+    ldcCli.printPrompt();
     return;
   }
   ldcCli.logInfo("I2C initialized (SDA=%d, SCL=%d)", board::I2C_SDA, board::I2C_SCL);
@@ -196,18 +209,18 @@ void setup() {
   if (!st.ok()) {
     ldcCli.logError("Failed to bind explicit device profile");
     ldcCli.printStatus(st);
+    ldcCli.println("\nType 'help' for commands");
+    ldcCli.printPrompt();
   } else {
     ldcCli.logInfo("Profile bound with zero I2C; scheduling cooperative initialization");
-    ldcCli.processCommand("init");
+    ldcCli.println("\nType 'help' for commands");
+    emitPrompt(ldcCli.processCommand("init"));
   }
-
-  ldcCli.println("\nType 'help' for commands");
-  ldcCli.printPrompt();
 }
 
 void loop() {
   // This diagnostic application is the single owner. Each pass advances at
   // most one transport callback and prints terminal results exactly once.
-  ldcCli.service();
   readCliInput();
+  emitPrompt(ldcCli.service());
 }

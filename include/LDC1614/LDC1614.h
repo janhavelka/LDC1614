@@ -381,6 +381,29 @@ class LDC1614 {
   /// @return Precise configuration or callback status.
   Status readIntb(bool& asserted) const;
 
+  /// Validate one complete explicit desired profile without retaining it or
+  /// invoking any callback.
+  /// @param config Complete desired profile and non-owning callbacks.
+  /// @return OK or the same precise validation status used by bind().
+  static Status validateConfig(const Config& config);
+
+  /// Return the canonical replay value and stable readback-comparison mask for
+  /// one persistent configuration register. The comparison mask excludes
+  /// read-only DRIVE_CURRENT.INIT_IDRIVE and CONFIG.SLEEP_MODE_EN because
+  /// sleep/active state is controlled at runtime. Documented mandatory R/W
+  /// constants are included. Compare `(actual & comparisonMask)` with
+  /// `(expectedValue & comparisonMask)`.
+  /// @param config Complete desired profile.
+  /// @param reg Configuration-register address for the selected variant.
+  /// @param expectedValue Receives the exact canonical replay value.
+  /// @param comparisonMask Receives bits with stable Config-owned readback.
+  /// @return OK, a precise configuration status, or INVALID_PARAM when reg is
+  /// not part of the selected variant's persistent configuration profile.
+  static Status expectedConfigurationRegister(const Config& config,
+                                               uint8_t reg,
+                                               uint16_t& expectedValue,
+                                               uint16_t& comparisonMask);
+
   /// Pure, checked inverse DATA conversion using the configured nominal
   /// reference clock, FIN/FREF dividers, and OFFSET.
   /// @param config Explicit validated-style profile.
@@ -422,7 +445,6 @@ class LDC1614 {
  private:
   static constexpr uint8_t INVALID_REGISTER = 0xFF;
 
-  Status _validateConfig(const Config& config) const;
   Status _startJob(JobKind kind, ChannelMask channels, OperationId operationId,
                    uint64_t deadlineMs, uint8_t maximumTransfers);
   Status _pollInitializeOrApply(uint64_t nowMs, uint8_t& remainingTransfers,

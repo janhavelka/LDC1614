@@ -1,6 +1,6 @@
 {
   "name": "LDC1614",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Framework-neutral cooperative LDC1614/LDC1612 28-bit inductance-to-digital converter driver",
   "keywords": [
     "ldc1614",
@@ -59,7 +59,6 @@
       "docs/HIL_VALIDATION.md",
       "docs/I2C_INTEGRATION.md",
       "docs/IDF_PORT.md",
-      "docs/TUNNELMONITOR_INTEGRATION_GATES.md",
       "docs/VALIDATION_STATUS.md",
       "docs/reference/LDC1614_datasheet.pdf",
       "idf_component.yml",

@@ -56,10 +56,12 @@ example is under `examples/esp_idf/basic`.
 
 Host validation tools are pinned in `requirements-dev.txt`; the maintained
 Arduino build uses pioarduino `55.03.311` (Arduino 3.3.11 with ESP-IDF 5.5.5),
-pinned in `platformio.ini`. This version retains Espressif's NACK-state driver
-correction and adds I2C reset, allocation, and ISR fixes; earlier COM8 runs on
-ESP-IDF 5.3/5.4 could leave combined reads in `ESP_ERR_INVALID_STATE`. Both
-maintained ESP32 diagnostics use one
+pinned in `platformio.ini`. It includes newer I2C fixes, but the 2026-08-03
+COM8 run still reproduced the open ESP-IDF new-master failure in which a NACK
+can be followed by persistent `ESP_ERR_INVALID_STATE`. Treat the pin as a
+reviewed build baseline, not proof of post-NACK recovery; see
+[Espressif issue #14030](https://github.com/espressif/esp-idf/issues/14030).
+Both maintained ESP32 diagnostics use one
 example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
 this is example/build-tool policy, not a dependency of the framework-neutral
 core. Each product owner still requires target validation.
@@ -169,6 +171,12 @@ One instruction is one physical transport callback.
 | Initialization | `startInitialize` | 16 for LDC1612; 26 for LDC1614 | Two identity reads plus complete configuration replay. |
 | Chip reset/reapply | `startResetAndReapply` | 17 for LDC1612; 27 for LDC1614 | One software-reset write plus the complete initialization procedure. |
 
+TI specifies the software-reset command but no software-reset recovery
+interval. The core therefore does not invent a delay or retry. An owner that
+needs a scheduling boundary may service reset/reapply with transfer budget one;
+any reset-adjacent NACK terminates the job with the exact transport status and
+dirty applied-state evidence.
+
 The LDC1612/LDC1614 has no library-managed NVM programming or calibration
 storage procedure. Commissioning/calibration remains application work. Raw
 diagnostic writes are single-transfer advanced operations, not a maintenance
@@ -247,6 +255,13 @@ required. Advanced raw writes invalidate the high-level applied-state contract.
 
 ## Pure helpers and diagnostics
 
+- `validateConfig()` applies the complete bind/update validation contract with
+  zero I2C and without retaining the candidate.
+- `expectedConfigurationRegister()` returns the exact replay value plus a
+  stable readback mask for each persistent register in the selected variant.
+  The mask includes documented mandatory R/W constants and excludes only
+  read-only INIT_IDRIVE plus the runtime sleep bit. Readback comparison is
+  diagnostic and does not change applied trust state.
 - `calculateSensorFrequencyHz()` returns `Status` plus `double`, using the
   explicit reference clock, channel dividers, offset, and raw count.
 - `estimateFrameTiming()` returns conservative device timing and acquisition
@@ -262,6 +277,37 @@ required. Advanced raw writes invalidate the high-level applied-state contract.
   invalidation plus replay.
 - `TransportStats` records attempts, successes, failures, and the last status
   for diagnostics only; it does not own health or admission policy.
+
+## Diagnostic CLI
+
+The maintained Arduino and native ESP-IDF examples expose the same fixed-memory
+diagnostic surface through independent framework-local implementations. A
+host-only manifest checks their command tables, aligned 32-column ANSI help,
+safety confirmations, stable evidence records, and key output fields for exact
+parity.
+
+Commands cover lifecycle/jobs, complete desired configuration, acquisition and
+cached batches, STATUS/INTB/SD visibility, every persistent configuration
+register, pure timing/frequency/current/decoder helpers, and bounded scan,
+verify, self-test, watch, stress, mixed-stress, sample-rate, and soak sessions.
+`cfg` prints every global field, every physical-channel register value and
+sensor bound, error routing, desired/applied revision, INTB availability, and
+configuration-fault provenance.
+
+Configuration editing is deliberately staged. Field commands copy and modify a
+fixed candidate with zero I2C; `profile validate` checks the whole candidate and
+`profile commit confirm` updates desired state only. The application must then
+run the cooperative `apply` job. Address and variant remain physical binding
+facts and require `end()` plus a rebuilt/rebound transport profile.
+
+Scan, multi-register diagnostics, self-test, and stress functions are finite
+CLI-owned state machines. Each owner service pass performs at most one
+`poll(now, 1)` callback or one direct diagnostic callback. Raw writes,
+destructive all-register dumps, reset/reapply, recovery, invalidation,
+mixed-stress, and example-owned SD transitions require explicit confirmation.
+These tools aid bring-up; protocol stress on a no-sensor board is not evidence
+of sensor accuracy, production cadence, coil suitability, or physical INTB/SD
+behavior.
 
 ## Migration from v2
 
@@ -291,9 +337,10 @@ v3 is a deliberate breaking release.
 ## Examples and validation
 
 - [Arduino diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/01_basic_bringup_cli/README.md): cooperative
-  bring-up firmware with a one-transfer owner service budget.
+  bring-up firmware with colored comprehensive help and a one-transfer owner
+  service budget.
 - [Native ESP-IDF diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/esp_idf/basic/README.md): fixed-buffer
-  example using the native I2C master driver.
+  parity-checked example using the native I2C master driver.
 - [I2C owner integration](docs/I2C_INTEGRATION.md): ownership, deadlines,
   results, side effects, and recovery.
 - [Hardware integration](docs/HARDWARE_INTEGRATION.md): board, sensor, timing,

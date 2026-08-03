@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Host-side tests for the conservative LDC1614 HIL runner."""
+"""Host-only tests for the CLI contract and conservative HIL evidence runner."""
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -12,655 +14,1006 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import ldc1614_cli_contract as contract
+import check_cli_contract as cli_checker
 import ldc1614_hil_runner as runner
 
 
-class HilRunnerParserTests(unittest.TestCase):
-    def test_default_arduino_commands_cover_safe_diagnostics(self) -> None:
-        commands = runner.default_commands("arduino")
+def sync_output(command: str, body: str = "") -> str:
+    return (
+        body
+        + f"CLI result: command={command} outcome=SUCCESS code=0 detail=0 msg=OK\n> "
+    )
 
-        self.assertIn("version", commands)
-        self.assertIn("scan", commands)
-        self.assertIn("probe", commands)
-        self.assertIn("cfg", commands)
-        self.assertIn("drv", commands)
-        self.assertIn("busrecover", commands)
-        self.assertLess(commands.index("scan"), commands.index("busrecover"))
-        self.assertLess(commands.index("busrecover"), commands.index("init"))
-        self.assertIn("progress", commands)
-        self.assertIn("timing 0x01", commands)
-        self.assertFalse(any(command.startswith("acquire") for command in commands))
 
-    def test_no_sensor_fixture_uses_acquisition_without_drdy_wait(self) -> None:
-        commands = runner.default_commands("arduino", "no-sensor")
+def async_output(command: str, session: int, body: str = "") -> str:
+    return (
+        f"CLI scheduled: command={command} session={session}\n"
+        + body
+        + f"CLI result: command={command} session={session} "
+        "outcome=SUCCESS code=0\n> "
+    )
 
-        self.assertIn("progress", commands)
-        self.assertIn("busrecover", commands)
-        self.assertLess(commands.index("scan"), commands.index("busrecover"))
-        self.assertLess(commands.index("busrecover"), commands.index("init"))
-        self.assertIn("reg 0x7E", commands)
-        self.assertIn("reg 0x7F", commands)
-        self.assertNotIn("drdy", commands)
-        self.assertIn("acquire 0x01", commands)
-        self.assertNotIn("samplerate 0 10", commands)
 
-    def test_default_idf_commands_cover_supported_safe_diagnostics(self) -> None:
-        commands = runner.default_commands("idf")
+def version_output(commit: str = "abcdef1") -> str:
+    return (
+        f"version=3.0.0 firmware_git={commit} firmware_status=clean "
+        "build_timestamp=test\n> "
+    )
 
-        self.assertIn("version", commands)
-        self.assertIn("probe", commands)
-        self.assertIn("cfg", commands)
-        self.assertIn("drv", commands)
-        self.assertIn("busrecover", commands)
-        self.assertLess(commands.index("scan"), commands.index("busrecover"))
-        self.assertLess(commands.index("busrecover"), commands.index("init"))
-        self.assertIn("progress", commands)
-        self.assertIn("timing 0x01", commands)
-        self.assertIn("scan", commands)
 
-    def test_serial_line_defaults_match_known_esp32s2_fixture(self) -> None:
-        args = runner.parse_args([])
-        self.assertEqual("on", args.serial_dtr)
-        self.assertEqual("off", args.serial_rts)
+def cfg_output() -> str:
+    return (
+        "Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0\n"
+        "cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 "
+        "selected=0x01 mode=single "
+        "ref_source=external ref_hz=40000000 tolerance_ppm=100\n"
+        "deglitch=10 activation=full timeout_ms=10 rp_override=0 "
+        "auto_amplitude=0 high_current=0 intb_config=1 "
+        "error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE\n> "
+    )
 
-    def test_classifier_accepts_common_informational_outputs(self) -> None:
-        cases = (
-            ("version", "version: 1.0.0 firmware_git=abcdef1 firmware_status=clean\n> "),
-            ("scan", "I2C device at 0x2A\nscan complete found=1 probes=112\nstatus: code=0\n> "),
-            ("settings", "address=0x2a variant=2 variantChannels=4 selected=0x01 timeoutMs=10\n> "),
-            ("status", "STATUS observed=1 raw=0x0000 drdy=0 unread=0x00 errCh=4\nstatus: code=0\n> "),
-            ("health", "bound=1 applied=APPLIED_SLEEPING revision=1\n> "),
-            ("progress", "active=0 operation=0 transfers=0/0\n> "),
-            ("reg 0x7E", "reg 0x7E = 0x5449\n> "),
+
+def probe_output(session: int = 9) -> str:
+    return async_output(
+        "probe", session,
+        "manufacturer_id=0x5449 device_id=0x3055 match=YES code=0\n",
+    )
+
+
+def status_output() -> str:
+    return (
+        "STATUS=0x2840 observed=1 raw=0x2840 drdy=1 unread=0x01 "
+        "err_ch=0 ur=1 or=0 wd=0 ah=0 al=0 zc=0\n"
+        "  Status: OK (code=0, detail=0)\n  Message: OK\n> "
+    )
+
+
+def drv_output() -> str:
+    return (
+        "drv bound=1 applied=APPLIED_ACTIVE revision=1 active=0 "
+        "result_available=0 attempts=10 success=10 failures=0 last_code=0\n"
+        "transport attempts=10 success=10 failures=0\n> "
+    )
+
+
+def base_golden_outputs() -> dict[str, str]:
+    status_clean = (
+        "STATUS=0x0040 observed=1 raw=0x0040 drdy=1 unread=0x00 err_ch=0 "
+        "ur=0 or=0 wd=0 ah=0 al=0 zc=0\n"
+        "  Status: OK (code=0, detail=0)\n> "
+    )
+    batch = (
+        "batch type=SEQUENTIAL_READOUT selected=0x01 valid=0x01 fresh=0x01 "
+        "error=0x00 overrun=0x00 revision=1 completed_ms=100 simultaneous=0\n"
+        "status_before=0x0040 observed=1 raw=0x0040 drdy=1 unread=0x01 "
+        "err_ch=0 ur=0 or=0 wd=0 ah=0 al=0 zc=0\n"
+        "status_after=0x0000 observed=1 raw=0x0000 drdy=0 unread=0x00 "
+        "err_ch=0 ur=0 or=0 wd=0 ah=0 al=0 zc=0\n"
+    )
+    generic = lambda command: f"CLI result: command={command} outcome=SUCCESS code=0\n> "
+    outputs = {
+        "help": "=== LDC1614 CLI ===\n[Common]\ncommand_count=64\n> ",
+        "color off": "color enabled=0\n> ",
+        "color on": "color enabled=1\n> ",
+        "verbose 1": "verbose enabled=1\n> ",
+        "verbose 0": "verbose enabled=0\n> ",
+        "version": version_output(),
+        "scan": async_output("scan", 1, "scan complete found=1 probes=112 code=0\n"),
+        "busrecover confirm": generic("busrecover"),
+        "init": async_output("init", 0),
+        "apply": async_output("apply", 0),
+        "resetreapply confirm": async_output("resetreapply", 0),
+        "probe": probe_output(2),
+        "reg 0x7E": "register=0x7E value=0x5449 code=0\n> ",
+        "reg 0x7F": "register=0x7F value=0x3055 code=0\n> ",
+        "status": status_clean,
+        "status_raw": "status_raw=0x0040 code=0\n> ",
+        "ready": (
+            "ready=1 code=0\nready_status=0x0040 observed=1 raw=0x0040 "
+            "drdy=1 unread=0x00 err_ch=0 ur=0 or=0 wd=0 ah=0 al=0 zc=0\n> "
+        ),
+        "cfg": cfg_output(),
+        "job": (
+            "job active=0 operation=0 kind=NONE phase=NONE transfers=0 maximum=0 "
+            "requested=0x00 completed=0x00 deadline_ms=0 effects=0x00 revision=1\n"
+            "session active=0 id=0 kind=NONE phase=0 completed=0/0 pass=0 fail=0 skip=0\n> "
+        ),
+        "result": (
+            "Operation result: operation=7 kind=INITIALIZE outcome=SUCCESS effects=0x00 "
+            "revision=1 completed_ms=99 phase=COMPLETE reg=0x00 channel=0 "
+            "transfers=20 maximum=20 code=0 detail=0 msg=OK\n> "
+        ),
+        "state": (
+            "state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 session_kind=NONE "
+            "active=0 pending_result=0\n> "
+        ),
+        "profile show": "Configuration: staged revision=1\ncfg label=staged address=0x2A\n> ",
+        "profile validate": (
+            "profile field=all channel=all dirty=0 valid=1 outcome=VALID code=0 "
+            "i2c_attempts=0\n> "
+        ),
+        "profile discard": (
+            "CLI preview: field=profile dirty=0 valid=unknown channel=none "
+            "outcome=DISCARDED code=0 i2c_attempts=0\n> "
+        ),
+        "dump config": async_output(
+            "dump", 3, "dump complete scope=config count=23 failures=0\n"
+        ),
+        "dump all confirm": async_output(
+            "dump", 4, "dump complete scope=all count=36 failures=0\n"
+        ),
+        "verify": async_output(
+            "verify", 5,
+            "verify complete checked=22 matched=22 mismatched=0 read_failures=0\n",
+        ),
+        "wake": generic("wake"),
+        "selftest": async_output(
+            "selftest", 6,
+            "selftest identity=completed config=completed status=completed helpers=completed\n"
+            "Selftest result: pass=8 fail=0 skip=1\n",
+        ),
+        "read 0x01": async_output("read", 0, batch),
+        "sleep": generic("sleep"),
+        "decode status 0x0040": (
+            "decode kind=status decoded_status=0x0040 observed=1 raw=0x0040 "
+            "drdy=1 unread=0x00 err_ch=0 ur=0 or=0 wd=0 ah=0 al=0 zc=0\n> "
+        ),
+        "decode data 0x0000 0x0000": (
+            "decode kind=data raw=0x0000 msb=0x0000 lsb=0x0000 count=0x0000000 "
+            "quality=0x0002 quality_names=STALE\n> "
+        ),
+        "freq 0 0x0100000": "channel=0 raw=0x0100000 frequency_hz=156250.000000 code=0\n> ",
+        "timing 0x01": (
+            "mask=0x01 wake_settle_us=1000 conversion_us=1000 "
+            "sequential_frame_us=2000 acquisition_transfers=4 code=0\n> "
+        ),
+        "driveua 0": "code=0 microamps=16\n> ",
+        "wreg 0x1A 0x3481 confirm": "register=0x1A value=0x3481 code=0\n> ",
+        "invalidate confirm": generic("invalidate"),
+        "end": generic("end"),
+        "bind": "CLI result: command=bind outcome=SUCCESS code=0 detail=0 msg=OK\n> ",
+        "cancel": "CLI result: command=cancel outcome=SUCCESS code=0 session=0\n> ",
+        "drv": drv_output(),
+    }
+    return outputs
+
+
+def config_golden_output(command: str) -> str:
+    tokens = command.split()
+    name = tokens[0]
+    if command == "profile reset":
+        return ("CLI preview: field=profile dirty=1 valid=unknown channel=none "
+                "outcome=RESET code=0 i2c_attempts=0\n> ")
+    if command == "profile validate":
+        return ("profile field=all channel=all dirty=1 valid=1 outcome=VALID "
+                "code=0 i2c_attempts=0\n> ")
+    if command == "profile discard":
+        return ("CLI preview: field=profile dirty=0 valid=unknown channel=none "
+                "outcome=DISCARDED code=0 i2c_attempts=0\n> ")
+    if command == "drv":
+        return drv_output()
+    if name == "mode":
+        primary = (f"mode=single channel={tokens[2]} count=1" if tokens[1] == "single"
+                   else f"mode=seq channel=none count={tokens[2]}")
+        field = "mode"
+    elif name == "refclk":
+        primary = f"source={tokens[1]} hz={tokens[2]} ppm={tokens[3]}"
+        field = "refclk"
+    elif name == "deglitch":
+        primary, field = f"mhz={tokens[1]}", "deglitch"
+    elif name == "activation":
+        primary, field = f"mode={tokens[1]}", "activation"
+    elif name == "timeout":
+        primary, field = f"timeout_ms={tokens[1]}", "timeout"
+    elif name in ("rp", "autoamp", "highcurrent", "intbconfig"):
+        primary, field = f"enabled={tokens[1]}", name
+    elif name == "errors":
+        enabled = "0" if tokens[1] == "none" else "1"
+        prefix = "errors " if tokens[1] == "show" else ""
+        primary = prefix + " ".join(
+            f"{field_name}={enabled}" for field_name in
+            ("ur", "or", "wd", "ah", "al", "zc", "drdy")
+        )
+        if tokens[1] == "show":
+            return primary + "\n> "
+        field = "errors"
+    elif name == "error":
+        primary, field = f"field={tokens[1]} enabled={tokens[2]}", tokens[1]
+    elif name in ("rcount", "settle", "findiv", "frefdiv", "offset"):
+        primary, field = f"channel={tokens[1]} value={tokens[2]}", name
+    else:
+        raise AssertionError(f"no config golden for {command}")
+    return (
+        primary + "\n" +
+        f"CLI preview: field={field} dirty=1 valid=unknown channel=none "
+        "outcome=STAGED code=0 i2c_attempts=0\n> "
+    )
+
+
+def cpp_contract_source() -> str:
+    sections = {
+        "Common": "COMMON",
+        "Lifecycle": "LIFECYCLE",
+        "Measurements": "MEASUREMENTS",
+        "Configuration": "CONFIGURATION",
+        "Registers and helpers": "REGISTERS_AND_HELPERS",
+        "Diagnostics": "DIAGNOSTICS",
+    }
+    rows = []
+    for spec in contract.COMMAND_SPECS:
+        aliases = " ".join(spec.aliases)
+        synopses = "\\n".join(spec.synopses)
+        evidence = " ".join(spec.output_keys)
+        rows.append(
+            "  {CommandId::%s, \"%s\", \"%s\", \"%s\", \"description\", "
+            "HelpSection::%s, CommandSafety::%s, ExecutionKind::%s, "
+            "FixtureRequirement::%s, \"%s\"},"
+            % (
+                spec.command_id, spec.canonical, aliases, synopses,
+                sections[spec.section], spec.safety, spec.execution,
+                spec.fixture, evidence,
+            )
+        )
+    return "static constexpr CommandSpec COMMAND_SPECS[] = {\n" + "\n".join(rows) + "\n};\n"
+
+
+class CliManifestTests(unittest.TestCase):
+    def test_manifest_is_complete_ordered_and_bounded(self) -> None:
+        self.assertEqual((), contract.validate_contract())
+        self.assertEqual(64, len(contract.COMMAND_SPECS))
+        self.assertEqual("help", contract.COMMAND_SPECS[0].canonical)
+        self.assertEqual("sd", contract.COMMAND_SPECS[-1].canonical)
+        self.assertTrue(
+            all(len(line) <= contract.HELP_SYNOPSIS_WIDTH
+                for spec in contract.COMMAND_SPECS for line in spec.synopses)
         )
 
-        for command, output in cases:
+    def test_aliases_and_stale_tokens_are_explicit(self) -> None:
+        expected = {
+            "?": "help", "ver": "version", "acquire": "read",
+            "progress": "job", "drdy": "ready", "settings": "cfg",
+            "rreg": "reg", "health": "drv",
+        }
+        self.assertEqual(
+            expected,
+            {alias: contract.COMMAND_BY_NAME[alias].canonical for alias in expected},
+        )
+        self.assertEqual(("begin", "sync", "readall", "initidrive"), contract.STALE_COMMANDS)
+
+    def test_cpp_table_parser_compares_all_metadata(self) -> None:
+        source = cpp_contract_source()
+        self.assertEqual(64, len(contract.parse_cpp_command_specs(source)))
+        self.assertEqual((), contract.compare_cpp_command_specs(source, "fixture"))
+
+        drifted = source.replace("CommandId::JOB", "CommandId::PROGRESS", 1)
+        errors = contract.compare_cpp_command_specs(drifted, "fixture")
+        self.assertTrue(any("command id" in error and "JOB" in error for error in errors))
+
+    def test_hil_groups_cover_both_profiles_without_stale_commands(self) -> None:
+        for profile in ("arduino", "idf"):
+            sensor = runner.default_commands(profile, "default")
+            no_sensor = runner.default_commands(profile, "no-sensor")
+            self.assertIn("busrecover confirm", sensor)
+            self.assertIn("job", sensor)
+            self.assertIn("selftest", sensor)
+            self.assertIn("read 0x01", no_sensor)
+            self.assertIn("ready", no_sensor)
+            sleep_index = no_sensor.index("sleep")
+            wake_after_sleep = no_sensor.index("wake", sleep_index + 1)
+            self.assertLess(no_sensor.index("init"), sleep_index)
+            self.assertLess(sleep_index, wake_after_sleep)
+            self.assertEqual("drv", no_sensor[-1])
+            for stale in contract.STALE_COMMANDS:
+                self.assertFalse(any(runner.command_name(item) == stale for item in no_sensor))
+
+    def test_no_sensor_recovery_fences_are_exact_and_ordered(self) -> None:
+        commands = contract.NO_SENSOR_COMMANDS
+        self.assertEqual(48, len(commands))
+        for sequence in contract.NO_SENSOR_REQUIRED_SUBSEQUENCES:
+            width = len(sequence)
+            self.assertTrue(any(
+                commands[index:index + width] == sequence
+                for index in range(len(commands) - width + 1)
+            ), sequence)
+        for invalidator in (
+            "busrecover confirm", "wreg 0x1A 0x3481 confirm",
+            "invalidate confirm", "end",
+        ):
+            index = commands.index(invalidator)
+            expected_next = "bind" if invalidator == "end" else "init"
+            self.assertEqual(expected_next, commands[index + 1])
+        self.assertEqual(("cancel", "wake", "drv"), commands[-3:])
+
+    def test_optional_groups_are_fixture_and_safety_validated(self) -> None:
+        self.assertEqual((), contract.validate_contract())
+        self.assertEqual({"NO_SENSOR_OK"}, contract.OPTIONAL_GROUP_FIXTURES["stress"])
+        self.assertEqual({"SENSOR_REQUIRED"}, contract.OPTIONAL_GROUP_FIXTURES["sample_rate"])
+        self.assertIn(("sd", "sd status"), contract.SAFE_COMPOUND_BRANCHES)
+
+
+class ClassifierTests(unittest.TestCase):
+    def test_informational_commands_do_not_require_fake_result_envelopes(self) -> None:
+        status, reason = runner.classify_command("ver", version_output(), False)
+        self.assertEqual("PASS", status, reason)
+        status, _ = runner.classify_command(
+            "version", "version=3.0.0 firmware_git=abcdef1 firmware_status=clean\n", False
+        )
+        self.assertEqual("FAIL", status)
+        self.assertEqual("PASS", runner.classify_command("cfg", cfg_output(), False)[0])
+
+    def test_complete_frozen_no_sensor_golden_matrix_classifies(self) -> None:
+        outputs = base_golden_outputs()
+        self.assertEqual(set(contract.NO_SENSOR_COMMANDS), set(outputs))
+        for command in contract.NO_SENSOR_COMMANDS:
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(
+                    command, outputs[command], False, fixture="no-sensor"
+                )
+                self.assertEqual("PASS", status, reason)
+
+    def test_help_and_result_golden_fields_are_not_optional(self) -> None:
+        outputs = base_golden_outputs()
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command(
+                "help", outputs["help"].replace("command_count=64\n", ""), False
+            )[0],
+        )
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command(
+                "result", outputs["result"].replace("maximum=20 ", ""), False
+            )[0],
+        )
+
+    def test_async_session_envelopes_must_match(self) -> None:
+        output = async_output("init", 42)
+        between = output.split("CLI scheduled:", 1)[1].split("CLI result:", 1)[0]
+        self.assertNotIn(">", between)
+        self.assertEqual(1, output.count("> "))
+        self.assertEqual("PASS", runner.classify_command("init", output, False)[0])
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command("init", output.replace("session=42 outcome", "session=43 outcome"), False)[0],
+        )
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command("init", output.replace("outcome=SUCCESS", "outcome=FAILED"), False)[0],
+        )
+
+    def test_probe_and_selftest_require_distinct_evidence(self) -> None:
+        probe = probe_output()
+        self.assertEqual("PASS", runner.classify_command("probe", probe, False)[0])
+        self.assertEqual("FAIL", runner.classify_command("selftest", probe, False)[0])
+        selftest = async_output(
+            "selftest", 9, "Selftest result: pass=8 fail=0 skip=1\n"
+        )
+        self.assertEqual("PASS", runner.classify_command("selftest", selftest, False)[0])
+
+    def test_complete_cfg_and_progress_evidence(self) -> None:
+        self.assertEqual("PASS", runner.classify_command("cfg", cfg_output(), False)[0])
+        progress = sync_output(
+            "job",
+            "job active=0 operation=0 kind=NONE phase=NONE transfers=0 maximum=0 "
+            "requested=0x00 completed=0x00 deadline_ms=0\n"
+            "session active=0 id=0 kind=NONE phase=0 completed=0/0\n",
+        )
+        self.assertEqual("PASS", runner.classify_command("progress", progress, False)[0])
+
+    def test_no_sensor_flags_are_narrowly_tolerated(self) -> None:
+        output = status_output()
+        self.assertEqual("FAIL", runner.classify_command("status", output, False)[0])
+        self.assertEqual(
+            "PASS", runner.classify_command("status", output, False, fixture="no-sensor")[0]
+        )
+        broken = output + "I2C_TIMEOUT code=7\n"
+        self.assertEqual(
+            "FAIL", runner.classify_command("status", broken, False, fixture="no-sensor")[0]
+        )
+
+    def test_timeouts_and_explicit_failure_tokens_never_pass(self) -> None:
+        self.assertEqual("FAIL", runner.classify_command("version", version_output(), True)[0])
+        self.assertEqual(
+            "FAIL", runner.classify_command("version", version_output() + "[FAIL]\n", False)[0]
+        )
+
+    def test_version_parser_accepts_frozen_equals_and_legacy_colon(self) -> None:
+        self.assertEqual("3.0.0", runner.firmware_version_from_transcript(version_output()))
+        self.assertEqual(
+            "3.0.0",
+            runner.firmware_version_from_transcript("library version: 3.0.0\n"),
+        )
+        self.assertEqual("unknown", runner.firmware_version_from_transcript("version unknown"))
+
+    def test_invalid_input_matrix_requires_exact_usage_and_no_job_admission(self) -> None:
+        for command, pattern in runner.INVALID_INPUT_EVIDENCE_PATTERNS.items():
+            synopsis = contract.COMMAND_BY_NAME[command.split(" ", 1)[0]].synopses[0]
+            output = f"[E] usage: {synopsis}\n> "
+            with self.subTest(command=command):
+                self.assertIsNotNone(pattern.search(output))
+                self.assertEqual("PASS", runner.classify_command(command, output, False)[0])
+                self.assertEqual(
+                    "FAIL",
+                    runner.classify_command(
+                        command,
+                        output.replace(synopsis, "wrong") +
+                        f"CLI scheduled: command={command.split()[0]} session=1\n",
+                        False,
+                    )[0],
+                )
+
+    def test_gated_command_formats_parse_but_unavailable_sd_does_not_pass(self) -> None:
+        gated = {
+            "addr": "address=0x2A build_profile_only=1\n> ",
+            "variant": "variant=LDC1614 variant_channels=4 build_profile_only=1\n> ",
+            "intb": "intb asserted=1 code=0\n> ",
+            "initdrive 0": "channel=0 init_drive_code=12 microamps=96 code=0\n> ",
+            "drive 0 12": (
+                "channel=0 code=12\nCLI preview: field=drive dirty=1 valid=unknown "
+                "channel=none outcome=STAGED code=0 i2c_attempts=0\n> "
+            ),
+            "sensorbounds 0 1000 2000": (
+                "channel=0 low_hz=1000 high_hz=2000\n"
+                "CLI preview: field=sensorbounds dirty=1 valid=unknown channel=none "
+                "outcome=STAGED code=0 i2c_attempts=0\n> "
+            ),
+            "sd status": "sd state=released outcome=SUCCESS code=0\n> ",
+        }
+        for command, output in gated.items():
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("PASS", status, reason)
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command(
+                "sd status", "sd state=unavailable outcome=SKIP code=0\n> ", False
+            )[0],
+        )
+
+    def test_sensor_and_commit_output_contracts_are_exact(self) -> None:
+        batch = (
+            "batch type=SEQUENTIAL_READOUT selected=0x01 valid=0x01 fresh=0x01 "
+            "error=0x00 overrun=0x00 revision=1 completed_ms=10 simultaneous=0\n"
+            "sample channel=0 msb=0x0001 lsb=0x0002 raw=0x0010002 raw28=0x0010002 "
+            "quality=0x0001 quality_names=FRESH frequency_hz=1000.0 bounds=PASS\n> "
+        )
+        outputs = {
+            "last 0": batch,
+            "watch 0x01 2": async_output(
+                "watch", 20,
+                "Watch results: requested=2 completed=2 failed=0 elapsed_ms=20\n",
+            ),
+            "samplerate 0 2": async_output(
+                "samplerate", 21,
+                "SampleRate result: requested=2 ok=2 fail=0 elapsed_ms=20 "
+                "hz=100.000000 ready_checks=2 ready_status_raw=0x0040\n",
+            ),
+            "profile commit confirm": (
+                "profile_commit=COMMITTED config_revision=2 applied=APPLIED_SLEEPING "
+                "i2c_attempts=0\n  Status: OK (code=0, detail=0)\n> "
+            ),
+        }
+        for command, output in outputs.items():
             with self.subTest(command=command):
                 status, reason = runner.classify_command(command, output, False)
                 self.assertEqual("PASS", status, reason)
 
-    def test_classifier_requires_ok_for_probe(self) -> None:
-        status, reason = runner.classify_command(
-            "probe", "MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055 status: code=0\n> ", False
-        )
 
-        self.assertEqual("PASS", status, reason)
+class CheckerRobustnessTests(unittest.TestCase):
+    def test_bounded_parser_checker_captures_semantic_parameter_name(self) -> None:
+        valid = """bool parseUnsigned(const char* text, uint64_t ceiling, uint64_t& value) {
+  uint64_t parsed = 0;
+  if (text == nullptr || parsed > ceiling) return false;
+  value = parsed;
+  return true;
+}
+"""
+        cli_checker.require_bounded_unsigned_parser(valid)
+        invalid = valid.replace("parsed > ceiling", "parsed > UINT64_MAX")
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
+            cli_checker.require_bounded_unsigned_parser(invalid)
 
-    def test_classifier_detects_failure_tokens(self) -> None:
-        failure_outputs = (
-            "status: I2C_TIMEOUT code=7\n> ",
-            "DEVICE_NOT_FOUND\n> ",
-            "not bound\n> ",
-            "unknown command: health\n> ",
-            "read failed\n> ",
-            "errors=2\n> ",
-            "[FAIL] readRegister16(DEV_ID)\nstatus: code=0\n> ",
-            "Selftest result: pass=4 fail=1 skip=0\nstatus: code=0\n> ",
-            "Demo result: ready=1/5 read_ok=4 read_fail=1\nstatus: code=0\n> ",
-            "Value: 0x1234 expected=0x5449 match=NO\nstatus: code=0\n> ",
-            "ch0 raw=0x0000000 errUR=1 errOR=0 errWD=0 errAmp=0\nstatus: code=0\n> ",
-            "raw=0x2140 drdy=1 err=1 ur=1 or=0 wd=0 ah=0 al=0 zc=0\nstatus: code=0\n> ",
-            "\x1b[31m[ERR: UR=1 OR=0 WD=0 AE=0]\x1b[0m\nstatus: code=0\n> ",
-        )
 
-        for output in failure_outputs:
-            with self.subTest(output=output):
-                status, reason = runner.classify_command("probe", output, False)
-                self.assertEqual("FAIL", status, reason)
-
-    def test_no_sensor_classifier_accepts_sensor_flags_but_not_transport_failure(self) -> None:
-        output = (
-            "STATUS observed=1 raw=0x2840 drdy=1 unread=0x01 errCh=0 "
-            "UR=1 OR=0 WD=0 AH=0 AL=0 ZC=0\nstatus: code=0\n> "
-        )
-        status, _ = runner.classify_command("status", output, False)
-        self.assertEqual("FAIL", status)
-
-        status, reason = runner.classify_command(
-            "status", output, False, fixture="no-sensor"
-        )
-        self.assertEqual("PASS", status, reason)
-
-        status, _ = runner.classify_command(
-            "status", output.replace("status: code=0\n", ""), False,
-            fixture="no-sensor",
-        )
-        self.assertEqual("FAIL", status)
-
-        status, _ = runner.classify_command(
-            "status",
-            output + "status: I2C_TIMEOUT code=7\n> ",
-            False,
-            fixture="no-sensor",
-        )
-        self.assertEqual("FAIL", status)
-
-    def test_classifier_accepts_terminal_operation_result(self) -> None:
-        status, reason = runner.classify_command(
-            "custom-acquire",
-            (
-                "result operation=42 kind=4 outcome=SUCCESS effects=0x01\n"
-                "status: code=0 detail=0 msg=OK\n"
-                "batch selected=0x01 valid=0x01 fresh=0x01\n> "
-            ),
-            False,
-        )
-
-        self.assertEqual("PASS", status, reason)
-
-    def test_async_classifier_requires_matching_successful_terminal_result(self) -> None:
-        output = (
-            "scheduled operation=42 reset=0\n"
-            "status: code=5 detail=0 msg=Operation in progress\n> "
-            "result operation=42 kind=1 outcome=SUCCESS effects=0x00\n"
-            "status: code=0 detail=0 msg=OK\n"
-        )
-        status, reason = runner.classify_command("init", output, False)
-        self.assertEqual("PASS", status, reason)
-
-        status, _ = runner.classify_command(
-            "init", output.replace("result operation=42", "result operation=43"),
-            False,
-        )
-        self.assertEqual("FAIL", status)
-
-        status, _ = runner.classify_command(
-            "init", output.replace("outcome=SUCCESS", "outcome=FAILED"), False
-        )
-        self.assertEqual("FAIL", status)
-
-    def test_classifier_supports_configured_tokens(self) -> None:
-        expected = runner.compile_token_patterns(["fixture ready"])
-        failure = runner.compile_token_patterns(["fixture unsafe"])
-        expected_failure = runner.compile_token_patterns(["INVALID_PARAM"])
-
-        status, _ = runner.classify_command(
-            "fixture", "fixture ready\n> ", False, expected_patterns=expected
-        )
-        self.assertEqual("PASS", status)
-
-        status, _ = runner.classify_command(
-            "fixture", "fixture unsafe\n> ", False, failure_patterns=failure
-        )
-        self.assertEqual("FAIL", status)
-
-        status, _ = runner.classify_command(
-            "negative",
-            "status: INVALID_PARAM code=5\n> ",
-            False,
-            expected_failure_patterns=expected_failure,
-        )
-        self.assertEqual("PASS", status)
-
-    def test_classifier_rejects_benign_but_unstructured_output(self) -> None:
-        status, reason = runner.classify_command(
-            "health", "error counters: 0\nlast error: never\n> ", False
-        )
-
-        self.assertEqual("FAIL", status, reason)
-
-    def test_classifier_fails_empty_or_timed_out_response(self) -> None:
-        status, _ = runner.classify_command("version", "", False)
-        self.assertEqual("FAIL", status)
-
-        status, _ = runner.classify_command("version", "version: 1.0.0", True)
-        self.assertEqual("FAIL", status)
-
-    def test_classifier_uses_unknown_for_ambiguous_output(self) -> None:
-        status, reason = runner.classify_command("custom", "fixture text\n> ", False)
-
-        self.assertEqual("UNKNOWN", status, reason)
-
-    def test_overall_status_never_passes_without_transcript(self) -> None:
-        command_results = [{"status": "PASS", "command": "version"}]
-
-        self.assertEqual("NOT_RUN", runner.overall_status(command_results, None, ""))
-        self.assertEqual("PASS", runner.overall_status(command_results, None, "version: 1.0.0\n> "))
-        self.assertEqual("NOT_RUN", runner.overall_status(command_results, None, "### startup\n"))
+class MatrixAndSummaryTests(unittest.TestCase):
+    def test_config_matrix_covers_every_safe_setting_and_restores_cache(self) -> None:
+        commands = runner.configuration_matrix_commands(4)
+        for command in (
+            "mode single 0", "mode seq 2", "mode seq 3", "mode seq 4",
+            "refclk internal 40000000 100", "refclk external 40000000 100",
+            "deglitch 1", "deglitch 3", "deglitch 10", "deglitch 33",
+            "activation full", "activation low", "timeout 1", "timeout 4294967295",
+            "rp 0", "rp 1", "autoamp 0", "autoamp 1",
+            "highcurrent 0", "highcurrent 1", "intbconfig 0", "intbconfig 1",
+            "errors show", "errors none", "errors all",
+        ):
+            self.assertIn(command, commands)
+        for route in runner.ERROR_ROUTE_NAMES:
+            self.assertIn(f"error {route} 1", commands)
+        for channel in range(4):
+            for command in (
+                f"rcount {channel} 256", f"rcount {channel} 65535",
+                f"settle {channel} 0", f"settle {channel} 65535",
+                f"findiv {channel} 1", f"findiv {channel} 15",
+                f"frefdiv {channel} 1", f"frefdiv {channel} 1023",
+                f"offset {channel} 0", f"offset {channel} 65535",
+            ):
+                self.assertIn(command, commands)
         self.assertEqual(
-            "UNKNOWN",
-            runner.overall_status([{"status": "UNKNOWN", "command": "x"}], None, "x\n> "),
+            ["profile reset", "profile validate", "profile discard", "drv"],
+            commands[-4:],
         )
+        for command in commands:
+            with self.subTest(golden=command):
+                output = config_golden_output(command)
+                status, reason = runner.classify_command(
+                    command, output, False, fixture="no-sensor"
+                )
+                self.assertEqual("PASS", status, reason)
 
-    def test_expectation_checks_fail_reported_address_or_channel_mismatch(self) -> None:
-        args = runner.parse_args([
-            "--address", "0x2A", "--channel-count", "4",
-            "--expected-firmware-commit", "abcdef1",
-        ])
-        command_results = [{"index": 1, "command": "cfg", "status": "PASS", "reason": "ok"}]
+    def test_config_and_invalid_input_categories_are_explicit_opt_ins(self) -> None:
+        result = runner.make_result(runner.parse_args([
+            "--dry-run", "--fixture", "no-sensor", "--include-config-matrix",
+            "--include-invalid-inputs",
+        ]))
+        self.assertIn("mode seq 4", result["commands"])
+        self.assertIn("driveua 32", result["commands"])
+        matrix_end = result["commands"].index("drv", len(contract.NO_SENSOR_COMMANDS))
+        self.assertEqual("profile discard", result["commands"][matrix_end - 1])
 
-        runner.append_expectation_results(
-            args,
-            command_results,
-            "address=0x2b variantChannels=2 timeoutMs=10 "
-            "firmware_git=abcdef1 firmware_status=clean\n> ",
-        )
-
-        self.assertEqual("FAIL", command_results[1]["status"])
-        self.assertEqual("expect-address", command_results[1]["command"])
-        self.assertEqual("FAIL", command_results[2]["status"])
-        self.assertEqual("expect-channel-count", command_results[2]["command"])
-
-    def test_expectation_checks_require_all_target_facts_and_match_commit(self) -> None:
-        args = runner.parse_args([
-            "--address", "0x2A", "--channel-count", "4",
-            "--expected-firmware-commit", "abcdef1",
-        ])
-        results = [{"index": 1, "command": "version", "status": "PASS", "reason": "ok"}]
-        runner.append_expectation_results(
-            args, results, "firmware_git=1234567 firmware_status=dirty\n> "
-        )
-        failures = {item["command"] for item in results if item["status"] == "FAIL"}
-        self.assertEqual(
-            {"expect-address", "expect-channel-count", "expect-firmware-commit",
-             "expect-clean-firmware"},
-            failures,
-        )
-
-        passing = [{"index": 1, "command": "cfg", "status": "PASS", "reason": "ok"}]
-        runner.append_expectation_results(
-            args,
-            passing,
-            "address=0x2a variantChannels=4 firmware_git=abcdef123 "
-            "firmware_status=clean\n> ",
-        )
-        self.assertEqual(1, len(passing))
-
-    def test_no_port_writes_not_run_artifacts(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            json_out = Path(temp_dir) / "hil.json"
-            markdown_out = Path(temp_dir) / "hil.md"
-
-            exit_code = runner.main(
-                [
-                    "--json-out",
-                    str(json_out),
-                    "--markdown-out",
-                    str(markdown_out),
-                    "--quiet",
-                ]
-            )
-
-            self.assertEqual(0, exit_code)
-            result = json.loads(json_out.read_text(encoding="utf-8"))
-            markdown = markdown_out.read_text(encoding="utf-8")
-
-            self.assertEqual("NOT_RUN", result["overall_status"])
-            self.assertEqual("serial port was not supplied", result["not_run_reason"])
-            self.assertFalse(result["hardware_attached"])
-            self.assertEqual("no_hardware_audit", result["evidence_type"])
-            self.assertEqual("", result["transcript"])
-            self.assertEqual([], result["command_results"])
-            self.assertIn("Overall status: `NOT_RUN`", markdown)
-            self.assertIn("Evidence type: `no_hardware_audit`", markdown)
-            self.assertIn("No serial command transcript captured", markdown)
-
-    def test_markdown_transcript_has_no_trailing_whitespace(self) -> None:
-        args = runner.parse_args(["--dry-run"])
-        result = runner.make_result(args)
-        result["transcript"] = "command output  \n> \n"
-
-        markdown = runner.render_markdown(result)
-
-        self.assertFalse(any(line.endswith((" ", "\t")) for line in markdown.splitlines()))
-        self.assertIn("command output\n>\n", markdown)
-
-    def test_dry_run_lists_bounded_not_run_command_rows(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            json_out = Path(temp_dir) / "hil.json"
-            markdown_out = Path(temp_dir) / "hil.md"
-
-            exit_code = runner.main(
-                [
-                    "--dry-run",
-                    "--json-out",
-                    str(json_out),
-                    "--markdown-out",
-                    str(markdown_out),
-                    "--quiet",
-                    "--sample-rate-count",
-                    "50",
-                ]
-            )
-
-            self.assertEqual(0, exit_code)
-            result = json.loads(json_out.read_text(encoding="utf-8"))
-            markdown = markdown_out.read_text(encoding="utf-8")
-
-            self.assertEqual("NOT_RUN", result["overall_status"])
-            self.assertEqual("no_hardware_audit", result["evidence_type"])
-            self.assertGreater(len(result["command_results"]), 0)
-            self.assertNotIn("samplerate 0 50", result["commands"])
-            self.assertEqual(
-                "sample_rate_benchmark",
-                result["skipped_optional_tests"][0]["name"],
-            )
-            self.assertEqual("NOT_RUN", result["sample_rate"]["status"])
-            self.assertTrue(
-                all(item["status"] == "NOT_RUN" for item in result["command_results"])
-            )
-            self.assertIn("| # | Command | Status | Elapsed s | Reason |", markdown)
-            self.assertIn("## Sample Rate", markdown)
-
-    def test_sample_rate_idf_is_skipped_without_parallel_framework(self) -> None:
-        args = runner.parse_args(["--profile", "idf", "--dry-run", "--sample-rate-count", "10"])
-        result = runner.make_result(args)
-
-        self.assertNotIn("samplerate 0 10", result["commands"])
-        self.assertEqual("sample_rate_benchmark", result["skipped_optional_tests"][0]["name"])
-
-    def test_no_sensor_fixture_skips_optional_conversion_benchmarks(self) -> None:
-        args = runner.parse_args(
-            [
-                "--fixture",
-                "no-sensor",
-                "--dry-run",
-                "--include-stress",
-                "--sample-rate-count",
-                "10",
-            ]
-        )
-        result = runner.make_result(args)
-
+    def test_physical_fixture_gates_are_always_visible_as_not_run(self) -> None:
+        result = runner.make_result(runner.parse_args([
+            "--dry-run", "--fixture", "no-sensor",
+        ]))
         skipped = {item["name"]: item["reason"] for item in result["skipped_optional_tests"]}
-        self.assertIn("stress", skipped)
-        self.assertIn("sample_rate_benchmark", skipped)
-        self.assertNotIn("stress 10", result["commands"])
-        self.assertNotIn("samplerate 0 10", result["commands"])
-        self.assertEqual("no-sensor", result["fixture"])
+        for name in (
+            "address_0x2B", "variant_LDC1612", "sensor_measurement_quality",
+            "sample_rate_benchmark", "cached_last_sample", "intb_observation",
+            "sd_shutdown_wake", "drive_current_tuning", "active_job_cancellation",
+        ):
+            self.assertIn(name, skipped)
+            self.assertIn("NOT_RUN", skipped[name])
 
-    def test_repeat_command_set_expands_selected_commands(self) -> None:
-        args = runner.parse_args(
-            [
-                "--dry-run",
-                "--skip-default-commands",
-                "--command",
-                "version",
-                "--command",
-                "cfg",
-                "--repeat-command-set",
-                "3",
+    def test_stress_is_scheduled_for_both_profiles(self) -> None:
+        for profile in ("arduino", "idf"):
+            args = runner.parse_args([
+                "--profile", profile, "--dry-run", "--include-stress", "--stress-count", "25"
+            ])
+            result = runner.make_result(args)
+            expected = [
+                "stress 25 0x01", "stress_mix 25 0x01 confirm", "soak 2 0x01",
             ]
-        )
-        result = runner.make_result(args)
+            stress_index = result["commands"].index("stress 25 0x01")
+            self.assertEqual("wake", result["commands"][stress_index - 1])
+            self.assertEqual(expected, result["commands"][stress_index:stress_index + 3])
+            self.assertEqual("drv", result["commands"][stress_index + 3])
+            self.assertFalse(any(item["name"] == "stress" for item in result["skipped_optional_tests"]))
 
-        self.assertEqual(["version", "cfg", "version", "cfg", "version", "cfg"],
-                         result["commands"])
-        self.assertEqual(2, result["base_command_count"])
-        self.assertEqual(3, result["repeat_command_set"])
-        self.assertEqual(6, len(result["command_results"]))
-
-    def test_sample_rate_summary_parses_gated_samplerate_command(self) -> None:
-        args = runner.parse_args(["--sample-rate-count", "50"])
-        command_results = [
-            {
-                "command": "samplerate 0 50",
-                "status": "PASS",
-                "elapsed_s": 1.25,
-                "output": (
-                    "SampleRate result: requested=50 ok=50 fail=0 "
-                    "elapsed_ms=1250 hz=40.000 worst_ms=4 "
-                    "first_raw=0x0000001 last_raw=0x0000002\n> "
+            stress_outputs = {
+                expected[0]: async_output(
+                    "stress", 10,
+                    "Stress results: 25 ok, 0 failed\n"
+                    "Stress result: requested=25 ok=25 fail=0 elapsed_ms=100 hz=250.000000\n",
+                ),
+                expected[1]: async_output(
+                    "stress_mix", 11,
+                    "StressMix results: requested=25 ok=25 fail=0 elapsed_ms=250\n",
+                ),
+                expected[2]: async_output(
+                    "soak", 12,
+                    "Soak results: seconds=2 cycles=2 ok=2 fail=0 elapsed_ms=2000\n",
                 ),
             }
-        ]
-
-        summary = runner.summarize_sample_rate(args, command_results)
-
-        self.assertEqual("PASS", summary["status"])
-        self.assertEqual(50, summary["observed_count"])
-        self.assertEqual(0, summary["failure_count"])
-        self.assertEqual(40.0, summary["effective_hz"])
-
-    def test_soak_summary_requires_explicit_supported_fixture_and_uses_observation(self) -> None:
-        unsupported = runner.parse_args(["--include-long-soak"])
-        self.assertEqual("NOT_RUN", runner.summarize_soak(unsupported)["status"])
-
-        args = runner.parse_args(
-            [
-                "--profile", "arduino", "--fixture", "no-sensor",
-                "--include-long-soak", "--soak-duration-s", "3600",
-            ]
-        )
-        observed = {
-            "status": "PASS",
-            "reason": "complete",
-            "requested_duration_s": 3600.0,
-            "elapsed_s": 3600.1,
-        }
-        self.assertIs(observed, runner.summarize_soak(args, observed))
-
-    def test_soak_outcome_and_overall_failure_precedence(self) -> None:
-        self.assertEqual(
-            ("FAIL", "no complete soak cycle executed"),
-            runner.soak_outcome(0, 0, 0, 0),
-        )
-        status, reason = runner.soak_outcome(1, 0, 0, 1)
-        self.assertEqual("FAIL", status, reason)
-        self.assertIn("reset", reason)
-        self.assertEqual(
-            "FAIL", runner.combine_overall_and_soak("UNKNOWN", "FAIL")
-        )
-        self.assertEqual(
-            "UNKNOWN", runner.combine_overall_and_soak("PASS", "UNKNOWN")
-        )
-        self.assertEqual(
-            "FAIL", runner.combine_overall_and_soak("FAIL", "PASS")
-        )
-
-    def test_soak_drv_invariant_requires_bound_active_state(self) -> None:
-        passed = {
-            "status": "PASS",
-            "reason": "matched",
-            "output": "bound=1 applied=APPLIED_ACTIVE revision=2\n> ",
-        }
-        self.assertIs(passed, runner.enforce_soak_invariant("drv", passed))
-
-        stale = {
-            "status": "PASS",
-            "reason": "matched",
-            "output": "bound=1 applied=APPLIED_SLEEP revision=2\n> ",
-        }
-        checked = runner.enforce_soak_invariant("drv", stale)
-        self.assertEqual("FAIL", checked["status"])
-        self.assertIn("APPLIED_ACTIVE", checked["reason"])
-        self.assertEqual("PASS", stale["status"])
-
-    def test_serial_async_command_waits_for_matching_terminal_result(self) -> None:
-        class FakeSerial:
-            def __init__(self, *_args, **_kwargs):
-                self.buffer = bytearray(b"> ")
-                self.pending = bytearray()
-                self.dtr = False
-                self.rts = False
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_args):
-                return False
-
-            @property
-            def in_waiting(self):
-                if not self.buffer and self.pending:
-                    self.buffer.extend(self.pending)
-                    self.pending.clear()
-                return len(self.buffer)
-
-            def read(self, length):
-                result = bytes(self.buffer[:length])
-                del self.buffer[:length]
-                return result
-
-            def write(self, payload):
-                self.assert_command = payload.decode("utf-8").strip()
-                self.buffer.extend(
-                    b"scheduled operation=42 reset=0\n"
-                    b"status: code=5 detail=0 msg=Operation in progress\n> "
+            for command, output in stress_outputs.items():
+                status, reason = runner.classify_command(
+                    command, output, False, fixture="no-sensor"
                 )
+                self.assertEqual("PASS", status, reason)
+
+    def test_samplerate_runs_on_sensor_for_both_profiles_and_is_gated_without_sensor(self) -> None:
+        for profile in ("arduino", "idf"):
+            sensor = runner.make_result(runner.parse_args([
+                "--profile", profile, "--dry-run", "--sample-rate-count", "50"
+            ]))
+            self.assertIn("samplerate 0 50", sensor["commands"])
+            sample_index = sensor["commands"].index("samplerate 0 50")
+            self.assertEqual("wake", sensor["commands"][sample_index - 1])
+            self.assertEqual("drv", sensor["commands"][sample_index + 1])
+            no_sensor = runner.make_result(runner.parse_args([
+                "--profile", profile, "--fixture", "no-sensor", "--dry-run",
+                "--sample-rate-count", "50",
+            ]))
+            self.assertNotIn("samplerate 0 50", no_sensor["commands"])
+            self.assertIn("sample_rate_benchmark", {
+                item["name"] for item in no_sensor["skipped_optional_tests"]
+            })
+
+    def test_stress_and_samplerate_summaries_parse_counts(self) -> None:
+        stress_args = runner.parse_args(["--include-stress", "--stress-count", "10"])
+        stress = runner.summarize_stress(stress_args, [{
+            "command": "stress 10 0x01", "status": "PASS", "elapsed_s": 0.5,
+            "output": "Stress results: 10 ok, 0 failed\n",
+        }])
+        self.assertEqual("PASS", stress["status"])
+        self.assertEqual(10, stress["success_count"])
+
+        sample_args = runner.parse_args(["--sample-rate-count", "50"])
+        sample = runner.summarize_sample_rate(sample_args, [{
+            "command": "samplerate 0 50", "status": "PASS", "elapsed_s": 1.25,
+            "output": "SampleRate result: requested=50 ok=50 fail=0 "
+                      "elapsed_ms=1250 hz=40.000\n",
+        }])
+        self.assertEqual("PASS", sample["status"])
+        self.assertEqual(40.0, sample["effective_hz"])
+
+    def test_repeat_and_dry_run_remain_bounded_not_run(self) -> None:
+        args = runner.parse_args([
+            "--dry-run", "--skip-default-commands", "--command", "version",
+            "--command", "cfg", "--repeat-command-set", "3",
+        ])
+        result = runner.make_result(args)
+        self.assertEqual(["version", "cfg"] * 3, result["commands"])
+        self.assertEqual("NOT_RUN", result["overall_status"])
+        self.assertTrue(all(item["status"] == "NOT_RUN" for item in result["command_results"]))
+
+    def test_no_port_artifact_does_not_claim_hardware(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "result.json"
+            self.assertEqual(0, runner.main(["--json-out", str(path), "--quiet"]))
+            result = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual("NOT_RUN", result["overall_status"])
+            self.assertFalse(result["hardware_attached"])
+            self.assertEqual("no_hardware_audit", result["evidence_type"])
+
+
+class FakeSerialBase:
+    def __init__(self, *_args, **_kwargs) -> None:
+        self.buffer = bytearray(b"> ")
+        self.pending = bytearray()
+        self.dtr = False
+        self.rts = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    @property
+    def in_waiting(self) -> int:
+        if not self.buffer and self.pending:
+            self.buffer.extend(self.pending)
+            self.pending.clear()
+        return len(self.buffer)
+
+    def read(self, length: int) -> bytes:
+        data = bytes(self.buffer[:length])
+        del self.buffer[:length]
+        return data
+
+    def flush(self) -> None:
+        return None
+
+
+class SerialExecutionAndDurabilityTests(unittest.TestCase):
+    def install_serial(self, serial_class):
+        previous = sys.modules.get("serial")
+        sys.modules["serial"] = types.SimpleNamespace(Serial=serial_class)
+        self.addCleanup(
+            lambda: sys.modules.pop("serial", None)
+            if previous is None else sys.modules.__setitem__("serial", previous)
+        )
+
+    def test_serial_async_waits_for_matching_result(self) -> None:
+        class FakeSerial(FakeSerialBase):
+            def write(self, payload: bytes) -> int:
+                self.buffer.extend(b"CLI scheduled: command=init session=42\n")
                 self.pending.extend(
-                    b"result operation=42 kind=1 outcome=SUCCESS effects=0x00\n"
-                    b"status: code=0 detail=0 msg=OK\n"
+                    b"CLI result: command=init session=42 outcome=SUCCESS "
+                    b"code=0 detail=0 msg=OK\n> "
                 )
                 return len(payload)
 
-            def flush(self):
-                return None
-
-        original_serial = sys.modules.get("serial")
-        sys.modules["serial"] = types.SimpleNamespace(Serial=FakeSerial)
-        try:
-            args = runner.parse_args(
-                [
-                    "--port", "FAKE", "--profile", "arduino",
-                    "--fixture", "no-sensor", "--startup-delay-s", "0",
-                    "--idle-gap-s", "0.01", "--operator", "test",
-                    "--board", "fake",
-                ]
-            )
-            results, _transcript, _version, _startup, soak = (
-                runner.run_serial_commands(args, ["init"])
-            )
-        finally:
-            if original_serial is None:
-                del sys.modules["serial"]
-            else:
-                sys.modules["serial"] = original_serial
-
-        self.assertIsNone(soak)
-        self.assertEqual(1, len(results))
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+        ])
+        results, _, _, _, _ = runner.run_serial_commands(args, ["init"])
         self.assertEqual("PASS", results[0]["status"], results[0]["reason"])
 
-    def test_bounded_no_sensor_soak_executes_complete_awake_cycles(self) -> None:
-        commit = runner.git_value(["rev-parse", "--short", "HEAD"])
-
-        class FakeSerial:
-            def __init__(self, *_args, **_kwargs):
-                self.buffer = bytearray(b"> ")
-                self.dtr = False
-                self.rts = False
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_args):
-                return False
-
-            @property
-            def in_waiting(self):
-                return len(self.buffer)
-
-            def read(self, length):
-                result = bytes(self.buffer[:length])
-                del self.buffer[:length]
-                return result
-
-            def write(self, payload):
-                command = payload.decode("utf-8").strip()
-                outputs = {
-                    "version": (
-                        f"version: 3.0.0 firmware_git={commit} "
-                        "firmware_status=clean build_timestamp=test\n> "
-                    ),
-                    "cfg": "address=0x2A variantChannels=4\n> ",
-                    "probe": (
-                        "MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055\n"
-                        "status: code=0\n> "
-                    ),
-                    "status": (
-                        "STATUS observed=1 raw=0x2840 drdy=1 unread=0x01 "
-                        "errCh=0 UR=1 OR=0 WD=0 AH=0 AL=0 ZC=0\n"
-                        "status: code=0\n> "
-                    ),
-                    "sleep": "status: code=0\n> ",
-                    "wake": "status: code=0\n> ",
-                    "drv": "bound=1 applied=APPLIED_ACTIVE revision=1\n> ",
-                }
-                self.buffer.extend(outputs[command].encode("utf-8"))
-                return len(payload)
-
-            def flush(self):
-                return None
-
-        original_serial = sys.modules.get("serial")
-        sys.modules["serial"] = types.SimpleNamespace(Serial=FakeSerial)
-        try:
-            args = runner.parse_args(
-                [
-                    "--port", "FAKE", "--profile", "arduino",
-                    "--fixture", "no-sensor", "--skip-default-commands",
-                    "--command", "version", "--command", "cfg",
-                    "--expected-firmware-commit", commit,
-                    "--operator", "test", "--board", "fake",
-                    "--startup-delay-s", "0", "--idle-gap-s", "0.01",
-                    "--include-long-soak", "--soak-duration-s", "0.03",
-                    "--soak-cycle-delay-s", "0.01",
-                ]
-            )
-            result = runner.make_result(args)
-        finally:
-            if original_serial is None:
-                del sys.modules["serial"]
-            else:
-                sys.modules["serial"] = original_serial
-
-        self.assertEqual("PASS", result["overall_status"])
-        self.assertEqual("PASS", result["soak"]["status"])
-        self.assertGreaterEqual(result["soak"]["elapsed_s"], 0.03)
-        self.assertGreaterEqual(result["soak"]["cycle_count"], 1)
-        self.assertEqual(0, result["soak"]["command_count"] % 6)
-        self.assertEqual(0, result["soak"]["failure_count"])
-        self.assertEqual(
-            result["soak"]["command_counts"]["sleep"]["PASS"],
-            result["soak"]["command_counts"]["wake"]["PASS"],
+    def test_soak_base_gate_rejects_incomplete_or_ambiguous_evidence(self) -> None:
+        args = runner.parse_args([
+            "--port", "FAKE", "--address", "0x2A", "--channel-count", "4",
+            "--expected-firmware-commit", "abcdef1",
+            "--operator", "test", "--board", "fake",
+        ])
+        commands = ["version", "cfg", "drv"]
+        outputs = [
+            version_output("abcdef1"),
+            cfg_output(),
+            drv_output(),
+        ]
+        results = [
+            {"command": command, "status": "PASS", "output": output}
+            for command, output in zip(commands, outputs)
+        ]
+        transcript = "\n".join(outputs)
+        self.assertIsNone(
+            runner.base_acceptance_failure(args, commands, results, transcript)
         )
 
-    def test_serial_open_failure_is_not_hardware_hil_evidence(self) -> None:
-        args = runner.parse_args(["--port", "COM404"])
-        original = runner.run_serial_commands
+        cases = [
+            ("empty", [], [], transcript, "empty"),
+            ("result-count", commands, results[:-1], transcript, "one result"),
+            (
+                "unknown", commands,
+                [results[0], {**results[1], "status": "UNKNOWN"}, results[2]],
+                transcript, "was UNKNOWN",
+            ),
+            (
+                "restart", commands,
+                [results[0], {**results[1], "output": "=== LDC1614 reboot ===\n"},
+                 results[2]],
+                transcript, "restart banner",
+            ),
+            (
+                "active-job", commands,
+                [results[0], results[1],
+                 {**results[2], "output": outputs[2].replace("active=0", "active=1")}],
+                transcript, "APPLIED_ACTIVE",
+            ),
+        ]
+        for name, candidate_commands, candidate_results, candidate_transcript, reason in cases:
+            with self.subTest(name=name):
+                failure = runner.base_acceptance_failure(
+                    args, candidate_commands, candidate_results, candidate_transcript
+                )
+                self.assertIsNotNone(failure)
+                self.assertIn(reason, failure)
 
-        def raise_open_failure(_args, _commands):
-            raise RuntimeError("could not open port")
+        expectation_cases = [
+            ("address", "address", "0x2B", "address"),
+            ("channels", "channel_count", 2, "channel count"),
+            ("commit", "expected_firmware_commit", "abcdef2", "commit"),
+        ]
+        for name, field, value, reason in expectation_cases:
+            with self.subTest(name=name):
+                original = getattr(args, field)
+                setattr(args, field, value)
+                try:
+                    failure = runner.base_acceptance_failure(
+                        args, commands, results, transcript
+                    )
+                finally:
+                    setattr(args, field, original)
+                self.assertIsNotNone(failure)
+                self.assertIn(reason, failure)
 
-        try:
-            runner.run_serial_commands = raise_open_failure
-            result = runner.make_result(args)
-        finally:
-            runner.run_serial_commands = original
+    def test_failed_base_matrix_prevents_soak_commands(self) -> None:
+        class FakeSerial(FakeSerialBase):
+            writes = []
 
-        self.assertEqual("NOT_RUN", result["overall_status"])
+            def write(self, payload: bytes) -> int:
+                command = payload.decode().strip()
+                type(self).writes.append(command)
+                outputs = {
+                    "version": version_output(),
+                    "cfg": (
+                        "CLI result: command=cfg outcome=FAILED code=18 "
+                        "detail=259 msg=I2C invalid state\n> "
+                    ),
+                    "drv": drv_output(),
+                }
+                self.buffer.extend(outputs[command].encode())
+                return len(payload)
+
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--profile", "arduino", "--fixture", "no-sensor",
+            "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            "--include-long-soak", "--soak-duration-s", "0.1",
+        ])
+        results, _, _, _, soak = runner.run_serial_commands(
+            args, ["version", "cfg", "drv"]
+        )
+        self.assertEqual(["version", "cfg", "drv"], FakeSerial.writes)
+        self.assertEqual("FAIL", results[1]["status"])
+        self.assertIsNotNone(soak)
+        self.assertFalse(soak["started"])
+        self.assertEqual(0, soak["cycle_count"])
+
+    def test_missing_base_expectation_prevents_soak_commands(self) -> None:
+        commit = runner.git_value(["rev-parse", "--short", "HEAD"])
+
+        class FakeSerial(FakeSerialBase):
+            writes = []
+
+            def write(self, payload: bytes) -> int:
+                command = payload.decode().strip()
+                type(self).writes.append(command)
+                outputs = {
+                    "version": version_output(commit),
+                    "cfg": cfg_output(),
+                    "drv": drv_output(),
+                }
+                self.buffer.extend(outputs[command].encode())
+                return len(payload)
+
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--profile", "arduino", "--fixture", "no-sensor",
+            "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            "--expected-firmware-commit", commit, "--board", "fake",
+            "--include-long-soak", "--soak-duration-s", "0.1",
+        ])
+        _, _, _, _, soak = runner.run_serial_commands(
+            args, ["version", "cfg", "drv"]
+        )
+        self.assertEqual(["version", "cfg", "drv"], FakeSerial.writes)
+        self.assertIsNotNone(soak)
+        self.assertFalse(soak["started"])
+        self.assertIn("operator", soak["reason"])
+
+    def test_mid_soak_exception_counts_no_partial_cycle(self) -> None:
+        commit = runner.git_value(["rev-parse", "--short", "HEAD"])
+
+        class FakeSerial(FakeSerialBase):
+            writes = []
+
+            def write(self, payload: bytes) -> int:
+                command = payload.decode().strip()
+                type(self).writes.append(command)
+                if command == "status":
+                    raise OSError("simulated mid-cycle disconnect")
+                outputs = {
+                    "version": version_output(commit),
+                    "cfg": cfg_output(),
+                    "drv": drv_output(),
+                    "probe": probe_output(),
+                }
+                self.buffer.extend(outputs[command].encode())
+                return len(payload)
+
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--profile", "arduino", "--fixture", "no-sensor",
+            "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            "--expected-firmware-commit", commit,
+            "--operator", "test", "--board", "fake",
+            "--include-long-soak", "--soak-duration-s", "0.2",
+            "--soak-cycle-delay-s", "0",
+        ])
+        with self.assertRaises(runner.SerialRunFailure) as captured:
+            runner.run_serial_commands(args, ["version", "cfg", "drv"])
+        soak = captured.exception.soak
+        self.assertIsNotNone(soak)
+        self.assertTrue(soak["started"])
+        self.assertEqual(0, soak["cycle_count"])
+        self.assertEqual(1, soak["incomplete_cycle"])
+        self.assertEqual(
+            ["version", "cfg", "drv", "version", "probe", "status"],
+            FakeSerial.writes,
+        )
+
+    def test_mid_command_exception_keeps_raw_and_writes_fail_json(self) -> None:
+        class FakeSerial(FakeSerialBase):
+            writes = 0
+
+            def write(self, payload: bytes) -> int:
+                type(self).writes += 1
+                if type(self).writes == 1:
+                    self.buffer.extend(version_output().encode())
+                    return len(payload)
+                raise OSError("simulated mid-run disconnect")
+
+        self.install_serial(FakeSerial)
+        with tempfile.TemporaryDirectory() as temp:
+            raw = Path(temp) / "raw.txt"
+            result_path = Path(temp) / "result.json"
+            exit_code = runner.main([
+                "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+                "--skip-default-commands", "--command", "version", "--command", "cfg",
+                "--raw-transcript-out", str(raw), "--json-out", str(result_path), "--quiet",
+            ])
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            raw_text = raw.read_text(encoding="utf-8")
+        self.assertEqual(1, exit_code)
+        self.assertEqual("FAIL", result["overall_status"])
+        self.assertEqual("serial_failure", result["evidence_type"])
+        self.assertEqual("OSError", result["serial_failure"]["type"])
+        self.assertEqual("3.0.0", result["firmware_version"])
+        self.assertIn("### command 1: version", raw_text)
+        self.assertIn("simulated mid-run disconnect", raw_text)
+
+    def test_serial_context_exit_after_soak_keeps_complete_evidence_and_fails(self) -> None:
+        commit = runner.git_value(["rev-parse", "--short", "HEAD"])
+
+        class CloseFailSerial(FakeSerialBase):
+            def __exit__(self, *_args):
+                raise OSError("simulated close failure after soak")
+
+            def write(self, payload: bytes) -> int:
+                command = payload.decode().strip()
+                outputs = {
+                    "version": version_output(commit),
+                    "cfg": cfg_output(),
+                    "probe": probe_output(),
+                    "status": status_output(),
+                    "sleep": sync_output("sleep"),
+                    "wake": sync_output("wake"),
+                    "drv": drv_output(),
+                }
+                self.buffer.extend(outputs[command].encode())
+                return len(payload)
+
+        self.install_serial(CloseFailSerial)
+        with tempfile.TemporaryDirectory() as temp:
+            raw = Path(temp) / "raw.txt"
+            result_path = Path(temp) / "result.json"
+            exit_code = runner.main([
+                "--port", "FAKE", "--profile", "arduino", "--fixture", "no-sensor",
+                "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+                "--skip-default-commands", "--command", "version", "--command", "cfg",
+                "--command", "drv",
+                "--expected-firmware-commit", commit, "--operator", "test", "--board", "fake",
+                "--include-long-soak", "--soak-duration-s", "0.02",
+                "--soak-cycle-delay-s", "0", "--raw-transcript-out", str(raw),
+                "--json-out", str(result_path), "--quiet",
+            ])
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            raw_text = raw.read_text(encoding="utf-8")
+        self.assertEqual(1, exit_code)
+        self.assertEqual("FAIL", result["overall_status"])
+        self.assertEqual("serial_failure", result["evidence_type"])
+        self.assertEqual("PASS", result["soak"]["status"])
+        self.assertEqual(["wake", "drv"], result["commands"][-2:])
+        self.assertGreaterEqual(result["soak"]["cycle_count"], 1)
+        self.assertEqual(
+            result["soak"]["cycle_count"] * len(runner.NO_SENSOR_SOAK_COMMANDS),
+            result["soak"]["command_count"],
+        )
+        for command in runner.NO_SENSOR_SOAK_COMMANDS:
+            self.assertEqual(
+                result["soak"]["cycle_count"],
+                result["soak"]["command_counts"][command]["PASS"],
+            )
+        self.assertIn("### soak cycle", raw_text)
+        self.assertIn("simulated close failure after soak", raw_text)
+
+    def test_serial_open_failure_is_explicit_fail_not_not_run(self) -> None:
+        class OpenFailSerial:
+            def __init__(self, *_args, **_kwargs):
+                raise OSError("could not open port")
+
+        self.install_serial(OpenFailSerial)
+        args = runner.parse_args(["--port", "FAKE"])
+        result = runner.make_result(args)
+        self.assertEqual("FAIL", result["overall_status"])
         self.assertFalse(result["hardware_attached"])
-        self.assertEqual("serial_not_run", result["evidence_type"])
+        self.assertEqual("serial_failure", result["evidence_type"])
+        self.assertEqual("OSError", result["serial_failure"]["type"])
 
-    def test_parse_args_rejects_unbounded_timeouts_and_stress(self) -> None:
+
+class BoundsAndSelfTestTests(unittest.TestCase):
+    def assert_parse_fails(self, arguments) -> None:
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            runner.parse_args(arguments)
+
+    def test_parse_args_rejects_unbounded_values(self) -> None:
         for option in (
-            "--startup-delay-s",
-            "--command-timeout-s",
-            "--write-timeout-s",
-            "--idle-gap-s",
-            "--soak-duration-s",
-            "--soak-cycle-delay-s",
+            "--startup-delay-s", "--command-timeout-s", "--write-timeout-s",
+            "--idle-gap-s", "--soak-duration-s", "--soak-cycle-delay-s",
         ):
             with self.subTest(option=option):
-                with self.assertRaises(SystemExit):
-                    runner.parse_args([option, "nan"])
-        with self.assertRaises(SystemExit):
-            runner.parse_args(["--command-timeout-s", "-1"])
-        with self.assertRaises(SystemExit):
-            runner.parse_args(["--stress-count", str(runner.MAX_STRESS_COUNT + 1)])
-        with self.assertRaises(SystemExit):
-            runner.parse_args(["--address", "0x29"])
-        with self.assertRaises(SystemExit):
-            runner.parse_args(["--expected-firmware-commit", "not-a-sha"])
-        with self.assertRaises(SystemExit):
-            runner.parse_args(["--soak-duration-s", "3600"])
-        with self.assertRaises(SystemExit):
-            runner.parse_args(
-                ["--include-long-soak", "--soak-duration-s",
-                 str(runner.MAX_SOAK_DURATION_S + 1)]
-            )
+                self.assert_parse_fails([option, "nan"])
+        self.assert_parse_fails(["--stress-count", str(runner.MAX_STRESS_COUNT + 1)])
+        self.assert_parse_fails(["--sample-rate-count", "1", "--sample-rate-channel", "4"])
+        self.assert_parse_fails(["--address", "0x29"])
 
-    def test_unknown_verification_result_exits_nonzero(self) -> None:
+    def test_parser_self_test_passes(self) -> None:
+        self.assertEqual(0, runner.main(["--parser-self-test", "--quiet"]))
+
+    def test_unknown_and_require_run_exit_codes(self) -> None:
         original_make = runner.make_result
         original_write = runner.write_outputs
         try:
@@ -670,19 +1023,7 @@ class HilRunnerParserTests(unittest.TestCase):
         finally:
             runner.make_result = original_make
             runner.write_outputs = original_write
-
-    def test_parser_self_test_passes(self) -> None:
-        self.assertEqual(0, runner.main(["--parser-self-test", "--quiet"]))
-
-    def test_no_port_require_run_exits_nonzero(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            json_out = Path(temp_dir) / "hil.json"
-
-            exit_code = runner.main(["--json-out", str(json_out), "--quiet", "--require-run"])
-
-            self.assertEqual(2, exit_code)
-            result = json.loads(json_out.read_text(encoding="utf-8"))
-            self.assertEqual("NOT_RUN", result["overall_status"])
+        self.assertEqual(2, runner.main(["--quiet", "--require-run"]))
 
 
 if __name__ == "__main__":

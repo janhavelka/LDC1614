@@ -14,13 +14,16 @@ cited hardware evidence and vendor references. Start with the repository
 - [HIL validation](HIL_VALIDATION.md) - hardware-in-the-loop procedure and evidence matrix.
 - [Validation status](VALIDATION_STATUS.md) - repeatable release checks,
   retained evidence boundaries, and hardware evidence still required.
-- [TunnelMonitor integration gates](TUNNELMONITOR_INTEGRATION_GATES.md) -
-  unresolved product, release, owner-module, and target-HIL requirements.
+- Repository-only [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md) -
+  unresolved product, release, owner-module, and target-HIL requirements; this
+  consumer-specific ledger is excluded from the generic library package.
 
 The maintained examples have their own guides:
 
-- [Arduino diagnostic CLI](../examples/01_basic_bringup_cli/README.md)
-- [Native ESP-IDF diagnostic CLI](../examples/esp_idf/basic/README.md)
+- [Arduino diagnostic CLI](../examples/01_basic_bringup_cli/README.md) -
+  complete colored command surface and cooperative diagnostic sessions.
+- [Native ESP-IDF diagnostic CLI](../examples/esp_idf/basic/README.md) -
+  independently implemented, host-contract-checked CLI parity.
 
 ## Generated Doxygen Site
 

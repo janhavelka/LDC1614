@@ -76,6 +76,20 @@ read.
   an explicit readback procedure or followed by applied-state invalidation and
   full replay.
 
+## Diagnostic CLI safety boundary
+
+- Syntactic acceptance or pure validation of `refclk`, `sensorbounds`,
+  `deglitch`, `drive`, `highcurrent`, and channel timing values does not qualify
+  an LC tank, reference clock, target, or thermal/current limit.
+- `profile commit confirm` updates desired cache only. A subsequent cooperative
+  replay and readback are still not a substitute for electrical measurements.
+- STATUS, DATA, destructive raw-register reads, and `dump all confirm` consume
+  or alter silicon evidence. Use the retained pre/post STATUS and effect fields.
+- A no-sensor self-test, scan, configuration verify, or protocol stress run can
+  validate bounded transport behavior and register protocol only. It cannot
+  validate conversion accuracy, fresh sensor cadence, drive tuning, INTB/SD
+  electrical behavior, or production application policy.
+
 ## Required physical evidence before release
 
 Capture raw logs or a logic trace for the exact board, variant, address strap,

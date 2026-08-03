@@ -1,0 +1,4377 @@
+### startup
+
+### command 1: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 2: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 3: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 4: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 5: init
+scheduled operation=10 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=10 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 6: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 7: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 8: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 9: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 10: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 11: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 12: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 13: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 14: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 15: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 16: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 17: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 18: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 19: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 20: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 21: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 22: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 23: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 24: init
+scheduled operation=11 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=11 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 25: apply
+scheduled operation=12 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=12 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 26: resetreapply
+scheduled operation=13 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=13 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 27: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 28: acquire 0x01
+scheduled acquire operation=14 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=14 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=255010
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 29: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 30: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 31: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 32: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 33: init
+scheduled operation=15 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=15 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 34: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 35: init
+scheduled operation=16 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=16 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 36: end
+status: code=0 detail=0 msg=OK
+> 
+### command 37: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 38: init
+scheduled operation=17 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=17 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 39: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 40: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 41: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 42: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 43: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 44: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 45: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 46: init
+scheduled operation=18 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=18 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 47: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 48: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 49: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 50: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 51: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 52: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 53: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 54: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 55: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 56: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 57: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 58: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 59: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 60: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 61: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 62: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 63: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 64: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 65: init
+scheduled operation=19 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=19 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 66: apply
+scheduled operation=20 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=20 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 67: resetreapply
+scheduled operation=21 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=21 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 68: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 69: acquire 0x01
+scheduled acquire operation=22 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=22 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=256364
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 70: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 71: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 72: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 73: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 74: init
+scheduled operation=23 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=23 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 75: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 76: init
+scheduled operation=24 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=24 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 77: end
+status: code=0 detail=0 msg=OK
+> 
+### command 78: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 79: init
+scheduled operation=25 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=25 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 80: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 81: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 82: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 83: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 84: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 85: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 86: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 87: init
+scheduled operation=26 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=26 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 88: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 89: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 90: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 91: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 92: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 93: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 94: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 95: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 96: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 97: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 98: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 99: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 100: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 101: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 102: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 103: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 104: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 105: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 106: init
+scheduled operation=27 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=27 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 107: apply
+scheduled operation=28 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=28 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 108: resetreapply
+scheduled operation=29 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=29 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 109: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 110: acquire 0x01
+scheduled acquire operation=30 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=30 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=257715
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 111: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 112: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 113: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 114: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 115: init
+scheduled operation=31 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=31 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 116: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 117: init
+scheduled operation=32 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=32 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 118: end
+status: code=0 detail=0 msg=OK
+> 
+### command 119: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 120: init
+scheduled operation=33 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=33 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 121: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 122: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 123: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 124: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 125: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 126: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 127: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 128: init
+scheduled operation=34 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=34 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 129: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 130: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 131: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 132: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 133: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 134: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 135: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 136: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 137: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 138: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 139: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 140: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 141: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 142: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 143: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 144: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 145: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 146: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 147: init
+scheduled operation=35 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=35 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 148: apply
+scheduled operation=36 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=36 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 149: resetreapply
+scheduled operation=37 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=37 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 150: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 151: acquire 0x01
+scheduled acquire operation=38 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=38 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=259067
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 152: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 153: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 154: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 155: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 156: init
+scheduled operation=39 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=39 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 157: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 158: init
+scheduled operation=40 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=40 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 159: end
+status: code=0 detail=0 msg=OK
+> 
+### command 160: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 161: init
+scheduled operation=41 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=41 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 162: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 163: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 164: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 165: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 166: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 167: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 168: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 169: init
+scheduled operation=42 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=42 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 170: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 171: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 172: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 173: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 174: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 175: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 176: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 177: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 178: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 179: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 180: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 181: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 182: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 183: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 184: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 185: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 186: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 187: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 188: init
+scheduled operation=43 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=43 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 189: apply
+scheduled operation=44 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=44 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 190: resetreapply
+scheduled operation=45 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=45 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 191: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 192: acquire 0x01
+scheduled acquire operation=46 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=46 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=260400
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 193: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 194: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 195: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 196: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 197: init
+scheduled operation=47 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=47 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 198: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 199: init
+scheduled operation=48 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=48 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 200: end
+status: code=0 detail=0 msg=OK
+> 
+### command 201: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 202: init
+scheduled operation=49 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=49 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 203: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 204: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 205: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 206: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 207: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 208: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 209: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 210: init
+scheduled operation=50 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=50 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 211: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 212: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 213: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 214: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 215: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 216: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 217: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 218: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 219: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 220: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 221: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 222: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 223: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 224: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 225: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 226: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 227: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 228: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 229: init
+scheduled operation=51 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=51 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 230: apply
+scheduled operation=52 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=52 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 231: resetreapply
+scheduled operation=53 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=53 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 232: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 233: acquire 0x01
+scheduled acquire operation=54 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=54 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=261755
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 234: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 235: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 236: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 237: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 238: init
+scheduled operation=55 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=55 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 239: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 240: init
+scheduled operation=56 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=56 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 241: end
+status: code=0 detail=0 msg=OK
+> 
+### command 242: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 243: init
+scheduled operation=57 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=57 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 244: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 245: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 246: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 247: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 248: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 249: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 250: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 251: init
+scheduled operation=58 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=58 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 252: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 253: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 254: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 255: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 256: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 257: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 258: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 259: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 260: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 261: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 262: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 263: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 264: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 265: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 266: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 267: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 268: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 269: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 270: init
+scheduled operation=59 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=59 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 271: apply
+scheduled operation=60 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=60 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 272: resetreapply
+scheduled operation=61 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=61 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 273: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 274: acquire 0x01
+scheduled acquire operation=62 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=62 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=263090
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 275: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 276: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 277: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 278: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 279: init
+scheduled operation=63 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=63 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 280: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 281: init
+scheduled operation=64 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=64 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 282: end
+status: code=0 detail=0 msg=OK
+> 
+### command 283: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 284: init
+scheduled operation=65 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=65 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 285: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 286: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 287: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 288: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 289: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 290: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 291: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 292: init
+scheduled operation=66 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=66 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 293: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 294: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 295: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 296: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 297: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 298: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 299: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 300: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 301: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 302: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 303: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 304: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 305: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 306: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 307: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 308: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 309: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 310: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 311: init
+scheduled operation=67 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=67 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 312: apply
+scheduled operation=68 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=68 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 313: resetreapply
+scheduled operation=69 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=69 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 314: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 315: acquire 0x01
+scheduled acquire operation=70 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=70 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=264427
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 316: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 317: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 318: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 319: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 320: init
+scheduled operation=71 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=71 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 321: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 322: init
+scheduled operation=72 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=72 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 323: end
+status: code=0 detail=0 msg=OK
+> 
+### command 324: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 325: init
+scheduled operation=73 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=73 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 326: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 327: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 328: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 329: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 330: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 331: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 332: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 333: init
+scheduled operation=74 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=74 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 334: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 335: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 336: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 337: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 338: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 339: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 340: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 341: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 342: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 343: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 344: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 345: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 346: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 347: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 348: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 349: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 350: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 351: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 352: init
+scheduled operation=75 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=75 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 353: apply
+scheduled operation=76 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=76 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 354: resetreapply
+scheduled operation=77 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=77 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 355: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 356: acquire 0x01
+scheduled acquire operation=78 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=78 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=265761
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 357: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 358: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 359: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 360: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 361: init
+scheduled operation=79 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=79 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 362: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 363: init
+scheduled operation=80 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=80 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 364: end
+status: code=0 detail=0 msg=OK
+> 
+### command 365: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 366: init
+scheduled operation=81 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=81 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 367: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 368: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 369: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 370: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 371: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 372: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 373: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 374: init
+scheduled operation=82 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=82 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 375: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 376: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 377: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 378: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 379: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 380: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 381: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 382: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 383: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 384: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 385: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 386: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 387: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 388: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 389: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 390: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 391: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 392: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 393: init
+scheduled operation=83 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=83 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 394: apply
+scheduled operation=84 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=84 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 395: resetreapply
+scheduled operation=85 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=85 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 396: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 397: acquire 0x01
+scheduled acquire operation=86 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=86 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=267097
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 398: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 399: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 400: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 401: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 402: init
+scheduled operation=87 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=87 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 403: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 404: init
+scheduled operation=88 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=88 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 405: end
+status: code=0 detail=0 msg=OK
+> 
+### command 406: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 407: init
+scheduled operation=89 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=89 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 408: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 409: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 410: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 411: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 412: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 413: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 414: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 415: init
+scheduled operation=90 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=90 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 416: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 417: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 418: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 419: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 420: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 421: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 422: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 423: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 424: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 425: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 426: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 427: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 428: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 429: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 430: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 431: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 432: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 433: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 434: init
+scheduled operation=91 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=91 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 435: apply
+scheduled operation=92 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=92 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 436: resetreapply
+scheduled operation=93 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=93 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 437: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 438: acquire 0x01
+scheduled acquire operation=94 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=94 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=268427
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 439: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 440: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 441: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 442: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 443: init
+scheduled operation=95 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=95 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 444: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 445: init
+scheduled operation=96 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=96 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 446: end
+status: code=0 detail=0 msg=OK
+> 
+### command 447: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 448: init
+scheduled operation=97 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=97 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 449: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 450: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 451: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 452: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 453: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 454: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 455: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 456: init
+scheduled operation=98 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=98 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 457: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 458: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 459: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 460: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 461: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 462: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 463: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 464: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 465: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 466: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 467: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 468: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 469: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 470: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 471: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 472: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 473: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 474: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 475: init
+scheduled operation=99 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=99 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 476: apply
+scheduled operation=100 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=100 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 477: resetreapply
+scheduled operation=101 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=101 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 478: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 479: acquire 0x01
+scheduled acquire operation=102 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=102 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=269755
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 480: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 481: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 482: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 483: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 484: init
+scheduled operation=103 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=103 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 485: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 486: init
+scheduled operation=104 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=104 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 487: end
+status: code=0 detail=0 msg=OK
+> 
+### command 488: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 489: init
+scheduled operation=105 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=105 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 490: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 491: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 492: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 493: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 494: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 495: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 496: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 497: init
+scheduled operation=106 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=106 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 498: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 499: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 500: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 501: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 502: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 503: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 504: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 505: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 506: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 507: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 508: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 509: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 510: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 511: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 512: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 513: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 514: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 515: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 516: init
+scheduled operation=107 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=107 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 517: apply
+scheduled operation=108 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=108 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 518: resetreapply
+scheduled operation=109 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=109 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 519: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 520: acquire 0x01
+scheduled acquire operation=110 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=110 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=271107
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 521: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 522: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 523: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 524: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 525: init
+scheduled operation=111 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=111 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 526: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 527: init
+scheduled operation=112 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=112 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 528: end
+status: code=0 detail=0 msg=OK
+> 
+### command 529: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 530: init
+scheduled operation=113 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=113 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 531: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 532: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 533: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 534: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 535: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 536: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 537: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 538: init
+scheduled operation=114 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=114 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 539: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 540: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 541: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 542: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 543: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 544: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 545: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 546: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 547: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 548: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 549: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 550: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 551: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 552: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 553: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 554: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 555: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 556: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 557: init
+scheduled operation=115 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=115 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 558: apply
+scheduled operation=116 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=116 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 559: resetreapply
+scheduled operation=117 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=117 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 560: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 561: acquire 0x01
+scheduled acquire operation=118 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=118 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=272438
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 562: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 563: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 564: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 565: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 566: init
+scheduled operation=119 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=119 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 567: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 568: init
+scheduled operation=120 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=120 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 569: end
+status: code=0 detail=0 msg=OK
+> 
+### command 570: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 571: init
+scheduled operation=121 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=121 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 572: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 573: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 574: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 575: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 576: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 577: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 578: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 579: init
+scheduled operation=122 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=122 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 580: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 581: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 582: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 583: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 584: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 585: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 586: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 587: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 588: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 589: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 590: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 591: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 592: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 593: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 594: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 595: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 596: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 597: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 598: init
+scheduled operation=123 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=123 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 599: apply
+scheduled operation=124 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=124 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 600: resetreapply
+scheduled operation=125 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=125 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 601: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 602: acquire 0x01
+scheduled acquire operation=126 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=126 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=273791
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 603: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 604: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 605: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 606: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 607: init
+scheduled operation=127 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=127 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 608: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 609: init
+scheduled operation=128 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=128 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 610: end
+status: code=0 detail=0 msg=OK
+> 
+### command 611: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 612: init
+scheduled operation=129 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=129 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 613: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 614: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 615: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 616: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 617: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 618: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 619: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 620: init
+scheduled operation=130 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=130 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 621: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 622: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 623: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 624: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 625: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 626: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 627: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 628: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 629: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 630: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 631: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 632: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 633: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 634: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 635: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 636: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 637: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 638: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 639: init
+scheduled operation=131 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=131 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 640: apply
+scheduled operation=132 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=132 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 641: resetreapply
+scheduled operation=133 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=133 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 642: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 643: acquire 0x01
+scheduled acquire operation=134 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=134 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=275140
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 644: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 645: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 646: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 647: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 648: init
+scheduled operation=135 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=135 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 649: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 650: init
+scheduled operation=136 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=136 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 651: end
+status: code=0 detail=0 msg=OK
+> 
+### command 652: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 653: init
+scheduled operation=137 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=137 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 654: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 655: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 656: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 657: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 658: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 659: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 660: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 661: init
+scheduled operation=138 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=138 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 662: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 663: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 664: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 665: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 666: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 667: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 668: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 669: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 670: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 671: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 672: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 673: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 674: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 675: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 676: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 677: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 678: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 679: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 680: init
+scheduled operation=139 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=139 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 681: apply
+scheduled operation=140 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=140 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 682: resetreapply
+scheduled operation=141 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=141 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 683: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 684: acquire 0x01
+scheduled acquire operation=142 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=142 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=276492
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 685: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 686: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 687: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 688: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 689: init
+scheduled operation=143 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=143 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 690: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 691: init
+scheduled operation=144 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=144 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 692: end
+status: code=0 detail=0 msg=OK
+> 
+### command 693: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 694: init
+scheduled operation=145 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=145 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 695: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 696: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 697: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 698: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 699: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 700: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 701: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 702: init
+scheduled operation=146 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=146 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 703: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 704: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 705: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 706: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 707: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 708: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 709: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 710: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 711: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 712: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 713: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 714: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 715: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 716: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 717: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 718: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 719: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 720: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 721: init
+scheduled operation=147 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=147 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 722: apply
+scheduled operation=148 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=148 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 723: resetreapply
+scheduled operation=149 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=149 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 724: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 725: acquire 0x01
+scheduled acquire operation=150 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=150 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=277845
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 726: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 727: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 728: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 729: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 730: init
+scheduled operation=151 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=151 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 731: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 732: init
+scheduled operation=152 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=152 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 733: end
+status: code=0 detail=0 msg=OK
+> 
+### command 734: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 735: init
+scheduled operation=153 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=153 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 736: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 737: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 738: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 739: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 740: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 741: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 742: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 743: init
+scheduled operation=154 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=154 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 744: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 745: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 746: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 747: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 748: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 749: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 750: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 751: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 752: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 753: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 754: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 755: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 756: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 757: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 758: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 759: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 760: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 761: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 762: init
+scheduled operation=155 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=155 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 763: apply
+scheduled operation=156 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=156 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 764: resetreapply
+scheduled operation=157 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=157 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 765: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 766: acquire 0x01
+scheduled acquire operation=158 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=158 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=279192
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 767: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 768: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 769: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 770: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 771: init
+scheduled operation=159 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=159 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 772: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 773: init
+scheduled operation=160 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=160 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 774: end
+status: code=0 detail=0 msg=OK
+> 
+### command 775: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 776: init
+scheduled operation=161 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=161 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 777: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 778: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 779: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 780: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 781: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 782: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 783: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 784: init
+scheduled operation=162 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=162 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 785: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 786: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 787: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 788: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 789: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 790: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 791: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 792: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 793: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 794: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 795: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 796: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 797: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 798: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 799: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 800: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 801: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 802: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 803: init
+scheduled operation=163 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=163 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 804: apply
+scheduled operation=164 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=164 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 805: resetreapply
+scheduled operation=165 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=165 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 806: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 807: acquire 0x01
+scheduled acquire operation=166 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=166 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=280521
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 808: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 809: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 810: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 811: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 812: init
+scheduled operation=167 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=167 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 813: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 814: init
+scheduled operation=168 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=168 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 815: end
+status: code=0 detail=0 msg=OK
+> 
+### command 816: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 817: init
+scheduled operation=169 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=169 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 818: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 819: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 820: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 821: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 822: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 823: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 824: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 825: init
+scheduled operation=170 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=170 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 826: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 827: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 828: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 829: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 830: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 831: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 832: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 833: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 834: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 835: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 836: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 837: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 838: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 839: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 840: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 841: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 842: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 843: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 844: init
+scheduled operation=171 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=171 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 845: apply
+scheduled operation=172 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=172 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 846: resetreapply
+scheduled operation=173 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=173 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 847: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 848: acquire 0x01
+scheduled acquire operation=174 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=174 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=281849
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 849: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 850: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 851: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 852: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 853: init
+scheduled operation=175 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=175 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 854: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 855: init
+scheduled operation=176 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=176 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 856: end
+status: code=0 detail=0 msg=OK
+> 
+### command 857: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 858: init
+scheduled operation=177 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=177 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 859: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 860: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 861: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 862: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 863: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 864: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 865: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 866: init
+scheduled operation=178 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=178 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 867: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 868: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 869: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 870: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 871: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 872: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 873: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 874: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 875: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 876: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 877: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 878: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 879: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 880: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 881: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 882: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 883: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 884: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 885: init
+scheduled operation=179 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=179 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 886: apply
+scheduled operation=180 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=180 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 887: resetreapply
+scheduled operation=181 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=181 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 888: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 889: acquire 0x01
+scheduled acquire operation=182 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=182 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=283177
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 890: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 891: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 892: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 893: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 894: init
+scheduled operation=183 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=183 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 895: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 896: init
+scheduled operation=184 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=184 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 897: end
+status: code=0 detail=0 msg=OK
+> 
+### command 898: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 899: init
+scheduled operation=185 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=185 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 900: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 901: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 902: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 903: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 904: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 905: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 906: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 907: init
+scheduled operation=186 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=186 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 908: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 909: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 910: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 911: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 912: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 913: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 914: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 915: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 916: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 917: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 918: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 919: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 920: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 921: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 922: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 923: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 924: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 925: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 926: init
+scheduled operation=187 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=187 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 927: apply
+scheduled operation=188 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=188 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 928: resetreapply
+scheduled operation=189 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=189 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 929: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 930: acquire 0x01
+scheduled acquire operation=190 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=190 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x00 configRevision=1 completedMs=284507
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x0039 msb=0x3FFF lsb=0xFFFF
+
+### command 931: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 932: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 933: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 934: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 935: init
+scheduled operation=191 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=191 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 936: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 937: init
+scheduled operation=192 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=192 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 938: end
+status: code=0 detail=0 msg=OK
+> 
+### command 939: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 940: init
+scheduled operation=193 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=193 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 941: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 942: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 943: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 944: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 945: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 946: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 947: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 948: init
+scheduled operation=194 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=194 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 949: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 950: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 951: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 952: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 953: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 954: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 955: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 956: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 957: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 958: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 959: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 960: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 961: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 962: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 963: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 964: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 965: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 966: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 967: init
+scheduled operation=195 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=195 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 968: apply
+scheduled operation=196 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=196 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 969: resetreapply
+scheduled operation=197 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=197 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 970: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 971: acquire 0x01
+scheduled acquire operation=198 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=198 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=285859
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 972: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 973: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 974: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 975: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 976: init
+scheduled operation=199 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=199 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 977: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 978: init
+scheduled operation=200 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=200 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 979: end
+status: code=0 detail=0 msg=OK
+> 
+### command 980: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 981: init
+scheduled operation=201 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=201 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 982: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 983: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 984: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 985: help
+Owner-driven jobs: init, apply, resetreapply, acquire [mask], cancel, progress
+One-transfer controls: status, ready/drdy, sleep, wake, initdrive <ch>
+Owner bus control: busrecover (explicit reinit; then run init)
+Diagnostics: version, scan, probe/id, drv/state, cfg/settings, reg, wreg
+Pure helpers: timing [mask], freq <ch> <raw28>
+Lifecycle: bind, invalidate, end; results print automatically from service()
+> 
+### command 986: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 987: scan
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112
+status: code=0 detail=0 msg=OK
+> 
+### command 988: busrecover
+status: code=0 detail=0 msg=OK
+> 
+### command 989: init
+scheduled operation=202 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=202 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 990: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 991: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=54 success=54 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 992: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 993: progress
+active=0 operation=0 kind=0 phase=0 transfers=0/0 requested=0x00 completed=0x00 deadlineMs=0
+> 
+### command 994: status
+STATUS observed=1 raw=0x0008 drdy=0 unread=0x01 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 
+### command 995: reg 0x7E
+reg 0x7E = 0x5449
+status: code=0 detail=0 msg=OK
+> 
+### command 996: reg 0x7F
+reg 0x7F = 0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 997: reg 0x19
+reg 0x19 = 0xF8FD
+status: code=0 detail=0 msg=OK
+> 
+### command 998: reg 0x1A
+reg 0x1A = 0x3481
+status: code=0 detail=0 msg=OK
+> 
+### command 999: reg 0x1B
+reg 0x1B = 0x020D
+status: code=0 detail=0 msg=OK
+> 
+### command 1000: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 1001: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 1002: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 1003: initidrive 0
+channel=0 initDriveCode=0
+status: code=0 detail=0 msg=OK
+> 
+### command 1004: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 1005: timing 0x01
+wakeSettleUs=479 conversionUs=1133 sequentialFrameUs=1613 acquisitionTransfers=4
+status: code=0 detail=0 msg=OK
+> 
+### command 1006: selftest
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 1007: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 1008: init
+scheduled operation=203 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=203 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 1009: apply
+scheduled operation=204 kind=apply
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=204 kind=2 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=24/24
+status: code=0 detail=0 msg=OK
+
+### command 1010: resetreapply
+scheduled operation=205 reset=1
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=205 kind=3 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=27/27
+status: code=0 detail=0 msg=OK
+
+### command 1011: wake
+status: code=0 detail=0 msg=OK
+> 
+### command 1012: acquire 0x01
+scheduled acquire operation=206 mask=0x01
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=206 kind=4 outcome=SUCCESS effects=0x01 configRevision=1 phase=16 reg=0x18 channel=255 transfers=4/4
+status: code=0 detail=0 msg=OK
+batch selected=0x01 valid=0x00 fresh=0x01 error=0x01 overrun=0x01 configRevision=1 completedMs=287210
+STATUS observed=1 raw=0x0208 drdy=0 unread=0x01 errCh=0 UR=0 OR=0 WD=0 AH=0 AL=1 ZC=0
+ch0 raw=0xFFFFFFF quality=0x00B9 msb=0x3FFF lsb=0xFFFF
+
+### command 1013: sleep
+status: code=0 detail=0 msg=OK
+> 
+### command 1014: cancel
+status: code=0 detail=0 msg=OK
+> 
+### command 1015: invalidate
+status: code=0 detail=0 msg=OK
+> 
+### command 1016: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=148 success=148 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 1017: init
+scheduled operation=207 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=207 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 1018: wreg 0x1B 0x0209
+status: code=0 detail=0 msg=OK
+> 
+### command 1019: init
+scheduled operation=208 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=208 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 1020: end
+status: code=0 detail=0 msg=OK
+> 
+### command 1021: bind
+status: code=0 detail=0 msg=OK
+> 
+### command 1022: init
+scheduled operation=209 reset=0
+status: code=5 detail=0 msg=Operation scheduled
+> result operation=209 kind=1 outcome=SUCCESS effects=0x00 configRevision=1 phase=11 reg=0x1A channel=255 transfers=26/26
+status: code=0 detail=0 msg=OK
+
+### command 1023: freq 0 0x01000000
+frequencyHz=2687500.000000
+status: code=0 detail=0 msg=OK
+> 
+### command 1024: drv
+bound=1 applied=APPLIED_SLEEPING configRevision=1 active=0 resultAvailable=0
+transport attempts=26 success=26 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 1025: sleep
+status: code=0 detail=0 msg=OK
+> 

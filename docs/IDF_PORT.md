@@ -14,8 +14,11 @@ The example demonstrates the v3 boundary:
   error, and timing profile with zero I2C;
 - initialization and acquisition are scheduled with an operation ID and
   absolute 64-bit deadline;
-- the console-owner loop calls `poll(now, 1)`, so one pass performs at most one
-  physical driver callback; and
+- the fixed-memory local CLI exposes the same table-driven command, help,
+  safety, result, and diagnostic-session contract as the Arduino example;
+- the console owner drains only a fixed byte budget and calls `poll(now, 1)`,
+  so input cannot starve jobs and one pass performs at most one physical driver
+  callback; and
 - terminal results are removed from the fixed FIFO exactly once.
 
 The application owns bus creation/destruction, lock policy, callback timeout,
@@ -29,8 +32,10 @@ a second mutex wait ahead of the native I2C timeout. Multi-task applications
 must serialize before invoking the driver and include lock wait in their own
 whole-request deadline.
 
-The diagnostic `probe` command performs two raw identity reads and is not the
-normal owner initialization path. The example's internal I2C pull-up setting,
+The diagnostic `probe` session performs two identity reads and is not the
+normal owner initialization path. Scan, dump, verify, self-test, watch, stress,
+sample-rate, and soak are bounded example-owned sessions rather than production
+scheduling policy. The example's internal I2C pull-up setting,
 GPIO8/GPIO9 pins, `0x2A` address, internal-clock estimate, and single-channel
 sensor profile are placeholders. Production hardware needs sized external
 pull-ups and a reviewed board profile.
@@ -42,8 +47,10 @@ python tools/check_idf_example_contract.py
 python tools/check_core_timing_guard.py
 ```
 
-The checker parses the ESP-IDF `SRCS` list and scans compiled sources and local
-headers. It does not replace an `idf.py` build. Maintained CI builds ESP32-S2
+The checker parses the ESP-IDF `SRCS` list, scans compiled sources and local
+headers, and compares the local command table against the host-only CLI
+manifest and Arduino implementation. The IDF build never compiles the Arduino
+or common CLI source. The checker does not replace an `idf.py` build. Maintained CI builds ESP32-S2
 and ESP32-S3 with the pinned IDF version recorded in the workflow. No hardware
 behavior is claimed without target logs for the exact variant, address, clock,
 sensor, INTB/SD wiring, deadline/fault procedure, and soak configuration.

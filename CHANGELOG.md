@@ -9,9 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Public, bus-silent `validateConfig()` and canonical configuration-register
+  expectation helpers for staged profile validation and exact masked readback.
+- Comprehensive, table-driven Arduino and native ESP-IDF diagnostic CLIs with
+  complete typed profile editing, register verification, INTB/SD visibility,
+  pure calculation/decoder commands, and retained result/sample inspection.
+- Fixed-memory cooperative scan, dump, verify, self-test, watch, stress,
+  mixed-stress, sample-rate, and bounded soak sessions with cancellation and
+  exact operation/session correlation.
+- A host-only CLI contract manifest that enforces identical command, help,
+  safety, evidence, and output schemas without compiling either framework's
+  CLI implementation into the other.
+- An explicit external-owner composition test covering immutable deadlines,
+  one-transfer polling, cancellation/replacement, conservative transport-fault
+  classification, invalidation, and full reinitialization.
 - Bounded Arduino no-sensor HIL soak execution with explicit duration, complete
   cycle counts, per-command outcomes, latency/reset counters, exact final
   active-state checks, and optional raw transcript output.
+- Sibling-library-style HIL configuration and invalid-input matrices covering
+  safe cache-only setting boundaries, exact rejection output, recovery fences,
+  and explicit `NOT_RUN` gates for sensor, INTB, SD, address/variant, drive, and
+  active-cancellation fixtures.
 - Native ESP-IDF diagnostic bus scanning with the same bounded NACK/timeout/
   bus-error contract as the Arduino bring-up CLI.
 - Explicit application-owned `busrecover` diagnostics in both example CLIs;
@@ -19,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced the compressed diagnostic help with sibling-library-compatible ANSI
+  coloring, aligned 32-column command rows, safety sections, symbolic statuses,
+  complete configuration/progress/result/fault output, and named sample quality.
+- Configuration commands now edit a fixed staged profile with zero I2C; one
+  explicit validated commit updates desired state and the cooperative `apply`
+  job remains the only path that writes the complete profile.
+- Arduino serial input and native ESP-IDF console input are bounded per owner
+  pass, and asynchronous commands defer their prompt until a correlated
+  terminal result or diagnostic-session summary is printed.
+- HIL stress and sensor-gated sample-rate coverage now use stable CLI
+  scheduled/result envelopes for both maintained firmware profiles.
 - Replaced the completed TunnelMonitor suitability-audit ledger with a concise
   open-gates guide, and reduced validation status to repeatable release checks,
   retained evidence boundaries, and unresolved physical validation.
@@ -38,10 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The version generator now synchronizes and checks `idf_component.yml` and
   Doxygen project metadata from the authoritative `library.json` version.
 - Pin maintained Arduino builds to pioarduino `55.03.311` (Arduino 3.3.11,
-  ESP-IDF 5.5.5 libraries), which retains Espressif's NACK-state correction and
-  adds I2C reset, allocation, and ISR fixes. PlatformIO is pinned to the
-  required 6.1.19 host version. A reviewed upgrade must repeat combined
-  write/read and post-NACK recovery testing.
+  ESP-IDF 5.5.5 libraries). PlatformIO is pinned to the required 6.1.19 host
+  version. COM8 still reproduced the open ESP-IDF new-master post-NACK
+  `ESP_ERR_INVALID_STATE` failure, so the pin is a build baseline rather than
+  recovery qualification and every target must repeat combined write/read and
+  post-NACK testing.
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
   controller reset through `i2c_master_bus_reset()`. The redundant Wire adapter
@@ -49,6 +79,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Arduino and native ESP-IDF sample-rate sessions now apply the same bounded
+  readiness gate and reject stale, invalid, faulted, overrun, or out-of-range
+  samples instead of counting transport success as measurement success.
+- Diagnostic sessions retain the latest correlated core result and print full
+  effect, phase, register, channel, status, and configuration-fault provenance
+  on failed or cancelled acquisitions.
+- CLI input length checks are bounded before copying, asynchronous work rejects
+  a missing monotonic-clock callback instead of freezing at time zero, and
+  cancelling a synchronous session no longer emits a second deferred prompt.
+- Removed the experimental fixed post-reset delay after COM8 evidence showed it
+  did not correct the ESP-IDF transport failure. Reset/reapply remains fully
+  cooperative and reports the first reset-adjacent transport error unchanged.
+- `selftest` is now a real bounded diagnostic rather than an alias for two
+  identity reads; it reports explicit pass, failure, and fixture-dependent skip
+  counts.
+- Acquisition output now includes both STATUS snapshots, raw register halves,
+  calculated frequency/range evidence, configuration revision, and symbolic
+  quality; driver output includes full cached configuration-fault provenance.
+- Long HIL runs journal raw serial evidence incrementally and convert serial
+  command or serial-context close exceptions into explicit failed artifacts
+  instead of losing the complete run before output creation.
+- The HIL runner now refuses to enter a timed soak unless every base command,
+  firmware/fixture expectation, and reset-banner check passes; complete-cycle
+  accounting no longer treats a partially executed cycle as complete.
+- Raw writes, destructive all-register dumps, silicon reset/reapply, owner bus
+  recovery, invalidation, mixed stress, and example-owned shutdown transitions
+  require explicit confirmation and preserve dirty/unknown state evidence.
 - The no-sensor HIL classifier now accepts observed silicon sensor-condition
   flags only when the command still supplies its required structured evidence;
   transport, identity, timeout, and nonzero-status failures remain failures.

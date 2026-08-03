@@ -1,0 +1,21 @@
+### startup
+
+### command 1: version
+version: 3.0.0 firmware_git=1263ab1 firmware_status=clean build_timestamp=2026-08-03 14:36:09
+> 
+### command 2: cfg
+address=0x2A variant=2 variantChannels=4 selected=0x01 mode=1 refHz=43000000 tolerancePpm=200000 timeoutMs=50
+> 
+### command 3: probe
+MANUFACTURER_ID=0x5449 DEVICE_ID=0x3055
+status: code=0 detail=0 msg=OK
+> 
+### command 4: drv
+bound=1 applied=UNKNOWN configRevision=1 active=0 resultAvailable=0
+transport attempts=28 success=28 failures=0
+status: code=0 detail=0 msg=OK
+> 
+### command 5: status
+STATUS observed=1 raw=0x0000 drdy=0 unread=0x00 errCh=255 UR=0 OR=0 WD=0 AH=0 AL=0 ZC=0
+status: code=0 detail=0 msg=OK
+> 

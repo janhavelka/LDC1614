@@ -5,13 +5,14 @@ this library. Reusable driver behavior is documented by the public API,
 [I2C owner integration](I2C_INTEGRATION.md), and the changelog rather than
 repeated here.
 
-Last cross-repository review: 2026-07-23.
+Last cross-repository review: 2026-08-03.
 
-- LDC1614 checkout: `e54e36eee91a2091548bc2a2cdbd0457470a7508`
-  on `hardening/com8-hil-transport`.
+- LDC1614 checkout: unreleased `3.1.0` candidate based on
+  `1263ab182c49baa90e0825a8dc0d1af59d5c9042` on `main`. Replace this line
+  with the final reviewed release commit before integration.
 - TunnelMonitor-node checkout:
-  `6496decc9de5474c23aaf845c7866bb9d51d0d32` on
-  `prompt-45-platformization`.
+  `f05cd296d59c62ad4dfe293ca63f9b3798053ce8` on
+  `prompt-45-platformization`, clean and synchronized with its upstream.
 
 At that review, TunnelMonitor had no LDC device kind, health identifier, I2C
 operation, build-profile row, dependency, reading schema, settings,
@@ -50,6 +51,18 @@ offset-validation, and transport corrections are newer than `v3.0.0`.
 Create and review a new annotated minor release before adding the dependency.
 Do not consume this branch, a moving commit, or a reinterpreted `v3.0.0` tag.
 
+## Consumer platform gate
+
+TunnelMonitor currently pins pioarduino `54.03.20`; this library's maintained
+Arduino builds pin `55.03.311`. COM8 testing reproduced persistent post-NACK
+`ESP_ERR_INVALID_STATE` on the latter as well, so neither pin is qualified as a
+TunnelMonitor recovery fix. Treat `55.03.311` as a separate platform-migration
+candidate and qualify it on the exact ESP32-S3 target across I2C, OTA, USB,
+RMT, Wi-Fi, SD, and PSRAM before changing TunnelMonitor's active pin. Preserve
+TunnelMonitor's existing failed-read bus-recreation fence until target fault
+injection proves a simpler policy safe. A successful build alone does not
+close this gate.
+
 ## Owner-module gate
 
 After the product contract is approved, add one owner-private concrete LDC
@@ -83,7 +96,8 @@ transport. Before integration, exercise that exact backend on the selected
 board:
 
 1. induce a controlled absent-address NACK;
-2. perform repeated valid combined reads while retaining raw backend codes;
+2. perform repeated valid combined reads while retaining raw backend codes and
+   proving that expected scan/probe NACKs did not poison the next transaction;
 3. execute explicit owner controller recovery without rebooting the MCU;
 4. invalidate LDC applied state and complete full initialization/replay; and
 5. prove another shared-bus device remains responsive throughout recovery.
