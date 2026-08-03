@@ -178,6 +178,7 @@ def main() -> int:
         fail("combined write-read must use one bounded new-master transaction")
     for token in (
         "i2c_master_bus_rm_device", "i2c_del_master_bus", "reopen(context)",
+        "i2c_master_bus_reset(context.bus)",
         "const esp_err_t probeError = i2c_master_probe",
         "context.bus, context.address, clampTimeoutMs(timeoutMs)",
     ):

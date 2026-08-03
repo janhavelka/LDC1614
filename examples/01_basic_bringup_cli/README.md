@@ -15,8 +15,9 @@ The Arduino and native ESP-IDF diagnostics share
 `examples/esp32/I2cMasterTransport.*`. A combined register read is one bounded
 `i2c_master_transmit_receive()` transaction. Explicit owner recovery removes
 the diagnostic's device handle, deletes/recreates its sole owned bus, and
-recreates the device handle. It then performs one bounded target-address probe
-and reports success only on ACK; full `init` replay remains mandatory. The
+recreates the device handle. It then runs the ESP-IDF driver's bounded bus
+reset/line-clear, performs one bounded target-address probe, and reports success
+only on ACK; full `init` replay remains mandatory. The
 repository pins pioarduino
 `55.03.311`; COM8 reproduced the open ESP-IDF post-NACK
 `ESP_ERR_INVALID_STATE` failure on this pin. Do not treat `busrecover` as

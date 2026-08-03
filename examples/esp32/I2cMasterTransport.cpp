@@ -165,6 +165,12 @@ LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
     return status;
   }
 
+  status = mapEspErr(i2c_master_bus_reset(context.bus),
+                     "I2C recovery bus reset failed");
+  if (!status.ok()) {
+    return status;
+  }
+
   // The pinned ESP-IDF 5.5.5 backend uses one generic INVALID_STATE result for
   // several failed synchronous-transaction outcomes. Its bounded probe path
   // both proves that the rebuilt target is responding and normalizes the
