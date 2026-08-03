@@ -63,8 +63,12 @@ reviewed build baseline, not proof of post-NACK recovery; see
 [Espressif issue #14030](https://github.com/espressif/esp-idf/issues/14030).
 Both maintained ESP32 diagnostics use one
 example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
-this is example/build-tool policy, not a dependency of the framework-neutral
-core. Each product owner still requires target validation.
+its explicit `busrecover` path now reconstructs the diagnostic's sole owned
+bus/device lifecycle. This is containment for a failed backend, not
+a hidden retry or proof that reset-adjacent NACKs cannot occur. It is
+example/build-tool policy, not a dependency of the framework-neutral core.
+Each product owner still requires target validation and must coordinate every
+device handle when rebuilding a genuinely shared bus.
 
 ## Explicit profile
 

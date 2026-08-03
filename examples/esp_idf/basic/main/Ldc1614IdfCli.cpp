@@ -145,7 +145,7 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
      "command outcome code"},
     {CommandId::BUS_RECOVER, "busrecover", "", "busrecover confirm",
-     "Run explicit owner bus reset, then require init", HelpSection::LIFECYCLE, CommandSafety::CONFIRM_MUTATION,
+     "Rebuild owner bus/device, then require init", HelpSection::LIFECYCLE, CommandSafety::CONFIRM_MUTATION,
      ExecutionKind::OWNER_BUS, FixtureRequirement::ANY,
      "command outcome code"},
     {CommandId::READ, "read", "acquire", "read / acquire [mask]",

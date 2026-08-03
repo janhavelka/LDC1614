@@ -13,12 +13,16 @@ callback per `loop()` pass. Terminal results are consumed through
 
 The Arduino and native ESP-IDF diagnostics share
 `examples/esp32/I2cMasterTransport.*`. A combined register read is one bounded
-`i2c_master_transmit_receive()` transaction, and owner recovery resets the
-controller through `i2c_master_bus_reset()`. The repository pins pioarduino
-`55.03.311`; COM8 still reproduced the open ESP-IDF post-NACK
+`i2c_master_transmit_receive()` transaction. Explicit owner recovery removes
+the diagnostic's device handle, deletes/recreates its sole owned bus, and
+recreates the device handle. The repository pins pioarduino
+`55.03.311`; COM8 reproduced the open ESP-IDF post-NACK
 `ESP_ERR_INVALID_STATE` failure on this pin. Do not treat `busrecover` as
-guaranteed recovery, and do not upgrade without repeating combined-read and
-post-NACK tests on real LDC hardware.
+guaranteed recovery until the complete recovery/replay gate passes, and do not
+upgrade without repeating combined-read and post-NACK tests on real LDC
+hardware. A production shared-bus owner must coordinate and rebuild all of its
+registered device handles; this single-device diagnostic cannot supply that
+product policy.
 
 The maintained ESP32-S2 PlatformIO profile uses its internal USB CDC upload
 path: one automatic bootloader entry, port re-enumeration, no redundant
@@ -61,7 +65,7 @@ The accepted `error` fields are `data-under`, `data-over`, `data-watchdog`,
 `status-zero-count`, and `data-ready`; `errors show|all|none` handles the whole
 set.
 
-Commands that may mutate hardware, invalidate trust, reset the controller, or
+Commands that may mutate hardware, invalidate trust, reconstruct the bus, or
 perform broad/raw destructive reads require the literal `confirm` token as
 shown in `help`. The explicit semantic `status`, `status_raw`, `ready`, and
 acquisition commands do not require confirmation; they retain and print their

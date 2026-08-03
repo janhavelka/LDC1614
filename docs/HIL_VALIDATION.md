@@ -50,6 +50,14 @@ initialization, and repeated valid combined reads. Run at least 100 correlated
 reset/reapply cycles before the full matrix. Stop on the first failed gate; do
 not soak an already-poisoned transport state.
 
+The maintained runner enforces that stop rule: after the first unexpected base
+result it sends no later command and records the remaining matrix entries as
+`NOT_RUN`. The diagnostic `busrecover` command reconstructs its sole owned
+ESP-IDF bus/device lifecycle, invalidates applied state, and still
+requires `init`. A production shared-bus manager must coordinate and recreate
+all registered device handles; do not copy the single-device example as a
+general shared-bus policy.
+
 For a time-bounded no-sensor soak, request the duration explicitly. The soak
 keeps the port open, executes only complete cycles, and ends every cycle awake:
 
@@ -116,9 +124,11 @@ evidence.
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
 Use `--expect-token`, `--failure-token`, and `--expected-failure-token` only for
-documented fixture-specific cases. Expected-failure tokens are intended for
-negative tests such as proving an invalid channel is rejected; default failure
-classification remains strict.
+documented fixture-specific cases. An expected-failure token can accept only a
+structurally correlated failed asynchronous or immediate CLI result; it cannot
+override timeout, missing-envelope, mismatched-session, or malformed normal
+command output. Built-in invalid-input coverage instead requires each exact
+usage contract and proves that no job was admitted.
 
 Both CLIs expose the same cooperative core jobs and bounded diagnostic
 sessions. The runner requires matching command/session scheduled and terminal
@@ -199,11 +209,11 @@ Run these only when hardware and operator setup explicitly support them:
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
 | Config readback | Yes | Hardware | Retained clean subsets include successful individual reads and matrix passes, but no complete current-code release-acceptance set | Repeat cleanly on target board variant |
-| Reset/reapply and owner recovery | Yes | Hardware | Clean 2026-08-03 candidates failed the first post-reset identity read with backend detail 259; a 2 ms guard did not correct it | Cold-start 100-cycle correlated reset gate plus owner recovery/replay trace |
+| Reset/reapply and owner recovery | Yes | Hardware | Clean `2358c30` passed 100 cold reset/reapply cycles, controlled scan/recovery, and 100 post-NACK probes, then a later comprehensive reset reproduced detail 259; a 2 ms guard did not correct it | Reproduce failure, explicit reconstructed-owner recovery, full replay, and repeated valid combined reads without a power cycle |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
-| Induced address NACK | No | Operator/fault fixture | COM8 scans reproduced persistent `ESP_ERR_INVALID_STATE` even on pioarduino `55.03.311`; recovery was not deterministic | Controlled NACK followed by repeated valid combined reads and shared-device proof |
+| Induced address NACK | No | Operator/fault fixture | One clean controlled scan/recovery plus 100 post-NACK probes passed, but a later reset still produced persistent `ESP_ERR_INVALID_STATE` on pioarduino `55.03.311` | Repeat controlled NACK, recovery/replay, valid combined reads, and shared-device proof across the final recovery implementation |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
 | Bounded soak | No | Stable fixture | A 3,600-second invocation failed its base matrix before a valid soak; the old runner's continued cycles are negative evidence only | Passing base gate plus duration, complete cycles, command/unknown/reset counts, worst latency |

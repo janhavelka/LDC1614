@@ -1,0 +1,69 @@
+### startup
+
+### command 1: version
+version=3.1.0 firmware_git=2358c30 firmware_status=clean build_timestamp=2026-08-03 17:16:32
+> 
+### command 2: cfg
+Configuration: desired revision=1 applied=APPLIED_SLEEPING staged_dirty=0
+cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_SLEEPING
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+Configuration: staged revision=1 applied=APPLIED_SLEEPING staged_dirty=0
+cfg label=staged address=0x2A variant=LDC1614 variant_channels=4 selected=0x01 mode=SINGLE_CHANNEL ref_source=internal ref_hz=43000000 tolerance_ppm=200000 deglitch=5 activation=full timeout_ms=50 rp_override=1 auto_amplitude=0 high_current=0 intb_config=0 error_reporting=0xF8FD revision=1 applied=APPLIED_SLEEPING
+  binding address=0x2A variant=LDC1614 physical_mask=0x0F write_callback=1 read_callback=1
+  conversion selected_mask=0x01 mode=SINGLE_CHANNEL active_channel=0 rr_sequence=255
+  reference_clock source=INTERNAL frequency_hz=43000000 tolerance_ppm=200000
+  options timeout_ms=50 deglitch=5 activation=FULL rp_override=1 auto_amplitude=0 high_current=0 intb_enabled=0 intb_callback=0
+  channel=0 selected=1 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=100000 sensor_max_hz=5000000
+  channel=1 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=2 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 offset=0 drive_code=10 drive_ua=72 sensor_min_hz=0 sensor_max_hz=0
+  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 data_amplitude_high=1 data_amplitude_low=1 status_under=1 status_over=1 status_watchdog=1 status_amplitude_high=1 status_amplitude_low=1 status_zero_count=1 data_ready=1
+> 
+### command 3: scan
+CLI scheduled: command=scan session=203
+I2C device at 0x2A
+I2C device at 0x3C
+scan complete found=2 probes=112 code=0
+CLI result: command=scan session=203 outcome=SUCCESS code=0
+> 
+### command 4: busrecover confirm
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=busrecover outcome=SUCCESS code=0
+Run 'init' before trusted device use.
+> 
+### command 5: init
+CLI scheduled: command=init session=0 operation=203 deadline_ms=204128 mask=0x00
+Operation result: operation=203 kind=INITIALIZE outcome=SUCCESS effects=0x00 revision=1 completed_ms=202134 phase=WRITE_FINAL_CONFIG reg=0x1A channel=255 transfers=26 maximum=26 code=0 detail=0 msg=OK
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+CLI result: command=init session=0 outcome=SUCCESS code=0
+> 
+### command 6: probe
+CLI scheduled: command=probe session=204
+manufacturer_id=0x5449 device_id=0x3055 match=YES code=0
+CLI result: command=probe session=204 outcome=SUCCESS code=0
+> 
+### command 7: wake
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+CLI result: command=wake outcome=SUCCESS code=0
+> 
+### command 8: drv
+bound=1 applied=APPLIED_ACTIVE config_revision=1 job_active=0 result_available=0 session=NONE staged_dirty=0
+state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 session_kind=NONE active=0 pending_result=0
+drv bound=1 applied=APPLIED_ACTIVE revision=1 active=0 result_available=0 attempts=5885 success=5885 failures=0 last_code=0
+transport attempts=5885 success=5885 failures=0
+  Status: [32mOK[0m (code=0, detail=0)
+  Message: OK
+config_fault valid=0 job=NONE phase=NONE register=0xFF channel=255 effects=0x00
+> 

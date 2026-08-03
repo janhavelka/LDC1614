@@ -71,6 +71,8 @@ def status_output() -> str:
 
 def drv_output() -> str:
     return (
+        "state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 session_kind=NONE "
+        "active=0 pending_result=0\n"
         "drv bound=1 applied=APPLIED_ACTIVE revision=1 active=0 "
         "result_available=0 attempts=10 success=10 failures=0 last_code=0\n"
         "transport attempts=10 success=10 failures=0\n> "
@@ -309,7 +311,7 @@ class CliManifestTests(unittest.TestCase):
 
     def test_no_sensor_recovery_fences_are_exact_and_ordered(self) -> None:
         commands = contract.NO_SENSOR_COMMANDS
-        self.assertEqual(48, len(commands))
+        self.assertEqual(49, len(commands))
         for sequence in contract.NO_SENSOR_REQUIRED_SUBSEQUENCES:
             width = len(sequence)
             self.assertTrue(any(
@@ -324,6 +326,16 @@ class CliManifestTests(unittest.TestCase):
             expected_next = "bind" if invalidator == "end" else "init"
             self.assertEqual(expected_next, commands[index + 1])
         self.assertEqual(("cancel", "wake", "drv"), commands[-3:])
+
+    def test_sensor_initialization_is_activated_before_readiness_checks(self) -> None:
+        commands = contract.SENSOR_COMMANDS
+        for sequence in contract.SENSOR_REQUIRED_SUBSEQUENCES:
+            width = len(sequence)
+            self.assertTrue(any(
+                commands[index:index + width] == sequence
+                for index in range(len(commands) - width + 1)
+            ), sequence)
+        self.assertLess(commands.index("wake"), commands.index("ready"))
 
     def test_optional_groups_are_fixture_and_safety_validated(self) -> None:
         self.assertEqual((), contract.validate_contract())
@@ -412,6 +424,33 @@ class ClassifierTests(unittest.TestCase):
             "FAIL", runner.classify_command("status", broken, False, fixture="no-sensor")[0]
         )
 
+    def test_ansi_status_and_no_sensor_quality_counters_are_parsed(self) -> None:
+        colored_status = status_output().replace(
+            "Status: OK", "Status: \x1b[32mOK\x1b[0m"
+        )
+        self.assertEqual(
+            "PASS",
+            runner.classify_command(
+                "status", colored_status, False, fixture="no-sensor"
+            )[0],
+        )
+        stress = async_output(
+            "stress", 17,
+            "Stress results: 25 ok, 0 failed\n"
+            "Stress result: requested=25 ok=25 fail=0 elapsed_ms=100 hz=250.0\n"
+            "session_channel=0 selected=25 valid=0 fresh=25 error=25 "
+            "overrun=3 bounds_fail=25\n",
+        )
+        self.assertEqual(
+            "PASS",
+            runner.classify_command(
+                "stress 25 0x01", stress, False, fixture="no-sensor"
+            )[0],
+        )
+        self.assertEqual(
+            "FAIL", runner.classify_command("stress 25 0x01", stress, False)[0]
+        )
+
     def test_timeouts_and_explicit_failure_tokens_never_pass(self) -> None:
         self.assertEqual("FAIL", runner.classify_command("version", version_output(), True)[0])
         self.assertEqual(
@@ -427,6 +466,9 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual("unknown", runner.firmware_version_from_transcript("version unknown"))
 
     def test_invalid_input_matrix_requires_exact_usage_and_no_job_admission(self) -> None:
+        self.assertIn("rcount 0 4", runner.INVALID_INPUT_COMMANDS)
+        self.assertIn("rcount 0 65536", runner.INVALID_INPUT_COMMANDS)
+        self.assertNotIn("rcount 0 255", runner.INVALID_INPUT_COMMANDS)
         for command, pattern in runner.INVALID_INPUT_EVIDENCE_PATTERNS.items():
             synopsis = contract.COMMAND_BY_NAME[command.split(" ", 1)[0]].synopses[0]
             output = f"[E] usage: {synopsis}\n> "
@@ -532,7 +574,7 @@ class MatrixAndSummaryTests(unittest.TestCase):
             self.assertIn(f"error {route} 1", commands)
         for channel in range(4):
             for command in (
-                f"rcount {channel} 256", f"rcount {channel} 65535",
+                f"rcount {channel} 5", f"rcount {channel} 65535",
                 f"settle {channel} 0", f"settle {channel} 65535",
                 f"findiv {channel} 1", f"findiv {channel} 15",
                 f"frefdiv {channel} 1", f"frefdiv {channel} 1023",
@@ -762,6 +804,14 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                  {**results[2], "output": outputs[2].replace("active=0", "active=1")}],
                 transcript, "APPLIED_ACTIVE",
             ),
+            (
+                "dirty-profile", commands,
+                [results[0], results[1],
+                 {**results[2], "output": outputs[2].replace(
+                     "profile_dirty=0", "profile_dirty=1"
+                 )}],
+                transcript, "APPLIED_ACTIVE",
+            ),
         ]
         for name, candidate_commands, candidate_results, candidate_transcript, reason in cases:
             with self.subTest(name=name):
@@ -813,14 +863,50 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
             "--startup-delay-s", "0", "--idle-gap-s", "0.01",
             "--include-long-soak", "--soak-duration-s", "0.1",
         ])
-        results, _, _, _, soak = runner.run_serial_commands(
+        results, transcript, _, _, soak = runner.run_serial_commands(
             args, ["version", "cfg", "drv"]
         )
-        self.assertEqual(["version", "cfg", "drv"], FakeSerial.writes)
+        self.assertEqual(["version", "cfg"], FakeSerial.writes)
         self.assertEqual("FAIL", results[1]["status"])
+        self.assertEqual("NOT_RUN", results[2]["status"])
+        self.assertIn("cfg", results[2]["reason"])
+        self.assertIn("runner fail-fast after command 2: cfg", transcript)
         self.assertIsNotNone(soak)
         self.assertFalse(soak["started"])
         self.assertEqual(0, soak["cycle_count"])
+
+    def test_correlated_expected_failure_does_not_trigger_base_fail_fast(self) -> None:
+        class FakeSerial(FakeSerialBase):
+            writes = []
+
+            def write(self, payload: bytes) -> int:
+                command = payload.decode().strip()
+                type(self).writes.append(command)
+                outputs = {
+                    "init": async_output(
+                        "init", 1, "expected-nack I2C_NACK_ADDR code=5\n"
+                    ).replace("outcome=SUCCESS code=0", "outcome=FAILED code=5"),
+                    "cfg": cfg_output(),
+                }
+                self.buffer.extend(outputs[command].encode())
+                return len(payload)
+
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            "--expected-failure-token", "expected-nack",
+        ])
+        results, _, _, _, _ = runner.run_serial_commands(args, ["init", "cfg"])
+        self.assertEqual(["init", "cfg"], FakeSerial.writes)
+        self.assertEqual(["PASS", "PASS"], [result["status"] for result in results])
+
+        malformed, _ = runner.classify_command(
+            "version",
+            "expected-nack I2C_NACK_ADDR code=5\n> ",
+            False,
+            expected_failure_patterns=runner.compile_token_patterns(["expected-nack"]),
+        )
+        self.assertEqual("FAIL", malformed)
 
     def test_missing_base_expectation_prevents_soak_commands(self) -> None:
         commit = runner.git_value(["rev-parse", "--short", "HEAD"])

@@ -65,14 +65,39 @@ one-hour invocation for ESP32-S2 COM8, LDC1614 at `0x2A`, a second device at
 - `postfix-matrix.*`: clean `fd5ccb3` firmware with an experimental 2 ms
   post-reset guard reproduced the same failure, disproving that delay as a
   corrective fix.
+- `cold-gate.*`: after a physical power cycle, clean `2358c30` firmware passed
+  the ordered no-scan `version`, `cfg`, `probe`, `init`, `probe` gate (5/5).
+- `cold-reset-100x.*`: all 300 issued hardware commands passed, but the host
+  artifact failed two fixture metadata checks because `cfg` was accidentally
+  omitted. It is retained as procedural negative evidence, not promoted.
+- `cold-reset-100x-pass.*`: the corrected clean-firmware run passed 400/400
+  issued commands: 100 each of `version`, `cfg`, `resetreapply`, and `probe`.
+- `nack-recovery-gate.*`: the controlled scan/recovery sequence passed 8/8;
+  scan found only `0x2A` and the shared `0x3C` device, initialization replayed
+  26/26 transfers, and the final driver state was clean and active.
+- `post-nack-probe-100x.*`: 100 clean repetitions of `version`, `cfg`, and
+  combined identity `probe` passed (300/300) after that NACK-heavy scan.
+- `comprehensive-no-sensor.*`: 163/169 commands were classified PASS. Six
+  false failures exposed host-runner defects in ANSI parsing, activation order,
+  RCOUNT assumptions, and no-sensor quality-counter handling. The raw target
+  output showed 1,000/1,000 stress and 1,000/1,000 mixed-stress operations with
+  no transport failure; the artifact remains FAIL and is not acceptance.
+- `comprehensive-no-sensor-reset-failure.*`: after correcting those parser and
+  sequence defects, the clean target passed scan, explicit owner recovery,
+  initialization, and apply, then failed `resetreapply` at its first identity
+  read with backend detail 259. The old runner continued and recorded 28
+  failures; the runner now fails fast and records unsent commands as
+  `NOT_RUN`.
 
 The runner now gates soak entry on a complete passing base matrix, preserves
-partial serial evidence on exceptions, and counts only complete cycles. A
-physical power cycle is required before the next controlled cold-start gate.
+partial serial evidence on exceptions, stops after the first unexpected base
+failure, and counts only complete cycles. The reset failure poisoned the
+ESP-IDF backend again, so the intended one-hour acceptance soak did not start.
 Temporary dirty-firmware investigations are intentionally excluded from this
 curated evidence bundle and are not used to support acceptance conclusions.
 
 Positive acceptance still requires a clean firmware identity match, the full
-no-sensor matrix, and a bounded soak with no reset or ambiguous response.
+no-sensor matrix, a proven explicit recovery/replay after the observed failure,
+and a bounded soak with no reset or ambiguous response.
 Sensor conversion, INTB, SD, `0x2B`, LDC1612, coil behavior, and ESP32-S3
 product-owner behavior remain outside this archive.

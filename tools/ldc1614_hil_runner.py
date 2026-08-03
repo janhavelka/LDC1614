@@ -140,7 +140,7 @@ INVALID_INPUT_COMMANDS = (
     "deglitch 2", "activation invalid", "timeout 0",
     "rp 2", "autoamp 2", "highcurrent 2", "intbconfig 2",
     "errors invalid", "error invalid 1", "error data-under 2",
-    "rcount 0 255", "settle 0 65536", "findiv 0 0", "findiv 0 16",
+    "rcount 0 4", "rcount 0 65536", "settle 0 65536", "findiv 0 0", "findiv 0 16",
     "frefdiv 0 0", "frefdiv 0 1024", "offset 0 65536",
     "reg 0x80", "wreg 0x1A 0x3481", "decode status 0x10000",
     "decode data 0x10000 0", "freq 4 0", "freq 0 0x10000000",
@@ -444,7 +444,6 @@ FAIL_PATTERNS = [
         r"\bread_fail=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
         r"\bconfig_readback_failures=(?:\x1b\[[0-9;]*m)*[1-9][0-9]*\b",
         r"\bfailed\s*[:=]\s*[1-9][0-9]*\b",
-        r"\berrors?\s*[:=]\s*[1-9][0-9]*\b",
         r"not bound",
         r"\bCLI result:[^\r\n]*\bcode=[1-9][0-9]*\b",
         r"\bStatus:[^\r\n]*\bcode=[1-9][0-9]*\b",
@@ -456,6 +455,7 @@ SENSOR_CONDITION_PATTERNS = [
     for pattern in (
         r"\berr=1\b",
         r"\b(?:errUR|errOR|errWD|errAmp|ur|or|wd|ah|al|zc)=1\b",
+        r"\b(?:error|overrun|bounds_fail)=(?:0x0*[1-9a-f][0-9a-f]*|[1-9][0-9]*)\b",
     )
 ]
 NO_SENSOR_CONDITION_COMMANDS = (
@@ -586,7 +586,7 @@ def configuration_matrix_commands(channel_count: int) -> List[str]:
         commands.append(f"error {route} 1")
     for channel in range(channel_count):
         commands.extend((
-            f"rcount {channel} 256", f"rcount {channel} 65535",
+            f"rcount {channel} 5", f"rcount {channel} 65535",
             f"settle {channel} 0", f"settle {channel} 65535",
             f"findiv {channel} 1", f"findiv {channel} 15",
             f"frefdiv {channel} 1", f"frefdiv {channel} 1023",
@@ -618,29 +618,36 @@ def classify_command(
     if not output.strip():
         return "FAIL", "no response captured"
 
+    parsed_output = strip_ansi(output)
+
     for pattern in failure_patterns or []:
         if pattern.search(output):
             return "FAIL", f"matched configured failure token: {pattern.pattern}"
 
-    for pattern in expected_failure_patterns or []:
-        if pattern.search(output):
-            return "PASS", f"matched configured expected-failure token: {pattern.pattern}"
+    expected_failure_match = next(
+        (
+            pattern
+            for pattern in expected_failure_patterns or []
+            if pattern.search(parsed_output)
+        ),
+        None,
+    )
 
     invalid_pattern = INVALID_INPUT_EVIDENCE_PATTERNS.get(normalized_command(command))
     if invalid_pattern is not None:
-        if invalid_pattern.search(output) is None:
+        if invalid_pattern.search(parsed_output) is None:
             return "FAIL", "invalid input did not emit its exact usage contract"
-        if (SCHEDULED_OPERATION_PATTERN.search(output) is not None or
-                TERMINAL_RESULT_PATTERN.search(output) is not None):
+        if (SCHEDULED_OPERATION_PATTERN.search(parsed_output) is not None or
+                TERMINAL_RESULT_PATTERN.search(parsed_output) is not None):
             return "FAIL", "invalid input unexpectedly admitted asynchronous work"
         return "PASS", "invalid input was rejected with its exact usage contract"
 
     name = command_name(command)
     canonical = canonical_command_name(command)
-    failure_scan_output = output
+    failure_scan_output = parsed_output
     if command_is_async(command):
-        scheduled_matches = list(SCHEDULED_OPERATION_PATTERN.finditer(output))
-        terminal_matches = list(TERMINAL_RESULT_PATTERN.finditer(output))
+        scheduled_matches = list(SCHEDULED_OPERATION_PATTERN.finditer(parsed_output))
+        terminal_matches = list(TERMINAL_RESULT_PATTERN.finditer(parsed_output))
         if len(scheduled_matches) != 1 or len(terminal_matches) != 1:
             return "FAIL", "missing scheduled or terminal CLI session envelope"
         scheduled = scheduled_matches[0]
@@ -650,17 +657,29 @@ def classify_command(
         if scheduled.group(2) != terminal.group(2):
             return "FAIL", "scheduled and terminal session IDs differ"
         if terminal.group(3).upper() != "SUCCESS" or int(terminal.group(4)) != 0:
+            if expected_failure_match is not None:
+                return (
+                    "PASS",
+                    "correlated failed operation matched configured "
+                    f"expected-failure token: {expected_failure_match.pattern}",
+                )
             return "FAIL", "terminal CLI session did not report SUCCESS/code=0"
     elif canonical in IMMEDIATE_RESULT_COMMANDS:
         result_envelopes = re.findall(
             rf"\bCLI result:\s*command={re.escape(canonical)}\b[^\r\n]*"
             r"\boutcome=([A-Z_]+)\b[^\r\n]*\bcode=(\d+)\b",
-            output,
+            parsed_output,
             re.IGNORECASE,
         )
         if len(result_envelopes) != 1:
             return "FAIL", "missing stable CLI result envelope"
         if result_envelopes[0][0].upper() != "SUCCESS" or int(result_envelopes[0][1]) != 0:
+            if expected_failure_match is not None:
+                return (
+                    "PASS",
+                    "failed immediate operation matched configured "
+                    f"expected-failure token: {expected_failure_match.pattern}",
+                )
             return "FAIL", "CLI result did not report SUCCESS/code=0"
     for pattern in FAIL_PATTERNS:
         if pattern.search(failure_scan_output):
@@ -668,7 +687,7 @@ def classify_command(
 
     sensor_condition_observed = (
         canonical in NO_SENSOR_CONDITION_COMMANDS and
-        any(pattern.search(output) for pattern in SENSOR_CONDITION_PATTERNS)
+        any(pattern.search(parsed_output) for pattern in SENSOR_CONDITION_PATTERNS)
     )
     sensor_condition_expected = (
         fixture == "no-sensor" and canonical in NO_SENSOR_CONDITION_COMMANDS
@@ -683,7 +702,7 @@ def classify_command(
     required_evidence = (*required_evidence, *branch_evidence)
     if required_evidence:
         missing = [pattern.pattern for pattern in required_evidence
-                   if pattern.search(output) is None]
+                   if pattern.search(parsed_output) is None]
         if missing:
             return "FAIL", "missing command-specific evidence: " + ", ".join(missing)
         if sensor_condition_expected and sensor_condition_observed:
@@ -691,11 +710,11 @@ def classify_command(
         return "PASS", "all command-specific evidence parsed"
 
     for pattern in OK_PATTERNS:
-        if pattern.search(output):
+        if pattern.search(parsed_output):
             return "PASS", "status output indicates OK"
 
     for pattern in expected_patterns or []:
-        if pattern.search(output):
+        if pattern.search(parsed_output):
             return "PASS", f"matched configured expected token: {pattern.pattern}"
 
     return "UNKNOWN", "no explicit failure found, but no OK status was parsed"
@@ -843,6 +862,7 @@ def base_acceptance_failure(
     required_driver_state = (
         r"\bbound=1\b",
         r"\bapplied=APPLIED_ACTIVE\b",
+        r"\bprofile_dirty=0\b",
         r"\bactive=0\b",
         r"\bresult_available=0\b",
     )
@@ -1278,6 +1298,30 @@ def run_serial_commands(
                     f"({float(result['elapsed_s']):.3f}s)"
                 )
             results.append(result)
+            if result["status"] != "PASS":
+                reason = (
+                    f"not sent after base command {index} ({command}) "
+                    f"was {result['status']}"
+                )
+                capture(
+                    f"### runner fail-fast after command {index}: {command}\n"
+                    f"{reason}\n"
+                )
+                for remaining_index, remaining_command in enumerate(
+                    commands[index:], start=index + 1
+                ):
+                    results.append(
+                        {
+                            "index": remaining_index,
+                            "command": remaining_command,
+                            "status": "NOT_RUN",
+                            "reason": reason,
+                            "timed_out": False,
+                            "elapsed_s": 0.0,
+                            "output": "",
+                        }
+                    )
+                break
 
         soak_requested = (
             args.include_long_soak and args.soak_duration_s > 0.0 and
@@ -2074,8 +2118,10 @@ def parser_self_test() -> Tuple[bool, List[str]]:
         failures.append("configured failure token did not fail")
 
     status, _ = classify_command(
-        "invalid-channel",
-        "status: INVALID_PARAM code=5\n> ",
+        "init",
+        "CLI scheduled: command=init session=0\n"
+        "status: INVALID_PARAM code=5\n"
+        "CLI result: command=init session=0 outcome=FAILED code=5\n> ",
         False,
         expected_failure_patterns=compile_token_patterns(["INVALID_PARAM"]),
     )

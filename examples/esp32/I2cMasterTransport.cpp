@@ -19,12 +19,11 @@ LDC1614::Status mapEspErr(esp_err_t error, const char* context) {
     return LDC1614::Status::Ok();
   }
   if (error == ESP_ERR_TIMEOUT) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT, "I2C timeout",
+    return LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_INVALID_RESPONSE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR,
-                                  "I2C invalid response or NACK",
+    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_INVALID_ARG) {
@@ -32,7 +31,7 @@ LDC1614::Status mapEspErr(esp_err_t error, const char* context) {
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_INVALID_STATE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, "I2C invalid state",
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_NO_MEM || error == ESP_ERR_NOT_FOUND) {
@@ -71,18 +70,20 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                   "I2C bus configuration is invalid");
   }
+  context.busConfig = config;
+  context.hasBusConfig = true;
 
-  i2c_master_bus_config_t busConfig{};
-  busConfig.clk_source = I2C_CLK_SRC_DEFAULT;
-  busConfig.i2c_port = config.port;
-  busConfig.sda_io_num = config.sda;
-  busConfig.scl_io_num = config.scl;
-  busConfig.glitch_ignore_cnt = 7;
-  busConfig.flags.enable_internal_pullup = config.enableInternalPullups;
+  i2c_master_bus_config_t nativeBusConfig{};
+  nativeBusConfig.clk_source = I2C_CLK_SRC_DEFAULT;
+  nativeBusConfig.i2c_port = config.port;
+  nativeBusConfig.sda_io_num = config.sda;
+  nativeBusConfig.scl_io_num = config.scl;
+  nativeBusConfig.glitch_ignore_cnt = 7;
+  nativeBusConfig.flags.enable_internal_pullup = config.enableInternalPullups;
+  i2c_master_bus_handle_t bus = nullptr;
   LDC1614::Status status = mapEspErr(
-      i2c_new_master_bus(&busConfig, &context.bus), "I2C bus init failed");
+      i2c_new_master_bus(&nativeBusConfig, &bus), "I2C bus init failed");
   if (!status.ok()) {
-    context.bus = nullptr;
     return status;
   }
 
@@ -90,22 +91,72 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
   deviceConfig.dev_addr_length = I2C_ADDR_BIT_LEN_7;
   deviceConfig.device_address = context.address;
   deviceConfig.scl_speed_hz = config.frequencyHz;
+  i2c_master_dev_handle_t device = nullptr;
   status = mapEspErr(
-      i2c_master_bus_add_device(context.bus, &deviceConfig, &context.device),
+      i2c_master_bus_add_device(bus, &deviceConfig, &device),
       "I2C device add failed");
   if (!status.ok()) {
-    context.device = nullptr;
+    const esp_err_t rollback = i2c_del_master_bus(bus);
+    if (rollback != ESP_OK) {
+      context.bus = bus;
+      return mapEspErr(rollback, "I2C bus rollback failed");
+    }
+    return status;
   }
-  return status;
+
+  context.bus = bus;
+  context.device = device;
+  return LDC1614::Status::Ok();
 }
 
-LDC1614::Status reset(Context& context) {
-  if (context.bus == nullptr || context.device == nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
-                                  "I2C context is not open");
+LDC1614::Status close(Context& context) {
+  if (context.device != nullptr) {
+    LDC1614::Status status = mapEspErr(
+        i2c_master_bus_rm_device(context.device),
+        "I2C device removal failed");
+    if (!status.ok()) {
+      return status;
+    }
+    context.device = nullptr;
   }
-  return mapEspErr(i2c_master_bus_reset(context.bus),
-                   "I2C bus reset failed");
+  if (context.bus != nullptr) {
+    LDC1614::Status status = mapEspErr(
+        i2c_del_master_bus(context.bus), "I2C bus deletion failed");
+    if (!status.ok()) {
+      return status;
+    }
+    context.bus = nullptr;
+  }
+  return LDC1614::Status::Ok();
+}
+
+LDC1614::Status reopen(Context& context) {
+  if (context.bus != nullptr || context.device != nullptr) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                  "I2C context is still open");
+  }
+  if (!context.hasBusConfig) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "I2C bus configuration unavailable");
+  }
+  const BusConfig config = context.busConfig;
+  return open(context, config);
+}
+
+LDC1614::Status recover(Context& context) {
+  if (!context.hasBusConfig) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                  "I2C bus configuration unavailable");
+  }
+  if (context.device != nullptr && context.bus == nullptr) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+                                  "I2C context handles are inconsistent");
+  }
+  LDC1614::Status status = close(context);
+  if (!status.ok()) {
+    return status;
+  }
+  return reopen(context);
 }
 
 LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,

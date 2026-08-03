@@ -186,7 +186,7 @@ NO_SENSOR_COMMANDS = (
     "help", "color off", "help", "color on", "verbose 1", "verbose 0",
     "version",
     "scan", "busrecover confirm", "init",
-    "apply", "resetreapply confirm",
+    "apply", "resetreapply confirm", "wake",
     "probe", "reg 0x7E", "reg 0x7F",
     "status", "status_raw", "ready",
     "cfg", "job", "result", "state",
@@ -201,7 +201,7 @@ NO_SENSOR_COMMANDS = (
     "cancel", "wake", "drv",
 )
 SENSOR_COMMANDS = (
-    "help", "version", "scan", "busrecover confirm", "init", "probe", "drv",
+    "help", "version", "scan", "busrecover confirm", "init", "wake", "probe", "drv",
     "cfg", "job", "result", "status", "ready", "sleep", "wake",
     "timing 0x01", "verify", "selftest",
 )
@@ -240,11 +240,16 @@ SAFE_COMPOUND_BRANCHES = {
 # cannot silently weaken the HIL lifecycle coverage.
 NO_SENSOR_REQUIRED_SUBSEQUENCES = (
     ("scan", "busrecover confirm", "init"),
+    ("resetreapply confirm", "wake", "probe"),
     ("wreg 0x1A 0x3481 confirm", "init"),
     ("invalidate confirm", "init"),
     ("end", "bind", "init"),
     ("wake", "selftest", "read 0x01"),
     ("cancel", "wake", "drv"),
+)
+SENSOR_REQUIRED_SUBSEQUENCES = (
+    ("busrecover confirm", "init", "wake", "probe"),
+    ("sleep", "wake"),
 )
 
 _CPP_SPEC_PATTERN = re.compile(
@@ -415,6 +420,16 @@ def validate_contract() -> Tuple[str, ...]:
         ):
             errors.append(
                 "no-sensor HIL group missing required ordered sequence: "
+                + " -> ".join(required)
+            )
+    for required in SENSOR_REQUIRED_SUBSEQUENCES:
+        width = len(required)
+        if not any(
+            SENSOR_COMMANDS[index:index + width] == required
+            for index in range(len(SENSOR_COMMANDS) - width + 1)
+        ):
+            errors.append(
+                "sensor HIL group missing required ordered sequence: "
                 + " -> ".join(required)
             )
     if not NO_SENSOR_COMMANDS or NO_SENSOR_COMMANDS[-1] != "drv":

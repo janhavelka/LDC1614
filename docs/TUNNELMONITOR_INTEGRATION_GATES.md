@@ -7,9 +7,11 @@ repeated here.
 
 Last cross-repository review: 2026-08-03.
 
-- LDC1614 checkout: unreleased `3.1.0` candidate based on
-  `1263ab182c49baa90e0825a8dc0d1af59d5c9042` on `main`. Replace this line
-  with the final reviewed release commit before integration.
+- LDC1614 checkout: unreleased `3.1.0` candidate. Clean COM8 firmware
+  `2358c30eaa37ea560dcc8a858b08ba13ea6baa8e` supplied the current cold/reset/
+  NACK evidence; the branch also contains later runner and diagnostic-owner
+  recovery hardening. Replace this line with the final reviewed release commit
+  before integration.
 - TunnelMonitor-node checkout:
   `f05cd296d59c62ad4dfe293ca63f9b3798053ce8` on
   `prompt-45-platformization`, clean and synchronized with its upstream.
@@ -17,7 +19,10 @@ Last cross-repository review: 2026-08-03.
 At that review, TunnelMonitor had no LDC device kind, health identifier, I2C
 operation, build-profile row, dependency, reading schema, settings,
 calibration, or concrete module. Do not add those pieces until the product
-contract below is approved.
+contract below is approved. Its existing native suite passed 1,200/1,200 tests
+and its ESP32-S3 production environment built at the reviewed checkout; those
+software checks prove only that the proposed library work did not disturb the
+current consumer, not that an absent LDC integration works.
 
 ## Product contract gate
 
@@ -101,6 +106,11 @@ board:
 3. execute explicit owner controller recovery without rebooting the MCU;
 4. invalidate LDC applied state and complete full initialization/replay; and
 5. prove another shared-bus device remains responsive throughout recovery.
+
+The library diagnostic can reconstruct its sole owned bus/device handle after
+explicit `busrecover`. TunnelMonitor must not copy that teardown literally:
+its shared owner must serialize recovery and recreate every handle registered
+on that bus before admitting any device operation.
 
 For the selected LDC board and sensors, also retain:
 

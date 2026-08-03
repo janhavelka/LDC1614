@@ -34,6 +34,14 @@ the reset write and the next identity read. A NACK or backend failure terminates
 the job, preserves reset/write provenance, and leaves applied state dirty; the
 application then owns any bus/device recovery and complete reinitialization.
 
+The maintained ESP32 diagnostic demonstrates one explicit recovery policy for
+its sole owned device handle: remove the device, delete and recreate the bus,
+then recreate the handle. This is not library behavior and is not a general
+shared-bus recipe. A production owner must serialize the operation, rebuild
+every registered device handle, invalidate each affected driver's applied
+state, and surface any failed recovery phase without a hidden transaction
+retry.
+
 ## Request lifecycle
 
 1. Build and `bind()` one explicit desired profile. Binding performs zero I2C.

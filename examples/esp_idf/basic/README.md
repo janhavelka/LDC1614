@@ -47,8 +47,10 @@ retained as diagnostics and never complete unrelated work.
 The application owns bus handles, serialization, pins, per-transfer timeout,
 scheduling, recovery, and device-presence policy. The shared example transport
 in `examples/esp32/I2cMasterTransport.*` owns native combined transfers, error
-mapping, bounded probe operations, and controller reset. Transport counters are
-diagnostic facts, not applied-configuration authority.
+mapping, bounded probe operations, transactional open/rollback, and explicit
+bus/device reconstruction. The diagnostic owns only one registered
+device handle; a production shared-bus owner must coordinate every handle.
+Transport counters are diagnostic facts, not applied-configuration authority.
 
 ## Profile and safety model
 
@@ -66,8 +68,9 @@ gates. Explicit semantic STATUS/readiness/acquisition commands instead retain
 their destructive-read evidence without a confirmation prompt. `scan` covers
 usable addresses `0x08..0x77`, treats address NACK as a normal absence, and
 stops on timeout/bus failure. After `busrecover confirm`, applied state is
-invalid and a complete `init` is required. The public reset call is not a
-guarantee that the open ESP-IDF post-NACK invalid-state failure was repaired.
+invalid and a complete `init` is required. Reconstructing the diagnostic's bus
+is containment, not a guarantee that the open ESP-IDF post-NACK invalid-state
+failure was repaired.
 Optional INTB and SD commands report `SKIP` when callbacks are not configured.
 LDC1612 profiles reject channels 2 and 3 throughout settings, register helpers,
 and sessions.

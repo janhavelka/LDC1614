@@ -74,8 +74,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   post-NACK testing.
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
-  controller reset through `i2c_master_bus_reset()`. The redundant Wire adapter
-  and unused host framework stubs were removed.
+  explicit recovery. Recovery removes the owned device, deletes/recreates the
+  owned bus, and recreates the device handle; initial
+  open now rolls back the bus if device registration fails. The redundant Wire
+  adapter and unused host framework stubs were removed. This contains recovery
+  policy in the diagnostic owner and is not a claim that the upstream
+  post-NACK state bug is fixed.
 
 ### Fixed
 
@@ -134,6 +138,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   valid deadline immediately after `uint64_t` rollover is not timed out early.
 - The HIL runner rejects non-finite timing arguments and applies one absolute
   command timeout across both scheduled and terminal async responses.
+- The HIL runner strips ANSI only for parsing while retaining raw evidence,
+  distinguishes expected no-sensor quality counters from transport failures,
+  activates both fixture profiles after initialization/reset replay, validates
+  the true RCOUNT boundaries, requires a clean final staged profile, and stops
+  at the first unexpected base-command failure. Every unsent command is
+  retained as explicit `NOT_RUN` instead of exercising a poisoned backend.
 
 ## [3.0.0] - 2026-07-22
 

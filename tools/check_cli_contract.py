@@ -176,8 +176,11 @@ def main() -> int:
         fail("Arduino CLI must expose explicit owner-controlled bus recovery")
     if "i2c_master_transmit_receive" not in transport_text or "clampTimeoutMs(timeoutMs)" not in transport_text:
         fail("combined write-read must use one bounded new-master transaction")
-    if "i2c_master_bus_reset" not in transport_text:
-        fail("owner recovery must use the driver's explicit bus reset")
+    for token in (
+        "i2c_master_bus_rm_device", "i2c_del_master_bus", "reopen(context)",
+    ):
+        if token not in transport_text:
+            fail("owner recovery must rebuild the owned bus/device lifecycle")
 
     for label, source in (("version generator", version_text), ("IDF build", idf_cmake_text)):
         if "--untracked-files=all" not in source or "--untracked-files=no" in source:

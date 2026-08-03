@@ -51,6 +51,14 @@ pioarduino `55.03.311` / ESP-IDF 5.5.5 baseline exhibited NACK-related combined
 read failures. The upstream issue remains open, so the platform update must not
 be presented as a recovery fix.
 
+After a physical power cycle, clean `2358c30` firmware passed a no-scan cold
+gate, 100 reset/reapply plus identity cycles (400/400 commands), one controlled
+NACK/scan followed by explicit recovery/replay (8/8), and 100 post-NACK identity
+cycles (300/300). A later comprehensive sequence nevertheless reproduced
+detail 259 on the first identity read after a successful software-reset write.
+These positive subsets narrow the trigger but do not close the intermittent
+backend regression or qualify recovery.
+
 None of the retained records is positive release evidence. Earlier compact v2
 artifacts contained no raw transcript and did not validate operation IDs,
 deadlines, budgets, cancellation, applied state, or atomic acquisition, so they
@@ -76,10 +84,12 @@ Before release or target-deployment claims, capture evidence for:
 - a bounded soak at the production channel mask, cadence, and clock profile.
 
 A clean pioarduino `55.03.311` / ESP-IDF 5.5.5 candidate passed preflight, a
-full no-sensor matrix, and 25 repeated matrices (1,025 command results), but its
-one-hour invocation failed the base `resetreapply` command before a valid soak
-could begin. A fresh cold-start reset/NACK gate and a completed passing
-one-hour soak are still required to close the COM8 transport regression.
+full no-sensor matrix, 25 repeated matrices (1,025 command results), the cold
+gates above, and post-NACK identity stress. Its one-hour invocation and the
+later comprehensive run both failed base `resetreapply` before a valid soak
+could begin. A proven owner recovery/replay after the observed failure and a
+completed passing one-hour soak are still required to close the COM8 transport
+regression.
 Product-specific consumers may impose additional gates; TunnelMonitor's
 remaining requirements are listed
 in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).
