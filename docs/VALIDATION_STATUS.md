@@ -62,20 +62,28 @@ detail 259 on the first identity read after a successful software-reset write.
 These positive subsets narrow the trigger but do not close the intermittent
 backend regression or qualify recovery.
 
-A 2026-08-04 post-power-cycle diagnostic investigation further narrowed, but
-did not reproduce, the natural failure: 1,000 immediate software-reset plus
-combined-identity cycles passed at 100 kHz and another 1,000 passed at 400 kHz;
-a controlled absent-address transaction returned raw 259 and the immediately
-following LDC combined read still returned `0x5449`; 1,000 explicit bus clears
-and 1,000 address probes each retained valid following combined reads. After
-releasing the ESP-IDF controller, direct open-drain pin-level repeated-start
-reads returned `0x5449` with every ACK. A deliberately forbidden SDA pulse was
-NACKed by the LDC but did not poison the next correct transaction. These were
-dirty discriminator builds, not release acceptance. They disprove a required
-post-reset delay, a deterministic 400 kHz limit, and automatic post-NACK
-controller poisoning on the tested clean state. Without an SDA/SCL capture at
-the first natural recurrence, the originating physical edge or NACK phase
-remains unknown.
+A 2026-08-04 clean `4efeb5e` run failed its first automatic combined identity
+read before any discovery, address-only probe, line clear, reset, or recovery.
+Controller/device-handle reconstruction succeeded but the next complete
+initialization failed in the same phase. A temporary direct open-drain reader
+then observed idle-high lines, ACK for the `0x2A` write address, ACK for pointer
+`0x7E`, and NACK for the repeated-start `0x2A` read address. After a confirmed
+ten-second removal of both MCU and LDC power, corrected latch-preloaded
+instrumentation received every ACK and returned MANUFACTURER_ID `0x5449` both
+before and after normal ESP-IDF controller use. These dirty discriminator runs
+are negative/diagnostic evidence, not release acceptance.
+
+This proves a persistent LDC/physical-domain read-transition state that a
+software controller rebuild does not clear and a true rail cycle does clear.
+It rules out missing coils, a statically absent or shutdown target, held lines,
+wrong static address, and stale ESP-IDF handles as the live failure. It does
+not prove the initiating edge. TI explicitly warns that early-terminated I2C
+traffic or an extraneous SDA pulse can corrupt the current or following
+transaction; marginal VDD, SD, ADDR, pull-ups, or repeated-start integrity
+remain physical alternatives until SDA/SCL and the control rails are captured
+at the first recurrence. The retained TI PDF is byte-identical to the current
+vendor download (Rev. A, March 2018; SHA-256
+`B3BAB7A84C9A8423448113F24DE3B343C06CE7E7E4CBC6039B262B22130D8652`).
 
 The current clean candidate has positive no-sensor diagnostic and steady-state
 subsets, but none is a release certificate or sensor-equipped product evidence.

@@ -145,3 +145,47 @@ after the observed failure and a production sensor-cadence soak whose complete
 gate includes that recovery behavior.
 Sensor conversion, INTB, SD, `0x2B`, LDC1612, coil behavior, and ESP32-S3
 product-owner behavior remain outside this archive.
+
+## 2026-08-04 failure discriminator
+
+`20260804/` retains the corrected clean diagnostic failure and the temporary
+pin-level discriminator runs used to localize it:
+
+- `comprehensive-no-sensor-4efeb5e.*`: clean `4efeb5e` firmware failed its
+  first automatic MANUFACTURER_ID combined read with generic transaction code
+  14 and raw ESP-IDF detail 259. No discovery, address-only probe, line clear,
+  software reset, or owner recovery preceded that first transfer.
+- `controller-recovery-4efeb5e.*`: controller/device-handle close and reopen
+  succeeded, but the following complete initialization again failed on its
+  first MANUFACTURER_ID read. Controller-resource reconstruction therefore did
+  not recover the live condition.
+- `transient-direct-identity-discriminator.*` and
+  `transient-direct-identity-5x.*`: after releasing the ESP-IDF controller, a
+  temporary roughly 100 kHz open-drain implementation repeatedly observed
+  idle-high lines, ACK for `0x2A` write, ACK for pointer `0x7E`, then NACK for
+  `0x2A` read after the repeated START. These dirty-build artifacts localize
+  the persistent failed state but have no clean firmware identity and are not
+  release acceptance evidence. The repetitions are also not independent
+  recovery trials because TI warns that terminating an unexpected NACK path
+  can affect a following transaction.
+- `cold-start-direct-discriminator.*`: after a confirmed ten-second removal of
+  power from both the ESP32-S2 and LDC rail, corrected instrumentation
+  preloaded both GPIO output latches high, refused a non-idle bus, and retained
+  its first pre-controller result. That first read and a later post-controller
+  read both received every ACK and returned MANUFACTURER_ID `0x5449`. The
+  command passed; the overall artifact intentionally remains FAIL because the
+  one-off dirty discriminator did not report clean release metadata.
+- `frequency-discriminator-4efeb5e.*` and
+  `usb-control-line-check-4efeb5e.*` are incomplete serial-control experiments.
+  They establish no I2C conclusion and are retained only so failed work is not
+  silently discarded.
+
+Together these runs prove that the observed live failure was not a missing
+coil, held bus, absent `0x2A` target, or stale ESP-IDF handle: the target could
+receive its write address and pointer, but refused the transition to the read
+address, and controller recreation did not change that state. A true target
+rail cycle cleared it. The originating electrical edge remains unobserved, so
+the evidence does not distinguish a prior unsupported/early-terminated
+transaction from a marginal VDD/SD/ADDR transition or signal-integrity fault.
+Assigning that initiating cause requires an SDA/SCL plus rail/control-pin
+capture at the first recurrence.

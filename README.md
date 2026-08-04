@@ -257,6 +257,14 @@ bus, toggle application GPIOs, apply backoff, or declare a device offline.
 Matching identity after return is not treated as proof that configuration
 survived; initialization replays the complete desired profile.
 
+Do not infer a stuck shared bus from ESP-IDF 5.5.x raw detail 259 or retry only
+the failed register. If controller reconstruction and idle-high lines do not
+restore complete identity reads, leave the LDC unavailable. A product with
+owner-controlled SD or isolated switched power may perform one bounded
+device-local reset, wait at least 2 ms after SD is released, and then run full
+initialization. Without that hardware, a true LDC rail cycle is the safe
+recovery boundary.
+
 A configuration write that could have reached hardware records full
 `ConfigFault` provenance: original `Status`, job and phase, register, channel,
 and confirmed-partial or indeterminate effect flags. `updateDesiredConfig()` is

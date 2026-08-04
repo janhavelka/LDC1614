@@ -87,28 +87,35 @@ module called only by TunnelMonitor's `I2cTask`. The module must:
 - use `cancelJob()` only for explicit withdrawal, shutdown, or replacement;
   deadline expiry must be observed by `poll()`;
 - call `invalidateAppliedState()` on owner bus invalidation and require a
-  complete initialize/replay before acquisition resumes; and
-- after a serialized shared-bus reconstruction, recreate any owner-retained
-  device handles and require each affected module's bounded device-specific
-  admission before ordinary acquisition or configuration resumes; and
+  complete initialize/replay before acquisition resumes;
+- after TunnelMonitor's serialized failed-read controller reconstruction,
+  recreate any owner-retained device handles and require the LDC's bounded
+  device-specific admission before its ordinary acquisition or configuration
+  resumes; controller-only reconstruction does not by itself invalidate peer
+  hardware state;
+- after explicit physical/shared-bus recovery, invalidate every affected
+  binding and require each module's bounded device-specific admission before
+  ordinary operation resumes; and
 - keep queueing, retry, health, recovery, settings, calibration, and public DTO
   policy in TunnelMonitor.
 
 If the owner cannot distinguish address-NACK from data-NACK, map a failed write
 conservatively to data-NACK or generic I2C failure. After an indeterminate
-write, terminate the job and invalidate applied state. A raw `259` may justify
-TunnelMonitor's existing controller-instance reconstruction fence, but it does
-not by itself justify line pulsing. The failed command terminates; a later
-application retry uses both a new TunnelMonitor request/token and a new LDC
-operation ID, then runs whole initialization. Never retry only the failed
-register or repeat the reset write. The LDC module must not infer reconstruction
-success from raw `259` or request a second recovery: current per-request bus
-observations do not expose the backend's reconstruction diagnostics, so owner
-policy owns that decision. Escalate to serialized physical bus recovery only
-on independent held-line, typed timeout/bus-stuck, or cross-peer failure
-evidence. Repeated failure of the LDC alone is device absence/offline/backoff
-evidence. If approved LDC-specific SD or power control is wired, use it as a
-bounded device reset before full replay rather than disturbing unrelated peers.
+write, terminate the job and invalidate the LDC's applied state. TunnelMonitor's
+existing controller-instance reconstruction fence runs only after a failed
+transfer that attempted a read; it does not run after a write-only failure.
+Raw `259` alone must not request a second reconstruction or line pulsing. The
+failed command terminates; a later application retry uses both a new
+TunnelMonitor request/token and a new LDC operation ID, then runs whole
+initialization. Never retry only the failed register or repeat the reset write.
+The LDC module must not infer reconstruction success from raw `259`: current
+per-request bus observations do not expose the backend's reconstruction
+diagnostics, so owner policy owns that decision. Escalate to serialized
+physical bus recovery only on independent held-line, typed timeout/bus-stuck,
+or cross-peer failure evidence. Repeated failure of the LDC alone is device
+absence/offline/backoff evidence. If approved LDC-specific SD or power control
+is wired, use it as a bounded device reset before full replay rather than
+disturbing unrelated peers.
 
 ## Target HIL gate
 

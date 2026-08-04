@@ -57,6 +57,11 @@ or switched power is part of the product design, the owner may perform that
 explicit device reset, wait the data-sheet-specified 2 ms after SD deassertion,
 and then run complete initialization. Never replay only the failed register.
 
+A failed write is not part of a read-failure controller fence. Preserve its
+exact status and indeterminate-write evidence, mark applied state dirty, and
+schedule complete initialization later. Raw backend detail alone is not
+authority for a second controller reconstruction or a physical line clear.
+
 ## Request lifecycle
 
 1. Build and `bind()` one explicit desired profile. Binding performs zero I2C.

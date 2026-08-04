@@ -1,0 +1,7 @@
+### startup
+
+### command 1: transient_direct
+CLI result: command=end outcome=SUCCESS code=0
+[36m[I][0m TRANSIENT startup_direct_identity setup_code=0 bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=1 manufacturer_id=0x5449
+[36m[I][0m TRANSIENT direct_identity setup_code=0 bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=1 manufacturer_id=0x5449 close_code=0 reopen_code=0 bind_code=0
+> 

@@ -105,6 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   result or reports an address-only ACK as device recovery. It reconstructs
   controller resources, invalidates applied state, and requires complete
   initialization/replay to qualify the LDC.
+- Retained COM8 phase evidence now distinguishes raw ESP-IDF detail 259 from
+  the observed wire-level failure: the LDC acknowledged its write address and
+  register pointer but rejected the repeated-start read address until a true
+  target rail cycle. Recovery guidance therefore terminates the operation,
+  avoids register retry/line clearing, and prefers bounded device-local SD or
+  power recovery followed by full identity and replay.
 - `selftest` is now a real bounded diagnostic rather than an alias for two
   identity reads; it reports explicit pass, failure, and fixture-dependent skip
   counts.

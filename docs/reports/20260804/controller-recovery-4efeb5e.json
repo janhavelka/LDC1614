@@ -1,0 +1,211 @@
+{
+  "base_command_count": 6,
+  "base_matrix_scope": "custom_reduced",
+  "baud": 115200,
+  "board": "ESP32-S2 COM8; LDC1614 at 0x2A; no coils/sensors",
+  "command_results": [
+    {
+      "command": "busrecover confirm",
+      "elapsed_s": 0.015000000013969839,
+      "index": 1,
+      "output": "  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: OK\nCLI result: command=busrecover outcome=SUCCESS code=0\nRun 'init' before trusted device use.\n> ",
+      "reason": "status output indicates OK",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "state",
+      "elapsed_s": 0.015999999945051968,
+      "index": 2,
+      "output": "bound=1 applied=UNKNOWN config_revision=1 job_active=0 result_available=0 session=NONE staged_dirty=0\nstate bound=1 applied=UNKNOWN profile_dirty=0 session_kind=NONE active=0 pending_result=0\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.015000000013969839,
+      "index": 3,
+      "output": "CLI scheduled: command=init session=0 operation=2 deadline_ms=113652 mask=0x00\nOperation result: operation=2 kind=INITIALIZE outcome=FAILED effects=0x00 effects_names=NONE revision=1 completed_ms=111652 phase=VERIFY_MANUFACTURER reg=0x7E channel=255 transfers=1 maximum=26 code=14 detail=259 msg=I2C write-read failed\n  Status: \u001b[31mI2C_ERROR\u001b[0m (code=14, detail=259)\n  Message: I2C write-read failed\nconfig_fault valid=1 job=INITIALIZE phase=VERIFY_MANUFACTURER register=0x7E channel=255 effects=0x00 effects_names=NONE\n  Status: \u001b[31mI2C_ERROR\u001b[0m (code=14, detail=259)\n  Message: I2C write-read failed\nCLI result: command=init session=0 outcome=FAILED code=14\n> ",
+      "reason": "terminal CLI session did not report SUCCESS/code=0",
+      "status": "FAIL",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 4,
+      "output": "",
+      "reason": "not sent after base command 3 (init) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "probe",
+      "elapsed_s": 0.0,
+      "index": 5,
+      "output": "",
+      "reason": "not sent after base command 3 (init) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "diag",
+      "elapsed_s": 0.0,
+      "index": 6,
+      "output": "",
+      "reason": "not sent after base command 3 (init) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "expect-address",
+      "index": 7,
+      "reason": "configured I2C address was not reported by target firmware",
+      "status": "FAIL"
+    },
+    {
+      "command": "expect-channel-count",
+      "index": 8,
+      "reason": "configured variant channel count was not reported by target firmware",
+      "status": "FAIL"
+    },
+    {
+      "command": "expect-clean-firmware",
+      "index": 9,
+      "reason": "target firmware did not report a clean source revision",
+      "status": "FAIL"
+    },
+    {
+      "command": "expect-runtime-version",
+      "index": 10,
+      "reason": "target firmware did not report runtime stack provenance",
+      "status": "FAIL"
+    }
+  ],
+  "command_timeout_s": 10.0,
+  "commands": [
+    "busrecover confirm",
+    "state",
+    "init",
+    "wake",
+    "probe",
+    "diag"
+  ],
+  "default_matrix_included": false,
+  "dry_run": false,
+  "evidence_type": "hardware_hil",
+  "expect_tokens": [],
+  "expected_address": "0x2A",
+  "expected_channel_count": 4,
+  "expected_failure_tokens": [],
+  "expected_firmware_commit": "4efeb5e",
+  "expected_idf_version": "5.5.5",
+  "expected_target": "esp32s2",
+  "failure_tokens": [],
+  "firmware_git_commit": "unknown",
+  "firmware_git_status": "unknown",
+  "firmware_version": "unknown",
+  "fixture": "no-sensor",
+  "hardware_attached": true,
+  "host_git_commit": "4efeb5e",
+  "host_git_status": "dirty",
+  "idle_gap_s": 0.35,
+  "library_version": "3.1.0",
+  "not_run_reason": null,
+  "notes": "",
+  "operator": "Codex",
+  "overall_status": "FAIL",
+  "port": "COM8",
+  "profile": "arduino",
+  "repeat_command_set": 1,
+  "sample_rate": {
+    "channel": 0,
+    "effective_hz": null,
+    "elapsed_s": 0.0,
+    "failure_count": null,
+    "observed_count": null,
+    "reason": "sample-rate benchmark was not requested",
+    "requested": false,
+    "requested_count": 0,
+    "status": "NOT_RUN"
+  },
+  "sample_rate_channel": 0,
+  "sample_rate_count": 0,
+  "scoped_expected_failures": [],
+  "serial_dtr": "on",
+  "serial_failure": null,
+  "serial_port_requested": true,
+  "serial_rts": "off",
+  "skipped_optional_tests": [
+    {
+      "name": "address_0x2B",
+      "reason": "NOT_RUN: requires a separately rebuilt and rewired 0x2B fixture"
+    },
+    {
+      "name": "variant_LDC1612",
+      "reason": "NOT_RUN: requires a separately rebuilt LDC1612 fixture with its complete two-channel profile"
+    },
+    {
+      "name": "sd_shutdown_wake",
+      "reason": "NOT_RUN: requires wired SD control and power-state observation"
+    },
+    {
+      "name": "intb_observation",
+      "reason": "NOT_RUN: requires wired INTB and independent pin observation"
+    },
+    {
+      "name": "drive_current_tuning",
+      "reason": "NOT_RUN: requires an approved coil and drive-current tuning fixture"
+    },
+    {
+      "name": "unplug_replug",
+      "reason": "NOT_RUN: requires operator-controlled unplug/replug fixture"
+    },
+    {
+      "name": "stuck_bus",
+      "reason": "NOT_RUN: requires operator-controlled stuck-bus fault fixture"
+    },
+    {
+      "name": "sensor_measurement_quality",
+      "reason": "NOT_RUN: requires a characterized resonant sensor fixture"
+    },
+    {
+      "name": "sample_rate_benchmark",
+      "reason": "NOT_RUN: requires DRDY and valid conversions from a sensor fixture"
+    },
+    {
+      "name": "cached_last_sample",
+      "reason": "NOT_RUN: last is SENSOR_REQUIRED; no-sensor acquisition is only fault-path evidence"
+    },
+    {
+      "name": "active_job_cancellation",
+      "reason": "NOT_RUN: the unattended matrix proves idle cancel plus scheduled/terminal job correlation; active cancellation requires an interactive timing fixture"
+    }
+  ],
+  "soak": {
+    "base_matrix_scope": "custom_reduced",
+    "default_matrix_included": false,
+    "elapsed_s": 0.0,
+    "reason": "long soak was not requested",
+    "status": "NOT_RUN"
+  },
+  "soak_cycle_delay_s": 1.0,
+  "soak_duration_s": 0.0,
+  "startup_delay_s": 1.0,
+  "startup_elapsed_s": 10.0,
+  "stress": {
+    "count": 10,
+    "effective_hz": null,
+    "elapsed_s": 0.0,
+    "failure_count": null,
+    "reason": "stress was not requested",
+    "requested": false,
+    "status": "NOT_RUN",
+    "success_count": null
+  },
+  "timestamp_utc": "2026-08-04T11:03:47+00:00",
+  "tool": "ldc1614_hil_runner",
+  "transcript": "### startup\n\n### command 1: busrecover confirm\n  Status: \u001b[32mOK\u001b[0m (code=0, detail=0)\n  Message: OK\nCLI result: command=busrecover outcome=SUCCESS code=0\nRun 'init' before trusted device use.\n> \n### command 2: state\nbound=1 applied=UNKNOWN config_revision=1 job_active=0 result_available=0 session=NONE staged_dirty=0\nstate bound=1 applied=UNKNOWN profile_dirty=0 session_kind=NONE active=0 pending_result=0\n> \n### command 3: init\nCLI scheduled: command=init session=0 operation=2 deadline_ms=113652 mask=0x00\nOperation result: operation=2 kind=INITIALIZE outcome=FAILED effects=0x00 effects_names=NONE revision=1 completed_ms=111652 phase=VERIFY_MANUFACTURER reg=0x7E channel=255 transfers=1 maximum=26 code=14 detail=259 msg=I2C write-read failed\n  Status: \u001b[31mI2C_ERROR\u001b[0m (code=14, detail=259)\n  Message: I2C write-read failed\nconfig_fault valid=1 job=INITIALIZE phase=VERIFY_MANUFACTURER register=0x7E channel=255 effects=0x00 effects_names=NONE\n  Status: \u001b[31mI2C_ERROR\u001b[0m (code=14, detail=259)\n  Message: I2C write-read failed\nCLI result: command=init session=0 outcome=FAILED code=14\n> \n### runner fail-fast after command 3: init\nnot sent after base command 3 (init) was FAIL\n",
+  "write_timeout_s": 1.0
+}

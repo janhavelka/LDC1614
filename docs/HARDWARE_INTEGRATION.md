@@ -29,9 +29,20 @@ read.
 | VDD | Supply 2.7 V to 3.6 V and verify tolerance, startup, ripple, and brownout behavior on the target. |
 | SCL/SDA | Size pull-ups for bus capacitance, rise time, speed, and voltage domain. The application owns pins, pull-ups, bus setup, locking, transfer timeout, and recovery. |
 | ADDR | Low selects `0x2A`; high selects `0x2B`. Do not let it float. |
-| SD | Low is normal operation and high is shutdown. The application owns this pin and must invalidate the driver's applied-state belief after device power loss or reset. |
+| SD | Low is normal operation and high is shutdown. Do not let it float. The application owns this pin and must invalidate the driver's applied-state belief after device power loss or reset. |
 | CLKIN | Tie CLKIN to ground for the internal oscillator. Measure and configure the actual external clock when external CLKIN is used. |
 | INTB | This is a configurable push-pull output. The application owns its GPIO setup and may inject a bus-silent asserted-state callback. Do not assume open-drain behavior or an internal driver pull-up. |
+
+If the product needs device-local recovery without disturbing other I2C
+devices, route SD to an owner-controlled GPIO and give it a defined hardware
+default. A pull-up plus open-drain MCU control is a useful pattern: the LDC
+remains shut down through MCU reset/boot and enters normal operation only after
+the owner has safely released the bus pins. After SD is released low, wait at
+least the data-sheet maximum 2 ms before the first combined identity read,
+then replay the complete profile. TI specifies no minimum SD-high reset pulse,
+so qualify that pulse width on the target rather than inventing a library
+constant. If switched LDC power is used instead, prevent SDA/SCL back-powering
+above the unpowered device's absolute maximum rating.
 
 ## Sensor and timing checklist
 

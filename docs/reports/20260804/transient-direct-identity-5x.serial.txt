@@ -1,0 +1,22 @@
+### startup
+
+### command 1: transient_direct
+CLI result: command=end outcome=SUCCESS code=0
+[36m[I][0m TRANSIENT direct_identity bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=0 manufacturer_id=0x0000 close_code=0 reopen_code=0 bind_code=0
+> 
+### command 2: transient_direct
+CLI result: command=end outcome=SUCCESS code=0
+[36m[I][0m TRANSIENT direct_identity bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=0 manufacturer_id=0x0000 close_code=0 reopen_code=0 bind_code=0
+> 
+### command 3: transient_direct
+CLI result: command=end outcome=SUCCESS code=0
+[36m[I][0m TRANSIENT direct_identity bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=0 manufacturer_id=0x0000 close_code=0 reopen_code=0 bind_code=0
+> 
+### command 4: transient_direct
+CLI result: command=end outcome=SUCCESS code=0
+[36m[I][0m TRANSIENT direct_identity bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=0 manufacturer_id=0x0000 close_code=0 reopen_code=0 bind_code=0
+> 
+### command 5: transient_direct
+CLI result: command=end outcome=SUCCESS code=0
+[36m[I][0m TRANSIENT direct_identity bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=0 manufacturer_id=0x0000 close_code=0 reopen_code=0 bind_code=0
+> 

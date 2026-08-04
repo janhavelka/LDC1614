@@ -1,0 +1,6 @@
+### startup
+
+### command 1: version
+
+### runner fail-fast after command 1: version
+not sent after base command 1 (version) was FAIL
