@@ -212,6 +212,20 @@ STATUS_OK_PATTERN = re.compile(
     r"^[ \t]*Status:[ \t]*OK[ \t]*\(code=0,[ \t]*detail=0\)[ \t]*\r?$",
     re.IGNORECASE | re.MULTILINE,
 )
+CORE_JOB_PROGRESS_PATTERN = re.compile(
+    r"^job\s+active=([01])\s+operation=(\d+)\s+kind=(\S+)\s+phase=(\S+)\s+"
+    r"transfers=(\d+)\s+maximum=(\d+)\s+requested=0x([0-9a-f]{2})\s+"
+    r"completed=0x([0-9a-f]{2})\s+deadline_ms=(\d+)\s+"
+    r"effects=0x([0-9a-f]{2})\s+effects_names=(\S+)\s+revision=(\d+)"
+    r"[ \t]*\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
+CLI_SESSION_PROGRESS_PATTERN = re.compile(
+    r"^session\s+active=([01])\s+id=(\d+)\s+kind=(\S+)\s+phase=(\S+)\s+"
+    r"phase_code=(\d+)\s+completed=(\d+)/(\d+)\s+pass=(\d+)\s+"
+    r"fail=(\d+)\s+skip=(\d+)[ \t]*\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 COMMAND_EVIDENCE_PATTERNS = {
     "help": (
@@ -366,9 +380,8 @@ COMMAND_EVIDENCE_PATTERNS = {
         re.compile(r"\bapplied=", re.IGNORECASE),
     ),
     "job": (
-        re.compile(r"\bjob active=[01]\b.*\boperation=\d+\b.*\btransfers=\d+\b.*\bmaximum=\d+\b",
-                   re.IGNORECASE),
-        re.compile(r"\bsession active=[01]\b.*\bid=\d+\b.*\bcompleted=\d+/\d+\b", re.IGNORECASE),
+        CORE_JOB_PROGRESS_PATTERN,
+        CLI_SESSION_PROGRESS_PATTERN,
     ),
     "result": (
         re.compile(
@@ -1387,22 +1400,14 @@ def command_semantic_failure(
 
     if canonical == "job":
         job, failure = unique_match(
-            re.compile(
-                r"\bjob active=([01])\s+operation=(\d+)\s+kind=(\S+)\s+"
-                r"phase=(\S+)\s+transfers=(\d+)\s+maximum=(\d+)\s+"
-                r"requested=0x([0-9a-f]{2})\s+completed=0x([0-9a-f]{2})\s+"
-                r"deadline_ms=(\d+)", re.IGNORECASE,
-            ),
+            CORE_JOB_PROGRESS_PATTERN,
             output,
             "core job progress",
         )
         if failure is not None:
             return failure
         session, failure = unique_match(
-            re.compile(
-                r"\bsession active=([01])\s+id=(\d+)\s+kind=(\S+)\s+"
-                r"phase=(\d+)\s+completed=(\d+)/(\d+)", re.IGNORECASE,
-            ),
+            CLI_SESSION_PROGRESS_PATTERN,
             output,
             "CLI session progress",
         )
@@ -1411,11 +1416,19 @@ def command_semantic_failure(
         assert job is not None and session is not None
         transfers, maximum = int(job.group(5)), int(job.group(6))
         requested, completed = int(job.group(7), 16), int(job.group(8), 16)
-        session_completed, session_total = int(session.group(5)), int(session.group(6))
+        session_completed, session_total = int(session.group(6)), int(session.group(7))
+        session_accounted = sum(int(session.group(index)) for index in (8, 9, 10))
         if (transfers > maximum or completed & ~requested or
                 session_completed > session_total or
+                session_accounted != session_completed or
+                session.group(4).upper() == "UNKNOWN" or
+                int(session.group(5)) > 28 or
                 int(job.group(1)) != int(session.group(1))):
             return "job/session progress violates bounded cooperative invariants"
+        if (int(session.group(1)) == 0 and
+                (int(session.group(2)) != 0 or session.group(3).upper() != "NONE" or
+                 session.group(4).upper() != "NONE" or int(session.group(5)) != 0)):
+            return "inactive CLI session retains active identity or phase"
         return None
 
     if canonical == "result":

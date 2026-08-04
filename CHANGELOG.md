@@ -90,10 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Diagnostic sessions retain the latest correlated core result and print full
   effect, phase, register, channel, status, and configuration-fault provenance
   on failed or cancelled acquisitions.
-- HIL register-read/write evidence now parses the current structured metadata
-  fields, requires one unique record plus explicit successful status, and
-  verifies exact identity decode output instead of rejecting valid records or
-  joining stale fields across lines.
+- HIL register-read/write and job-progress evidence now parses the current
+  structured metadata fields, requires unique complete records, reconciles
+  session counters, and verifies exact identity decode output instead of
+  rejecting valid records or joining stale fields across lines.
 - CLI input length checks are bounded before copying, asynchronous work rejects
   a missing monotonic-clock callback instead of freezing at time zero, and
   cancelling a synchronous session no longer emits a second deferred prompt.
@@ -119,6 +119,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lifecycle, uses complete initialization for boot/re-admission and full apply
   for profile changes, and keeps reset qualification separate from its exact
   ESP32-S3 production-path soak.
+- Exact clean COM8 evidence now includes a 187/187-command non-reset matrix and
+  a 3,600-second, 2,926-cycle controller-reconstruction/re-admission soak with
+  32,186 commands, zero failures/unknowns/resets, and 32 ms worst latency. A
+  separate MCU-only upload/reboot recurrence still required a true LDC rail
+  cycle, so independent MCU reset is an explicit hardware integration gate.
 - `selftest` is now a real bounded diagnostic rather than an alias for two
   identity reads; it reports explicit pass, failure, and fixture-dependent skip
   counts.

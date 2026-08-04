@@ -265,6 +265,14 @@ device-local reset, wait at least 2 ms after SD is released, and then run full
 initialization. Without that hardware, a true LDC rail cycle is the safe
 recovery boundary.
 
+Also qualify an MCU-only reset while the LDC rail remains powered. On COM8, an
+LDC that was readable before an ESP32-S2 upload/reboot refused the first
+combined read afterward and recovered only after a true rail cycle. The exact
+electrical edge was not captured, so this is a proven transition interval, not
+proof of a GPIO or silicon cause. A defined SD shutdown default through MCU
+boot, followed by the data-sheet wake interval and one full initialization, is
+the preferred device-local design when the hardware can provide it.
+
 A configuration write that could have reached hardware records full
 `ConfigFault` provenance: original `Status`, job and phase, register, channel,
 and confirmed-partial or indeterminate effect flags. `updateDesiredConfig()` is

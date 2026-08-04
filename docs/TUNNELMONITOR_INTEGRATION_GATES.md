@@ -7,15 +7,18 @@ repeated here.
 
 Last cross-repository review: 2026-08-04.
 
-- LDC1614 checkout: unreleased `3.1.0` candidate. Latest retained exact clean
-  COM8 firmware `5e3199e` repeated the open RESET_DEV-adjacent identity-read
-  failure. A later non-reset run reached a successful target identity register
-  read before a host parser false negative stopped the matrix. Replace this
-  line with a reviewed release commit only after the separate library reset
-  qualification and TunnelMonitor production-path gates are resolved.
+- LDC1614 checkout: unreleased `3.1.0` candidate. Exact clean COM8 firmware
+  `e4d0436` passed the 187-command non-reset matrix and a 3,600-second
+  controller-reconstruction/re-admission soak with 2,926 cycles, 32,186
+  commands, and zero failures/unknowns/resets. RESET_DEV remains separately
+  unqualified, and a true rail cycle was still required after an MCU-only
+  upload/reboot recurrence. Replace this line with a reviewed release commit
+  only after the TunnelMonitor production-path gates are resolved.
 - TunnelMonitor-node checkout:
   `f05cd296d59c62ad4dfe293ca63f9b3798053ce8` on
-  `prompt-45-platformization`, clean and synchronized with its upstream.
+  `prompt-45-platformization`, synchronized with its upstream. The shared
+  checkout now contains separate uncommitted work, so clean-base test/build
+  evidence applies to commit `f05cd29`, not to that later dirty working tree.
 
 At that review, TunnelMonitor had no LDC device kind, health identifier, I2C
 operation, build-profile row, dependency, reading schema, settings,

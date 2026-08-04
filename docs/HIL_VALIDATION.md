@@ -228,22 +228,23 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `c3e2ed8` default/extended matrices and reduced soak passed exact identity checks; clean `5e3199e` also passed identity before its reset-adjacent failure and in the later parser-negative non-reset run | Repeat on each sensor-equipped production fixture |
-| Address `0x2A` | Yes | ADDR strapped low | Clean `c3e2ed8` matrices and reduced soak confirm the chip at `0x2A` | Repeat on each production board |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `e4d0436` passed exact identity in the 187-command matrix and every one of 2,926 soak cycles | Repeat on each sensor-equipped production fixture |
+| Address `0x2A` | Yes | ADDR strapped low | Clean `e4d0436` exhaustive matrix and soak confirm the chip at `0x2A` | Repeat on each production board |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
-| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Clean `c3e2ed8` extended matrix passed complete profile/readback and configuration boundaries | Repeat with the production sensor profile |
+| LDC1614 channel config 0..3 | Yes | LDC1614 hardware | Clean `e4d0436` passed complete replay/readback and every cache-only four-channel configuration boundary | Repeat with the production sensor profile |
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
-| Config readback | Yes | Hardware | Clean `c3e2ed8` default and extended matrices passed | Repeat cleanly with the production profile |
-| Reset/reapply and owner recovery | Yes | Hardware | Clean `5e3199e` repeated the exact boundary: RESET_DEV write succeeded and the next MANUFACTURER_ID combined read failed with code 14/raw 259; controller-only reconstruction had already been shown not to clear the live state | Qualify RESET_DEV separately; for production paths that exclude reset, qualify controller-only reconstruction plus complete identity/replay and repeated valid combined reads |
+| Config readback | Yes | Hardware | Clean `e4d0436` exhaustive matrix passed complete replay, dump, and verification | Repeat cleanly with the production profile |
+| Reset/reapply and owner recovery | Yes | Hardware | RESET_DEV remains negative: clean `5e3199e` wrote reset then failed the next ID read. No-reset owner recovery is positive: clean `e4d0436` passed 2,926 controller reconstruction/full-init cycles | Qualify RESET_DEV separately if exposed; repeat owner recovery with the product backend and shared peer |
+| MCU-only reset with LDC energized | No | Hardware/analyzer | A clean `e4d0436` upload/reboot interval changed a previously readable target into the persistent failed-read state; a rail cycle restored it | Capture SDA/SCL/VDD/SD/ADDR across first recurrence and qualify defined-SD startup |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
-| Induced address NACK | No | Operator/fault fixture | Clean scans observed `0x2A` and peer `0x3C`; individual recovery/replay passed, but repeated reset/recovery still failed on pioarduino `55.03.311` | Controlled NACK, deterministic recovery/replay, valid combined reads, and shared-device proof |
+| Induced address NACK | No | Operator/fault fixture | Clean `e4d0436` repeatedly tolerated protocol-complete `0x2B` NACK during discovery and re-admitted `0x2A`; older evidence included peer `0x3C` | Repeat with controlled phase injection and prove the production shared peer remains usable |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | Clean `c3e2ed8` completed a labeled reduced 3,600-second no-reset owner-recovery/re-admission soak: 3,197 cycles/19,182 commands, zero failures/unknowns/resets, 32 ms worst latency; the complete default gate separately failed reset/reapply | Repeat at production sensor cadence; qualify RESET_DEV separately if the product exposes it |
+| Bounded soak | No | Stable fixture | Clean `e4d0436` completed 3,600.0 seconds: 2,926 no-reset reconstruction/re-admission cycles, 32,186 commands, zero failures/unknowns/resets, 32 ms worst latency | Repeat at production sensor cadence and on TunnelMonitor's exact ESP32-S3 backend; qualify RESET_DEV separately if exposed |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules

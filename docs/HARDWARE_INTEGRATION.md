@@ -44,6 +44,15 @@ so qualify that pulse width on the target rather than inventing a library
 constant. If switched LDC power is used instead, prevent SDA/SCL back-powering
 above the unpowered device's absolute maximum rating.
 
+COM8 evidence makes independent MCU reset a required integration case: an LDC
+that was readable immediately before an ESP32-S2 upload/reboot refused its first
+combined read afterward while its rail remained powered; a true shared rail
+cycle restored it. The exact edge was not captured, so this does not prove an
+MCU GPIO glitch. It does prove that products must qualify MCU reset while the
+LDC stays energized. Holding SD at its defined shutdown default until bus pins
+and owner state are ready, then waiting at least 2 ms after release before one
+full initialization, is the simple isolated design pattern to qualify.
+
 ## Sensor and timing checklist
 
 - Keep each LC sensor within the datasheet's 1 kHz to 10 MHz supported range

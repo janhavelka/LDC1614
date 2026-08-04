@@ -86,17 +86,26 @@ vendor download (Rev. A, March 2018; SHA-256
 `B3BAB7A84C9A8423448113F24DE3B343C06CE7E7E4CBC6039B262B22130D8652`).
 
 Exact clean `5e3199e` firmware repeated the reset-adjacent boundary: discovery,
-26-transfer initialization, 24-transfer apply, and wake succeeded; the
-`RESET_DEV` write succeeded; the immediately following MANUFACTURER_ID combined
-read failed as transfer 2 of 27 with generic code 14/raw detail 259 and retained
-partial-write/dirty provenance. After another rail cycle, a non-reset matrix
-passed the same lifecycle and its MANUFACTURER_ID register read on target, but
-the host runner falsely rejected the current structured output and stopped.
-That parser-negative run is not a matrix pass; its unsent entries remain
-`NOT_RUN`.
+26-transfer initialization, 24-transfer apply, and wake succeeded; RESET_DEV
+succeeded; the immediately following MANUFACTURER_ID combined read failed as
+transfer 2 of 27 with generic code 14/raw detail 259 and retained
+partial-write/dirty provenance.
 
-The current candidate has positive no-sensor diagnostic subsets, but none is a
-release certificate or sensor-equipped product evidence.
+Exact clean `e4d0436` was then flashed while the previously readable LDC stayed
+powered. The first automatic combined read failed before any matrix I2C, and
+discovery confirmed that complete reads were unavailable. A true rail cycle
+restored the target. This bounds that recurrence to the MCU upload/reboot
+interval, but does not reveal whether the initiating edge was GPIO state,
+startup traffic, VDD/SD/ADDR behavior, or waveform integrity. After the rail
+cycle, the corrected runner passed the complete 187-command non-reset matrix
+and a 3,600.0-second no-reset soak: 2,926 cycles, 32,186 commands, zero
+failures/unknowns/resets, and 32 ms worst latency. Each soak cycle reconstructed
+the controller, proved applied state unknown, fully initialized/replayed, and
+finished active with exact identity.
+
+The current candidate has strong no-sensor non-reset evidence, but RESET_DEV
+remains unqualified and none of this is a release certificate or
+sensor-equipped product evidence.
 Earlier compact v2
 artifacts contained no raw transcript and did not validate operation IDs,
 deadlines, budgets, cancellation, applied state, or atomic acquisition, so they
@@ -121,24 +130,14 @@ Before release or target-deployment claims, capture evidence for:
   calibration; and
 - a bounded soak at the production channel mask, cadence, and clock profile.
 
-Historical clean `c3e2ed8` passed the 49-command default matrix, a 171-command extended
-matrix with all configuration/invalid-input coverage, and 1,000/1,000 hardware
-stress operations. Its full one-hour gate later reproduced detail 259 at
-`resetreapply`, so that acceptance soak correctly did not start. The clean
-post-fix runner then classified a following `init` failure correctly after
-`busrecover` had returned success and target ACK. A separately labeled
-`custom_reduced` gate passed scan, owner recovery, full replay,
-wake, identity, and active-state checks before completing exactly 3,600 seconds:
-3,197 cycles, 19,182 commands, zero soak-command failures/unknowns/resets, and
-32 ms worst latency. Because every cycle reconstructs and re-admits the device,
-this is positive no-reset owner-recovery stress, not a production-cadence soak.
-Historical
-recovery stress still showed bus-reset plus target ACK followed by an
-initialization failure. The corrected diagnostic no longer treats that
-sequence as recovery: it performs controller-only reconstruction, maps raw 259
-as a generic transaction failure, and requires combined identity plus full
-replay. A clean final one-hour gate for that corrected firmware remains
-required.
+Exact clean `e4d0436` passed the 187-command exhaustive non-reset matrix and the
+full requested one-hour no-reset owner-recovery/re-admission soak. Historical
+RESET_DEV and MCU-only-reset boundaries remain hard negative evidence. The
+corrected diagnostic performs controller-only reconstruction, maps raw 259 as a
+generic transaction failure, and requires combined identity plus full replay;
+it does not claim that controller reconstruction repairs the persistent target
+state. Production sensor cadence, RESET_DEV, and first-recurrence electrical
+capture remain required separately.
 Product-specific consumers may impose additional gates; TunnelMonitor's
 remaining requirements are listed
 in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).

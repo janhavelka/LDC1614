@@ -1,0 +1,2009 @@
+{
+  "base_command_count": 187,
+  "base_matrix_scope": "custom_reduced",
+  "baud": 115200,
+  "board": "ESP32-S2 + LDC1614 at 0x2A; no coils/sensors",
+  "command_results": [
+    {
+      "command": "help",
+      "elapsed_s": 0.0470000000204891,
+      "index": 1,
+      "output": "\u001b[36m=== LDC1614 CLI ===\u001b[0m\n\n\u001b[32m[Common]\u001b[0m\n  \u001b[36mhelp / ? [command]              \u001b[0m - Show the complete command reference (alias available)\n  \u001b[36mversion / ver                   \u001b[0m - Show library and firmware identity (alias available)\n  \u001b[36mcolor [on|off]                  \u001b[0m - Show or change ANSI colors\n  \u001b[36mverbose [0|1]                   \u001b[0m - Show or change per-step diagnostics\n  \u001b[36mbus / i2c                       \u001b[0m - Show owner bus, pins, levels, address, and speed (alias available)\n\n\u001b[32m[Lifecycle and owner jobs]\u001b[0m\n  \u001b[36mbind                            \u001b[0m - Bind the platform default profile (zero I2C)\n  \u001b[36mend                             \u001b[0m - Bus-silent cancel, discard results, and unbind\n  \u001b[36minit [deadline_ms]              \u001b[0m - Verify identity and replay the full profile\n  \u001b[36mapply [deadline_ms]             \u001b[0m - Replay the committed desired profile\n  \u001b[36mresetreapply [ms] confirm       \u001b[0m - Software-reset, verify identity, and replay\n  \u001b[36msleep                           \u001b[0m - Enter sleep with one bounded write\n  \u001b[36mwake                            \u001b[0m - Leave sleep with one bounded write\n  \u001b[36mcancel / stop                   \u001b[0m - Bus-silently cancel active CLI work (alias available)\n  \u001b[36mjob / progress                  \u001b[0m - Show core job and CLI session progress (alias available)\n  \u001b[36mresult                          \u001b[0m - Show the cached terminal operation\n  \u001b[36minvalidate confirm              \u001b[0m - Bus-silently mark applied hardware state unknown\n  \u001b[36mbusrecover confirm              \u001b[0m - Rebuild owner bus/device, then require init\n  \u001b[36mbusfreq / i2cfreq [hz confirm]  \u001b[0m - Show or replace the owner device-handle speed (alias available)\n\n\u001b[32m[Measurements]\u001b[0m\n  \u001b[36mread / acquire [mask]           \u001b[0m - Acquire one sequential readout batch (alias available)\n  \u001b[36mlast [channel]                  \u001b[0m - Show the cached complete sample batch\n  \u001b[36mwatch <mask> <count> [ms]       \u001b[0m - Cooperatively print bounded periodic batches\n  \u001b[36msamplerate <channel> <count>    \u001b[0m - Measure cooperative acquisition throughput\n  \u001b[36mready / drdy                    \u001b[0m - Read readiness and retain STATUS evidence (alias available)\n  \u001b[36mstatus                          \u001b[0m - Read and decode destructive STATUS evidence\n  \u001b[36mstatus_raw                      \u001b[0m - Read destructive STATUS as a raw word\n  \u001b[36mintb                            \u001b[0m - Observe optional application-owned INTB\n  \u001b[36minitdrive <channel>             \u001b[0m - Read INIT_IDRIVE and nominal current\n\n\u001b[32m[Staged configuration]\u001b[0m\n  \u001b[36mcfg / settings                  \u001b[0m - Show desired and staged profiles (alias available)\n  \u001b[36mprofile show|reset|discard      \u001b[0m - Manage the bus-silent staged profile\n  \u001b[36mprofile validate                \u001b[0m - continued\n  \u001b[36mprofile commit confirm          \u001b[0m - continued\n  \u001b[36maddr                            \u001b[0m - Show display-only binding address\n  \u001b[36mvariant                         \u001b[0m - Show display-only silicon variant\n  \u001b[36mmode <single ch|seq count>      \u001b[0m - Stage mode, channel mask, active channel, and RR atomically\n  \u001b[36mrefclk <src> <hz> <ppm>         \u001b[0m - Stage the explicit reference-clock fact\n  \u001b[36mdeglitch <1|3|10|33>            \u001b[0m - Stage input deglitch bandwidth in MHz\n  \u001b[36mactivation <full|low>           \u001b[0m - Stage sensor activation current policy\n  \u001b[36mtimeout <ms>                    \u001b[0m - Stage per-callback timeout\n  \u001b[36mrp <0|1>                        \u001b[0m - Stage RP override\n  \u001b[36mautoamp <0|1>                   \u001b[0m - Stage automatic amplitude correction\n  \u001b[36mhighcurrent <0|1>               \u001b[0m - Stage CH0 high-current drive\n  \u001b[36mintbconfig <0|1>                \u001b[0m - Stage INTB output enable\n  \u001b[36merrors [show|all|none]          \u001b[0m - Show or stage all error routes\n  \u001b[36merror <field> <0|1>             \u001b[0m - Stage one named DATA/STATUS/DRDY route\n  \u001b[36mrcount <ch> <value>             \u001b[0m - Stage channel RCOUNT\n  \u001b[36msettle <ch> <value>             \u001b[0m - Stage channel SETTLECOUNT\n  \u001b[36mfindiv <ch> <value>             \u001b[0m - Stage channel FIN divider\n  \u001b[36mfrefdiv <ch> <value>            \u001b[0m - Stage channel FREF divider\n  \u001b[36moffset <ch> <value>             \u001b[0m - Stage channel OFFSET\n  \u001b[36mdrive <ch> <code>               \u001b[0m - Stage channel IDRIVE code\n  \u001b[36msensorbounds <ch> <lo> <hi>     \u001b[0m - Stage expected channel sensor-frequency bounds\n\n\u001b[32m[Registers and helpers]\u001b[0m\n  \u001b[36mprobe / id                      \u001b[0m - Cooperatively read and verify both IDs (alias available)\n  \u001b[36mdiscover / scan                 \u001b[0m - Protocol-qualify LDC identity at 0x2A and 0x2B (alias available)\n  \u001b[36mdump config                     \u001b[0m - Cooperatively dump mapped registers\n  \u001b[36mdump all confirm                \u001b[0m - continued\n  \u001b[36mverify                          \u001b[0m - Compare every persistent register to desired\n  \u001b[36mreg / rreg <addr> [confirm]     \u001b[0m - Read one mapped register; DATA/STATUS require confirm (alias available)\n  \u001b[36mwreg <addr> <value> confirm     \u001b[0m - Write one mapped writable register and invalidate trust\n  \u001b[36mdecode status <raw16>           \u001b[0m - Run pure STATUS or DATA decoding\n  \u001b[36mdecode data <msb> <lsb>         \u001b[0m - continued\n  \u001b[36mfreq <channel> <raw28>          \u001b[0m - Calculate sensor frequency\n  \u001b[36mfreq <desired|staged> <channel> <raw28>\u001b[0m - continued\n  \u001b[36mtiming [mask]                   \u001b[0m - Estimate conservative chip timing\n  \u001b[36mtiming <desired|staged> [mask]  \u001b[0m - continued\n  \u001b[36mdriveua <code>                  \u001b[0m - Convert IDRIVE code to nominal uA\n\n\u001b[32m[Driver diagnostics]\u001b[0m\n  \u001b[36mdrv / health                    \u001b[0m - Show driver, transport, and fault provenance (alias available)\n  \u001b[36mstate                           \u001b[0m - Show compact parseable driver state\n  \u001b[36mdiag                            \u001b[0m - Show a bus-silent consolidated diagnostic snapshot\n  \u001b[36mxfer stats|reset                \u001b[0m - Inspect or baseline owner transport attempts\n  \u001b[36mxfer assert <write> <write_read> <discover> <total>\u001b[0m - continued\n  \u001b[36mselftest                        \u001b[0m - Run full cooperative safe self-test\n  \u001b[36mstress <count> [mask]           \u001b[0m - Stress cooperative acquisitions\n  \u001b[36mstress_mix <n> [mask] confirm   \u001b[0m - Stress mixed STATUS/INTB/IDRIVE/acquisition paths\n  \u001b[36mstress_id <count>               \u001b[0m - Stress protocol-complete identity reads\n  \u001b[36mstress_reset <count> confirm    \u001b[0m - Stress full software-reset and replay jobs\n  \u001b[36mstress_busfreq <count> confirm  \u001b[0m - Alternate 100/400 kHz with full initialization\n  \u001b[36msoak <seconds> [mask]           \u001b[0m - Run bounded periodic acquisition soak\n  \u001b[36msd status|assert|release confirm\u001b[0m - Use optional application-owned shutdown pin\n\nSettings edit a staged profile with zero I2C. Validate and commit explicitly.\nDATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.\ncommand_count=71\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "color off",
+      "elapsed_s": 0.030999999959021807,
+      "index": 2,
+      "output": "color enabled=0\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "help",
+      "elapsed_s": 0.03200000000651926,
+      "index": 3,
+      "output": "=== LDC1614 CLI ===\n\n[Common]\n  help / ? [command]               - Show the complete command reference (alias available)\n  version / ver                    - Show library and firmware identity (alias available)\n  color [on|off]                   - Show or change ANSI colors\n  verbose [0|1]                    - Show or change per-step diagnostics\n  bus / i2c                        - Show owner bus, pins, levels, address, and speed (alias available)\n\n[Lifecycle and owner jobs]\n  bind                             - Bind the platform default profile (zero I2C)\n  end                              - Bus-silent cancel, discard results, and unbind\n  init [deadline_ms]               - Verify identity and replay the full profile\n  apply [deadline_ms]              - Replay the committed desired profile\n  resetreapply [ms] confirm        - Software-reset, verify identity, and replay\n  sleep                            - Enter sleep with one bounded write\n  wake                             - Leave sleep with one bounded write\n  cancel / stop                    - Bus-silently cancel active CLI work (alias available)\n  job / progress                   - Show core job and CLI session progress (alias available)\n  result                           - Show the cached terminal operation\n  invalidate confirm               - Bus-silently mark applied hardware state unknown\n  busrecover confirm               - Rebuild owner bus/device, then require init\n  busfreq / i2cfreq [hz confirm]   - Show or replace the owner device-handle speed (alias available)\n\n[Measurements]\n  read / acquire [mask]            - Acquire one sequential readout batch (alias available)\n  last [channel]                   - Show the cached complete sample batch\n  watch <mask> <count> [ms]        - Cooperatively print bounded periodic batches\n  samplerate <channel> <count>     - Measure cooperative acquisition throughput\n  ready / drdy                     - Read readiness and retain STATUS evidence (alias available)\n  status                           - Read and decode destructive STATUS evidence\n  status_raw                       - Read destructive STATUS as a raw word\n  intb                             - Observe optional application-owned INTB\n  initdrive <channel>              - Read INIT_IDRIVE and nominal current\n\n[Staged configuration]\n  cfg / settings                   - Show desired and staged profiles (alias available)\n  profile show|reset|discard       - Manage the bus-silent staged profile\n  profile validate                 - continued\n  profile commit confirm           - continued\n  addr                             - Show display-only binding address\n  variant                          - Show display-only silicon variant\n  mode <single ch|seq count>       - Stage mode, channel mask, active channel, and RR atomically\n  refclk <src> <hz> <ppm>          - Stage the explicit reference-clock fact\n  deglitch <1|3|10|33>             - Stage input deglitch bandwidth in MHz\n  activation <full|low>            - Stage sensor activation current policy\n  timeout <ms>                     - Stage per-callback timeout\n  rp <0|1>                         - Stage RP override\n  autoamp <0|1>                    - Stage automatic amplitude correction\n  highcurrent <0|1>                - Stage CH0 high-current drive\n  intbconfig <0|1>                 - Stage INTB output enable\n  errors [show|all|none]           - Show or stage all error routes\n  error <field> <0|1>              - Stage one named DATA/STATUS/DRDY route\n  rcount <ch> <value>              - Stage channel RCOUNT\n  settle <ch> <value>              - Stage channel SETTLECOUNT\n  findiv <ch> <value>              - Stage channel FIN divider\n  frefdiv <ch> <value>             - Stage channel FREF divider\n  offset <ch> <value>              - Stage channel OFFSET\n  drive <ch> <code>                - Stage channel IDRIVE code\n  sensorbounds <ch> <lo> <hi>      - Stage expected channel sensor-frequency bounds\n\n[Registers and helpers]\n  probe / id                       - Cooperatively read and verify both IDs (alias available)\n  discover / scan                  - Protocol-qualify LDC identity at 0x2A and 0x2B (alias available)\n  dump config                      - Cooperatively dump mapped registers\n  dump all confirm                 - continued\n  verify                           - Compare every persistent register to desired\n  reg / rreg <addr> [confirm]      - Read one mapped register; DATA/STATUS require confirm (alias available)\n  wreg <addr> <value> confirm      - Write one mapped writable register and invalidate trust\n  decode status <raw16>            - Run pure STATUS or DATA decoding\n  decode data <msb> <lsb>          - continued\n  freq <channel> <raw28>           - Calculate sensor frequency\n  freq <desired|staged> <channel> <raw28> - continued\n  timing [mask]                    - Estimate conservative chip timing\n  timing <desired|staged> [mask]   - continued\n  driveua <code>                   - Convert IDRIVE code to nominal uA\n\n[Driver diagnostics]\n  drv / health                     - Show driver, transport, and fault provenance (alias available)\n  state                            - Show compact parseable driver state\n  diag                             - Show a bus-silent consolidated diagnostic snapshot\n  xfer stats|reset                 - Inspect or baseline owner transport attempts\n  xfer assert <write> <write_read> <discover> <total> - continued\n  selftest                         - Run full cooperative safe self-test\n  stress <count> [mask]            - Stress cooperative acquisitions\n  stress_mix <n> [mask] confirm    - Stress mixed STATUS/INTB/IDRIVE/acquisition paths\n  stress_id <count>                - Stress protocol-complete identity reads\n  stress_reset <count> confirm     - Stress full software-reset and replay jobs\n  stress_busfreq <count> confirm   - Alternate 100/400 kHz with full initialization\n  soak <seconds> [mask]            - Run bounded periodic acquisition soak\n  sd status|assert|release confirm - Use optional application-owned shutdown pin\n\nSettings edit a staged profile with zero I2C. Validate and commit explicitly.\nDATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.\ncommand_count=71\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "color on",
+      "elapsed_s": 0.015999999945051968,
+      "index": 4,
+      "output": "color enabled=1\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "verbose 1",
+      "elapsed_s": 0.015000000013969839,
+      "index": 5,
+      "output": "verbose enabled=1\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "verbose 0",
+      "elapsed_s": 0.03200000000651926,
+      "index": 6,
+      "output": "verbose enabled=0\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "version",
+      "elapsed_s": 0.015000000013969839,
+      "index": 7,
+      "output": "version=3.1.0 firmware_git=e4d0436 firmware_status=clean build_timestamp=2026-08-04 15:43:19 platform=pioarduino-55.03.311 framework=arduino framework_version=3.3.11 idf_version=v5.5.5 target=esp32s2 i2c_backend=esp-idf-new-master frequency_hz=400000\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "bus",
+      "elapsed_s": 0.01600000006146729,
+      "index": 8,
+      "output": "bus open=1 backend=esp-idf-new-master port=0 sda=8 scl=9 sda_level=1 scl_level=1 address=0x2A frequency_hz=400000 timeout_ms=50\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "busfreq",
+      "elapsed_s": 0.030999999959021807,
+      "index": 9,
+      "output": "busfreq previous_hz=400000 requested_hz=400000 active_hz=400000 reinitialized=0 outcome=SUCCESS code=0\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "diag",
+      "elapsed_s": 0.015999999945051968,
+      "index": 10,
+      "output": "diag platform=pioarduino-55.03.311 framework=arduino framework_version=3.3.11 idf_version=v5.5.5 target=esp32s2 frequency_hz=400000 bound=1 applied=UNKNOWN revision=1 profile_dirty=0 active=0 pending_result=0 attempts=1 success=0 failures=1 last_code=14 outcome=SUCCESS code=0\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "xfer stats",
+      "elapsed_s": 0.015000000013969839,
+      "index": 11,
+      "output": "xfer write=0 write_read=1 discover=0 total=1 failures=1 last_code=14 outcome=SUCCESS code=0\n> ",
+      "reason": "all command-specific evidence parsed",
+      "status": "PASS",
+      "timed_out": false
+    },
+    {
+      "command": "discover",
+      "elapsed_s": 0.03200000000651926,
+      "index": 12,
+      "output": "CLI scheduled: command=discover session=1\ndiscover address=0x2A strap=ADDR_GND manufacturer_id=unavailable device_id=unavailable match=0 variant=UNKNOWN code=14 detail=259\ndiscover address=0x2B strap=ADDR_VDD manufacturer_id=unavailable device_id=unavailable match=0 variant=UNKNOWN code=14 detail=259\ndiscover tested=2 responding=0 matched=0 mismatched=0 failed=2 variant=UNKNOWN code=9\nfirst_failure   Status: \u001b[31mDEVICE_NOT_FOUND\u001b[0m (code=9, detail=0)\n  Message: No protocol-qualified LDC161x found\nlast_failure   Status: \u001b[31mDEVICE_NOT_FOUND\u001b[0m (code=9, detail=0)\n  Message: No protocol-qualified LDC161x found\nCLI result: command=discover session=1 outcome=FAILED code=9\n> ",
+      "reason": "terminal CLI session did not report SUCCESS/code=0",
+      "status": "FAIL",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.0,
+      "index": 13,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "apply",
+      "elapsed_s": 0.0,
+      "index": 14,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 15,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "probe",
+      "elapsed_s": 0.0,
+      "index": 16,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "reg 0x7E",
+      "elapsed_s": 0.0,
+      "index": 17,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "reg 0x7F",
+      "elapsed_s": 0.0,
+      "index": 18,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "status",
+      "elapsed_s": 0.0,
+      "index": 19,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "status_raw",
+      "elapsed_s": 0.0,
+      "index": 20,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "ready",
+      "elapsed_s": 0.0,
+      "index": 21,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "cfg",
+      "elapsed_s": 0.0,
+      "index": 22,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "job",
+      "elapsed_s": 0.0,
+      "index": 23,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "result",
+      "elapsed_s": 0.0,
+      "index": 24,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile show",
+      "elapsed_s": 0.0,
+      "index": 25,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile validate",
+      "elapsed_s": 0.0,
+      "index": 26,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile discard",
+      "elapsed_s": 0.0,
+      "index": 27,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "dump config",
+      "elapsed_s": 0.0,
+      "index": 28,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "dump all confirm",
+      "elapsed_s": 0.0,
+      "index": 29,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "verify",
+      "elapsed_s": 0.0,
+      "index": 30,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 31,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "selftest",
+      "elapsed_s": 0.0,
+      "index": 32,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "read 0x01",
+      "elapsed_s": 0.0,
+      "index": 33,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "sleep",
+      "elapsed_s": 0.0,
+      "index": 34,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 35,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "decode status 0x0040",
+      "elapsed_s": 0.0,
+      "index": 36,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "decode data 0x0000 0x0000",
+      "elapsed_s": 0.0,
+      "index": 37,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "freq desired 0 0x0100000",
+      "elapsed_s": 0.0,
+      "index": 38,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "freq staged 0 0x0100000",
+      "elapsed_s": 0.0,
+      "index": 39,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timing desired 0x01",
+      "elapsed_s": 0.0,
+      "index": 40,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timing staged 0x01",
+      "elapsed_s": 0.0,
+      "index": 41,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "driveua 0",
+      "elapsed_s": 0.0,
+      "index": 42,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wreg 0x1A 0x3481 confirm",
+      "elapsed_s": 0.0,
+      "index": 43,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.0,
+      "index": 44,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "invalidate confirm",
+      "elapsed_s": 0.0,
+      "index": 45,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.0,
+      "index": 46,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "busrecover confirm",
+      "elapsed_s": 0.0,
+      "index": 47,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "state",
+      "elapsed_s": 0.0,
+      "index": 48,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.0,
+      "index": 49,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 50,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "probe",
+      "elapsed_s": 0.0,
+      "index": 51,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drv",
+      "elapsed_s": 0.0,
+      "index": 52,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "end",
+      "elapsed_s": 0.0,
+      "index": 53,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "bind",
+      "elapsed_s": 0.0,
+      "index": 54,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "init",
+      "elapsed_s": 0.0,
+      "index": 55,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "cancel",
+      "elapsed_s": 0.0,
+      "index": 56,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 57,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drv",
+      "elapsed_s": 0.0,
+      "index": 58,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile reset",
+      "elapsed_s": 0.0,
+      "index": 59,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "mode single 0",
+      "elapsed_s": 0.0,
+      "index": 60,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "mode seq 2",
+      "elapsed_s": 0.0,
+      "index": 61,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "refclk internal 40000000 100",
+      "elapsed_s": 0.0,
+      "index": 62,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "refclk external 40000000 100",
+      "elapsed_s": 0.0,
+      "index": 63,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "deglitch 1",
+      "elapsed_s": 0.0,
+      "index": 64,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "deglitch 3",
+      "elapsed_s": 0.0,
+      "index": 65,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "deglitch 10",
+      "elapsed_s": 0.0,
+      "index": 66,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "deglitch 33",
+      "elapsed_s": 0.0,
+      "index": 67,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "activation full",
+      "elapsed_s": 0.0,
+      "index": 68,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "activation low",
+      "elapsed_s": 0.0,
+      "index": 69,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timeout 1",
+      "elapsed_s": 0.0,
+      "index": 70,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timeout 4294967295",
+      "elapsed_s": 0.0,
+      "index": 71,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rp 0",
+      "elapsed_s": 0.0,
+      "index": 72,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rp 1",
+      "elapsed_s": 0.0,
+      "index": 73,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "autoamp 0",
+      "elapsed_s": 0.0,
+      "index": 74,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "autoamp 1",
+      "elapsed_s": 0.0,
+      "index": 75,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 0",
+      "elapsed_s": 0.0,
+      "index": 76,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 1",
+      "elapsed_s": 0.0,
+      "index": 77,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "intbconfig 0",
+      "elapsed_s": 0.0,
+      "index": 78,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "intbconfig 1",
+      "elapsed_s": 0.0,
+      "index": 79,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "errors show",
+      "elapsed_s": 0.0,
+      "index": 80,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "errors none",
+      "elapsed_s": 0.0,
+      "index": 81,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "errors all",
+      "elapsed_s": 0.0,
+      "index": 82,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "mode seq 3",
+      "elapsed_s": 0.0,
+      "index": 83,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "mode seq 4",
+      "elapsed_s": 0.0,
+      "index": 84,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-under 1",
+      "elapsed_s": 0.0,
+      "index": 85,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-over 1",
+      "elapsed_s": 0.0,
+      "index": 86,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-watchdog 1",
+      "elapsed_s": 0.0,
+      "index": 87,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-amplitude-high 1",
+      "elapsed_s": 0.0,
+      "index": 88,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-amplitude-low 1",
+      "elapsed_s": 0.0,
+      "index": 89,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error status-under 1",
+      "elapsed_s": 0.0,
+      "index": 90,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error status-over 1",
+      "elapsed_s": 0.0,
+      "index": 91,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error status-watchdog 1",
+      "elapsed_s": 0.0,
+      "index": 92,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error status-amplitude-high 1",
+      "elapsed_s": 0.0,
+      "index": 93,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error status-amplitude-low 1",
+      "elapsed_s": 0.0,
+      "index": 94,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error status-zero-count 1",
+      "elapsed_s": 0.0,
+      "index": 95,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-ready 1",
+      "elapsed_s": 0.0,
+      "index": 96,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 5",
+      "elapsed_s": 0.0,
+      "index": 97,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 65535",
+      "elapsed_s": 0.0,
+      "index": 98,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 0 0",
+      "elapsed_s": 0.0,
+      "index": 99,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 0 65535",
+      "elapsed_s": 0.0,
+      "index": 100,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 0 1",
+      "elapsed_s": 0.0,
+      "index": 101,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 0 15",
+      "elapsed_s": 0.0,
+      "index": 102,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 0 1",
+      "elapsed_s": 0.0,
+      "index": 103,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 0 1023",
+      "elapsed_s": 0.0,
+      "index": 104,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 0 0",
+      "elapsed_s": 0.0,
+      "index": 105,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 0 65535",
+      "elapsed_s": 0.0,
+      "index": 106,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 1 5",
+      "elapsed_s": 0.0,
+      "index": 107,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 1 65535",
+      "elapsed_s": 0.0,
+      "index": 108,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 1 0",
+      "elapsed_s": 0.0,
+      "index": 109,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 1 65535",
+      "elapsed_s": 0.0,
+      "index": 110,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 1 1",
+      "elapsed_s": 0.0,
+      "index": 111,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 1 15",
+      "elapsed_s": 0.0,
+      "index": 112,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 1 1",
+      "elapsed_s": 0.0,
+      "index": 113,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 1 1023",
+      "elapsed_s": 0.0,
+      "index": 114,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 1 0",
+      "elapsed_s": 0.0,
+      "index": 115,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 1 65535",
+      "elapsed_s": 0.0,
+      "index": 116,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 2 5",
+      "elapsed_s": 0.0,
+      "index": 117,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 2 65535",
+      "elapsed_s": 0.0,
+      "index": 118,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 2 0",
+      "elapsed_s": 0.0,
+      "index": 119,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 2 65535",
+      "elapsed_s": 0.0,
+      "index": 120,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 2 1",
+      "elapsed_s": 0.0,
+      "index": 121,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 2 15",
+      "elapsed_s": 0.0,
+      "index": 122,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 2 1",
+      "elapsed_s": 0.0,
+      "index": 123,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 2 1023",
+      "elapsed_s": 0.0,
+      "index": 124,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 2 0",
+      "elapsed_s": 0.0,
+      "index": 125,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 2 65535",
+      "elapsed_s": 0.0,
+      "index": 126,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 3 5",
+      "elapsed_s": 0.0,
+      "index": 127,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 3 65535",
+      "elapsed_s": 0.0,
+      "index": 128,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 3 0",
+      "elapsed_s": 0.0,
+      "index": 129,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 3 65535",
+      "elapsed_s": 0.0,
+      "index": 130,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 3 1",
+      "elapsed_s": 0.0,
+      "index": 131,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 3 15",
+      "elapsed_s": 0.0,
+      "index": 132,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 3 1",
+      "elapsed_s": 0.0,
+      "index": 133,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 3 1023",
+      "elapsed_s": 0.0,
+      "index": 134,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 3 0",
+      "elapsed_s": 0.0,
+      "index": 135,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 3 65535",
+      "elapsed_s": 0.0,
+      "index": 136,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile reset",
+      "elapsed_s": 0.0,
+      "index": 137,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile validate",
+      "elapsed_s": 0.0,
+      "index": 138,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "profile discard",
+      "elapsed_s": 0.0,
+      "index": 139,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drv",
+      "elapsed_s": 0.0,
+      "index": 140,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "xfer reset",
+      "elapsed_s": 0.0,
+      "index": 141,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "help help extra",
+      "elapsed_s": 0.0,
+      "index": 142,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "version extra",
+      "elapsed_s": 0.0,
+      "index": 143,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "init 0",
+      "elapsed_s": 0.0,
+      "index": 144,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "resetreapply",
+      "elapsed_s": 0.0,
+      "index": 145,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "read 0",
+      "elapsed_s": 0.0,
+      "index": 146,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "mode single 4",
+      "elapsed_s": 0.0,
+      "index": 147,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "mode seq 1",
+      "elapsed_s": 0.0,
+      "index": 148,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "refclk external 0 100",
+      "elapsed_s": 0.0,
+      "index": 149,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "refclk external 40000000 1000000",
+      "elapsed_s": 0.0,
+      "index": 150,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "deglitch 2",
+      "elapsed_s": 0.0,
+      "index": 151,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "activation invalid",
+      "elapsed_s": 0.0,
+      "index": 152,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timeout 0",
+      "elapsed_s": 0.0,
+      "index": 153,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rp 2",
+      "elapsed_s": 0.0,
+      "index": 154,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "autoamp 2",
+      "elapsed_s": 0.0,
+      "index": 155,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "highcurrent 2",
+      "elapsed_s": 0.0,
+      "index": 156,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "intbconfig 2",
+      "elapsed_s": 0.0,
+      "index": 157,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "errors invalid",
+      "elapsed_s": 0.0,
+      "index": 158,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error invalid 1",
+      "elapsed_s": 0.0,
+      "index": 159,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "error data-under 2",
+      "elapsed_s": 0.0,
+      "index": 160,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 4",
+      "elapsed_s": 0.0,
+      "index": 161,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "rcount 0 65536",
+      "elapsed_s": 0.0,
+      "index": 162,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "settle 0 65536",
+      "elapsed_s": 0.0,
+      "index": 163,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 0 0",
+      "elapsed_s": 0.0,
+      "index": 164,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "findiv 0 16",
+      "elapsed_s": 0.0,
+      "index": 165,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 0 0",
+      "elapsed_s": 0.0,
+      "index": 166,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "frefdiv 0 1024",
+      "elapsed_s": 0.0,
+      "index": 167,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "offset 0 65536",
+      "elapsed_s": 0.0,
+      "index": 168,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "reg 0x80",
+      "elapsed_s": 0.0,
+      "index": 169,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wreg 0x1A 0x3481",
+      "elapsed_s": 0.0,
+      "index": 170,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "decode status 0x10000",
+      "elapsed_s": 0.0,
+      "index": 171,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "decode data 0x10000 0",
+      "elapsed_s": 0.0,
+      "index": 172,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "freq 4 0",
+      "elapsed_s": 0.0,
+      "index": 173,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "freq 0 0x10000000",
+      "elapsed_s": 0.0,
+      "index": 174,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "timing 0",
+      "elapsed_s": 0.0,
+      "index": 175,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "driveua 32",
+      "elapsed_s": 0.0,
+      "index": 176,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "xfer assert 0 0 0 0",
+      "elapsed_s": 0.0,
+      "index": 177,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "state",
+      "elapsed_s": 0.0,
+      "index": 178,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 179,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "stress 100 0x01",
+      "elapsed_s": 0.0,
+      "index": 180,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "stress_mix 100 0x01 confirm",
+      "elapsed_s": 0.0,
+      "index": 181,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "stress_id 100",
+      "elapsed_s": 0.0,
+      "index": 182,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "soak 2 0x01",
+      "elapsed_s": 0.0,
+      "index": 183,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drv",
+      "elapsed_s": 0.0,
+      "index": 184,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "wake",
+      "elapsed_s": 0.0,
+      "index": 185,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "stress_busfreq 100 confirm",
+      "elapsed_s": 0.0,
+      "index": 186,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "drv",
+      "elapsed_s": 0.0,
+      "index": 187,
+      "output": "",
+      "reason": "not sent after base command 12 (discover) was FAIL",
+      "status": "NOT_RUN",
+      "timed_out": false
+    },
+    {
+      "command": "expect-invalid-input-state",
+      "index": 188,
+      "reason": "invalid-input matrix changed staged/applied state or left work active",
+      "status": "FAIL"
+    },
+    {
+      "command": "expect-channel-count",
+      "index": 189,
+      "reason": "configured variant channel count was not reported by target firmware",
+      "status": "FAIL"
+    }
+  ],
+  "command_timeout_s": 4.0,
+  "commands": [
+    "help",
+    "color off",
+    "help",
+    "color on",
+    "verbose 1",
+    "verbose 0",
+    "version",
+    "bus",
+    "busfreq",
+    "diag",
+    "xfer stats",
+    "discover",
+    "init",
+    "apply",
+    "wake",
+    "probe",
+    "reg 0x7E",
+    "reg 0x7F",
+    "status",
+    "status_raw",
+    "ready",
+    "cfg",
+    "job",
+    "result",
+    "profile show",
+    "profile validate",
+    "profile discard",
+    "dump config",
+    "dump all confirm",
+    "verify",
+    "wake",
+    "selftest",
+    "read 0x01",
+    "sleep",
+    "wake",
+    "decode status 0x0040",
+    "decode data 0x0000 0x0000",
+    "freq desired 0 0x0100000",
+    "freq staged 0 0x0100000",
+    "timing desired 0x01",
+    "timing staged 0x01",
+    "driveua 0",
+    "wreg 0x1A 0x3481 confirm",
+    "init",
+    "invalidate confirm",
+    "init",
+    "busrecover confirm",
+    "state",
+    "init",
+    "wake",
+    "probe",
+    "drv",
+    "end",
+    "bind",
+    "init",
+    "cancel",
+    "wake",
+    "drv",
+    "profile reset",
+    "mode single 0",
+    "mode seq 2",
+    "refclk internal 40000000 100",
+    "refclk external 40000000 100",
+    "deglitch 1",
+    "deglitch 3",
+    "deglitch 10",
+    "deglitch 33",
+    "activation full",
+    "activation low",
+    "timeout 1",
+    "timeout 4294967295",
+    "rp 0",
+    "rp 1",
+    "autoamp 0",
+    "autoamp 1",
+    "highcurrent 0",
+    "highcurrent 1",
+    "intbconfig 0",
+    "intbconfig 1",
+    "errors show",
+    "errors none",
+    "errors all",
+    "mode seq 3",
+    "mode seq 4",
+    "error data-under 1",
+    "error data-over 1",
+    "error data-watchdog 1",
+    "error data-amplitude-high 1",
+    "error data-amplitude-low 1",
+    "error status-under 1",
+    "error status-over 1",
+    "error status-watchdog 1",
+    "error status-amplitude-high 1",
+    "error status-amplitude-low 1",
+    "error status-zero-count 1",
+    "error data-ready 1",
+    "rcount 0 5",
+    "rcount 0 65535",
+    "settle 0 0",
+    "settle 0 65535",
+    "findiv 0 1",
+    "findiv 0 15",
+    "frefdiv 0 1",
+    "frefdiv 0 1023",
+    "offset 0 0",
+    "offset 0 65535",
+    "rcount 1 5",
+    "rcount 1 65535",
+    "settle 1 0",
+    "settle 1 65535",
+    "findiv 1 1",
+    "findiv 1 15",
+    "frefdiv 1 1",
+    "frefdiv 1 1023",
+    "offset 1 0",
+    "offset 1 65535",
+    "rcount 2 5",
+    "rcount 2 65535",
+    "settle 2 0",
+    "settle 2 65535",
+    "findiv 2 1",
+    "findiv 2 15",
+    "frefdiv 2 1",
+    "frefdiv 2 1023",
+    "offset 2 0",
+    "offset 2 65535",
+    "rcount 3 5",
+    "rcount 3 65535",
+    "settle 3 0",
+    "settle 3 65535",
+    "findiv 3 1",
+    "findiv 3 15",
+    "frefdiv 3 1",
+    "frefdiv 3 1023",
+    "offset 3 0",
+    "offset 3 65535",
+    "profile reset",
+    "profile validate",
+    "profile discard",
+    "drv",
+    "xfer reset",
+    "help help extra",
+    "version extra",
+    "init 0",
+    "resetreapply",
+    "read 0",
+    "mode single 4",
+    "mode seq 1",
+    "refclk external 0 100",
+    "refclk external 40000000 1000000",
+    "deglitch 2",
+    "activation invalid",
+    "timeout 0",
+    "rp 2",
+    "autoamp 2",
+    "highcurrent 2",
+    "intbconfig 2",
+    "errors invalid",
+    "error invalid 1",
+    "error data-under 2",
+    "rcount 0 4",
+    "rcount 0 65536",
+    "settle 0 65536",
+    "findiv 0 0",
+    "findiv 0 16",
+    "frefdiv 0 0",
+    "frefdiv 0 1024",
+    "offset 0 65536",
+    "reg 0x80",
+    "wreg 0x1A 0x3481",
+    "decode status 0x10000",
+    "decode data 0x10000 0",
+    "freq 4 0",
+    "freq 0 0x10000000",
+    "timing 0",
+    "driveua 32",
+    "xfer assert 0 0 0 0",
+    "state",
+    "wake",
+    "stress 100 0x01",
+    "stress_mix 100 0x01 confirm",
+    "stress_id 100",
+    "soak 2 0x01",
+    "drv",
+    "wake",
+    "stress_busfreq 100 confirm",
+    "drv"
+  ],
+  "default_matrix_included": false,
+  "dry_run": false,
+  "evidence_type": "hardware_hil",
+  "expect_tokens": [],
+  "expected_address": "0x2A",
+  "expected_channel_count": 4,
+  "expected_failure_tokens": [],
+  "expected_firmware_commit": "e4d0436",
+  "expected_idf_version": "5.5.5",
+  "expected_target": "esp32s2",
+  "failure_tokens": [],
+  "firmware_git_commit": "e4d0436",
+  "firmware_git_status": "clean",
+  "firmware_version": "3.1.0",
+  "fixture": "no-sensor",
+  "hardware_attached": true,
+  "host_git_commit": "e4d0436",
+  "host_git_status": "dirty",
+  "idle_gap_s": 0.35,
+  "library_version": "3.1.0",
+  "not_run_reason": null,
+  "notes": "",
+  "operator": "OpenAI Codex",
+  "overall_status": "FAIL",
+  "port": "COM8",
+  "profile": "arduino",
+  "repeat_command_set": 1,
+  "sample_rate": {
+    "channel": 0,
+    "effective_hz": null,
+    "elapsed_s": 0.0,
+    "failure_count": null,
+    "observed_count": null,
+    "reason": "sample-rate benchmark was not requested",
+    "requested": false,
+    "requested_count": 0,
+    "status": "NOT_RUN"
+  },
+  "sample_rate_channel": 0,
+  "sample_rate_count": 0,
+  "scoped_expected_failures": [],
+  "serial_dtr": "on",
+  "serial_failure": null,
+  "serial_port_requested": true,
+  "serial_rts": "off",
+  "skipped_optional_tests": [
+    {
+      "name": "address_0x2B",
+      "reason": "NOT_RUN: requires a separately rebuilt and rewired 0x2B fixture"
+    },
+    {
+      "name": "variant_LDC1612",
+      "reason": "NOT_RUN: requires a separately rebuilt LDC1612 fixture with its complete two-channel profile"
+    },
+    {
+      "name": "sd_shutdown_wake",
+      "reason": "NOT_RUN: requires wired SD control and power-state observation"
+    },
+    {
+      "name": "intb_observation",
+      "reason": "NOT_RUN: requires wired INTB and independent pin observation"
+    },
+    {
+      "name": "drive_current_tuning",
+      "reason": "NOT_RUN: requires an approved coil and drive-current tuning fixture"
+    },
+    {
+      "name": "unplug_replug",
+      "reason": "NOT_RUN: requires operator-controlled unplug/replug fixture"
+    },
+    {
+      "name": "stuck_bus",
+      "reason": "NOT_RUN: requires operator-controlled stuck-bus fault fixture"
+    },
+    {
+      "name": "sensor_measurement_quality",
+      "reason": "NOT_RUN: requires a characterized resonant sensor fixture"
+    },
+    {
+      "name": "sample_rate_benchmark",
+      "reason": "NOT_RUN: requires DRDY and valid conversions from a sensor fixture"
+    },
+    {
+      "name": "cached_last_sample",
+      "reason": "NOT_RUN: last is SENSOR_REQUIRED; no-sensor acquisition is only fault-path evidence"
+    },
+    {
+      "name": "active_job_cancellation",
+      "reason": "NOT_RUN: the unattended matrix proves idle cancel plus scheduled/terminal job correlation; active cancellation requires an interactive timing fixture"
+    }
+  ],
+  "soak": {
+    "base_matrix_scope": "custom_reduced",
+    "default_matrix_included": false,
+    "elapsed_s": 0.0,
+    "reason": "long soak was not requested",
+    "status": "NOT_RUN"
+  },
+  "soak_cycle_delay_s": 1.0,
+  "soak_duration_s": 0.0,
+  "startup_delay_s": 1.0,
+  "startup_elapsed_s": 4.0,
+  "stress": {
+    "count": 100,
+    "effective_hz": null,
+    "elapsed_s": 0.0,
+    "failure_count": null,
+    "reason": "not sent after base command 12 (discover) was FAIL",
+    "requested": true,
+    "status": "NOT_RUN",
+    "success_count": null
+  },
+  "timestamp_utc": "2026-08-04T13:44:30+00:00",
+  "tool": "ldc1614_hil_runner",
+  "transcript": "### startup\n\n### command 1: help\n\u001b[36m=== LDC1614 CLI ===\u001b[0m\n\n\u001b[32m[Common]\u001b[0m\n  \u001b[36mhelp / ? [command]              \u001b[0m - Show the complete command reference (alias available)\n  \u001b[36mversion / ver                   \u001b[0m - Show library and firmware identity (alias available)\n  \u001b[36mcolor [on|off]                  \u001b[0m - Show or change ANSI colors\n  \u001b[36mverbose [0|1]                   \u001b[0m - Show or change per-step diagnostics\n  \u001b[36mbus / i2c                       \u001b[0m - Show owner bus, pins, levels, address, and speed (alias available)\n\n\u001b[32m[Lifecycle and owner jobs]\u001b[0m\n  \u001b[36mbind                            \u001b[0m - Bind the platform default profile (zero I2C)\n  \u001b[36mend                             \u001b[0m - Bus-silent cancel, discard results, and unbind\n  \u001b[36minit [deadline_ms]              \u001b[0m - Verify identity and replay the full profile\n  \u001b[36mapply [deadline_ms]             \u001b[0m - Replay the committed desired profile\n  \u001b[36mresetreapply [ms] confirm       \u001b[0m - Software-reset, verify identity, and replay\n  \u001b[36msleep                           \u001b[0m - Enter sleep with one bounded write\n  \u001b[36mwake                            \u001b[0m - Leave sleep with one bounded write\n  \u001b[36mcancel / stop                   \u001b[0m - Bus-silently cancel active CLI work (alias available)\n  \u001b[36mjob / progress                  \u001b[0m - Show core job and CLI session progress (alias available)\n  \u001b[36mresult                          \u001b[0m - Show the cached terminal operation\n  \u001b[36minvalidate confirm              \u001b[0m - Bus-silently mark applied hardware state unknown\n  \u001b[36mbusrecover confirm              \u001b[0m - Rebuild owner bus/device, then require init\n  \u001b[36mbusfreq / i2cfreq [hz confirm]  \u001b[0m - Show or replace the owner device-handle speed (alias available)\n\n\u001b[32m[Measurements]\u001b[0m\n  \u001b[36mread / acquire [mask]           \u001b[0m - Acquire one sequential readout batch (alias available)\n  \u001b[36mlast [channel]                  \u001b[0m - Show the cached complete sample batch\n  \u001b[36mwatch <mask> <count> [ms]       \u001b[0m - Cooperatively print bounded periodic batches\n  \u001b[36msamplerate <channel> <count>    \u001b[0m - Measure cooperative acquisition throughput\n  \u001b[36mready / drdy                    \u001b[0m - Read readiness and retain STATUS evidence (alias available)\n  \u001b[36mstatus                          \u001b[0m - Read and decode destructive STATUS evidence\n  \u001b[36mstatus_raw                      \u001b[0m - Read destructive STATUS as a raw word\n  \u001b[36mintb                            \u001b[0m - Observe optional application-owned INTB\n  \u001b[36minitdrive <channel>             \u001b[0m - Read INIT_IDRIVE and nominal current\n\n\u001b[32m[Staged configuration]\u001b[0m\n  \u001b[36mcfg / settings                  \u001b[0m - Show desired and staged profiles (alias available)\n  \u001b[36mprofile show|reset|discard      \u001b[0m - Manage the bus-silent staged profile\n  \u001b[36mprofile validate                \u001b[0m - continued\n  \u001b[36mprofile commit confirm          \u001b[0m - continued\n  \u001b[36maddr                            \u001b[0m - Show display-only binding address\n  \u001b[36mvariant                         \u001b[0m - Show display-only silicon variant\n  \u001b[36mmode <single ch|seq count>      \u001b[0m - Stage mode, channel mask, active channel, and RR atomically\n  \u001b[36mrefclk <src> <hz> <ppm>         \u001b[0m - Stage the explicit reference-clock fact\n  \u001b[36mdeglitch <1|3|10|33>            \u001b[0m - Stage input deglitch bandwidth in MHz\n  \u001b[36mactivation <full|low>           \u001b[0m - Stage sensor activation current policy\n  \u001b[36mtimeout <ms>                    \u001b[0m - Stage per-callback timeout\n  \u001b[36mrp <0|1>                        \u001b[0m - Stage RP override\n  \u001b[36mautoamp <0|1>                   \u001b[0m - Stage automatic amplitude correction\n  \u001b[36mhighcurrent <0|1>               \u001b[0m - Stage CH0 high-current drive\n  \u001b[36mintbconfig <0|1>                \u001b[0m - Stage INTB output enable\n  \u001b[36merrors [show|all|none]          \u001b[0m - Show or stage all error routes\n  \u001b[36merror <field> <0|1>             \u001b[0m - Stage one named DATA/STATUS/DRDY route\n  \u001b[36mrcount <ch> <value>             \u001b[0m - Stage channel RCOUNT\n  \u001b[36msettle <ch> <value>             \u001b[0m - Stage channel SETTLECOUNT\n  \u001b[36mfindiv <ch> <value>             \u001b[0m - Stage channel FIN divider\n  \u001b[36mfrefdiv <ch> <value>            \u001b[0m - Stage channel FREF divider\n  \u001b[36moffset <ch> <value>             \u001b[0m - Stage channel OFFSET\n  \u001b[36mdrive <ch> <code>               \u001b[0m - Stage channel IDRIVE code\n  \u001b[36msensorbounds <ch> <lo> <hi>     \u001b[0m - Stage expected channel sensor-frequency bounds\n\n\u001b[32m[Registers and helpers]\u001b[0m\n  \u001b[36mprobe / id                      \u001b[0m - Cooperatively read and verify both IDs (alias available)\n  \u001b[36mdiscover / scan                 \u001b[0m - Protocol-qualify LDC identity at 0x2A and 0x2B (alias available)\n  \u001b[36mdump config                     \u001b[0m - Cooperatively dump mapped registers\n  \u001b[36mdump all confirm                \u001b[0m - continued\n  \u001b[36mverify                          \u001b[0m - Compare every persistent register to desired\n  \u001b[36mreg / rreg <addr> [confirm]     \u001b[0m - Read one mapped register; DATA/STATUS require confirm (alias available)\n  \u001b[36mwreg <addr> <value> confirm     \u001b[0m - Write one mapped writable register and invalidate trust\n  \u001b[36mdecode status <raw16>           \u001b[0m - Run pure STATUS or DATA decoding\n  \u001b[36mdecode data <msb> <lsb>         \u001b[0m - continued\n  \u001b[36mfreq <channel> <raw28>          \u001b[0m - Calculate sensor frequency\n  \u001b[36mfreq <desired|staged> <channel> <raw28>\u001b[0m - continued\n  \u001b[36mtiming [mask]                   \u001b[0m - Estimate conservative chip timing\n  \u001b[36mtiming <desired|staged> [mask]  \u001b[0m - continued\n  \u001b[36mdriveua <code>                  \u001b[0m - Convert IDRIVE code to nominal uA\n\n\u001b[32m[Driver diagnostics]\u001b[0m\n  \u001b[36mdrv / health                    \u001b[0m - Show driver, transport, and fault provenance (alias available)\n  \u001b[36mstate                           \u001b[0m - Show compact parseable driver state\n  \u001b[36mdiag                            \u001b[0m - Show a bus-silent consolidated diagnostic snapshot\n  \u001b[36mxfer stats|reset                \u001b[0m - Inspect or baseline owner transport attempts\n  \u001b[36mxfer assert <write> <write_read> <discover> <total>\u001b[0m - continued\n  \u001b[36mselftest                        \u001b[0m - Run full cooperative safe self-test\n  \u001b[36mstress <count> [mask]           \u001b[0m - Stress cooperative acquisitions\n  \u001b[36mstress_mix <n> [mask] confirm   \u001b[0m - Stress mixed STATUS/INTB/IDRIVE/acquisition paths\n  \u001b[36mstress_id <count>               \u001b[0m - Stress protocol-complete identity reads\n  \u001b[36mstress_reset <count> confirm    \u001b[0m - Stress full software-reset and replay jobs\n  \u001b[36mstress_busfreq <count> confirm  \u001b[0m - Alternate 100/400 kHz with full initialization\n  \u001b[36msoak <seconds> [mask]           \u001b[0m - Run bounded periodic acquisition soak\n  \u001b[36msd status|assert|release confirm\u001b[0m - Use optional application-owned shutdown pin\n\nSettings edit a staged profile with zero I2C. Validate and commit explicitly.\nDATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.\ncommand_count=71\n> \n### command 2: color off\ncolor enabled=0\n> \n### command 3: help\n=== LDC1614 CLI ===\n\n[Common]\n  help / ? [command]               - Show the complete command reference (alias available)\n  version / ver                    - Show library and firmware identity (alias available)\n  color [on|off]                   - Show or change ANSI colors\n  verbose [0|1]                    - Show or change per-step diagnostics\n  bus / i2c                        - Show owner bus, pins, levels, address, and speed (alias available)\n\n[Lifecycle and owner jobs]\n  bind                             - Bind the platform default profile (zero I2C)\n  end                              - Bus-silent cancel, discard results, and unbind\n  init [deadline_ms]               - Verify identity and replay the full profile\n  apply [deadline_ms]              - Replay the committed desired profile\n  resetreapply [ms] confirm        - Software-reset, verify identity, and replay\n  sleep                            - Enter sleep with one bounded write\n  wake                             - Leave sleep with one bounded write\n  cancel / stop                    - Bus-silently cancel active CLI work (alias available)\n  job / progress                   - Show core job and CLI session progress (alias available)\n  result                           - Show the cached terminal operation\n  invalidate confirm               - Bus-silently mark applied hardware state unknown\n  busrecover confirm               - Rebuild owner bus/device, then require init\n  busfreq / i2cfreq [hz confirm]   - Show or replace the owner device-handle speed (alias available)\n\n[Measurements]\n  read / acquire [mask]            - Acquire one sequential readout batch (alias available)\n  last [channel]                   - Show the cached complete sample batch\n  watch <mask> <count> [ms]        - Cooperatively print bounded periodic batches\n  samplerate <channel> <count>     - Measure cooperative acquisition throughput\n  ready / drdy                     - Read readiness and retain STATUS evidence (alias available)\n  status                           - Read and decode destructive STATUS evidence\n  status_raw                       - Read destructive STATUS as a raw word\n  intb                             - Observe optional application-owned INTB\n  initdrive <channel>              - Read INIT_IDRIVE and nominal current\n\n[Staged configuration]\n  cfg / settings                   - Show desired and staged profiles (alias available)\n  profile show|reset|discard       - Manage the bus-silent staged profile\n  profile validate                 - continued\n  profile commit confirm           - continued\n  addr                             - Show display-only binding address\n  variant                          - Show display-only silicon variant\n  mode <single ch|seq count>       - Stage mode, channel mask, active channel, and RR atomically\n  refclk <src> <hz> <ppm>          - Stage the explicit reference-clock fact\n  deglitch <1|3|10|33>             - Stage input deglitch bandwidth in MHz\n  activation <full|low>            - Stage sensor activation current policy\n  timeout <ms>                     - Stage per-callback timeout\n  rp <0|1>                         - Stage RP override\n  autoamp <0|1>                    - Stage automatic amplitude correction\n  highcurrent <0|1>                - Stage CH0 high-current drive\n  intbconfig <0|1>                 - Stage INTB output enable\n  errors [show|all|none]           - Show or stage all error routes\n  error <field> <0|1>              - Stage one named DATA/STATUS/DRDY route\n  rcount <ch> <value>              - Stage channel RCOUNT\n  settle <ch> <value>              - Stage channel SETTLECOUNT\n  findiv <ch> <value>              - Stage channel FIN divider\n  frefdiv <ch> <value>             - Stage channel FREF divider\n  offset <ch> <value>              - Stage channel OFFSET\n  drive <ch> <code>                - Stage channel IDRIVE code\n  sensorbounds <ch> <lo> <hi>      - Stage expected channel sensor-frequency bounds\n\n[Registers and helpers]\n  probe / id                       - Cooperatively read and verify both IDs (alias available)\n  discover / scan                  - Protocol-qualify LDC identity at 0x2A and 0x2B (alias available)\n  dump config                      - Cooperatively dump mapped registers\n  dump all confirm                 - continued\n  verify                           - Compare every persistent register to desired\n  reg / rreg <addr> [confirm]      - Read one mapped register; DATA/STATUS require confirm (alias available)\n  wreg <addr> <value> confirm      - Write one mapped writable register and invalidate trust\n  decode status <raw16>            - Run pure STATUS or DATA decoding\n  decode data <msb> <lsb>          - continued\n  freq <channel> <raw28>           - Calculate sensor frequency\n  freq <desired|staged> <channel> <raw28> - continued\n  timing [mask]                    - Estimate conservative chip timing\n  timing <desired|staged> [mask]   - continued\n  driveua <code>                   - Convert IDRIVE code to nominal uA\n\n[Driver diagnostics]\n  drv / health                     - Show driver, transport, and fault provenance (alias available)\n  state                            - Show compact parseable driver state\n  diag                             - Show a bus-silent consolidated diagnostic snapshot\n  xfer stats|reset                 - Inspect or baseline owner transport attempts\n  xfer assert <write> <write_read> <discover> <total> - continued\n  selftest                         - Run full cooperative safe self-test\n  stress <count> [mask]            - Stress cooperative acquisitions\n  stress_mix <n> [mask] confirm    - Stress mixed STATUS/INTB/IDRIVE/acquisition paths\n  stress_id <count>                - Stress protocol-complete identity reads\n  stress_reset <count> confirm     - Stress full software-reset and replay jobs\n  stress_busfreq <count> confirm   - Alternate 100/400 kHz with full initialization\n  soak <seconds> [mask]            - Run bounded periodic acquisition soak\n  sd status|assert|release confirm - Use optional application-owned shutdown pin\n\nSettings edit a staged profile with zero I2C. Validate and commit explicitly.\nDATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.\ncommand_count=71\n> \n### command 4: color on\ncolor enabled=1\n> \n### command 5: verbose 1\nverbose enabled=1\n> \n### command 6: verbose 0\nverbose enabled=0\n> \n### command 7: version\nversion=3.1.0 firmware_git=e4d0436 firmware_status=clean build_timestamp=2026-08-04 15:43:19 platform=pioarduino-55.03.311 framework=arduino framework_version=3.3.11 idf_version=v5.5.5 target=esp32s2 i2c_backend=esp-idf-new-master frequency_hz=400000\n> \n### command 8: bus\nbus open=1 backend=esp-idf-new-master port=0 sda=8 scl=9 sda_level=1 scl_level=1 address=0x2A frequency_hz=400000 timeout_ms=50\n> \n### command 9: busfreq\nbusfreq previous_hz=400000 requested_hz=400000 active_hz=400000 reinitialized=0 outcome=SUCCESS code=0\n> \n### command 10: diag\ndiag platform=pioarduino-55.03.311 framework=arduino framework_version=3.3.11 idf_version=v5.5.5 target=esp32s2 frequency_hz=400000 bound=1 applied=UNKNOWN revision=1 profile_dirty=0 active=0 pending_result=0 attempts=1 success=0 failures=1 last_code=14 outcome=SUCCESS code=0\n> \n### command 11: xfer stats\nxfer write=0 write_read=1 discover=0 total=1 failures=1 last_code=14 outcome=SUCCESS code=0\n> \n### command 12: discover\nCLI scheduled: command=discover session=1\ndiscover address=0x2A strap=ADDR_GND manufacturer_id=unavailable device_id=unavailable match=0 variant=UNKNOWN code=14 detail=259\ndiscover address=0x2B strap=ADDR_VDD manufacturer_id=unavailable device_id=unavailable match=0 variant=UNKNOWN code=14 detail=259\ndiscover tested=2 responding=0 matched=0 mismatched=0 failed=2 variant=UNKNOWN code=9\nfirst_failure   Status: \u001b[31mDEVICE_NOT_FOUND\u001b[0m (code=9, detail=0)\n  Message: No protocol-qualified LDC161x found\nlast_failure   Status: \u001b[31mDEVICE_NOT_FOUND\u001b[0m (code=9, detail=0)\n  Message: No protocol-qualified LDC161x found\nCLI result: command=discover session=1 outcome=FAILED code=9\n> \n### runner fail-fast after command 12: discover\nnot sent after base command 12 (discover) was FAIL\n",
+  "write_timeout_s": 1.0
+}

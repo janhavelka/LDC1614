@@ -194,13 +194,40 @@ pin-level discriminator runs used to localize it:
   that successful register output because metadata separated the address and
   value; 170 entries remained `NOT_RUN`. This is parser-negative evidence, not
   a completed hardware matrix.
+- `nonreset-exhaustive-e4d0436.*`: the exact clean replacement was flashed
+  while the LDC remained powered. Its automatic first combined read had already
+  failed before the matrix; discovery then failed at both addresses and
+  fail-fast left 175 entries `NOT_RUN`. No RESET_DEV command was sent. The
+  target had been readable immediately before the MCU upload/reboot interval,
+  so that interval is now an observed transition boundary, not proof of the
+  precise electrical edge within it.
+- `nonreset-exhaustive-post-rail-e4d0436.*`: after a true rail cycle, discovery,
+  initialization, apply, both identity registers, and destructive STATUS reads
+  passed. The host then falsely rejected the cache-only `job` output because it
+  expected the obsolete numeric-only session phase; 164 entries remained
+  `NOT_RUN`. This is retained parser-negative evidence.
+- `nonreset-exhaustive-post-rail-v2-e4d0436.*`: with both structured-output
+  matchers corrected, all 187/187 commands passed. Coverage includes complete
+  replay/readback, all four-channel profile boundaries, invalid-input zero-I2C
+  fences, 100 acquisitions, 100 mixed operations, 100 identity cycles, a
+  two-second acquisition soak, and 100 alternating 100/400 kHz re-admissions.
+  The unconfirmed `resetreapply` entry is an invalid-input rejection and issued
+  no I2C.
+- `one-hour-nonreset-e4d0436.*`: an exact-clean `custom_reduced` gate then ran
+  exactly 3,600.0 seconds: 2,926 complete cycles, 32,186 soak commands, zero
+  failures, zero unknowns, zero resets, and 32 ms worst command latency. Every
+  cycle verified identity and STATUS, sleep/wake, controller reconstruction,
+  applied `UNKNOWN`, complete 26-transfer initialization/replay, and final
+  `APPLIED_ACTIVE`. This is strong no-reset owner-recovery/re-admission evidence;
+  it is not RESET_DEV, sensor-physics, or TunnelMonitor ESP32-S3 backend evidence.
 
 Together these runs prove that the observed live failure was not a missing
 coil, held bus, absent `0x2A` target, or stale ESP-IDF handle: the target could
 receive its write address and pointer, but refused the transition to the read
 address, and controller recreation did not change that state. A true target
-rail cycle cleared it. The originating electrical edge remains unobserved, so
-the evidence does not distinguish a prior unsupported/early-terminated
-transaction from a marginal VDD/SD/ADDR transition or signal-integrity fault.
-Assigning that initiating cause requires an SDA/SCL plus rail/control-pin
-capture at the first recurrence.
+rail cycle cleared it. The later clean upload experiment bounds one recurrence
+to an MCU-only flash/reboot interval while the LDC remained energized. The
+originating electrical edge remains unobserved, so the evidence does not
+distinguish MCU pin-state/startup traffic from a marginal VDD/SD/ADDR transition
+or repeated-start signal-integrity fault. Assigning that initiating cause
+requires an SDA/SCL plus VDD/SD/ADDR capture across the first recurrence.

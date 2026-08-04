@@ -228,8 +228,10 @@ def base_golden_outputs() -> dict[str, str]:
         "cfg": cfg_output(),
         "job": (
             "job active=0 operation=0 kind=NONE phase=NONE transfers=0 maximum=0 "
-            "requested=0x00 completed=0x00 deadline_ms=0 effects=0x00 revision=1\n"
-            "session active=0 id=0 kind=NONE phase=0 completed=0/0 pass=0 fail=0 skip=0\n> "
+            "requested=0x00 completed=0x00 deadline_ms=0 effects=0x00 "
+            "effects_names=NONE revision=1\n"
+            "session active=0 id=0 kind=NONE phase=NONE phase_code=0 "
+            "completed=0/0 pass=0 fail=0 skip=0\n> "
         ),
         "result": (
             "Operation result: operation=7 kind=INITIALIZE outcome=SUCCESS effects=0x00 "
@@ -601,8 +603,10 @@ class ClassifierTests(unittest.TestCase):
         progress = sync_output(
             "job",
             "job active=0 operation=0 kind=NONE phase=NONE transfers=0 maximum=0 "
-            "requested=0x00 completed=0x00 deadline_ms=0\n"
-            "session active=0 id=0 kind=NONE phase=0 completed=0/0\n",
+            "requested=0x00 completed=0x00 deadline_ms=0 effects=0x00 "
+            "effects_names=NONE revision=0\n"
+            "session active=0 id=0 kind=NONE phase=NONE phase_code=0 "
+            "completed=0/0 pass=0 fail=0 skip=0\n",
         )
         self.assertEqual("PASS", runner.classify_command("progress", progress, False)[0])
 
@@ -682,12 +686,22 @@ class ClassifierTests(unittest.TestCase):
 
     def test_diagnostics_and_progress_reject_impossible_counters(self) -> None:
         outputs = base_golden_outputs()
+        session_record = (
+            "session active=0 id=0 kind=NONE phase=NONE phase_code=0 "
+            "completed=0/0 pass=0 fail=0 skip=0\n"
+        )
         malformed = (
             ("diag", outputs["diag"].replace("success=10", "success=9")),
             ("diag", outputs["diag"].replace("last_code=0", "last_code=7")),
             ("job", outputs["job"].replace("transfers=0 maximum=0",
                                             "transfers=2 maximum=1")),
             ("job", outputs["job"].replace("completed=0x00", "completed=0x02")),
+            ("job", outputs["job"].replace(" phase_code=0", "")),
+            ("job", outputs["job"].replace(
+                "completed=0/0 pass=0 fail=0 skip=0",
+                "completed=1/1 pass=0 fail=0 skip=0",
+            )),
+            ("job", outputs["job"].replace(session_record, session_record * 2)),
             ("result", outputs["result"].replace("transfers=20 maximum=20",
                                                   "transfers=21 maximum=20")),
         )
