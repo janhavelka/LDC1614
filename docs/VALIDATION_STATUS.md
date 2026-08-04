@@ -85,8 +85,18 @@ at the first recurrence. The retained TI PDF is byte-identical to the current
 vendor download (Rev. A, March 2018; SHA-256
 `B3BAB7A84C9A8423448113F24DE3B343C06CE7E7E4CBC6039B262B22130D8652`).
 
-The current clean candidate has positive no-sensor diagnostic and steady-state
-subsets, but none is a release certificate or sensor-equipped product evidence.
+Exact clean `5e3199e` firmware repeated the reset-adjacent boundary: discovery,
+26-transfer initialization, 24-transfer apply, and wake succeeded; the
+`RESET_DEV` write succeeded; the immediately following MANUFACTURER_ID combined
+read failed as transfer 2 of 27 with generic code 14/raw detail 259 and retained
+partial-write/dirty provenance. After another rail cycle, a non-reset matrix
+passed the same lifecycle and its MANUFACTURER_ID register read on target, but
+the host runner falsely rejected the current structured output and stopped.
+That parser-negative run is not a matrix pass; its unsent entries remain
+`NOT_RUN`.
+
+The current candidate has positive no-sensor diagnostic subsets, but none is a
+release certificate or sensor-equipped product evidence.
 Earlier compact v2
 artifacts contained no raw transcript and did not validate operation IDs,
 deadlines, budgets, cancellation, applied state, or atomic acquisition, so they
@@ -111,7 +121,7 @@ Before release or target-deployment claims, capture evidence for:
   calibration; and
 - a bounded soak at the production channel mask, cadence, and clock profile.
 
-Clean `c3e2ed8` passed the 49-command default matrix, a 171-command extended
+Historical clean `c3e2ed8` passed the 49-command default matrix, a 171-command extended
 matrix with all configuration/invalid-input coverage, and 1,000/1,000 hardware
 stress operations. Its full one-hour gate later reproduced detail 259 at
 `resetreapply`, so that acceptance soak correctly did not start. The clean
@@ -120,7 +130,9 @@ post-fix runner then classified a following `init` failure correctly after
 `custom_reduced` gate passed scan, owner recovery, full replay,
 wake, identity, and active-state checks before completing exactly 3,600 seconds:
 3,197 cycles, 19,182 commands, zero soak-command failures/unknowns/resets, and
-32 ms worst latency. This is positive steady-state evidence only. Historical
+32 ms worst latency. Because every cycle reconstructs and re-admits the device,
+this is positive no-reset owner-recovery stress, not a production-cadence soak.
+Historical
 recovery stress still showed bus-reset plus target ACK followed by an
 initialization failure. The corrected diagnostic no longer treats that
 sequence as recovery: it performs controller-only reconstruction, maps raw 259

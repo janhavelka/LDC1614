@@ -197,6 +197,21 @@ FIRMWARE_VERSION_PATTERN = re.compile(
     r"\b(?:version|library version)\s*[=:]\s*(\d+\.\d+\.\d+)\b",
     re.IGNORECASE,
 )
+REGISTER_READ_RESULT_PATTERN = re.compile(
+    r"^reg\s+register=0x([0-9a-f]{2})\s+name=(\S+)\s+access=(R|RW|-)\s+"
+    r"destructive=([01])\s+value=0x([0-9a-f]{4})\s+reserved_valid=([01])"
+    r"[ \t]*\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
+REGISTER_WRITE_RESULT_PATTERN = re.compile(
+    r"^wreg\s+register=0x([0-9a-f]{2})\s+name=(\S+)\s+access=(W|RW)\s+"
+    r"value=0x([0-9a-f]{4})\s+code=(\d+)[ \t]*\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
+STATUS_OK_PATTERN = re.compile(
+    r"^[ \t]*Status:[ \t]*OK[ \t]*\(code=0,[ \t]*detail=0\)[ \t]*\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 COMMAND_EVIDENCE_PATTERNS = {
     "help": (
@@ -407,10 +422,12 @@ COMMAND_EVIDENCE_PATTERNS = {
         re.compile(r"\bchannel=\d+\s+init_drive_code=\d+\b", re.IGNORECASE),
     ),
     "reg": (
-        re.compile(r"\bregister=0x[0-9a-f]{2}\s+value=0x[0-9a-f]{4}\s+code=0\b", re.IGNORECASE),
+        REGISTER_READ_RESULT_PATTERN,
+        STATUS_OK_PATTERN,
     ),
     "wreg": (
-        re.compile(r"\bregister=0x[0-9a-f]{2}\s+value=0x[0-9a-f]{4}\s+code=0\b", re.IGNORECASE),
+        REGISTER_WRITE_RESULT_PATTERN,
+        STATUS_OK_PATTERN,
     ),
     "decode": (re.compile(r"\bdecode kind=(?:status|data)\b", re.IGNORECASE),),
     "driveua": (re.compile(r"\bcode=\d+\s+microamps=\d+\b", re.IGNORECASE),),
@@ -511,10 +528,36 @@ COMMAND_BRANCH_EVIDENCE_PATTERNS = {
             re.IGNORECASE,
         ),
     ),
-    "reg 0x7e": (re.compile(r"\bregister=0x7e\s+value=0x5449\s+code=0\b", re.IGNORECASE),),
-    "reg 0x7f": (re.compile(r"\bregister=0x7f\s+value=0x3055\s+code=0\b", re.IGNORECASE),),
+    "reg 0x7e": (
+        re.compile(
+            r"^reg\s+register=0x7e\s+name=MANUFACTURER_ID\s+access=R\s+"
+            r"destructive=0\s+value=0x5449\s+reserved_valid=1[ \t]*\r?$",
+            re.IGNORECASE | re.MULTILINE,
+        ),
+        re.compile(
+            r"^register_decode\s+name=MANUFACTURER_ID\s+expected=0x5449\s+"
+            r"match=1\s+variant=UNKNOWN[ \t]*\r?$",
+            re.IGNORECASE | re.MULTILINE,
+        ),
+    ),
+    "reg 0x7f": (
+        re.compile(
+            r"^reg\s+register=0x7f\s+name=DEVICE_ID\s+access=R\s+"
+            r"destructive=0\s+value=0x3055\s+reserved_valid=1[ \t]*\r?$",
+            re.IGNORECASE | re.MULTILINE,
+        ),
+        re.compile(
+            r"^register_decode\s+name=DEVICE_ID\s+expected=0x3055\s+"
+            r"match=1\s+variant=UNKNOWN[ \t]*\r?$",
+            re.IGNORECASE | re.MULTILINE,
+        ),
+    ),
     "wreg 0x1a 0x3481 confirm": (
-        re.compile(r"\bregister=0x1a\s+value=0x3481\s+code=0\b", re.IGNORECASE),
+        re.compile(
+            r"^wreg\s+register=0x1a\s+name=CONFIG\s+access=RW\s+"
+            r"value=0x3481\s+code=0[ \t]*\r?$",
+            re.IGNORECASE | re.MULTILINE,
+        ),
     ),
 }
 INVALID_INPUT_EVIDENCE_PATTERNS = {
@@ -1063,19 +1106,38 @@ def command_semantic_failure(
         return None
 
     if canonical in ("reg", "wreg"):
-        match = re.search(
-            rf"(?:\b{canonical}\s+)?register=0x([0-9a-f]{{2}})\b[^\r\n]*"
-            + (r"\bvalue=0x([0-9a-f]{4})\b" if canonical == "wreg" else ""),
-            output,
-            re.IGNORECASE,
+        result_pattern = (
+            REGISTER_READ_RESULT_PATTERN
+            if canonical == "reg"
+            else REGISTER_WRITE_RESULT_PATTERN
         )
+        match, failure = unique_match(
+            result_pattern, output, f"{canonical} result record"
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
         minimum_tokens = 3 if canonical == "wreg" else 2
-        if (match is None or len(tokens) < minimum_tokens or
+        if (len(tokens) < minimum_tokens or
                 int(match.group(1), 16) != parse_int_token(tokens[1])):
             return f"{canonical} output does not match the requested register"
-        if (canonical == "wreg" and
-                int(match.group(2), 16) != parse_int_token(tokens[2])):
-            return "wreg output does not match the requested value"
+        expected_name, expected_access, expected_destructive = (
+            expected_register_descriptor(int(match.group(1), 16))
+        )
+        if match.group(2).upper() != expected_name:
+            return f"{canonical} output reports inconsistent register name"
+        if match.group(3).upper() != expected_access:
+            return f"{canonical} output reports inconsistent register access"
+        if canonical == "reg":
+            if int(match.group(4)) != expected_destructive:
+                return "reg output reports inconsistent destructive-read metadata"
+            if int(match.group(6)) != 1:
+                return "reg output reports invalid reserved bits"
+        else:
+            if int(match.group(4), 16) != parse_int_token(tokens[2]):
+                return "wreg output does not match the requested value"
+            if int(match.group(5)) != 0:
+                return "wreg output reports a nonzero status"
         return None
 
     if canonical == "decode":

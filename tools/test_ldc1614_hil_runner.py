@@ -203,8 +203,22 @@ def base_golden_outputs() -> dict[str, str]:
         "apply": async_output("apply", 0),
         "resetreapply confirm": async_output("resetreapply", 0),
         "probe": probe_output(2),
-        "reg 0x7E": "register=0x7E value=0x5449 code=0\n> ",
-        "reg 0x7F": "register=0x7F value=0x3055 code=0\n> ",
+        "reg 0x7E": (
+            "reg register=0x7E name=MANUFACTURER_ID access=R destructive=0 "
+            "value=0x5449 reserved_valid=1\n"
+            "register_decode name=MANUFACTURER_ID expected=0x5449 match=1 "
+            "variant=UNKNOWN\n"
+            "  Status: \x1b[32mOK\x1b[0m (code=0, detail=0)\n"
+            "  Message: OK\n> "
+        ),
+        "reg 0x7F": (
+            "reg register=0x7F name=DEVICE_ID access=R destructive=0 "
+            "value=0x3055 reserved_valid=1\n"
+            "register_decode name=DEVICE_ID expected=0x3055 match=1 "
+            "variant=UNKNOWN\n"
+            "  Status: \x1b[32mOK\x1b[0m (code=0, detail=0)\n"
+            "  Message: OK\n> "
+        ),
         "status": status_clean,
         "status_raw": "status_raw=0x0040 code=0\n> ",
         "ready": (
@@ -273,7 +287,12 @@ def base_golden_outputs() -> dict[str, str]:
             "sequential_frame_us=2000 acquisition_transfers=4 code=0\n> "
         ),
         "driveua 0": "code=0 microamps=16\n> ",
-        "wreg 0x1A 0x3481 confirm": "register=0x1A value=0x3481 code=0\n> ",
+        "wreg 0x1A 0x3481 confirm": (
+            "wreg register=0x1A name=CONFIG access=RW "
+            "value=0x3481 code=0\n"
+            "  Status: \x1b[32mOK\x1b[0m (code=0, detail=0)\n"
+            "  Message: OK\n> "
+        ),
         "invalidate confirm": generic("invalidate"),
         "busrecover confirm": generic("busrecover"),
         "end": generic("end"),
@@ -485,6 +504,37 @@ class ClassifierTests(unittest.TestCase):
                 "result", outputs["result"].replace("maximum=20 ", ""), False
             )[0],
         )
+
+    def test_register_evidence_requires_current_metadata_and_success_status(self) -> None:
+        outputs = base_golden_outputs()
+        manufacturer = outputs["reg 0x7E"]
+        write = outputs["wreg 0x1A 0x3481 confirm"]
+        malformed = (
+            ("reg 0x7E", manufacturer.replace("reserved_valid=1", "reserved_valid=0")),
+            (
+                "reg 0x7E",
+                manufacturer.replace(
+                    "  Status: \x1b[32mOK\x1b[0m (code=0, detail=0)\n", ""
+                ),
+            ),
+            ("reg 0x7E", manufacturer.replace("value=0x5449", "value=0x3055")),
+            ("reg 0x7E", manufacturer.replace("match=1", "match=0")),
+            (
+                "reg 0x7E",
+                manufacturer.splitlines()[0] + "\n" + manufacturer,
+            ),
+            ("wreg 0x1A 0x3481 confirm", write.replace(" name=CONFIG", "")),
+            (
+                "wreg 0x1A 0x3481 confirm",
+                write.replace(
+                    "  Status: \x1b[32mOK\x1b[0m (code=0, detail=0)\n", ""
+                ),
+            ),
+        )
+        for command, output in malformed:
+            with self.subTest(command=command, output=output):
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("FAIL", status, reason)
 
     def test_detailed_help_and_color_normalization_match_contract(self) -> None:
         detailed = (

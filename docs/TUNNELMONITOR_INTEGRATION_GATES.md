@@ -7,11 +7,12 @@ repeated here.
 
 Last cross-repository review: 2026-08-04.
 
-- LDC1614 checkout: unreleased `3.1.0` candidate. Clean COM8 firmware
-  `c3e2ed876dd884ceefc46ac6e579effa83e45325` passed the current default and
-  extended matrices plus a labeled one-hour steady-state soak. Reset/recovery
-  remained intermittent, so replace this line with a reviewed release commit
-  only after the platform recovery gate is closed.
+- LDC1614 checkout: unreleased `3.1.0` candidate. Latest retained exact clean
+  COM8 firmware `5e3199e` repeated the open RESET_DEV-adjacent identity-read
+  failure. A later non-reset run reached a successful target identity register
+  read before a host parser false negative stopped the matrix. Replace this
+  line with a reviewed release commit only after the separate library reset
+  qualification and TunnelMonitor production-path gates are resolved.
 - TunnelMonitor-node checkout:
   `f05cd296d59c62ad4dfe293ca63f9b3798053ce8` on
   `prompt-45-platformization`, clean and synchronized with its upstream.
@@ -117,6 +118,14 @@ absence/offline/backoff evidence. If approved LDC-specific SD or power control
 is wired, use it as a bounded device reset before full replay rather than
 disturbing unrelated peers.
 
+TunnelMonitor has no normal lifecycle requirement for `RESET_DEV`. Its
+production LDC module must use `startInitialize()` for boot and every
+re-admission and `startApplyConfig()` for an approved desired-profile change;
+it must not expose or automatically call `startResetAndReapply()`. If a future
+maintenance requirement adds software reset, isolated SD or rail recovery plus
+exact target HIL becomes a prerequisite. A reset-adjacent identity failure
+terminates and is never answered with another reset write.
+
 ## Target HIL gate
 
 TunnelMonitor currently uses an ESP32-S3 native ESP-IDF backend whose
@@ -153,7 +162,9 @@ For the selected LDC board and sensors, also retain:
 - removal or controlled power loss followed by owner recovery and full replay;
 - INTB and SD evidence when those pins are wired; and
 - a one-hour bounded soak at the production channel mask, cadence, and clock
-  profile.
+  profile. TunnelMonitor's normal-path soak must exclude `RESET_DEV`; the
+  library runner's controller-rebuild/re-admission cycle does not validate the
+  exact ESP32-S3 per-transfer backend or TunnelMonitor scheduling cadence.
 
 At least one raw serial transcript or logic-analyzer trace must accompany the
 exact release fixture. Software tests, builds, dry runs, historical v2 results,

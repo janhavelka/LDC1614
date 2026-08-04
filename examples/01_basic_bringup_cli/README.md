@@ -15,10 +15,10 @@ The Arduino and native ESP-IDF diagnostics share
 `examples/esp32/I2cMasterTransport.*`. A combined register read is one bounded
 `i2c_master_transmit_receive()` transaction. Explicit owner recovery removes
 the diagnostic's device handle, deletes/recreates its sole owned bus, and
-recreates the device handle. It then runs the ESP-IDF driver's bounded bus
-reset/line-clear, performs one bounded target-address probe, and reports success
-only on ACK; full `init` replay remains mandatory. The
-repository pins pioarduino
+recreates the device handle. It does not pulse SCL, line-clear, or use an
+address-only probe as evidence that the LDC recovered. The command reports only
+controller-resource reconstruction; full `init` identity and replay remains
+mandatory. The repository pins pioarduino
 `55.03.311`; COM8 reproduced the open ESP-IDF post-NACK
 `ESP_ERR_INVALID_STATE` failure on this pin. Do not treat `busrecover` as
 guaranteed recovery until the complete recovery/replay gate passes, and do not

@@ -90,6 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Diagnostic sessions retain the latest correlated core result and print full
   effect, phase, register, channel, status, and configuration-fault provenance
   on failed or cancelled acquisitions.
+- HIL register-read/write evidence now parses the current structured metadata
+  fields, requires one unique record plus explicit successful status, and
+  verifies exact identity decode output instead of rejecting valid records or
+  joining stale fields across lines.
 - CLI input length checks are bounded before copying, asynchronous work rejects
   a missing monotonic-clock callback instead of freezing at time zero, and
   cancelling a synchronous session no longer emits a second deferred prompt.
@@ -111,6 +115,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   target rail cycle. Recovery guidance therefore terminates the operation,
   avoids register retry/line clearing, and prefers bounded device-local SD or
   power recovery followed by full identity and replay.
+- TunnelMonitor integration guidance excludes `RESET_DEV` from its normal
+  lifecycle, uses complete initialization for boot/re-admission and full apply
+  for profile changes, and keeps reset qualification separate from its exact
+  ESP32-S3 production-path soak.
 - `selftest` is now a real bounded diagnostic rather than an alias for two
   identity reads; it reports explicit pass, failure, and fixture-dependent skip
   counts.

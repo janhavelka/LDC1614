@@ -76,6 +76,13 @@ keeps the port open, executes only complete cycles, and ends every cycle awake:
 python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
 ```
 
+That complete default gate includes confirmed `resetreapply`. When investigating
+the open reset-adjacent failure, use `--skip-default-commands`, supply an
+explicit non-reset base sequence, and opt in with `--allow-reduced-soak-gate`;
+label the artifact `custom_reduced`. An unconfirmed `resetreapply` may appear
+only as an invalid-input test that proves zero-I2C rejection. Never describe a
+reduced non-reset soak as RESET_DEV qualification.
+
 The runner first requires every base-matrix command and firmware identity check
 to pass. It will not spend an hour soaking an ambiguous candidate. The fixed
 soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, `busrecover
@@ -221,7 +228,7 @@ Run these only when hardware and operator setup explicitly support them:
 
 | Test | Safe default? | Requires hardware/operator? | Current evidence | Needed evidence |
 | --- | --- | --- | --- | --- |
-| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `c3e2ed8` default/extended matrices and 3,197-cycle reduced soak passed exact identity checks | Repeat on each sensor-equipped production fixture |
+| Probe/device ID | Yes | LDC1612/LDC1614 board | Clean `c3e2ed8` default/extended matrices and reduced soak passed exact identity checks; clean `5e3199e` also passed identity before its reset-adjacent failure and in the later parser-negative non-reset run | Repeat on each sensor-equipped production fixture |
 | Address `0x2A` | Yes | ADDR strapped low | Clean `c3e2ed8` matrices and reduced soak confirm the chip at `0x2A` | Repeat on each production board |
 | Address `0x2B` | No | ADDR strapped high or selectable | Not run | Opt-in probe/read logs at `0x2B` |
 | LDC1612 channel bounds | Yes if LDC1612 present | LDC1612 hardware | Native tests only | HIL showing channels 0/1 valid and 2/3 rejected |
@@ -229,14 +236,14 @@ Run these only when hardware and operator setup explicitly support them:
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
 | Config readback | Yes | Hardware | Clean `c3e2ed8` default and extended matrices passed | Repeat cleanly with the production profile |
-| Reset/reapply and owner recovery | Yes | Hardware | Clean `c3e2ed8` default and extended matrices each passed one reset/reapply, then the full soak gate reproduced ambiguous detail 259; a clean post-fix runner correctly classified the following initialization failure after historical bus-reset/ACK recovery | Qualify controller-only reconstruction plus complete identity/replay and repeated valid combined reads without a power cycle |
+| Reset/reapply and owner recovery | Yes | Hardware | Clean `5e3199e` repeated the exact boundary: RESET_DEV write succeeded and the next MANUFACTURER_ID combined read failed with code 14/raw 259; controller-only reconstruction had already been shown not to clear the live state | Qualify RESET_DEV separately; for production paths that exclude reset, qualify controller-only reconstruction plus complete identity/replay and repeated valid combined reads |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
 | Induced address NACK | No | Operator/fault fixture | Clean scans observed `0x2A` and peer `0x3C`; individual recovery/replay passed, but repeated reset/recovery still failed on pioarduino `55.03.311` | Controlled NACK, deterministic recovery/replay, valid combined reads, and shared-device proof |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | Clean `c3e2ed8` completed a labeled reduced 3,600-second soak: 3,197 cycles/19,182 commands, zero soak-command failures/unknowns/resets, 32 ms worst latency; the complete default gate separately failed reset/reapply | Repeat at production sensor cadence after the full reset/recovery gate passes |
+| Bounded soak | No | Stable fixture | Clean `c3e2ed8` completed a labeled reduced 3,600-second no-reset owner-recovery/re-admission soak: 3,197 cycles/19,182 commands, zero failures/unknowns/resets, 32 ms worst latency; the complete default gate separately failed reset/reapply | Repeat at production sensor cadence; qualify RESET_DEV separately if the product exposes it |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules

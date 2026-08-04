@@ -99,12 +99,13 @@ failure, and counts only complete cycles. The reset failure left subsequent
 combined reads unavailable, so the intended one-hour acceptance soak did not
 start; raw detail 259 alone cannot identify whether the initiating NACK was
 caused by the controller waveform, the LDC parser, or the electrical fixture.
-Temporary dirty-firmware investigations are intentionally excluded from this
-curated evidence bundle and are not used to support acceptance conclusions.
+Temporary dirty-firmware investigations were excluded from this 2026-08-03
+candidate bundle. The separately indexed 2026-08-04 discriminator transcripts
+are retained as diagnostic evidence and are not used to support acceptance.
 
-### Final clean candidate and recovery experiments
+### Earlier clean candidate and recovery experiments
 
-The final clean diagnostic firmware for this session was `c3e2ed8`:
+An earlier clean diagnostic candidate was `c3e2ed8`:
 
 - `final-c3e2ed8-default-matrix.*`: 49/49 commands passed, including the
   default reset/reapply path.
@@ -126,8 +127,9 @@ The final clean diagnostic firmware for this session was `c3e2ed8`:
   gate passed scan, owner recovery, full replay, wake, identity, and final
   active-state checks, then completed exactly 3,600 seconds: 3,197 complete
   cycles, 19,182 commands, zero soak-command failures, zero unknowns, zero
-  resets, and 32 ms worst latency. It is steady-state evidence, not reset
-  qualification.
+  resets, and 32 ms worst latency. Because each cycle reconstructed the
+  controller and reinitialized the LDC, it is bounded no-reset owner-recovery
+  and re-admission stress, not RESET_DEV or production-cadence qualification.
 - `recovery-efce1be-live-pass.*`: one exact clean failed-state recovery/replay
   passed without a power cycle.
 - `recovery-d5ce61b-repeat-failure.*`: the next repeated recovery stress failed
@@ -179,6 +181,19 @@ pin-level discriminator runs used to localize it:
   `usb-control-line-check-4efeb5e.*` are incomplete serial-control experiments.
   They establish no I2C conclusion and are retained only so failed work is not
   silently discarded.
+- `comprehensive-no-sensor-5e3199e.*`: exact clean `5e3199e` firmware passed
+  startup, discovery, 26-transfer initialization, 24-transfer apply, and wake.
+  Its successful `RESET_DEV` write was immediately followed by a failed
+  MANUFACTURER_ID combined read at transfer 2 of 27 (`code=14`, raw detail
+  `259`, `PARTIAL_WRITE`, applied state `DIRTY`). Fail-fast left 176 entries
+  `NOT_RUN`. This repeats the reset-adjacent boundary but does not prove what
+  originally drives the target into that state.
+- `nonreset-exhaustive-5e3199e.*`: after another rail cycle, exact clean target
+  output passed through initialization, apply, wake, probe, and the structured
+  MANUFACTURER_ID `reg 0x7E` read. The older host matcher then falsely rejected
+  that successful register output because metadata separated the address and
+  value; 170 entries remained `NOT_RUN`. This is parser-negative evidence, not
+  a completed hardware matrix.
 
 Together these runs prove that the observed live failure was not a missing
 coil, held bus, absent `0x2A` target, or stale ESP-IDF handle: the target could
