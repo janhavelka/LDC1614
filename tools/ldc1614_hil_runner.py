@@ -27,6 +27,7 @@ from ldc1614_cli_contract import (
     COMMAND_SPECS,
     NO_SENSOR_COMMANDS as CONTRACT_NO_SENSOR_COMMANDS,
     OPTIONAL_COMMAND_GROUPS,
+    SECTION_ORDER,
     SENSOR_COMMANDS as CONTRACT_SENSOR_COMMANDS,
     validate_contract,
 )
@@ -42,6 +43,28 @@ MAX_COMMAND_SET_REPETITIONS = 100
 MAX_SOAK_DURATION_S = 24 * 60 * 60
 MAX_SOAK_CYCLE_DELAY_S = 60.0
 SERIAL_LINE_STATES = ("on", "off", "unchanged")
+HELP_SECTION_LABELS = {
+    "Common": "Common",
+    "Lifecycle": "Lifecycle and owner jobs",
+    "Measurements": "Measurements",
+    "Configuration": "Staged configuration",
+    "Registers and helpers": "Registers and helpers",
+    "Diagnostics": "Driver diagnostics",
+}
+LDC1614_CONFIG_REGISTERS = frozenset((*range(0x08, 0x18), 0x19, 0x1A, 0x1B,
+                                      *range(0x1E, 0x22)))
+LDC1614_ALL_REGISTERS = frozenset((*range(0x00, 0x18), 0x18, 0x19, 0x1A, 0x1B,
+                                   0x1C, *range(0x1E, 0x22), 0x7E, 0x7F))
+LDC1612_UNAVAILABLE_REGISTERS = frozenset((
+    0x04, 0x05, 0x06, 0x07, 0x0A, 0x0B, 0x0E, 0x0F, 0x12, 0x13,
+    0x16, 0x17, 0x20, 0x21,
+))
+LDC1612_CONFIG_REGISTERS = (
+    LDC1614_CONFIG_REGISTERS - LDC1612_UNAVAILABLE_REGISTERS
+)
+LDC1612_ALL_REGISTERS = (
+    LDC1614_ALL_REGISTERS - LDC1612_UNAVAILABLE_REGISTERS
+)
 
 
 class SerialRunFailure(RuntimeError):
@@ -110,6 +133,11 @@ NO_SENSOR_SOAK_COMMANDS = [
     "status",
     "sleep",
     "wake",
+    "busrecover confirm",
+    "state",
+    "init",
+    "wake",
+    "probe",
     "drv",
 ]
 
@@ -134,7 +162,7 @@ ERROR_ROUTE_NAMES = (
     "data-ready",
 )
 INVALID_INPUT_COMMANDS = (
-    "help extra", "version extra", "init 0", "resetreapply",
+    "help help extra", "version extra", "init 0", "resetreapply",
     "read 0", "mode single 4", "mode seq 1",
     "refclk external 0 100", "refclk external 40000000 1000000",
     "deglitch 2", "activation invalid", "timeout 0",
@@ -152,7 +180,7 @@ ASYNC_CANONICAL_COMMANDS = frozenset(
     spec.canonical
     for spec in COMMAND_SPECS
     if spec.execution in ASYNC_EXECUTION_CLASSES
-) | frozenset(("scan",))
+)
 IMMEDIATE_RESULT_COMMANDS = frozenset(
     ("bind", "end", "sleep", "wake", "cancel", "invalidate", "busrecover")
 )
@@ -172,7 +200,7 @@ FIRMWARE_VERSION_PATTERN = re.compile(
 
 COMMAND_EVIDENCE_PATTERNS = {
     "help": (
-        re.compile(r"===\s+LDC1614 CLI\s+===", re.IGNORECASE),
+        re.compile(r"(?:===\s+LDC1614 CLI\s+===|\bhelp command=)", re.IGNORECASE),
         re.compile(rf"\bcommand_count={len(COMMAND_SPECS)}\b", re.IGNORECASE),
     ),
     "version": (
@@ -180,12 +208,33 @@ COMMAND_EVIDENCE_PATTERNS = {
         re.compile(r"\bfirmware_git=[0-9a-f]{7,40}\b", re.IGNORECASE),
         re.compile(r"\bfirmware_status=clean\b", re.IGNORECASE),
         re.compile(r"\bbuild_timestamp=\S+", re.IGNORECASE),
+        re.compile(r"\bplatform=\S+\s+framework=\S+\s+framework_version=\S+\s+"
+                   r"idf_version=\S+\s+target=\S+\s+i2c_backend=\S+\s+"
+                   r"frequency_hz=\d+\b", re.IGNORECASE),
     ),
     "color": (re.compile(r"\bcolor enabled=[01]\b", re.IGNORECASE),),
     "verbose": (re.compile(r"\bverbose enabled=[01]\b", re.IGNORECASE),),
-    "scan": (
-        re.compile(r"\bscan complete found=\d+ probes=112\b", re.IGNORECASE),
-        re.compile(r"\bcode=0\b", re.IGNORECASE),
+    "bus": (
+        re.compile(
+            r"\bbus open=[01]\s+backend=\S+\s+port=-?\d+\s+sda=-?\d+\s+"
+            r"scl=-?\d+\s+sda_level=-?\d+\s+scl_level=-?\d+\s+"
+            r"address=0x[0-9a-f]{2}\s+frequency_hz=\d+\s+timeout_ms=\d+\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "busfreq": (
+        re.compile(
+            r"\bbusfreq previous_hz=\d+\s+requested_hz=\d+\s+active_hz=\d+\s+"
+            r"reinitialized=[01]\s+outcome=SUCCESS\s+code=0\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "discover": (
+        re.compile(
+            r"\bdiscover tested=2\s+responding=\d+\s+matched=\d+\s+"
+            r"mismatched=\d+\s+failed=\d+\s+variant=UNKNOWN\s+code=0\b",
+            re.IGNORECASE,
+        ),
     ),
     "probe": (
         re.compile(r"\bmanufacturer_id=0x5449\b", re.IGNORECASE),
@@ -212,6 +261,30 @@ COMMAND_EVIDENCE_PATTERNS = {
     "stress_mix": (
         re.compile(
             r"\bStressMix results:\s*requested=\d+\s+ok=\d+\s+fail=0\s+elapsed_ms=\d+\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "stress_id": (
+        re.compile(
+            r"\bIdentityStress result:\s*requested=\d+\s+completed=\d+\s+"
+            r"ok=\d+\s+fail=0\s+first_failure_iteration=-1\s+"
+            r"elapsed_ms=\d+\s+hz=[0-9.]+\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "stress_reset": (
+        re.compile(
+            r"\bResetStress result:\s*requested=\d+\s+completed=\d+\s+"
+            r"ok=\d+\s+fail=0\s+first_failure_iteration=-1\s+elapsed_ms=\d+\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "stress_busfreq": (
+        re.compile(
+            r"\bBusFrequencyStress result:\s*requested=\d+\s+completed=\d+\s+"
+            r"ok=\d+\s+fail=0\s+initial_hz=\d+\s+active_hz=\d+\s+"
+            r"restored_hz=\d+\s+restore_code=0\s+first_failure_iteration=-1\s+"
+            r"elapsed_ms=\d+\b",
             re.IGNORECASE,
         ),
     ),
@@ -302,9 +375,11 @@ COMMAND_EVIDENCE_PATTERNS = {
         re.compile(r"\bready_status=0x[0-9a-f]{4}\s+observed=[01]\b", re.IGNORECASE),
     ),
     "timing": (
+        re.compile(r"\bprofile=(?:desired|staged)\b", re.IGNORECASE),
         re.compile(r"\bwake_settle_us=\d+\b.*\bconversion_us=\d+\b", re.IGNORECASE),
     ),
     "freq": (
+        re.compile(r"\bprofile=(?:desired|staged)\b", re.IGNORECASE),
         re.compile(r"\bfrequency_hz=[0-9.]+\b", re.IGNORECASE),
         re.compile(r"\bcode=0\b", re.IGNORECASE),
     ),
@@ -348,7 +423,31 @@ COMMAND_EVIDENCE_PATTERNS = {
     "autoamp": (re.compile(r"\benabled=[01]\b", re.IGNORECASE),),
     "highcurrent": (re.compile(r"\benabled=[01]\b", re.IGNORECASE),),
     "intbconfig": (re.compile(r"\benabled=[01]\b", re.IGNORECASE),),
-    "errors": (re.compile(r"\b(?:errors\s+)?ur=[01]\s+or=[01]\s+wd=[01]\s+ah=[01]\s+al=[01]\s+zc=[01]\s+drdy=[01]\b", re.IGNORECASE),),
+    "errors": (re.compile(
+        r"\b(?:errors\s+)?data_under=[01]\s+data_over=[01]\s+"
+        r"data_watchdog=[01]\s+data_amplitude_high=[01]\s+"
+        r"data_amplitude_low=[01]\s+status_under=[01]\s+status_over=[01]\s+"
+        r"status_watchdog=[01]\s+status_amplitude_high=[01]\s+"
+        r"status_amplitude_low=[01]\s+status_zero_count=[01]\s+"
+        r"data_ready=[01]\s+encoded=0x[0-9a-f]{4}\b",
+        re.IGNORECASE,
+    ),),
+    "diag": (
+        re.compile(
+            r"\bdiag platform=\S+\s+framework=\S+\s+framework_version=\S+\s+"
+            r"idf_version=\S+\s+target=\S+\s+frequency_hz=\d+\s+bound=[01]\s+"
+            r"applied=\S+\s+revision=\d+\s+profile_dirty=[01]\s+active=[01]\s+"
+            r"pending_result=[01]\s+attempts=\d+\s+success=\d+\s+failures=\d+\s+"
+            r"last_code=\d+\s+outcome=SUCCESS\s+code=0\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "xfer": (
+        re.compile(
+            r"\b(?:xfer write=|xfer_assert expected_write=)",
+            re.IGNORECASE,
+        ),
+    ),
     "error": (re.compile(r"\bfield=[a-z-]+\s+enabled=[01]\b", re.IGNORECASE),),
     "rcount": (re.compile(r"\bchannel=\d+\s+value=\d+\b", re.IGNORECASE),),
     "settle": (re.compile(r"\bchannel=\d+\s+value=\d+\b", re.IGNORECASE),),
@@ -477,6 +576,10 @@ OK_PATTERNS = [
     )
 ]
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
+PROMPT_BOUNDARY_PATTERN = re.compile(
+    r"(?:^|\r?\n)(?:>|ldc1614-idf>)\s*\Z",
+    re.IGNORECASE,
+)
 SAMPLE_LINE_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\b", re.IGNORECASE)
 SAMPLE_FAIL_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\s+failed\b", re.IGNORECASE)
 STRESS_RESULT_PATTERN = re.compile(
@@ -485,12 +588,137 @@ STRESS_RESULT_PATTERN = re.compile(
 )
 STRESS_DETAIL_PATTERN = re.compile(
     r"Stress result:\s*requested=(\d+)\s+ok=(\d+)\s+fail=(\d+)"
-    r"\s+elapsed_ms=(\d+)(?:\s+hz=([0-9.]+))?",
+    r"\s+elapsed_ms=(\d+)(?:\s+hz=(\d+(?:\.\d+)?))?",
+    re.IGNORECASE,
+)
+STRESS_MIX_RESULT_PATTERN = re.compile(
+    r"StressMix results:\s*requested=(\d+)\s+ok=(\d+)\s+fail=(\d+)"
+    r"\s+elapsed_ms=(\d+)",
+    re.IGNORECASE,
+)
+WATCH_RESULT_PATTERN = re.compile(
+    r"Watch results:\s*requested=(\d+)\s+completed=(\d+)\s+failed=(\d+)"
+    r"\s+elapsed_ms=(\d+)",
     re.IGNORECASE,
 )
 SAMPLE_RATE_RESULT_PATTERN = re.compile(
     r"SampleRate result:\s*requested=(\d+)\s+ok=(\d+)\s+fail=(\d+)"
-    r"\s+elapsed_ms=(\d+)\s+hz=([0-9.]+)",
+    r"\s+elapsed_ms=(\d+)\s+hz=(\d+(?:\.\d+)?)"
+    r"(?:\s+ready_checks=(\d+)\s+ready_status_raw=(0x[0-9a-f]{4}))?",
+    re.IGNORECASE,
+)
+SOAK_SESSION_RESULT_PATTERN = re.compile(
+    r"Soak results:\s*seconds=(\d+)\s+cycles=(\d+)\s+ok=(\d+)\s+fail=(\d+)"
+    r"\s+elapsed_ms=(\d+)",
+    re.IGNORECASE,
+)
+DISCOVER_RESULT_PATTERN = re.compile(
+    r"discover tested=(\d+)\s+responding=(\d+)\s+matched=(\d+)\s+"
+    r"mismatched=(\d+)\s+failed=(\d+)\s+variant=UNKNOWN\s+code=(\d+)",
+    re.IGNORECASE,
+)
+DISCOVER_ADDRESS_PATTERN = re.compile(
+    r"^discover address=0x([0-9a-f]{2})\s+strap=(ADDR_GND|ADDR_VDD)\s+"
+    r"manufacturer_id=(0x[0-9a-f]{4}|unavailable)\s+"
+    r"device_id=(0x[0-9a-f]{4}|unavailable)\s+match=([01])\s+"
+    r"variant=UNKNOWN\s+code=(\d+)\s+detail=(-?\d+)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+DUMP_RESULT_PATTERN = re.compile(
+    r"dump complete\s+scope=(config|all)\s+count=(\d+)\s+failures=(\d+)",
+    re.IGNORECASE,
+)
+DUMP_RECORD_PATTERN = re.compile(
+    r"^(dump_config|dump_all)\s+register=0x([0-9a-f]{2})\s+name=(\S+)\s+"
+    r"access=(R|RW)\s+destructive=([01])\s+value=0x[0-9a-f]{4}\s+"
+    r"reserved_valid=([01])\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+VERIFY_RESULT_PATTERN = re.compile(
+    r"verify complete\s+checked=(\d+)\s+matched=(\d+)\s+"
+    r"mismatched=(\d+)\s+read_failures=(\d+)",
+    re.IGNORECASE,
+)
+SELFTEST_RESULT_PATTERN = re.compile(
+    r"Selftest result:\s*pass=(\d+)\s+fail=(\d+)\s+skip=(\d+)",
+    re.IGNORECASE,
+)
+IDENTITY_STRESS_RESULT_PATTERN = re.compile(
+    r"IdentityStress result:\s*requested=(\d+)\s+completed=(\d+)\s+"
+    r"ok=(\d+)\s+fail=(\d+)\s+first_failure_iteration=(-?\d+)\s+"
+    r"elapsed_ms=(\d+)\s+hz=(\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+RESET_STRESS_RESULT_PATTERN = re.compile(
+    r"ResetStress result:\s*requested=(\d+)\s+completed=(\d+)\s+"
+    r"ok=(\d+)\s+fail=(\d+)\s+first_failure_iteration=(-?\d+)\s+"
+    r"elapsed_ms=(\d+)",
+    re.IGNORECASE,
+)
+BUS_FREQUENCY_STRESS_RESULT_PATTERN = re.compile(
+    r"BusFrequencyStress result:\s*requested=(\d+)\s+completed=(\d+)\s+"
+    r"ok=(\d+)\s+fail=(\d+)\s+initial_hz=(\d+)\s+active_hz=(\d+)\s+"
+    r"restored_hz=(\d+)\s+restore_code=(\d+)\s+"
+    r"first_failure_iteration=(-?\d+)\s+elapsed_ms=(\d+)",
+    re.IGNORECASE,
+)
+BUS_FREQUENCY_RESULT_PATTERN = re.compile(
+    r"busfreq previous_hz=(\d+)\s+requested_hz=(\d+)\s+active_hz=(\d+)\s+"
+    r"reinitialized=([01])\s+outcome=(SUCCESS|FAILED)\s+code=(\d+)",
+    re.IGNORECASE,
+)
+BUS_INFO_PATTERN = re.compile(
+    r"bus open=([01])\s+backend=(\S+)\s+port=(-?\d+)\s+sda=(-?\d+)\s+"
+    r"scl=(-?\d+)\s+sda_level=(-?\d+)\s+scl_level=(-?\d+)\s+"
+    r"address=(0x[0-9a-f]{2})\s+frequency_hz=(\d+)\s+timeout_ms=(\d+)",
+    re.IGNORECASE,
+)
+XFER_STATS_PATTERN = re.compile(
+    r"xfer write=(\d+)\s+write_read=(\d+)\s+discover=(\d+)\s+total=(\d+)\s+"
+    r"failures=(\d+)\s+last_code=(\d+)\s+outcome=(SUCCESS|FAILED)\s+code=(\d+)",
+    re.IGNORECASE,
+)
+XFER_ASSERT_PATTERN = re.compile(
+    r"xfer_assert expected_write=(\d+)\s+actual_write=(\d+)\s+"
+    r"expected_write_read=(\d+)\s+actual_write_read=(\d+)\s+"
+    r"expected_discover=(\d+)\s+actual_discover=(\d+)\s+"
+    r"expected_total=(\d+)\s+actual_total=(\d+)\s+"
+    r"outcome=(SUCCESS|FAILED)\s+code=(\d+)",
+    re.IGNORECASE,
+)
+CFG_HEADER_PATTERN = re.compile(
+    r"^cfg label=(desired|staged)\s+address=0x([0-9a-f]{2})\s+"
+    r"variant=(LDC1612|LDC1614)\s+variant_channels=(2|4)\s+"
+    r"selected=0x([0-9a-f]{2})\s+mode=(\S+)\s+ref_source=(\S+)\s+"
+    r"ref_hz=(\d+)\s+tolerance_ppm=(\d+)\s+deglitch=(\d+)\s+"
+    r"activation=(\S+)\s+timeout_ms=(\d+)\s+rp_override=([01])\s+"
+    r"auto_amplitude=([01])\s+high_current=([01])\s+intb_config=([01])\s+"
+    r"error_reporting=0x([0-9a-f]{4})\s+revision=(\d+)\s+applied=(\S+)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+CFG_CHANNEL_PATTERN = re.compile(
+    r"^\s+channel=(\d+)\s+selected=[01]\s+rcount=\d+\s+"
+    r"settle_count=\d+\s+fin_divider=\d+\s+fref_divider=\d+\s+"
+    r"offset=\d+\s+drive_code=\d+\s+drive_ua=(?:invalid:)?\d+\s+"
+    r"sensor_min_hz=\d+\s+sensor_max_hz=\d+\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+CFG_ERROR_PATTERN = re.compile(
+    r"^\s+error_config=0x[0-9a-f]{4}\s+data_under=[01]\s+data_over=[01]\s+"
+    r"data_watchdog=[01]\s+data_amplitude_high=[01]\s+"
+    r"data_amplitude_low=[01]\s+status_under=[01]\s+status_over=[01]\s+"
+    r"status_watchdog=[01]\s+status_amplitude_high=[01]\s+"
+    r"status_amplitude_low=[01]\s+status_zero_count=[01]\s+data_ready=[01]\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+DRIVER_RESULT_PATTERN = re.compile(
+    r"drv bound=([01])\s+applied=(\S+)\s+revision=(\d+)\s+active=([01])\s+"
+    r"result_available=([01])\s+attempts=(\d+)\s+success=(\d+)\s+"
+    r"failures=(\d+)\s+last_code=(\d+)",
+    re.IGNORECASE,
+)
+TRANSPORT_RESULT_PATTERN = re.compile(
+    r"transport attempts=(\d+)\s+success=(\d+)\s+failures=(\d+)",
     re.IGNORECASE,
 )
 ADDRESS_PATTERNS = [
@@ -509,6 +737,12 @@ FIRMWARE_GIT_PATTERN = re.compile(r"\bfirmware_git=([0-9a-f]{7,40}|unknown)\b",
                                   re.IGNORECASE)
 FIRMWARE_STATUS_PATTERN = re.compile(r"\bfirmware_status=(clean|dirty|unknown)\b",
                                      re.IGNORECASE)
+RUNTIME_VERSION_PATTERN = re.compile(
+    r"\bplatform=(\S+)\s+framework=(\S+)\s+framework_version=(\S+)\s+"
+    r"idf_version=(\S+)\s+target=(\S+)\s+i2c_backend=(\S+)\s+"
+    r"frequency_hz=(\d+)\b",
+    re.IGNORECASE,
+)
 FIRMWARE_STARTUP_BANNER_PATTERN = re.compile(
     r"===\s*LDC1614\s+(?:Arduino|Native ESP-IDF)\s+"
     r"Diagnostic Bring-up Example\s*===",
@@ -622,6 +856,868 @@ def compile_scoped_expected_failures(
     return scoped
 
 
+def command_argument_uint(command: str, index: int) -> Optional[int]:
+    """Return one unsigned CLI argument, or None for malformed input."""
+    tokens = command.strip().split()
+    if index >= len(tokens):
+        return None
+    parsed = parse_int_token(tokens[index])
+    return parsed if parsed is not None and parsed >= 0 else None
+
+
+def unique_match(
+    pattern: re.Pattern[str], output: str, label: str,
+) -> Tuple[Optional[re.Match[str]], Optional[str]]:
+    matches = list(pattern.finditer(output))
+    if len(matches) != 1:
+        return None, f"expected exactly one {label}; observed {len(matches)}"
+    return matches[0], None
+
+
+def reported_rate_mismatch(
+    completed: int, elapsed_ms: int, reported_hz: float,
+) -> bool:
+    if (completed <= 0 or elapsed_ms <= 0 or
+            not math.isfinite(reported_hz) or reported_hz <= 0.0):
+        return True
+    expected_hz = completed * 1000.0 / elapsed_ms
+    return not math.isclose(
+        reported_hz, expected_hz, rel_tol=1.0e-6, abs_tol=1.0e-6
+    )
+
+
+def expected_register_descriptor(address: int) -> Tuple[str, str, int]:
+    if 0x00 <= address <= 0x07:
+        channel = address // 2
+        suffix = "MSB" if address % 2 == 0 else "LSB"
+        return f"DATA{channel}_{suffix}", "R", 1
+    ranged_names = (
+        (0x08, 0x0B, "RCOUNT"),
+        (0x0C, 0x0F, "OFFSET"),
+        (0x10, 0x13, "SETTLECOUNT"),
+        (0x14, 0x17, "CLOCK_DIVIDERS"),
+        (0x1E, 0x21, "DRIVE_CURRENT"),
+    )
+    for first, last, prefix in ranged_names:
+        if first <= address <= last:
+            return f"{prefix}{address - first}", "RW", 0
+    fixed = {
+        0x18: ("STATUS", "R", 1),
+        0x19: ("ERROR_CONFIG", "RW", 0),
+        0x1A: ("CONFIG", "RW", 0),
+        0x1B: ("MUX_CONFIG", "RW", 0),
+        0x1C: ("RESET_DEV", "RW", 0),
+        0x7E: ("MANUFACTURER_ID", "R", 0),
+        0x7F: ("DEVICE_ID", "R", 0),
+    }
+    return fixed.get(address, ("UNMAPPED", "-", 0))
+
+
+def command_semantic_failure(
+    command: str, output: str, profile: str = "arduino",
+) -> Optional[str]:
+    """Reject internally inconsistent success summaries.
+
+    Shape-only regular expressions are not acceptance evidence for counted
+    diagnostics: the firmware's requested/completed counters must reconcile
+    with the command that the runner actually sent.
+    """
+    canonical = canonical_command_name(command)
+    tokens = normalized_command(command).split()
+
+    if canonical in ("color", "verbose"):
+        match, failure = unique_match(
+            re.compile(rf"\b{canonical} enabled=([01])\b", re.IGNORECASE),
+            output,
+            f"{canonical} state",
+        )
+        if failure is not None:
+            return failure
+        if len(tokens) == 2:
+            expected = {
+                "color": {"on": 1, "off": 0},
+                "verbose": {"1": 1, "0": 0},
+            }[canonical].get(tokens[1])
+            if expected is None or int(match.group(1)) != expected:
+                return f"{canonical} state does not match the requested value"
+        return None
+
+    simple_setting_patterns = {
+        "deglitch": (r"\bmhz=(\d+)\b", (1,)),
+        "activation": (r"\bmode=(\S+)\b", (1,)),
+        "timeout": (r"\btimeout_ms=(\d+)\b", (1,)),
+        "rp": (r"\benabled=([01])\b", (1,)),
+        "autoamp": (r"\benabled=([01])\b", (1,)),
+        "highcurrent": (r"\benabled=([01])\b", (1,)),
+        "intbconfig": (r"\benabled=([01])\b", (1,)),
+        "error": (r"\bfield=(\S+)\s+enabled=([01])\b", (1, 2)),
+        "rcount": (r"\bchannel=(\d+)\s+value=(\d+)\b", (1, 2)),
+        "settle": (r"\bchannel=(\d+)\s+value=(\d+)\b", (1, 2)),
+        "findiv": (r"\bchannel=(\d+)\s+value=(\d+)\b", (1, 2)),
+        "frefdiv": (r"\bchannel=(\d+)\s+value=(\d+)\b", (1, 2)),
+        "offset": (r"\bchannel=(\d+)\s+value=(\d+)\b", (1, 2)),
+        "drive": (r"\bchannel=(\d+)\s+code=(\d+)\b", (1, 2)),
+        "sensorbounds": (
+            r"\bchannel=(\d+)\s+low_hz=(\d+)\s+high_hz=(\d+)\b",
+            (1, 2, 3),
+        ),
+    }
+    if canonical in simple_setting_patterns:
+        pattern_text, argument_indices = simple_setting_patterns[canonical]
+        match, failure = unique_match(
+            re.compile(pattern_text, re.IGNORECASE), output,
+            f"{canonical} setting result",
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
+        if len(tokens) != len(argument_indices) + 1:
+            return f"runner could not parse requested {canonical} arguments"
+        for group_index, argument_index in enumerate(argument_indices, start=1):
+            reported = match.group(group_index).lower()
+            requested = tokens[argument_index].lower()
+            reported_number = parse_int_token(reported)
+            requested_number = parse_int_token(requested)
+            if (reported_number != requested_number if requested_number is not None
+                    else reported != requested):
+                return f"{canonical} output does not match the requested value"
+        return None
+
+    if canonical == "mode":
+        if len(tokens) != 3:
+            return "runner could not parse requested mode"
+        if tokens[1] == "single":
+            pattern = re.compile(
+                r"\bmode=single\s+channel=(\d+)\s+count=1\b", re.IGNORECASE
+            )
+        else:
+            pattern = re.compile(
+                r"\bmode=seq\s+channel=none\s+count=(\d+)\b", re.IGNORECASE
+            )
+        match, failure = unique_match(pattern, output, "mode setting result")
+        if failure is not None:
+            return failure
+        assert match is not None
+        if parse_int_token(tokens[2]) != int(match.group(1)):
+            return "mode output does not match the requested mode"
+        return None
+
+    if canonical == "refclk":
+        match, failure = unique_match(
+            re.compile(
+                r"\bsource=(internal|external)\s+hz=(\d+)\s+ppm=(\d+)\b",
+                re.IGNORECASE,
+            ),
+            output,
+            "reference-clock setting result",
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
+        if (len(tokens) != 4 or match.group(1).lower() != tokens[1] or
+                int(match.group(2)) != parse_int_token(tokens[2]) or
+                int(match.group(3)) != parse_int_token(tokens[3])):
+            return "reference-clock output does not match the requested values"
+        return None
+
+    if canonical == "errors" and len(tokens) == 2 and tokens[1] in ("all", "none"):
+        match, failure = unique_match(
+            re.compile(
+                r"\berrors\s+" + r"\s+".join(
+                    rf"{field}=([01])" for field in (
+                        "data_under", "data_over", "data_watchdog",
+                        "data_amplitude_high", "data_amplitude_low",
+                        "status_under", "status_over", "status_watchdog",
+                        "status_amplitude_high", "status_amplitude_low",
+                        "status_zero_count", "data_ready",
+                    )
+                ) + r"\s+encoded=0x([0-9a-f]{4})\b",
+                re.IGNORECASE,
+            ),
+            output,
+            "error-route setting result",
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
+        expected_bit = 1 if tokens[1] == "all" else 0
+        expected_encoded = 0xF8FD if expected_bit else 0
+        if (any(int(match.group(index)) != expected_bit for index in range(1, 13)) or
+                int(match.group(13), 16) != expected_encoded):
+            return "error-route output does not match the requested preset"
+        return None
+
+    if canonical == "initdrive":
+        match = re.search(r"\bchannel=(\d+)\s+init_drive_code=", output,
+                          re.IGNORECASE)
+        if (match is None or len(tokens) != 2 or
+                int(match.group(1)) != parse_int_token(tokens[1])):
+            return "initial-drive output does not match the requested channel"
+        return None
+
+    if canonical == "driveua":
+        match = re.search(r"\bcode=(\d+)\s+microamps=", output, re.IGNORECASE)
+        if (match is None or len(tokens) != 2 or
+                int(match.group(1)) != parse_int_token(tokens[1])):
+            return "drive-current output does not match the requested code"
+        return None
+
+    if canonical in ("reg", "wreg"):
+        match = re.search(
+            rf"(?:\b{canonical}\s+)?register=0x([0-9a-f]{{2}})\b[^\r\n]*"
+            + (r"\bvalue=0x([0-9a-f]{4})\b" if canonical == "wreg" else ""),
+            output,
+            re.IGNORECASE,
+        )
+        minimum_tokens = 3 if canonical == "wreg" else 2
+        if (match is None or len(tokens) < minimum_tokens or
+                int(match.group(1), 16) != parse_int_token(tokens[1])):
+            return f"{canonical} output does not match the requested register"
+        if (canonical == "wreg" and
+                int(match.group(2), 16) != parse_int_token(tokens[2])):
+            return "wreg output does not match the requested value"
+        return None
+
+    if canonical == "decode":
+        if len(tokens) == 3 and tokens[1] == "status":
+            match = re.search(
+                r"\bdecode kind=status\s+decoded_status=0x([0-9a-f]{4})\b",
+                output, re.IGNORECASE,
+            )
+            if (match is None or
+                    int(match.group(1), 16) != parse_int_token(tokens[2])):
+                return "decoded status does not match the requested raw value"
+            return None
+        if len(tokens) == 4 and tokens[1] == "data":
+            match = re.search(
+                r"\bdecode kind=data\s+raw=0x([0-9a-f]{4})\s+"
+                r"msb=0x([0-9a-f]{4})\s+lsb=0x([0-9a-f]{4})\b",
+                output, re.IGNORECASE,
+            )
+            if (match is None or int(match.group(1), 16) != parse_int_token(tokens[2]) or
+                    int(match.group(2), 16) != parse_int_token(tokens[2]) or
+                    int(match.group(3), 16) != parse_int_token(tokens[3])):
+                return "decoded data does not match the requested MSB/LSB values"
+            return None
+        return "runner could not parse requested decode arguments"
+
+    if canonical == "freq" and len(tokens) == 4:
+        match = re.search(
+            r"\bprofile=(desired|staged)\s+channel=(\d+)\s+"
+            r"raw=0x([0-9a-f]{7})\s+frequency_hz=", output, re.IGNORECASE,
+        )
+        if (match is None or match.group(1).lower() != tokens[1] or
+                int(match.group(2)) != parse_int_token(tokens[2]) or
+                int(match.group(3), 16) != parse_int_token(tokens[3])):
+            return "frequency output does not match the requested profile/channel/raw value"
+        return None
+
+    if canonical == "timing" and len(tokens) == 3:
+        match = re.search(
+            r"\bprofile=(desired|staged)\s+mask=0x([0-9a-f]{2})\b",
+            output, re.IGNORECASE,
+        )
+        if (match is None or match.group(1).lower() != tokens[1] or
+                int(match.group(2), 16) != parse_int_token(tokens[2])):
+            return "timing output does not match the requested profile/mask"
+        return None
+
+    if canonical == "sd" and len(tokens) == 3:
+        match = re.search(r"\bsd state=(asserted|released)\b", output,
+                          re.IGNORECASE)
+        expected = "asserted" if tokens[1] == "assert" else "released"
+        if match is None or match.group(1).lower() != expected:
+            return "SD output does not match the requested pin action"
+        return None
+
+    if canonical == "read" and len(tokens) == 2:
+        match = re.search(
+            r"\bbatch type=SEQUENTIAL_READOUT\s+selected=0x([0-9a-f]{2})\b",
+            output, re.IGNORECASE,
+        )
+        if match is None or int(match.group(1), 16) != parse_int_token(tokens[1]):
+            return "acquisition batch does not match the requested channel mask"
+        return None
+
+    if canonical == "help":
+        count_matches = re.findall(
+            rf"\bcommand_count={len(COMMAND_SPECS)}\b", output, re.IGNORECASE
+        )
+        if len(count_matches) != 1:
+            return "help did not report exactly one current command count"
+        if len(tokens) == 1:
+            sections = re.findall(r"^\[([^\]\r\n]+)\]\s*$", output, re.MULTILINE)
+            expected_sections = tuple(
+                HELP_SECTION_LABELS[section] for section in SECTION_ORDER
+            )
+            if tuple(sections) != expected_sections:
+                return "help sections are missing, duplicated, or out of order"
+            for spec in COMMAND_SPECS:
+                for synopsis in spec.synopses:
+                    row_pattern = re.compile(
+                        r"^\s{2}" + re.escape(synopsis) + r"\s+-\s+",
+                        re.IGNORECASE | re.MULTILINE,
+                    )
+                    matches = row_pattern.findall(output)
+                    if len(matches) != 1:
+                        return (
+                            f"help synopsis {synopsis!r} appeared "
+                            f"{len(matches)} times"
+                        )
+            return None
+        if len(tokens) != 2 or tokens[1] not in COMMAND_BY_NAME:
+            return "runner could not resolve the requested help topic"
+        spec = COMMAND_BY_NAME[tokens[1]]
+        detail = re.search(
+            r"\bhelp command=(\S+)\s+aliases=(\S+)\s+section=(.*?)\s+"
+            r"execution=(\S+)\s+safety=(\S+)\s+fixture=(\S+)\s+"
+            r"busy_allowed=([01])\s+evidence=([^\r\n]+)",
+            output,
+            re.IGNORECASE,
+        )
+        if detail is None:
+            return "detailed help metadata is incomplete"
+        expected_aliases = " ".join(spec.aliases) if spec.aliases else "none"
+        if (detail.group(1).lower() != spec.canonical or
+                detail.group(2).lower() != expected_aliases.lower() or
+                detail.group(3).lower() != HELP_SECTION_LABELS[spec.section].lower() or
+                detail.group(4).upper() != spec.execution or
+                detail.group(5).upper() != spec.safety or
+                detail.group(6).upper() != spec.fixture):
+            return "detailed help metadata does not match the host contract"
+        for synopsis in spec.synopses:
+            if synopsis not in output:
+                return f"detailed help omitted synopsis {synopsis!r}"
+        return None
+
+    if canonical == "cfg":
+        headers = list(CFG_HEADER_PATTERN.finditer(output))
+        if len(headers) != 2 or [match.group(1).lower() for match in headers] != [
+                "desired", "staged"]:
+            return "cfg did not emit exactly one desired and one staged profile"
+        binding_facts = [
+            (header.group(2).lower(), header.group(3).upper(), int(header.group(4)))
+            for header in headers
+        ]
+        if binding_facts[0] != binding_facts[1]:
+            return "desired and staged profiles disagree on immutable binding facts"
+        channel_count = int(headers[0].group(4))
+        if int(headers[1].group(4)) != channel_count:
+            return "desired and staged profiles disagree on physical variant size"
+        expected_variant = "LDC1612" if channel_count == 2 else "LDC1614"
+        expected_physical_mask = (1 << channel_count) - 1
+        for index, header in enumerate(headers):
+            block_end = headers[index + 1].start() if index + 1 < len(headers) else len(output)
+            block = output[header.end():block_end]
+            required_lines = (
+                r"^\s+binding address=0x[0-9a-f]{2}\s+variant=LDC161[24]\s+"
+                r"physical_mask=0x[0-9a-f]{2}\s+write_callback=1\s+read_callback=1\s*$",
+                r"^\s+conversion selected_mask=0x[0-9a-f]{2}\s+mode=\S+\s+"
+                r"active_channel=\d+\s+rr_sequence=\d+\s*$",
+                r"^\s+reference_clock source=\S+\s+frequency_hz=\d+\s+"
+                r"tolerance_ppm=\d+\s*$",
+                r"^\s+options timeout_ms=\d+\s+deglitch=\d+\s+activation=\S+\s+"
+                r"rp_override=[01]\s+auto_amplitude=[01]\s+high_current=[01]\s+"
+                r"intb_enabled=[01]\s+intb_callback=[01]\s*$",
+            )
+            if any(re.search(pattern, block, re.IGNORECASE | re.MULTILINE) is None
+                   for pattern in required_lines):
+                return "cfg profile block omitted binding/conversion/clock/options"
+            address = int(header.group(2), 16)
+            selected_mask = int(header.group(5), 16)
+            if (header.group(3).upper() != expected_variant or
+                    address not in (0x2A, 0x2B) or selected_mask == 0 or
+                    selected_mask & ~expected_physical_mask):
+                return "cfg header contains inconsistent variant/address/channel facts"
+
+            binding = re.search(
+                r"^\s+binding address=0x([0-9a-f]{2})\s+variant=(LDC161[24])\s+"
+                r"physical_mask=0x([0-9a-f]{2})\s+write_callback=1\s+"
+                r"read_callback=1\s*$",
+                block, re.IGNORECASE | re.MULTILINE,
+            )
+            conversion = re.search(
+                r"^\s+conversion selected_mask=0x([0-9a-f]{2})\s+mode=(\S+)\s+"
+                r"active_channel=(\d+)\s+rr_sequence=(\d+)\s*$",
+                block, re.IGNORECASE | re.MULTILINE,
+            )
+            clock = re.search(
+                r"^\s+reference_clock source=(\S+)\s+frequency_hz=(\d+)\s+"
+                r"tolerance_ppm=(\d+)\s*$",
+                block, re.IGNORECASE | re.MULTILINE,
+            )
+            options = re.search(
+                r"^\s+options timeout_ms=(\d+)\s+deglitch=(\d+)\s+"
+                r"activation=(\S+)\s+rp_override=([01])\s+auto_amplitude=([01])\s+"
+                r"high_current=([01])\s+intb_enabled=([01])\s+intb_callback=[01]\s*$",
+                block, re.IGNORECASE | re.MULTILINE,
+            )
+            assert binding is not None and conversion is not None
+            assert clock is not None and options is not None
+            if (int(binding.group(1), 16) != address or
+                    binding.group(2).upper() != expected_variant or
+                    int(binding.group(3), 16) != expected_physical_mask or
+                    int(conversion.group(1), 16) != selected_mask or
+                    conversion.group(2).lower() != header.group(6).lower() or
+                    clock.group(1).lower() != header.group(7).lower() or
+                    int(clock.group(2)) != int(header.group(8)) or
+                    int(clock.group(3)) != int(header.group(9)) or
+                    int(options.group(1)) != int(header.group(12)) or
+                    int(options.group(2)) != int(header.group(10)) or
+                    options.group(3).lower() != header.group(11).lower() or
+                    tuple(int(options.group(group)) for group in range(4, 8)) !=
+                    tuple(int(header.group(group)) for group in range(13, 17))):
+                return "cfg detail lines disagree with their profile header"
+
+            channel_rows = re.findall(
+                r"^\s+channel=(\d+)\s+selected=([01])\s+", block,
+                re.IGNORECASE | re.MULTILINE,
+            )
+            channels = [int(value) for value in CFG_CHANNEL_PATTERN.findall(block)]
+            if channels != list(range(channel_count)):
+                return "cfg profile block omitted or duplicated physical channels"
+            if (len(channel_rows) != channel_count or
+                    any(int(selected) != ((selected_mask >> int(channel)) & 1)
+                        for channel, selected in channel_rows)):
+                return "cfg channel selection rows disagree with the selected mask"
+            error_match = CFG_ERROR_PATTERN.search(block)
+            if error_match is None or len(CFG_ERROR_PATTERN.findall(block)) != 1:
+                return "cfg profile block omitted complete error-route evidence"
+            error_value = re.search(r"^\s+error_config=0x([0-9a-f]{4})\b", block,
+                                    re.IGNORECASE | re.MULTILINE)
+            if (error_value is None or
+                    int(error_value.group(1), 16) != int(header.group(17), 16)):
+                return "cfg error-route detail disagrees with its profile header"
+        return None
+
+    if canonical == "diag":
+        match, failure = unique_match(
+            re.compile(
+                r"\bdiag platform=(\S+)\s+framework=(\S+)\s+"
+                r"framework_version=(\S+)\s+idf_version=(\S+)\s+target=(\S+)\s+"
+                r"frequency_hz=(\d+)\s+bound=([01])\s+applied=(\S+)\s+"
+                r"revision=(\d+)\s+profile_dirty=([01])\s+active=([01])\s+"
+                r"pending_result=([01])\s+attempts=(\d+)\s+success=(\d+)\s+"
+                r"failures=(\d+)\s+last_code=(\d+)\s+outcome=SUCCESS\s+code=0\b",
+                re.IGNORECASE,
+            ),
+            output,
+            "diagnostic summary",
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
+        frequency_hz = int(match.group(6))
+        attempts, successes, failures, last_code = (
+            int(match.group(index)) for index in range(13, 17)
+        )
+        if (any(match.group(index).lower() in ("", "unknown")
+                for index in (1, 2, 3, 4, 5)) or
+                not 10000 <= frequency_hz <= 400000):
+            return "diagnostic summary omitted usable platform/bus provenance"
+        if successes + failures != attempts:
+            return "diagnostic transport counters do not reconcile"
+        if attempts == 0 and (failures != 0 or last_code != 0):
+            return "empty diagnostic transport baseline retained stale failure evidence"
+        if failures == 0 and last_code != 0:
+            return "successful diagnostic transport history retained a failure status"
+        return None
+
+    if canonical == "job":
+        job, failure = unique_match(
+            re.compile(
+                r"\bjob active=([01])\s+operation=(\d+)\s+kind=(\S+)\s+"
+                r"phase=(\S+)\s+transfers=(\d+)\s+maximum=(\d+)\s+"
+                r"requested=0x([0-9a-f]{2})\s+completed=0x([0-9a-f]{2})\s+"
+                r"deadline_ms=(\d+)", re.IGNORECASE,
+            ),
+            output,
+            "core job progress",
+        )
+        if failure is not None:
+            return failure
+        session, failure = unique_match(
+            re.compile(
+                r"\bsession active=([01])\s+id=(\d+)\s+kind=(\S+)\s+"
+                r"phase=(\d+)\s+completed=(\d+)/(\d+)", re.IGNORECASE,
+            ),
+            output,
+            "CLI session progress",
+        )
+        if failure is not None:
+            return failure
+        assert job is not None and session is not None
+        transfers, maximum = int(job.group(5)), int(job.group(6))
+        requested, completed = int(job.group(7), 16), int(job.group(8), 16)
+        session_completed, session_total = int(session.group(5)), int(session.group(6))
+        if (transfers > maximum or completed & ~requested or
+                session_completed > session_total or
+                int(job.group(1)) != int(session.group(1))):
+            return "job/session progress violates bounded cooperative invariants"
+        return None
+
+    if canonical == "result":
+        match = re.search(
+            r"\bOperation result:\s*operation=\d+\s+kind=\S+\s+outcome=\S+\s+"
+            r"effects=0x[0-9a-f]{2}\b[^\r\n]*\btransfers=(\d+)\s+"
+            r"maximum=(\d+)\s+code=0\b", output, re.IGNORECASE,
+        )
+        if match is None or int(match.group(1)) > int(match.group(2)):
+            return "terminal result violates its fixed transfer bound"
+        return None
+
+    if canonical == "drv":
+        driver, failure = unique_match(DRIVER_RESULT_PATTERN, output, "driver summary")
+        if failure is not None:
+            return failure
+        transport, failure = unique_match(
+            TRANSPORT_RESULT_PATTERN, output, "transport summary"
+        )
+        if failure is not None:
+            return failure
+        assert driver is not None and transport is not None
+        driver_counts = tuple(int(driver.group(index)) for index in range(6, 9))
+        transport_counts = tuple(int(transport.group(index)) for index in range(1, 4))
+        if driver_counts != transport_counts:
+            return "driver and transport counters disagree"
+        attempts, successes, failures = driver_counts
+        if successes + failures != attempts:
+            return "driver transport counters do not reconcile"
+        config_faults = re.findall(
+            r"^config_fault valid=[01]\s+job=\S+\s+phase=\S+\s+"
+            r"register=0x[0-9a-f]{2}\s+channel=\d+\s+effects=0x[0-9a-f]{2}\s+"
+            r"effects_names=\S+\s*$",
+            output,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        if len(config_faults) != 1:
+            return "driver summary omitted structured configuration-fault provenance"
+        return None
+
+    if canonical == "discover":
+        match, failure = unique_match(
+            DISCOVER_RESULT_PATTERN, output, "discovery summary"
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
+        tested, responding, matched, mismatched, failed, code = (
+            int(match.group(index)) for index in range(1, 7)
+        )
+        records = list(DISCOVER_ADDRESS_PATTERN.finditer(output))
+        if tested != 2 or code != 0 or len(records) != 2:
+            return "discovery did not report exactly two qualified address tests"
+        record_addresses = [int(record.group(1), 16) for record in records]
+        if set(record_addresses) != {0x2A, 0x2B}:
+            return "discovery records were not unique 0x2A/0x2B tests"
+        observed_responding = 0
+        observed_matched = 0
+        observed_mismatched = 0
+        observed_failed = 0
+        for record in records:
+            address = int(record.group(1), 16)
+            strap = record.group(2).upper()
+            manufacturer = record.group(3).lower()
+            device = record.group(4).lower()
+            record_match = int(record.group(5))
+            record_code = int(record.group(6))
+            record_detail = int(record.group(7))
+            expected_strap = "ADDR_GND" if address == 0x2A else "ADDR_VDD"
+            if strap != expected_strap:
+                return "discovery address strap label is inconsistent"
+            if manufacturer != "unavailable":
+                observed_responding += 1
+            if manufacturer == "unavailable" or device == "unavailable":
+                observed_failed += 1
+                if record_match != 0 or record_code == 0:
+                    return "failed discovery record reported match or code=0"
+                if record_code != 14:
+                    return (
+                        "absent discovery address was not retained as the generic "
+                        "I2C_ERROR status"
+                    )
+                if profile == "arduino" and record_detail != 259:
+                    return (
+                        "pioarduino 55.03.311 absent-address discovery did not "
+                        "retain ESP-IDF 5.5.5 raw detail 259"
+                    )
+            elif record_match != 0:
+                observed_matched += 1
+                if (manufacturer != "0x5449" or device != "0x3055" or
+                        record_code != 0):
+                    return "matched discovery record did not contain exact LDC IDs"
+            else:
+                observed_mismatched += 1
+                if record_code != 0:
+                    return "identity-mismatch discovery record reported read failure"
+        if (responding, matched, mismatched, failed) != (
+                observed_responding, observed_matched,
+                observed_mismatched, observed_failed):
+            return "discovery summary counters do not reconcile with address records"
+        if (matched == 0 or mismatched != 0 or
+                matched + mismatched + failed != tested):
+            return "discovery did not cleanly qualify the supported LDC addresses"
+        return None
+
+    if canonical == "busfreq":
+        match, failure = unique_match(
+            BUS_FREQUENCY_RESULT_PATTERN, output, "bus-frequency result"
+        )
+        if failure is not None:
+            return failure
+        assert match is not None
+        previous, reported_requested, active = (
+            int(match.group(index)) for index in range(1, 4)
+        )
+        reinitialized = int(match.group(4))
+        outcome, code = match.group(5).upper(), int(match.group(6))
+        tokens = normalized_command(command).split()
+        requested = previous if len(tokens) == 1 else command_argument_uint(command, 1)
+        if requested is None or reported_requested != requested:
+            return "bus-frequency requested value does not match the command"
+        if not 10000 <= active <= 400000 or active != requested:
+            return "bus-frequency callback did not report the requested active rate"
+        if outcome != "SUCCESS" or code != 0 or reinitialized != 0:
+            return "bus-frequency query/change did not report its explicit success contract"
+        return None
+
+    if canonical == "bus":
+        match, failure = unique_match(BUS_INFO_PATTERN, output, "bus summary")
+        if failure is not None:
+            return failure
+        assert match is not None
+        open_state = int(match.group(1))
+        backend = match.group(2).lower()
+        port, sda, scl, sda_level, scl_level = (
+            int(match.group(index)) for index in range(3, 8)
+        )
+        address = int(match.group(8), 16)
+        frequency_hz, timeout_ms = int(match.group(9)), int(match.group(10))
+        if (open_state != 1 or backend in ("", "unknown") or port < 0 or
+                sda < 0 or scl < 0 or sda_level not in (0, 1) or
+                scl_level not in (0, 1) or address not in (0x2A, 0x2B) or
+                not 10000 <= frequency_hz <= 400000 or timeout_ms == 0):
+            return "bus summary did not report a usable bounded owner bus"
+        return None
+
+    if canonical == "xfer" and normalized_command(command) in (
+            "xfer stats", "xfer reset"):
+        match, failure = unique_match(XFER_STATS_PATTERN, output, "xfer summary")
+        if failure is not None:
+            return failure
+        assert match is not None
+        writes, write_reads, discoveries, total, failures, last_code = (
+            int(match.group(index)) for index in range(1, 7)
+        )
+        if total != writes + write_reads + discoveries or failures > total:
+            return "xfer counters do not reconcile"
+        if total == 0 and (failures != 0 or last_code != 0):
+            return "empty xfer baseline retained stale failure evidence"
+        if match.group(7).upper() != "SUCCESS" or int(match.group(8)) != 0:
+            return "xfer summary did not report SUCCESS/code=0"
+        return None
+
+    if canonical == "xfer" and normalized_command(command).startswith(
+            "xfer assert "):
+        match, failure = unique_match(XFER_ASSERT_PATTERN, output, "xfer assertion")
+        if failure is not None:
+            return failure
+        tokens = normalized_command(command).split()
+        if len(tokens) != 6:
+            return "runner could not parse xfer assertion arguments"
+        requested = [command_argument_uint(command, index) for index in range(2, 6)]
+        if any(value is None for value in requested):
+            return "runner could not parse xfer assertion arguments"
+        assert match is not None
+        expected = [int(match.group(index)) for index in (1, 3, 5, 7)]
+        actual = [int(match.group(index)) for index in (2, 4, 6, 8)]
+        if expected != requested or actual != requested:
+            return "xfer assertion output does not match requested counters"
+        if requested[3] != sum(requested[:3]):
+            return "xfer assertion requested an inconsistent total"
+        if match.group(9).upper() != "SUCCESS" or int(match.group(10)) != 0:
+            return "xfer assertion did not report SUCCESS/code=0"
+        return None
+
+    if canonical == "dump":
+        match, failure = unique_match(DUMP_RESULT_PATTERN, output, "dump summary")
+        if failure is not None:
+            return failure
+        assert match is not None
+        expected_scope = "all" if normalized_command(command) == "dump all confirm" else "config"
+        scope, count, failures = match.group(1).lower(), int(match.group(2)), int(match.group(3))
+        if scope != expected_scope:
+            return f"dump scope {scope} does not match requested scope {expected_scope}"
+        if count == 0 or failures != 0:
+            return "dump summary reported no reads or one or more failures"
+        records = list(DUMP_RECORD_PATTERN.finditer(output))
+        expected_record_scope = "dump_all" if scope == "all" else "dump_config"
+        addresses = [int(record.group(2), 16) for record in records]
+        if (len(records) != count or len(set(addresses)) != count or
+                any(record.group(1).lower() != expected_record_scope
+                    for record in records)):
+            return "dump records do not reconcile with scope/count"
+        expected_sets = (
+            (LDC1614_ALL_REGISTERS, LDC1612_ALL_REGISTERS)
+            if scope == "all"
+            else (LDC1614_CONFIG_REGISTERS, LDC1612_CONFIG_REGISTERS)
+        )
+        if frozenset(addresses) not in expected_sets:
+            return "dump register set is not valid for LDC1614 or LDC1612"
+        if any(record.group(3).upper() == "UNMAPPED" or record.group(6) != "1"
+               for record in records):
+            return "dump reported an unknown register or invalid reserved bits"
+        for record in records:
+            expected_name, expected_access, expected_destructive = (
+                expected_register_descriptor(int(record.group(2), 16))
+            )
+            if (record.group(3).upper() != expected_name or
+                    record.group(4).upper() != expected_access or
+                    int(record.group(5)) != expected_destructive):
+                return "dump register descriptor metadata is inconsistent"
+        return None
+
+    if canonical == "verify":
+        match, failure = unique_match(VERIFY_RESULT_PATTERN, output, "verify summary")
+        if failure is not None:
+            return failure
+        assert match is not None
+        checked, matched, mismatched, read_failures = (
+            int(match.group(index)) for index in range(1, 5)
+        )
+        if checked not in (13, 23):
+            return "verify summary did not cover the complete variant register set"
+        if matched + mismatched + read_failures != checked:
+            return "verify counters do not reconcile with checked count"
+        if mismatched != 0 or read_failures != 0:
+            return "verify summary reported mismatches or read failures"
+        return None
+
+    if canonical == "selftest":
+        match, failure = unique_match(SELFTEST_RESULT_PATTERN, output, "selftest summary")
+        if failure is not None:
+            return failure
+        assert match is not None
+        passed, failed, skipped = (int(match.group(index)) for index in range(1, 4))
+        if passed < 8 or skipped > 2:
+            return "selftest summary did not execute the maintained check set"
+        if failed != 0:
+            return "selftest summary reported one or more failures"
+        return None
+
+    if canonical in ("stress_id", "stress_reset", "stress_busfreq"):
+        pattern = {
+            "stress_id": IDENTITY_STRESS_RESULT_PATTERN,
+            "stress_reset": RESET_STRESS_RESULT_PATTERN,
+            "stress_busfreq": BUS_FREQUENCY_STRESS_RESULT_PATTERN,
+        }[canonical]
+        match, failure = unique_match(pattern, output, f"{canonical} summary")
+        if failure is not None:
+            return failure
+        requested = command_argument_uint(command, 1)
+        if requested is None:
+            return f"runner could not parse requested {canonical} count"
+        assert match is not None
+        reported, completed, succeeded, failed = (
+            int(match.group(index)) for index in range(1, 5)
+        )
+        if reported != requested or completed != reported:
+            return f"{canonical} requested/completed counts do not reconcile"
+        if succeeded + failed != completed or failed != 0 or succeeded != reported:
+            return f"{canonical} success/failure counts do not reconcile"
+        if canonical == "stress_id":
+            if int(match.group(5)) != -1:
+                return "stress_id reported a first failure on a successful run"
+            if reported_rate_mismatch(
+                    completed, int(match.group(6)), float(match.group(7))):
+                return "stress_id rate does not reconcile with count and elapsed time"
+        elif canonical == "stress_reset":
+            if int(match.group(5)) != -1:
+                return "stress_reset reported a first failure on a successful run"
+        else:
+            initial_hz = int(match.group(5))
+            active_hz = int(match.group(6))
+            restored_hz = int(match.group(7))
+            restore_code = int(match.group(8))
+            first_failure = int(match.group(9))
+            if (not 10000 <= initial_hz <= 400000 or
+                    active_hz != initial_hz or restored_hz != initial_hz or
+                    restore_code != 0 or first_failure != -1):
+                return "stress_busfreq did not restore and reinitialize its initial rate"
+        return None
+
+    counted_patterns = {
+        "stress": (STRESS_DETAIL_PATTERN, 1, "stress"),
+        "stress_mix": (STRESS_MIX_RESULT_PATTERN, 1, "stress_mix"),
+        "watch": (WATCH_RESULT_PATTERN, 2, "watch"),
+        "samplerate": (SAMPLE_RATE_RESULT_PATTERN, 2, "samplerate"),
+    }
+    if canonical in counted_patterns:
+        pattern, argument_index, label = counted_patterns[canonical]
+        requested = command_argument_uint(command, argument_index)
+        match, failure = unique_match(pattern, output, f"{label} summary")
+        if failure is not None:
+            return failure
+        if requested is None:
+            return f"runner could not parse requested {label} count"
+        assert match is not None
+        reported, succeeded, failed = (
+            int(match.group(index)) for index in range(1, 4)
+        )
+        if reported != requested:
+            return (
+                f"{label} reported requested={reported}, but command requested "
+                f"{requested}"
+            )
+        if succeeded + failed != reported:
+            return f"{label} success/failure counters do not reconcile"
+        if failed != 0 or succeeded != reported:
+            return f"{label} did not complete every requested operation successfully"
+        if canonical in ("stress", "samplerate"):
+            if match.group(5) is None:
+                return f"{label} rate evidence is missing"
+            elapsed_ms = int(match.group(4))
+            reported_hz = float(match.group(5))
+            if reported_rate_mismatch(succeeded, elapsed_ms, reported_hz):
+                return f"{label} rate does not reconcile with count and elapsed time"
+        if canonical == "samplerate":
+            if match.group(6) is None or match.group(7) is None:
+                return "samplerate readiness evidence is missing"
+            ready_checks = int(match.group(6))
+            ready_status = int(match.group(7), 16)
+            if ready_checks < reported or (ready_status & 0x0040) == 0:
+                return "samplerate readiness evidence does not reconcile"
+        return None
+
+    if canonical == "soak":
+        requested_seconds = command_argument_uint(command, 1)
+        match, failure = unique_match(
+            SOAK_SESSION_RESULT_PATTERN, output, "soak summary"
+        )
+        if failure is not None:
+            return failure
+        if requested_seconds is None:
+            return "runner could not parse requested soak duration"
+        assert match is not None
+        seconds, cycles, succeeded, failed, elapsed_ms = (
+            int(match.group(index)) for index in range(1, 6)
+        )
+        if seconds != requested_seconds:
+            return (
+                f"soak reported seconds={seconds}, but command requested "
+                f"{requested_seconds}"
+            )
+        if cycles == 0 or succeeded + failed != cycles:
+            return "soak cycle counters do not reconcile or no cycle completed"
+        if failed != 0 or succeeded != cycles:
+            return "soak reported one or more failed cycles"
+        if elapsed_ms < seconds * 1000:
+            return "soak elapsed time is shorter than the requested duration"
+        return None
+
+    return None
+
+
 def classify_command(
     command: str,
     output: str,
@@ -630,6 +1726,7 @@ def classify_command(
     failure_patterns: Optional[List[re.Pattern[str]]] = None,
     expected_failure_patterns: Optional[List[re.Pattern[str]]] = None,
     fixture: str = "default",
+    profile: str = "arduino",
 ) -> Tuple[str, str]:
     if timed_out:
         return "FAIL", "command response timed out"
@@ -637,6 +1734,8 @@ def classify_command(
         return "FAIL", "no response captured"
 
     parsed_output = strip_ansi(output)
+    if PROMPT_BOUNDARY_PATTERN.search(parsed_output) is None:
+        return "FAIL", "command response did not end at a complete CLI prompt boundary"
 
     for pattern in failure_patterns or []:
         if pattern.search(output):
@@ -663,6 +1762,13 @@ def classify_command(
     name = command_name(command)
     canonical = canonical_command_name(command)
     failure_scan_output = parsed_output
+    if canonical == "discover":
+        # One supported strap address is normally absent. Discovery-specific
+        # reconciliation below decides whether that count is acceptable.
+        failure_scan_output = re.sub(
+            r"\bfailed\s*=\s*\d+\b", "failed=0", failure_scan_output,
+            flags=re.IGNORECASE,
+        )
     if command_is_async(command):
         scheduled_matches = list(SCHEDULED_OPERATION_PATTERN.finditer(parsed_output))
         terminal_matches = list(TERMINAL_RESULT_PATTERN.finditer(parsed_output))
@@ -723,6 +1829,9 @@ def classify_command(
                    if pattern.search(parsed_output) is None]
         if missing:
             return "FAIL", "missing command-specific evidence: " + ", ".join(missing)
+        semantic_failure = command_semantic_failure(command, parsed_output, profile)
+        if semantic_failure is not None:
+            return "FAIL", semantic_failure
         if sensor_condition_expected and sensor_condition_observed:
             return "PASS", "command evidence parsed; sensor-condition flags expected for no-sensor fixture"
         return "PASS", "all command-specific evidence parsed"
@@ -841,6 +1950,56 @@ def append_expectation_results(
             }
         )
 
+    runtime = RUNTIME_VERSION_PATTERN.search(transcript)
+    if runtime is None:
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-runtime-version",
+                "status": "FAIL",
+                "reason": "target firmware did not report runtime stack provenance",
+            }
+        )
+    else:
+        platform, framework, framework_version, idf_version, target, backend, frequency = (
+            runtime.group(index) for index in range(1, 8)
+        )
+        mismatches: List[str] = []
+        if args.profile == "arduino":
+            if platform.lower() != "pioarduino-55.03.311":
+                mismatches.append(f"platform={platform}")
+            if framework.lower() != "arduino":
+                mismatches.append(f"framework={framework}")
+            if framework_version.lower().lstrip("v") != "3.3.11":
+                mismatches.append(f"framework_version={framework_version}")
+            if idf_version.lower().lstrip("v") != "5.5.5":
+                mismatches.append(f"idf_version={idf_version}")
+        else:
+            if platform.lower() != "esp-idf-native":
+                mismatches.append(f"platform={platform}")
+            if framework.lower() != "esp-idf":
+                mismatches.append(f"framework={framework}")
+            if not args.expected_idf_version:
+                mismatches.append("expected_idf_version=missing")
+            elif idf_version.lower().lstrip("v") != args.expected_idf_version.lower().lstrip("v"):
+                mismatches.append(f"idf_version={idf_version}")
+        if target.lower() != args.expected_target.lower():
+            mismatches.append(f"target={target}")
+        if backend.lower() != "esp-idf-new-master":
+            mismatches.append(f"i2c_backend={backend}")
+        frequency_hz = int(frequency)
+        if frequency_hz < 10000 or frequency_hz > 400000:
+            mismatches.append(f"frequency_hz={frequency_hz}")
+        if mismatches:
+            command_results.append(
+                {
+                    "index": len(command_results) + 1,
+                    "command": "expect-runtime-version",
+                    "status": "FAIL",
+                    "reason": "runtime stack mismatch: " + ", ".join(mismatches),
+                }
+            )
+
     if args.port and not args.dry_run:
         for field in ("operator", "board"):
             if not str(getattr(args, field)).strip():
@@ -853,6 +2012,68 @@ def append_expectation_results(
                     }
                 )
 
+
+def append_matrix_consistency_results(
+    command_results: List[Dict[str, object]],
+) -> None:
+    """Add failures for relationships that span more than one command."""
+    help_outputs = [
+        strip_ansi(str(result.get("output", "")))
+        for result in command_results
+        if normalized_command(str(result.get("command", ""))) == "help"
+        and str(result.get("status", "UNKNOWN")) == "PASS"
+    ]
+    if len(help_outputs) >= 2 and any(
+            output != help_outputs[0] for output in help_outputs[1:]):
+        command_results.append(
+            {
+                "index": len(command_results) + 1,
+                "command": "expect-color-stable-help",
+                "status": "FAIL",
+                "reason": (
+                    "ANSI-stripped help changed between color-enabled and "
+                    "color-disabled output"
+                ),
+            }
+        )
+
+    normalized = [
+        normalized_command(str(result.get("command", "")))
+        for result in command_results
+    ]
+    assertion = "xfer assert 0 0 0 0"
+    if assertion in normalized:
+        assertion_index = len(normalized) - 1 - normalized[::-1].index(assertion)
+        if assertion_index + 1 >= len(command_results) or normalized[assertion_index + 1] != "state":
+            command_results.append(
+                {
+                    "index": len(command_results) + 1,
+                    "command": "expect-invalid-input-state",
+                    "status": "FAIL",
+                    "reason": "invalid-input transfer fence was not followed by state evidence",
+                }
+            )
+        else:
+            state_result = command_results[assertion_index + 1]
+            state_output = strip_ansi(str(state_result.get("output", "")))
+            clean_state = re.search(
+                r"\bstate bound=1\s+applied=APPLIED_ACTIVE\s+profile_dirty=0\s+"
+                r"session_kind=NONE\s+active=0\s+pending_result=0\b",
+                state_output,
+                re.IGNORECASE,
+            )
+            if str(state_result.get("status", "UNKNOWN")) != "PASS" or clean_state is None:
+                command_results.append(
+                    {
+                        "index": len(command_results) + 1,
+                        "command": "expect-invalid-input-state",
+                        "status": "FAIL",
+                        "reason": (
+                            "invalid-input matrix changed staged/applied state or "
+                            "left work active"
+                        ),
+                    }
+                )
 
 def base_acceptance_failure(
     args: argparse.Namespace,
@@ -876,6 +2097,28 @@ def base_acceptance_failure(
     for result in command_results:
         if has_firmware_startup_banner(str(result.get("output", ""))):
             return "unexpected firmware restart banner occurred during the base matrix"
+
+    normalized = [normalized_command(command) for command in commands]
+    if args.fixture == "no-sensor" and "busrecover confirm" in normalized:
+        required_recovery = [
+            "busrecover confirm", "state", "init", "wake", "probe", "drv",
+        ]
+        recovery_index = next(
+            (
+                index for index in range(len(normalized) - len(required_recovery) + 1)
+                if normalized[index:index + len(required_recovery)] == required_recovery
+            ),
+            None,
+        )
+        if recovery_index is None:
+            return "base matrix omitted controller reconstruction and full requalification"
+        state_output = str(command_results[recovery_index + 1].get("output", ""))
+        if re.search(
+            r"\bstate bound=1\s+applied=UNKNOWN\s+profile_dirty=0\b",
+            state_output,
+            re.IGNORECASE,
+        ) is None:
+            return "controller recovery did not visibly invalidate applied device state"
 
     final_driver = command_results[-1] if command_results else None
     final_output = str(final_driver.get("output", "")) if final_driver else ""
@@ -1047,8 +2290,10 @@ def summarize_sample_rate(args: argparse.Namespace,
         return summary
 
     output = strip_ansi(str(result.get("output", "")))
-    rate_match = SAMPLE_RATE_RESULT_PATTERN.search(output)
-    if rate_match:
+    rate_matches = list(SAMPLE_RATE_RESULT_PATTERN.finditer(output))
+    if len(rate_matches) == 1:
+        rate_match = rate_matches[0]
+        reported_count = int(rate_match.group(1))
         observed_count = int(rate_match.group(2))
         failure_count = int(rate_match.group(3))
         elapsed_s = int(rate_match.group(4)) / 1000.0
@@ -1056,12 +2301,26 @@ def summarize_sample_rate(args: argparse.Namespace,
         summary["observed_count"] = observed_count
         summary["failure_count"] = failure_count
         summary["effective_hz"] = float(rate_match.group(5))
-        summary["status"] = "FAIL" if failure_count > 0 or status == "FAIL" else "PASS"
-        summary["reason"] = (
-            "sample-rate command reported failures"
-            if failure_count > 0
-            else "sample-rate summary parsed"
+        incomplete = (
+            reported_count != args.sample_rate_count
+            or observed_count + failure_count != reported_count
         )
+        summary["status"] = (
+            "FAIL" if failure_count > 0 or status == "FAIL" or incomplete
+            else "PASS"
+        )
+        summary["reason"] = (
+            "sample-rate summary count mismatch" if incomplete
+            else (
+                "sample-rate command reported failures"
+                if failure_count > 0 else "sample-rate summary parsed"
+            )
+        )
+        return summary
+
+    if len(rate_matches) > 1:
+        summary["status"] = "FAIL"
+        summary["reason"] = "multiple sample-rate summaries were observed"
         return summary
 
     observed_count = len(SAMPLE_LINE_PATTERN.findall(output))
@@ -1141,11 +2400,25 @@ def enforce_soak_invariant(
     command: str,
     result: Dict[str, object],
 ) -> Dict[str, object]:
-    if command_name(command) != "drv" or result.get("status") != "PASS":
+    if result.get("status") != "PASS":
+        return result
+    output = str(result.get("output", ""))
+    if command_name(command) == "state":
+        if re.search(
+            r"\bstate bound=1\s+applied=UNKNOWN\s+profile_dirty=0\b",
+            output,
+            re.IGNORECASE,
+        ) is not None:
+            return result
+        failed = dict(result)
+        failed["status"] = "FAIL"
+        failed["reason"] = "soak recovery did not invalidate applied device state"
+        return failed
+    if command_name(command) != "drv":
         return result
     if re.search(
         r"\bbound=1\b.*\bapplied=APPLIED_ACTIVE\b",
-        str(result.get("output", "")),
+        output,
         re.IGNORECASE | re.DOTALL,
     ) is not None:
         return result
@@ -1274,13 +2547,12 @@ def run_serial_commands(
             name = command_name(command)
             scheduled = SCHEDULED_OPERATION_PATTERN.search(output)
             if (command_is_async(command) and scheduled is not None and
-                    TERMINAL_RESULT_PATTERN.search(output) is None):
-                session = re.escape(scheduled.group(2))
+                    PROMPT_BOUNDARY_PATTERN.search(strip_ansi(output)) is None):
                 completion, completion_timed_out = read_available(
                     ser,
                     command_deadline,
                     args.idle_gap_s,
-                    (rf"CLI result:.*session={session}.*(?:\r?\n|$)",),
+                    prompt_patterns,
                 )
                 output += completion
                 timed_out = timed_out or completion_timed_out
@@ -1295,6 +2567,7 @@ def run_serial_commands(
                     normalized_command(command), []
                 ),
                 args.fixture,
+                args.profile,
             )
             return {
                 "command": command,
@@ -1526,29 +2799,50 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
         commands.extend(configuration_matrix_commands(args.channel_count))
 
     if args.include_invalid_inputs:
+        commands.append("xfer reset")
         commands.extend(INVALID_INPUT_COMMANDS)
+        commands.extend(("xfer assert 0 0 0 0", "state"))
 
-    skipped.append(
-        {
-            "name": "address_0x2B",
-            "reason": (
-                "NOT_RUN: requested, but address is a build/fixture fact; rebuild and "
-                "rewire for 0x2B"
-                if args.include_address_0x2b else
-                "NOT_RUN: requires a separately rebuilt and rewired 0x2B fixture"
-            ),
-        }
-    )
-    skipped.append(
-        {
-            "name": "variant_LDC1612",
-            "reason": "NOT_RUN: requires a separately rebuilt LDC1612 fixture with its complete two-channel profile",
-        }
-    )
+    if parse_int_token(args.address) != 0x2B:
+        skipped.append(
+            {
+                "name": "address_0x2B",
+                "reason": (
+                    "NOT_RUN: requested, but address is a build/fixture fact; "
+                    "rebuild and rewire for 0x2B"
+                    if args.include_address_0x2b else
+                    "NOT_RUN: requires a separately rebuilt and rewired 0x2B fixture"
+                ),
+            }
+        )
+    if args.channel_count != 2:
+        skipped.append(
+            {
+                "name": "variant_LDC1612",
+                "reason": (
+                    "NOT_RUN: requires a separately rebuilt LDC1612 fixture "
+                    "with its complete two-channel profile"
+                ),
+            }
+        )
 
     if args.include_stress:
         commands.append("wake")
         commands.extend(optional_group_commands("stress", count=args.stress_count))
+        commands.append("drv")
+
+    if args.include_reset_stress:
+        commands.append("wake")
+        commands.extend(optional_group_commands(
+            "reset_stress", count=args.stress_count
+        ))
+        commands.append("drv")
+
+    if args.include_busfreq_stress:
+        commands.append("wake")
+        commands.extend(optional_group_commands(
+            "busfreq_stress", count=args.stress_count
+        ))
         commands.append("drv")
 
     if args.sample_rate_count != 0:
@@ -1581,12 +2875,32 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
             ))
             commands.append("drv")
 
+    if args.include_sd:
+        commands.extend((
+            "sd status", "sd assert confirm", "sd status",
+            "sd release confirm", "sd status", "init", "wake", "drv",
+        ))
+    if args.include_intb:
+        commands.extend(optional_group_commands("intb"))
+    if args.include_drive_tuning:
+        commands.extend(optional_group_commands("drive_tuning"))
+
     for name, enabled, requirement in (
-        ("sd_shutdown_wake", args.include_sd, "wired SD control and power-state observation"),
-        ("intb_observation", args.include_intb, "wired INTB and independent pin observation"),
+        ("sd_shutdown_wake", args.include_sd,
+         "wired SD control and power-state observation"),
+        ("intb_observation", args.include_intb,
+         "wired INTB and independent pin observation"),
+        ("drive_current_tuning", args.include_drive_tuning,
+         "an approved coil and drive-current tuning fixture"),
+    ):
+        if not enabled:
+            skipped.append(
+                {"name": name, "reason": f"NOT_RUN: requires {requirement}"}
+            )
+
+    for name, enabled, requirement in (
         ("unplug_replug", args.include_unplug, "operator-controlled unplug/replug fixture"),
         ("stuck_bus", args.include_stuck_bus, "operator-controlled stuck-bus fault fixture"),
-        ("drive_current_tuning", args.include_drive_tuning, "an approved coil and drive-current tuning fixture"),
     ):
         skipped.append(
             {
@@ -1668,6 +2982,21 @@ def combine_overall_and_soak(base_status: str, soak_status: str) -> str:
     return base_status
 
 
+def combine_requested_gate_status(
+    base_status: str, gate_status: str, requested: bool,
+) -> str:
+    """Fold an explicitly requested optional gate into the run verdict."""
+    if not requested:
+        return base_status
+    if base_status == "FAIL" or gate_status == "FAIL":
+        return "FAIL"
+    if base_status == "NOT_RUN":
+        return "NOT_RUN"
+    if base_status == "UNKNOWN" or gate_status in ("UNKNOWN", "NOT_RUN"):
+        return "UNKNOWN"
+    return base_status
+
+
 def make_result(args: argparse.Namespace) -> Dict[str, object]:
     skipped: List[Dict[str, str]] = []
     commands = [] if args.skip_default_commands else default_commands(args.profile, args.fixture)
@@ -1736,6 +3065,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
             )
 
         if serial_failure is None and transcript_payload(transcript):
+            append_matrix_consistency_results(command_results)
             append_expectation_results(args, command_results, transcript)
 
     if (args.port and not args.dry_run and not commands and not not_run_reason and
@@ -1776,6 +3106,10 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "baud": args.baud,
         "expected_address": args.address,
         "expected_channel_count": args.channel_count,
+        "expected_target": args.expected_target,
+        "expected_idf_version": (
+            "5.5.5" if args.profile == "arduino" else args.expected_idf_version
+        ),
         "operator": args.operator,
         "board": args.board,
         "notes": args.note,
@@ -1824,6 +3158,28 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     soak_status = str(result["soak"].get("status", "NOT_RUN"))
     result["overall_status"] = combine_overall_and_soak(
         str(result["overall_status"]), soak_status
+    )
+    result["overall_status"] = combine_requested_gate_status(
+        str(result["overall_status"]), soak_status,
+        bool(args.include_long_soak),
+    )
+    result["overall_status"] = combine_requested_gate_status(
+        str(result["overall_status"]),
+        str(result["stress"].get("status", "NOT_RUN")),
+        bool(args.include_stress),
+    )
+    result["overall_status"] = combine_requested_gate_status(
+        str(result["overall_status"]),
+        str(result["sample_rate"].get("status", "NOT_RUN")),
+        args.sample_rate_count != 0,
+    )
+    requested_manual_gate = any((
+        args.include_address_0x2b and parse_int_token(args.address) != 0x2B,
+        args.include_unplug,
+        args.include_stuck_bus,
+    ))
+    result["overall_status"] = combine_requested_gate_status(
+        str(result["overall_status"]), "NOT_RUN", requested_manual_gate
     )
     return result
 
@@ -1977,6 +3333,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--address", default="0x2A")
     parser.add_argument("--channel-count", type=int, default=4)
     parser.add_argument(
+        "--expected-target", choices=("esp32s2", "esp32s3"), default="esp32s2",
+        help="Exact firmware-reported build target required for HIL acceptance",
+    )
+    parser.add_argument(
+        "--expected-idf-version", default="",
+        help="Exact native ESP-IDF version; Arduino 55.03.311 is fixed to 5.5.5",
+    )
+    parser.add_argument(
         "--expected-firmware-commit",
         default="",
         help="Expected flashed Git SHA/prefix; defaults to the host checkout HEAD",
@@ -2017,6 +3381,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help="Append safe numeric/enum/confirmation rejection coverage",
     )
     parser.add_argument("--include-stress", action="store_true")
+    parser.add_argument(
+        "--include-reset-stress", action="store_true",
+        help="Append confirmed bounded reset/reapply stress",
+    )
+    parser.add_argument(
+        "--include-busfreq-stress", action="store_true",
+        help="Append confirmed bounded 100/400 kHz switch/restore stress",
+    )
     parser.add_argument("--stress-count", type=int, default=10)
     parser.add_argument("--include-sd", action="store_true")
     parser.add_argument("--include-intb", action="store_true")
@@ -2086,6 +3458,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error(f"--sample-rate-count must be 0..{MAX_SAMPLE_RATE_COUNT}")
     if args.sample_rate_channel < 0 or args.sample_rate_channel > 3:
         parser.error("--sample-rate-channel must be 0..3")
+    if (args.sample_rate_count > 0 and
+            args.sample_rate_channel >= args.channel_count):
+        parser.error(
+            "--sample-rate-channel must be less than --channel-count when "
+            "sample-rate benchmarking is requested"
+        )
     if args.soak_duration_s < 0.0 or args.soak_duration_s > MAX_SOAK_DURATION_S:
         parser.error(f"--soak-duration-s must be 0..{MAX_SOAK_DURATION_S}")
     if args.soak_cycle_delay_s < 0.0 or args.soak_cycle_delay_s > MAX_SOAK_CYCLE_DELAY_S:
@@ -2109,8 +3487,8 @@ def parser_self_test() -> Tuple[bool, List[str]]:
     failures: List[str] = []
     if "version" not in default_commands("arduino"):
         failures.append("arduino default commands missing version")
-    if "busrecover confirm" not in default_commands("arduino"):
-        failures.append("arduino default commands missing explicit bus recovery")
+    if "discover" not in default_commands("arduino"):
+        failures.append("arduino default commands missing qualified discovery")
     if "drdy" in default_commands("arduino", "no-sensor"):
         failures.append("no-sensor commands must exclude DRDY")
     if "read 0x01" not in default_commands("arduino", "no-sensor"):
@@ -2121,17 +3499,17 @@ def parser_self_test() -> Tuple[bool, List[str]]:
         failures.append("arduino default commands missing wake")
     if "ready" not in default_commands("idf"):
         failures.append("idf default commands missing ready")
-    if "scan" not in default_commands("idf"):
-        failures.append("idf default commands missing scan")
-    if "busrecover confirm" not in default_commands("idf"):
-        failures.append("idf default commands missing explicit bus recovery")
+    if "discover" not in default_commands("idf"):
+        failures.append("idf default commands missing qualified discovery")
     if "wake" not in default_commands("idf"):
         failures.append("idf default commands missing wake")
 
     status, _ = classify_command(
         "version",
         "version=1.0.0 firmware_git=abcdef1 firmware_status=clean "
-        "build_timestamp=test\n> ",
+        "build_timestamp=test platform=pioarduino-55.03.311 "
+        "framework=arduino framework_version=3.3.11 idf_version=v5.5.5 "
+        "target=esp32s2 i2c_backend=esp-idf-new-master frequency_hz=400000\n> ",
         False,
     )
     if status != "PASS":

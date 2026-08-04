@@ -12,7 +12,10 @@ from dataclasses import dataclass
 import re
 from typing import Dict, List, Tuple
 
-HELP_SYNOPSIS_WIDTH = 32
+# Help keeps a 32-column minimum field, but detailed command forms may extend
+# beyond it instead of being truncated.  Bound the source rows independently
+# so accidental prose still cannot grow without review.
+HELP_SYNOPSIS_WIDTH = 56
 SECTION_ORDER = (
     "Common",
     "Lifecycle",
@@ -100,10 +103,11 @@ def _spec(
 
 
 COMMAND_SPECS = (
-    _spec("HELP", "Common", "help", ("?",), ("help / ?",), "CACHE_ONLY", output_keys=("command_count",)),
+    _spec("HELP", "Common", "help", ("?",), ("help / ? [command]",), "CACHE_ONLY", output_keys=("command_count",)),
     _spec("VERSION", "Common", "version", ("ver",), ("version / ver",), "CACHE_ONLY", output_keys=("version", "firmware_git", "firmware_status", "build_timestamp")),
     _spec("COLOR", "Common", "color", (), ("color [on|off]",), "CACHE_ONLY", output_keys=("enabled",)),
     _spec("VERBOSE", "Common", "verbose", (), ("verbose [0|1]",), "CACHE_ONLY", output_keys=("enabled",)),
+    _spec("BUS", "Common", "bus", ("i2c",), ("bus / i2c",), "CACHE_ONLY", output_keys=("open", "backend", "port", "sda", "scl", "sda_level", "scl_level", "address", "frequency_hz", "timeout_ms")),
 
     _spec("BIND", "Lifecycle", "bind", (), ("bind",), "CACHE_ONLY", output_keys=("command", "outcome", "code", "detail", "msg")),
     _spec("END", "Lifecycle", "end", (), ("end",), "LIFECYCLE"),
@@ -117,6 +121,7 @@ COMMAND_SPECS = (
     _spec("RESULT", "Lifecycle", "result", (), ("result",), "CACHE_ONLY", output_keys=("command", "session", "kind", "outcome", "effects", "revision", "phase", "reg", "channel", "transfers", "maximum", "code", "detail", "msg")),
     _spec("INVALIDATE", "Lifecycle", "invalidate", (), ("invalidate confirm",), "CACHE_ONLY", "CONFIRM_MUTATION"),
     _spec("BUS_RECOVER", "Lifecycle", "busrecover", (), ("busrecover confirm",), "OWNER_BUS", "CONFIRM_MUTATION"),
+    _spec("BUS_FREQ", "Lifecycle", "busfreq", ("i2cfreq",), ("busfreq / i2cfreq [hz confirm]",), "OWNER_BUS", "CONFIRM_MUTATION", output_keys=("previous_hz", "requested_hz", "active_hz", "reinitialized", "outcome", "code")),
 
     _spec("READ", "Measurements", "read", ("acquire",), ("read / acquire [mask]",), "CORE_JOB", fixture="NO_SENSOR_OK", output_keys=("command", "session", "mask", "outcome", "code", "selected", "valid", "fresh", "error", "overrun", "revision", "completed_ms", "status_before", "status_after")),
     _spec("LAST", "Measurements", "last", (), ("last [channel]",), "CACHE_ONLY", fixture="SENSOR_REQUIRED", output_keys=("channel", "raw", "quality", "msb", "lsb")),
@@ -141,7 +146,7 @@ COMMAND_SPECS = (
     _spec("AUTOAMP", "Configuration", "autoamp", (), ("autoamp <0|1>",), "CACHE_ONLY", output_keys=("enabled",)),
     _spec("HIGH_CURRENT", "Configuration", "highcurrent", (), ("highcurrent <0|1>",), "CACHE_ONLY", output_keys=("enabled",)),
     _spec("INTB_CONFIG", "Configuration", "intbconfig", (), ("intbconfig <0|1>",), "CACHE_ONLY", output_keys=("enabled",)),
-    _spec("ERRORS", "Configuration", "errors", (), ("errors [show|all|none]",), "CACHE_ONLY", output_keys=("ur", "or", "wd", "ah", "al", "zc", "drdy")),
+    _spec("ERRORS", "Configuration", "errors", (), ("errors [show|all|none]",), "CACHE_ONLY", output_keys=("data_under", "data_over", "data_watchdog", "data_amplitude_high", "data_amplitude_low", "status_under", "status_over", "status_watchdog", "status_amplitude_high", "status_amplitude_low", "status_zero_count", "data_ready", "encoded")),
     _spec("ERROR", "Configuration", "error", (), ("error <field> <0|1>",), "CACHE_ONLY", output_keys=("field", "enabled")),
     _spec("RCOUNT", "Configuration", "rcount", (), ("rcount <ch> <value>",), "CACHE_ONLY", output_keys=("channel", "value")),
     _spec("SETTLE", "Configuration", "settle", (), ("settle <ch> <value>",), "CACHE_ONLY", output_keys=("channel", "value")),
@@ -152,21 +157,26 @@ COMMAND_SPECS = (
     _spec("SENSOR_BOUNDS", "Configuration", "sensorbounds", (), ("sensorbounds <ch> <lo> <hi>",), "CACHE_ONLY", fixture="SENSOR_REQUIRED", output_keys=("channel", "low_hz", "high_hz")),
 
     _spec("PROBE", "Registers and helpers", "probe", ("id",), ("probe / id",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("manufacturer_id", "device_id", "match", "code")),
-    _spec("SCAN", "Registers and helpers", "scan", (), ("scan",), "OWNER_BUS", output_keys=("found", "probes", "code")),
+    _spec("DISCOVER", "Registers and helpers", "discover", ("scan",), ("discover / scan",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("address", "strap", "manufacturer_id", "device_id", "match", "tested", "responding", "matched", "mismatched", "failed", "code")),
     _spec("DUMP", "Registers and helpers", "dump", (), ("dump config", "dump all confirm"), "CLI_JOB", "CONFIRM_DESTRUCTIVE_READ", "NO_SENSOR_OK", ("scope", "register", "value", "count", "code")),
     _spec("VERIFY", "Registers and helpers", "verify", (), ("verify",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("checked", "matched", "mismatched", "read_failures", "outcome", "code")),
     _spec("REG", "Registers and helpers", "reg", ("rreg",), ("reg / rreg <addr> [confirm]",), "ONE_TRANSFER", "CONFIRM_DESTRUCTIVE_READ", "NO_SENSOR_OK", ("register", "value", "code")),
     _spec("WREG", "Registers and helpers", "wreg", (), ("wreg <addr> <value> confirm",), "ONE_TRANSFER", "CONFIRM_MUTATION", "NO_SENSOR_OK", ("register", "value", "code")),
     _spec("DECODE", "Registers and helpers", "decode", (), ("decode status <raw16>", "decode data <msb> <lsb>"), "PURE", output_keys=("kind", "raw", "drdy", "unread", "err_ch", "ur", "or", "wd", "ah", "al", "zc", "count", "quality")),
-    _spec("FREQ", "Registers and helpers", "freq", (), ("freq <channel> <raw28>",), "PURE", output_keys=("channel", "raw", "frequency_hz", "code")),
-    _spec("TIMING", "Registers and helpers", "timing", (), ("timing [mask]",), "PURE", output_keys=("mask", "wake_settle_us", "conversion_us", "sequential_frame_us", "acquisition_transfers", "code")),
+    _spec("FREQ", "Registers and helpers", "freq", (), ("freq <channel> <raw28>", "freq <desired|staged> <channel> <raw28>"), "PURE", output_keys=("profile", "channel", "raw", "frequency_hz", "code")),
+    _spec("TIMING", "Registers and helpers", "timing", (), ("timing [mask]", "timing <desired|staged> [mask]"), "PURE", output_keys=("profile", "mask", "wake_settle_us", "conversion_us", "sequential_frame_us", "acquisition_transfers", "code")),
     _spec("DRIVE_UA", "Registers and helpers", "driveua", (), ("driveua <code>",), "PURE", output_keys=("code", "microamps")),
 
     _spec("DRIVER", "Diagnostics", "drv", ("health",), ("drv / health",), "CACHE_ONLY", output_keys=("bound", "applied", "revision", "active", "result_available", "attempts", "success", "failures", "last_code")),
     _spec("STATE", "Diagnostics", "state", (), ("state",), "CACHE_ONLY", output_keys=("bound", "applied", "profile_dirty", "session_kind", "active", "pending_result")),
+    _spec("DIAG", "Diagnostics", "diag", (), ("diag",), "CACHE_ONLY", output_keys=("platform", "target", "frequency_hz", "bound", "applied", "revision", "profile_dirty", "active", "pending_result", "attempts", "success", "failures", "last_code", "outcome", "code")),
+    _spec("XFER", "Diagnostics", "xfer", (), ("xfer stats|reset", "xfer assert <write> <write_read> <discover> <total>"), "CACHE_ONLY", output_keys=("write", "write_read", "discover", "total", "failures", "last_code", "expected", "actual", "outcome", "code")),
     _spec("SELFTEST", "Diagnostics", "selftest", (), ("selftest",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("command", "session", "identity", "config", "status", "helpers", "pass", "fail", "skip", "outcome", "code")),
     _spec("STRESS", "Diagnostics", "stress", (), ("stress <count> [mask]",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("command", "session", "requested", "ok", "fail", "elapsed_ms", "hz", "outcome", "code")),
-    _spec("STRESS_MIX", "Diagnostics", "stress_mix", (), ("stress_mix <n> [mask] confirm",), "CLI_JOB", "CONFIRM_MUTATION", "NO_SENSOR_OK", ("command", "session", "requested", "ok", "fail", "elapsed_ms", "outcome", "code")),
+    _spec("STRESS_MIX", "Diagnostics", "stress_mix", (), ("stress_mix <n> [mask] confirm",), "CLI_JOB", "CONFIRM_DESTRUCTIVE_READ", "NO_SENSOR_OK", ("command", "session", "requested", "ok", "fail", "elapsed_ms", "outcome", "code")),
+    _spec("STRESS_ID", "Diagnostics", "stress_id", (), ("stress_id <count>",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("command", "session", "requested", "completed", "ok", "fail", "first_failure_iteration", "elapsed_ms", "hz", "outcome", "code")),
+    _spec("STRESS_RESET", "Diagnostics", "stress_reset", (), ("stress_reset <count> confirm",), "CLI_JOB", "CONFIRM_MUTATION", "NO_SENSOR_OK", ("command", "session", "requested", "completed", "ok", "fail", "first_failure_iteration", "elapsed_ms", "outcome", "code")),
+    _spec("STRESS_BUS_FREQ", "Diagnostics", "stress_busfreq", (), ("stress_busfreq <count> confirm",), "CLI_JOB", "CONFIRM_MUTATION", "NO_SENSOR_OK", ("command", "session", "requested", "completed", "ok", "fail", "initial_hz", "active_hz", "restored_hz", "restore_code", "first_failure_iteration", "elapsed_ms", "outcome", "code")),
     _spec("SOAK", "Diagnostics", "soak", (), ("soak <seconds> [mask]",), "CLI_JOB", fixture="NO_SENSOR_OK", output_keys=("command", "session", "seconds", "cycles", "ok", "fail", "elapsed_ms", "outcome", "code")),
     _spec("SD", "Diagnostics", "sd", (), ("sd status|assert|release confirm",), "LIFECYCLE", "CONFIRM_MUTATION", "SD_WIRED", ("state", "outcome", "code")),
 )
@@ -184,33 +194,39 @@ STALE_COMMANDS = ("begin", "sync", "readall", "initidrive")
 # accidentally exercise a mutation after a firmware prompt/grammar change.
 NO_SENSOR_COMMANDS = (
     "help", "color off", "help", "color on", "verbose 1", "verbose 0",
-    "version",
-    "scan", "busrecover confirm", "init",
+    "version", "bus", "busfreq", "diag", "xfer stats",
+    "discover", "init",
     "apply", "resetreapply confirm", "wake",
     "probe", "reg 0x7E", "reg 0x7F",
     "status", "status_raw", "ready",
-    "cfg", "job", "result", "state",
+    "cfg", "job", "result",
     "profile show", "profile validate", "profile discard",
     "dump config", "dump all confirm", "verify",
     "wake", "selftest", "read 0x01", "sleep", "wake",
     "decode status 0x0040", "decode data 0x0000 0x0000",
-    "freq 0 0x0100000", "timing 0x01", "driveua 0",
+    "freq desired 0 0x0100000", "freq staged 0 0x0100000",
+    "timing desired 0x01", "timing staged 0x01", "driveua 0",
     "wreg 0x1A 0x3481 confirm", "init",
     "invalidate confirm", "init",
+    "busrecover confirm", "state", "init", "wake", "probe", "drv",
     "end", "bind", "init",
     "cancel", "wake", "drv",
 )
 SENSOR_COMMANDS = (
-    "help", "version", "scan", "busrecover confirm", "init", "wake", "probe", "drv",
+    "help", "version", "bus", "busfreq", "diag", "xfer stats",
+    "discover", "init", "wake", "probe", "drv",
     "cfg", "job", "result", "status", "ready", "sleep", "wake",
-    "timing 0x01", "verify", "selftest",
+    "timing desired 0x01", "verify", "selftest",
 )
 OPTIONAL_COMMAND_GROUPS = {
     "stress": (
         "stress {count} 0x01",
         "stress_mix {count} 0x01 confirm",
+        "stress_id {count}",
         "soak 2 0x01",
     ),
+    "reset_stress": ("stress_reset {count} confirm",),
+    "busfreq_stress": ("stress_busfreq {count} confirm",),
     "sample_rate": ("samplerate {channel} {count}",),
     "intb": ("intb",),
     "sd": ("sd status",),
@@ -218,12 +234,15 @@ OPTIONAL_COMMAND_GROUPS = {
 }
 OPTIONAL_GROUP_FIXTURES = {
     "stress": {"NO_SENSOR_OK"},
+    "reset_stress": {"NO_SENSOR_OK"},
+    "busfreq_stress": {"NO_SENSOR_OK"},
     "sample_rate": {"SENSOR_REQUIRED"},
     "intb": {"INTB_WIRED"},
     "sd": {"SD_WIRED"},
     "drive_tuning": {"ANY", "DRIVE_TUNING"},
 }
 SAFE_COMPOUND_BRANCHES = {
+    ("busfreq", "busfreq"),
     ("dump", "dump config"),
     ("profile", "profile show"),
     ("profile", "profile reset"),
@@ -239,16 +258,16 @@ SAFE_COMPOUND_BRANCHES = {
 # tuples are also asserted by validate_contract() so a later command-list edit
 # cannot silently weaken the HIL lifecycle coverage.
 NO_SENSOR_REQUIRED_SUBSEQUENCES = (
-    ("scan", "busrecover confirm", "init"),
     ("resetreapply confirm", "wake", "probe"),
     ("wreg 0x1A 0x3481 confirm", "init"),
     ("invalidate confirm", "init"),
+    ("busrecover confirm", "state", "init", "wake", "probe", "drv"),
     ("end", "bind", "init"),
     ("wake", "selftest", "read 0x01"),
     ("cancel", "wake", "drv"),
 )
 SENSOR_REQUIRED_SUBSEQUENCES = (
-    ("busrecover confirm", "init", "wake", "probe"),
+    ("discover", "init", "wake", "probe"),
     ("sleep", "wake"),
 )
 

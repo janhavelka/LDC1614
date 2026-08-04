@@ -95,14 +95,16 @@ command per pass. A prompt is printed only after immediate work or a scheduled
 operation reaches a terminal result, so pasted commands cannot force multiple
 I2C callbacks into one pass.
 
-`scan` cooperatively probes the 112 usable addresses `0x08..0x77`; reserved I2C
-address groups are excluded. Address NACK means no device and is counted as a
-completed probe, while timeout or bus failure terminates with a non-OK status.
-Scanning is diagnostic owner policy, never automatic startup behavior. Run
-`busrecover confirm` and `init` after scan diagnostics when the controller or
-attached devices require post-NACK recovery. If the backend remains in
-`ESP_ERR_INVALID_STATE`, stop the run and physically cycle device/bus power;
-repeated commands on the poisoned state are not recovery evidence.
+`discover` (alias `scan`) cooperatively tests only the two legal LDC1612/LDC1614
+strap addresses, `0x2A` and `0x2B`. Each candidate must return both expected
+identity registers through normal combined reads; an unrelated ACK is never
+reported as an LDC device. Address NACK and other transaction failures retain
+their raw backend detail but remain generic transaction errors because ESP-IDF
+5.5.5 reports an address NACK as the ambiguous `ESP_ERR_INVALID_STATE` value.
+Discovery is explicit diagnostic owner policy, never automatic startup behavior
+or authority to pulse a shared bus. Use controller-only `busrecover confirm`,
+then `init`, when application policy has independent evidence that rebuilding
+the controller is appropriate.
 
 The example profile values, GPIO8/GPIO9 pins, 43 MHz internal-clock estimate,
 sensor-frequency bounds, and drive-current code are placeholders. Replace and

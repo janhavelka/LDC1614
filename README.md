@@ -56,23 +56,25 @@ example is under `examples/esp_idf/basic`.
 
 Host validation tools are pinned in `requirements-dev.txt`; the maintained
 Arduino build uses pioarduino `55.03.311` (Arduino 3.3.11 with ESP-IDF 5.5.5),
-pinned in `platformio.ini`. It includes newer I2C fixes, but the 2026-08-03
-COM8 run still reproduced the open ESP-IDF new-master failure in which a NACK
-can be followed by persistent `ESP_ERR_INVALID_STATE`. Treat the pin as a
-reviewed build baseline, not proof of post-NACK recovery; see
-[Espressif issue #14030](https://github.com/espressif/esp-idf/issues/14030).
-Both maintained ESP32 diagnostics use one
-example-owned ESP-IDF new-master transport rather than a parallel Wire backend;
-its explicit `busrecover` path now reconstructs the diagnostic's sole owned
-bus/device lifecycle, runs the ESP-IDF driver's bounded bus reset/line-clear on
-the recreated bus, and requires one bounded target-address ACK before it
-reports success. This attempts controller/line recovery and proves only that
-the address ACKed; repeated COM8 testing showed that a following combined read
-can still return `ESP_ERR_INVALID_STATE`. This is containment for a failed
-backend, not a hidden register retry or proof of complete recovery. It is
-example/build-tool policy, not a dependency of the framework-neutral core.
-Each product owner still requires target validation and must coordinate every
-device handle when rebuilding a genuinely shared bus.
+pinned in `platformio.ini`. In this ESP-IDF generation, a synchronous
+transaction that does not reach the driver's internal `DONE` state is returned
+as `ESP_ERR_INVALID_STATE` (`259`), including an ordinary slave NACK. The
+example transport therefore preserves `259` as raw detail but maps it to a
+generic transaction failure, never by itself to a failed shared bus. ESP-IDF 6
+renames the NACK result to `ESP_ERR_INVALID_RESPONSE`; see the
+[official migration note](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/migration-guides/release-6.x/6.0/peripherals.html#i2c-master-driver-updates).
+
+Both maintained ESP32 diagnostics use one example-owned ESP-IDF new-master
+transport rather than a parallel Wire backend. Explicit `busrecover` closes
+and recreates only the diagnostic's sole bus/device lifecycle. It deliberately
+does not clock-clear the lines or use an address-only ACK as device admission:
+the LDC161x data sheet rejects early-terminated/malformed I2C traffic, and an
+address ACK does not prove that a combined register read works. Recovery
+success means only that controller resources were reconstructed. The CLI then
+invalidates applied state and requires complete identity reads plus profile
+replay before trusted use. This is example/build-tool policy, not a dependency
+of the framework-neutral core, and a shared-bus product must coordinate every
+device handle and device-specific admission itself.
 
 ## Explicit profile
 
@@ -296,7 +298,8 @@ parity.
 
 Commands cover lifecycle/jobs, complete desired configuration, acquisition and
 cached batches, STATUS/INTB/SD visibility, every persistent configuration
-register, pure timing/frequency/current/decoder helpers, and bounded scan,
+register, pure timing/frequency/current/decoder helpers, and bounded
+protocol-qualified discovery,
 verify, self-test, watch, stress, mixed-stress, sample-rate, and soak sessions.
 `cfg` prints every global field, every physical-channel register value and
 sensor bound, error routing, desired/applied revision, INTB availability, and

@@ -8,6 +8,7 @@ import io
 import json
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -38,20 +39,43 @@ def async_output(command: str, session: int, body: str = "") -> str:
 def version_output(commit: str = "abcdef1") -> str:
     return (
         f"version=3.0.0 firmware_git={commit} firmware_status=clean "
-        "build_timestamp=test\n> "
+        "build_timestamp=test platform=pioarduino-55.03.311 "
+        "framework=arduino framework_version=3.3.11 idf_version=v5.5.5 "
+        "target=esp32s2 i2c_backend=esp-idf-new-master frequency_hz=400000\n> "
     )
 
 
 def cfg_output() -> str:
-    return (
-        "Configuration: desired revision=1 applied=APPLIED_ACTIVE staged_dirty=0\n"
-        "cfg label=desired address=0x2A variant=LDC1614 variant_channels=4 "
-        "selected=0x01 mode=single "
-        "ref_source=external ref_hz=40000000 tolerance_ppm=100\n"
-        "deglitch=10 activation=full timeout_ms=10 rp_override=0 "
-        "auto_amplitude=0 high_current=0 intb_config=1 "
-        "error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE\n> "
-    )
+    blocks = []
+    for label in ("desired", "staged"):
+        blocks.extend((
+            f"Configuration: {label} revision=1 applied=APPLIED_ACTIVE staged_dirty=0",
+            f"cfg label={label} address=0x2A variant=LDC1614 variant_channels=4 "
+            "selected=0x01 mode=single ref_source=external ref_hz=40000000 "
+            "tolerance_ppm=100 deglitch=10 activation=full timeout_ms=10 "
+            "rp_override=0 auto_amplitude=0 high_current=0 intb_config=1 "
+            "error_reporting=0xF8FD revision=1 applied=APPLIED_ACTIVE",
+            "  binding address=0x2A variant=LDC1614 physical_mask=0x0F "
+            "write_callback=1 read_callback=1",
+            "  conversion selected_mask=0x01 mode=single active_channel=0 rr_sequence=0",
+            "  reference_clock source=EXTERNAL frequency_hz=40000000 tolerance_ppm=100",
+            "  options timeout_ms=10 deglitch=10 activation=FULL rp_override=0 "
+            "auto_amplitude=0 high_current=0 intb_enabled=1 intb_callback=1",
+        ))
+        for channel in range(4):
+            blocks.append(
+                f"  channel={channel} selected={1 if channel == 0 else 0} "
+                "rcount=1238 settle_count=10 fin_divider=2 fref_divider=2 "
+                "offset=0 drive_code=10 drive_ua=60 sensor_min_hz=100000 "
+                "sensor_max_hz=5000000"
+            )
+        blocks.append(
+            "  error_config=0xF8FD data_under=1 data_over=1 data_watchdog=1 "
+            "data_amplitude_high=1 data_amplitude_low=1 status_under=1 "
+            "status_over=1 status_watchdog=1 status_amplitude_high=1 "
+            "status_amplitude_low=1 status_zero_count=1 data_ready=1"
+        )
+    return "\n".join((*blocks, "> "))
 
 
 def probe_output(session: int = 9) -> str:
@@ -75,7 +99,52 @@ def drv_output() -> str:
         "active=0 pending_result=0\n"
         "drv bound=1 applied=APPLIED_ACTIVE revision=1 active=0 "
         "result_available=0 attempts=10 success=10 failures=0 last_code=0\n"
-        "transport attempts=10 success=10 failures=0\n> "
+        "transport attempts=10 success=10 failures=0\n"
+        "config_fault valid=0 job=NONE phase=NONE register=0x00 channel=255 "
+        "effects=0x00 effects_names=NONE\n> "
+    )
+
+
+def recovery_state_output() -> str:
+    return (
+        "state bound=1 applied=UNKNOWN profile_dirty=0 session_kind=NONE "
+        "active=0 pending_result=0\n> "
+    )
+
+
+def help_output() -> str:
+    labels = runner.HELP_SECTION_LABELS
+    lines = ["=== LDC1614 CLI ==="]
+    current = None
+    for spec in contract.COMMAND_SPECS:
+        if spec.section != current:
+            current = spec.section
+            lines.extend(("", f"[{labels[current]}]"))
+        for synopsis in spec.synopses:
+            lines.append(f"  {synopsis:<56} - description")
+    lines.extend(("", "Settings edit a staged profile with zero I2C.",
+                  "DATA/STATUS raw reads are destructive.",
+                  f"command_count={len(contract.COMMAND_SPECS)}", "> "))
+    return "\n".join(lines)
+
+
+def dump_output(scope: str, count: int, session: int) -> str:
+    record_scope = "dump_all" if scope == "all" else "dump_config"
+    addresses = sorted(
+        runner.LDC1614_ALL_REGISTERS
+        if scope == "all" else runner.LDC1614_CONFIG_REGISTERS
+    )
+    assert len(addresses) == count
+    records = ""
+    for address in addresses:
+        name, access, destructive = runner.expected_register_descriptor(address)
+        records += (
+            f"{record_scope} register=0x{address:02X} name={name} access={access} "
+            f"destructive={destructive} value=0x0000 reserved_valid=1\n"
+        )
+    return async_output(
+        "dump", session,
+        records + f"dump complete scope={scope} count={count} failures=0\n",
     )
 
 
@@ -95,14 +164,41 @@ def base_golden_outputs() -> dict[str, str]:
     )
     generic = lambda command: f"CLI result: command={command} outcome=SUCCESS code=0\n> "
     outputs = {
-        "help": "=== LDC1614 CLI ===\n[Common]\ncommand_count=64\n> ",
+        "help": help_output(),
         "color off": "color enabled=0\n> ",
         "color on": "color enabled=1\n> ",
         "verbose 1": "verbose enabled=1\n> ",
         "verbose 0": "verbose enabled=0\n> ",
         "version": version_output(),
-        "scan": async_output("scan", 1, "scan complete found=1 probes=112 code=0\n"),
-        "busrecover confirm": generic("busrecover"),
+        "bus": (
+            "bus open=1 backend=esp-idf-new-master port=0 sda=8 scl=9 "
+            "sda_level=1 scl_level=1 address=0x2A frequency_hz=400000 "
+            "timeout_ms=10\n> "
+        ),
+        "busfreq": (
+            "busfreq previous_hz=400000 requested_hz=400000 active_hz=400000 "
+            "reinitialized=0 outcome=SUCCESS code=0\n> "
+        ),
+        "diag": (
+            "diag platform=pioarduino-55.03.311 framework=arduino "
+            "framework_version=3.3.11 idf_version=v5.5.5 target=esp32s2 "
+            "frequency_hz=400000 bound=1 applied=APPLIED_ACTIVE revision=1 "
+            "profile_dirty=0 active=0 pending_result=0 attempts=10 success=10 "
+            "failures=0 last_code=0 outcome=SUCCESS code=0\n> "
+        ),
+        "xfer stats": (
+            "xfer write=5 write_read=5 discover=0 total=10 failures=0 "
+            "last_code=0 outcome=SUCCESS code=0\n> "
+        ),
+        "discover": async_output(
+            "discover", 1,
+            "discover address=0x2A strap=ADDR_GND manufacturer_id=0x5449 "
+            "device_id=0x3055 match=1 variant=UNKNOWN code=0 detail=0\n"
+            "discover address=0x2B strap=ADDR_VDD manufacturer_id=unavailable "
+            "device_id=unavailable match=0 variant=UNKNOWN code=14 detail=259\n"
+            "discover tested=2 responding=1 matched=1 mismatched=0 failed=1 "
+            "variant=UNKNOWN code=0\n",
+        ),
         "init": async_output("init", 0),
         "apply": async_output("apply", 0),
         "resetreapply confirm": async_output("resetreapply", 0),
@@ -127,8 +223,7 @@ def base_golden_outputs() -> dict[str, str]:
             "transfers=20 maximum=20 code=0 detail=0 msg=OK\n> "
         ),
         "state": (
-            "state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 session_kind=NONE "
-            "active=0 pending_result=0\n> "
+            recovery_state_output()
         ),
         "profile show": "Configuration: staged revision=1\ncfg label=staged address=0x2A\n> ",
         "profile validate": (
@@ -139,15 +234,11 @@ def base_golden_outputs() -> dict[str, str]:
             "CLI preview: field=profile dirty=0 valid=unknown channel=none "
             "outcome=DISCARDED code=0 i2c_attempts=0\n> "
         ),
-        "dump config": async_output(
-            "dump", 3, "dump complete scope=config count=23 failures=0\n"
-        ),
-        "dump all confirm": async_output(
-            "dump", 4, "dump complete scope=all count=36 failures=0\n"
-        ),
+        "dump config": dump_output("config", 23, 3),
+        "dump all confirm": dump_output("all", 35, 4),
         "verify": async_output(
             "verify", 5,
-            "verify complete checked=22 matched=22 mismatched=0 read_failures=0\n",
+            "verify complete checked=23 matched=23 mismatched=0 read_failures=0\n",
         ),
         "wake": generic("wake"),
         "selftest": async_output(
@@ -165,14 +256,26 @@ def base_golden_outputs() -> dict[str, str]:
             "decode kind=data raw=0x0000 msb=0x0000 lsb=0x0000 count=0x0000000 "
             "quality=0x0002 quality_names=STALE\n> "
         ),
-        "freq 0 0x0100000": "channel=0 raw=0x0100000 frequency_hz=156250.000000 code=0\n> ",
-        "timing 0x01": (
-            "mask=0x01 wake_settle_us=1000 conversion_us=1000 "
+        "freq desired 0 0x0100000": (
+            "profile=desired channel=0 raw=0x0100000 "
+            "frequency_hz=156250.000000 code=0\n> "
+        ),
+        "freq staged 0 0x0100000": (
+            "profile=staged channel=0 raw=0x0100000 "
+            "frequency_hz=156250.000000 code=0\n> "
+        ),
+        "timing desired 0x01": (
+            "profile=desired mask=0x01 wake_settle_us=1000 conversion_us=1000 "
+            "sequential_frame_us=2000 acquisition_transfers=4 code=0\n> "
+        ),
+        "timing staged 0x01": (
+            "profile=staged mask=0x01 wake_settle_us=1000 conversion_us=1000 "
             "sequential_frame_us=2000 acquisition_transfers=4 code=0\n> "
         ),
         "driveua 0": "code=0 microamps=16\n> ",
         "wreg 0x1A 0x3481 confirm": "register=0x1A value=0x3481 code=0\n> ",
         "invalidate confirm": generic("invalidate"),
+        "busrecover confirm": generic("busrecover"),
         "end": generic("end"),
         "bind": "CLI result: command=bind outcome=SUCCESS code=0 detail=0 msg=OK\n> ",
         "cancel": "CLI result: command=cancel outcome=SUCCESS code=0 session=0\n> ",
@@ -212,11 +315,15 @@ def config_golden_output(command: str) -> str:
         primary, field = f"enabled={tokens[1]}", name
     elif name == "errors":
         enabled = "0" if tokens[1] == "none" else "1"
-        prefix = "errors " if tokens[1] == "show" else ""
-        primary = prefix + " ".join(
+        primary = "errors " + " ".join(
             f"{field_name}={enabled}" for field_name in
-            ("ur", "or", "wd", "ah", "al", "zc", "drdy")
-        )
+            (
+                "data_under", "data_over", "data_watchdog",
+                "data_amplitude_high", "data_amplitude_low", "status_under",
+                "status_over", "status_watchdog", "status_amplitude_high",
+                "status_amplitude_low", "status_zero_count", "data_ready",
+            )
+        ) + (" encoded=0x0000" if enabled == "0" else " encoded=0xF8FD")
         if tokens[1] == "show":
             return primary + "\n> "
         field = "errors"
@@ -263,7 +370,7 @@ def cpp_contract_source() -> str:
 class CliManifestTests(unittest.TestCase):
     def test_manifest_is_complete_ordered_and_bounded(self) -> None:
         self.assertEqual((), contract.validate_contract())
-        self.assertEqual(64, len(contract.COMMAND_SPECS))
+        self.assertEqual(71, len(contract.COMMAND_SPECS))
         self.assertEqual("help", contract.COMMAND_SPECS[0].canonical)
         self.assertEqual("sd", contract.COMMAND_SPECS[-1].canonical)
         self.assertTrue(
@@ -275,7 +382,8 @@ class CliManifestTests(unittest.TestCase):
         expected = {
             "?": "help", "ver": "version", "acquire": "read",
             "progress": "job", "drdy": "ready", "settings": "cfg",
-            "rreg": "reg", "health": "drv",
+            "rreg": "reg", "health": "drv", "i2c": "bus",
+            "i2cfreq": "busfreq", "scan": "discover",
         }
         self.assertEqual(
             expected,
@@ -285,7 +393,7 @@ class CliManifestTests(unittest.TestCase):
 
     def test_cpp_table_parser_compares_all_metadata(self) -> None:
         source = cpp_contract_source()
-        self.assertEqual(64, len(contract.parse_cpp_command_specs(source)))
+        self.assertEqual(71, len(contract.parse_cpp_command_specs(source)))
         self.assertEqual((), contract.compare_cpp_command_specs(source, "fixture"))
 
         drifted = source.replace("CommandId::JOB", "CommandId::PROGRESS", 1)
@@ -296,7 +404,7 @@ class CliManifestTests(unittest.TestCase):
         for profile in ("arduino", "idf"):
             sensor = runner.default_commands(profile, "default")
             no_sensor = runner.default_commands(profile, "no-sensor")
-            self.assertIn("busrecover confirm", sensor)
+            self.assertIn("discover", sensor)
             self.assertIn("job", sensor)
             self.assertIn("selftest", sensor)
             self.assertIn("read 0x01", no_sensor)
@@ -311,7 +419,7 @@ class CliManifestTests(unittest.TestCase):
 
     def test_no_sensor_recovery_fences_are_exact_and_ordered(self) -> None:
         commands = contract.NO_SENSOR_COMMANDS
-        self.assertEqual(49, len(commands))
+        self.assertEqual(59, len(commands))
         for sequence in contract.NO_SENSOR_REQUIRED_SUBSEQUENCES:
             width = len(sequence)
             self.assertTrue(any(
@@ -319,8 +427,7 @@ class CliManifestTests(unittest.TestCase):
                 for index in range(len(commands) - width + 1)
             ), sequence)
         for invalidator in (
-            "busrecover confirm", "wreg 0x1A 0x3481 confirm",
-            "invalidate confirm", "end",
+            "wreg 0x1A 0x3481 confirm", "invalidate confirm", "end",
         ):
             index = commands.index(invalidator)
             expected_next = "bind" if invalidator == "end" else "init"
@@ -369,7 +476,7 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual(
             "FAIL",
             runner.classify_command(
-                "help", outputs["help"].replace("command_count=64\n", ""), False
+                "help", outputs["help"].replace("command_count=71\n", ""), False
             )[0],
         )
         self.assertEqual(
@@ -378,6 +485,32 @@ class ClassifierTests(unittest.TestCase):
                 "result", outputs["result"].replace("maximum=20 ", ""), False
             )[0],
         )
+
+    def test_detailed_help_and_color_normalization_match_contract(self) -> None:
+        detailed = (
+            "help command=version aliases=ver section=Common "
+            "execution=CACHE_ONLY safety=SAFE fixture=ANY busy_allowed=1 "
+            "evidence=version firmware_git firmware_status build_timestamp\n"
+            "  synopsis: version / ver\n  Show build provenance\n"
+            "command_count=71\n> "
+        )
+        status, reason = runner.classify_command("help ver", detailed, False)
+        self.assertEqual("PASS", status, reason)
+
+        colored = help_output().replace(
+            "=== LDC1614 CLI ===", "\x1b[36m=== LDC1614 CLI ===\x1b[0m"
+        )
+        results = [
+            {"command": "help", "status": "PASS", "output": colored},
+            {"command": "help", "status": "PASS", "output": help_output()},
+        ]
+        runner.append_matrix_consistency_results(results)
+        self.assertEqual(2, len(results))
+        results[1]["output"] = str(results[1]["output"]).replace(
+            "description", "changed", 1
+        )
+        runner.append_matrix_consistency_results(results)
+        self.assertEqual("FAIL", results[-1]["status"])
 
     def test_async_session_envelopes_must_match(self) -> None:
         output = async_output("init", 42)
@@ -405,6 +538,16 @@ class ClassifierTests(unittest.TestCase):
 
     def test_complete_cfg_and_progress_evidence(self) -> None:
         self.assertEqual("PASS", runner.classify_command("cfg", cfg_output(), False)[0])
+        missing_channel = cfg_output().replace(
+            "  channel=3 selected=0 rcount=1238 settle_count=10 fin_divider=2 "
+            "fref_divider=2 offset=0 drive_code=10 drive_ua=60 "
+            "sensor_min_hz=100000 sensor_max_hz=5000000\n",
+            "",
+            1,
+        )
+        self.assertEqual(
+            "FAIL", runner.classify_command("cfg", missing_channel, False)[0]
+        )
         progress = sync_output(
             "job",
             "job active=0 operation=0 kind=NONE phase=NONE transfers=0 maximum=0 "
@@ -412,6 +555,96 @@ class ClassifierTests(unittest.TestCase):
             "session active=0 id=0 kind=NONE phase=0 completed=0/0\n",
         )
         self.assertEqual("PASS", runner.classify_command("progress", progress, False)[0])
+
+    def test_cfg_duplicate_views_are_semantically_self_consistent(self) -> None:
+        malformed = (
+            cfg_output().replace(
+                "variant=LDC1614 variant_channels=4",
+                "variant=LDC1612 variant_channels=4", 1,
+            ),
+            cfg_output().replace(
+                "binding address=0x2A variant=LDC1614",
+                "binding address=0x2B variant=LDC1614", 1,
+            ),
+            cfg_output().replace("channel=0 selected=1", "channel=0 selected=0", 1),
+            cfg_output().replace("error_config=0xF8FD", "error_config=0x0000", 1),
+        )
+        for output in malformed:
+            with self.subTest(output=output[:120]):
+                status, reason = runner.classify_command("cfg", output, False)
+                self.assertEqual("FAIL", status, reason)
+
+    def test_requested_values_cannot_be_satisfied_by_stale_echoes(self) -> None:
+        cases = {
+            "color off": "color enabled=1\n> ",
+            "verbose 0": "verbose enabled=1\n> ",
+            "mode single 1": (
+                "mode=single channel=0 count=1\n"
+                "CLI preview: field=mode dirty=1 valid=unknown channel=none "
+                "outcome=STAGED code=0 i2c_attempts=0\n> "
+            ),
+            "refclk external 40000000 100": (
+                "source=internal hz=40000000 ppm=100\n"
+                "CLI preview: field=refclk dirty=1 valid=unknown channel=none "
+                "outcome=STAGED code=0 i2c_attempts=0\n> "
+            ),
+            "rcount 1 1238": (
+                "channel=0 value=1238\n"
+                "CLI preview: field=rcount dirty=1 valid=unknown channel=none "
+                "outcome=STAGED code=0 i2c_attempts=0\n> "
+            ),
+            "errors none": config_golden_output("errors all"),
+            "initdrive 1": "channel=0 init_drive_code=10 microamps=60 code=0\n> ",
+            "driveua 1": "code=0 microamps=16\n> ",
+            "reg 0x7F": "register=0x7E value=0x5449 code=0\n> ",
+            "wreg 0x1A 0x3482 confirm": (
+                "register=0x1A value=0x3481 code=0\n> "
+            ),
+            "decode status 0x0041": (
+                "decode kind=status decoded_status=0x0040 observed=1 raw=0x0040\n> "
+            ),
+            "freq desired 0 0x0100001": (
+                "profile=desired channel=0 raw=0x0100000 "
+                "frequency_hz=1000.000000 code=0\n> "
+            ),
+            "timing desired 0x02": (
+                "profile=desired mask=0x01 wake_settle_us=10 conversion_us=20 "
+                "sequential_frame_us=30 acquisition_transfers=4 code=0\n> "
+            ),
+            "sd release confirm": (
+                "sd state=asserted outcome=SUCCESS code=0\n> "
+            ),
+            "read 0x02": async_output(
+                "read", 99,
+                "batch type=SEQUENTIAL_READOUT selected=0x01 valid=0x01 "
+                "fresh=0x01 error=0x00 overrun=0x00 revision=1 "
+                "completed_ms=1 simultaneous=0\n"
+                "status_before=0x0040 observed=1 raw=0x0040\n"
+                "status_after=0x0000 observed=1 raw=0x0000\n",
+            ),
+        }
+        for command, output in cases.items():
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(
+                    command, output, False, fixture="no-sensor"
+                )
+                self.assertEqual("FAIL", status, reason)
+
+    def test_diagnostics_and_progress_reject_impossible_counters(self) -> None:
+        outputs = base_golden_outputs()
+        malformed = (
+            ("diag", outputs["diag"].replace("success=10", "success=9")),
+            ("diag", outputs["diag"].replace("last_code=0", "last_code=7")),
+            ("job", outputs["job"].replace("transfers=0 maximum=0",
+                                            "transfers=2 maximum=1")),
+            ("job", outputs["job"].replace("completed=0x00", "completed=0x02")),
+            ("result", outputs["result"].replace("transfers=20 maximum=20",
+                                                  "transfers=21 maximum=20")),
+        )
+        for command, output in malformed:
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("FAIL", status, reason)
 
     def test_no_sensor_flags_are_narrowly_tolerated(self) -> None:
         output = status_output()
@@ -455,6 +688,12 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual("FAIL", runner.classify_command("version", version_output(), True)[0])
         self.assertEqual(
             "FAIL", runner.classify_command("version", version_output() + "[FAIL]\n", False)[0]
+        )
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command(
+                "version", version_output().removesuffix("> "), False
+            )[0],
         )
 
     def test_version_parser_accepts_frozen_equals_and_legacy_colon(self) -> None:
@@ -541,6 +780,213 @@ class ClassifierTests(unittest.TestCase):
                 status, reason = runner.classify_command(command, output, False)
                 self.assertEqual("PASS", status, reason)
 
+    def test_counted_command_summaries_must_reconcile_with_request(self) -> None:
+        cases = {
+            "stress 25 0x01": async_output(
+                "stress", 31,
+                "Stress result: requested=1 ok=1 fail=0 elapsed_ms=10 hz=100.0\n",
+            ),
+            "stress_mix 25 0x01 confirm": async_output(
+                "stress_mix", 32,
+                "StressMix results: requested=25 ok=24 fail=0 elapsed_ms=10\n",
+            ),
+            "watch 0x01 25": async_output(
+                "watch", 33,
+                "Watch results: requested=24 completed=24 failed=0 elapsed_ms=10\n",
+            ),
+            "samplerate 0 25": async_output(
+                "samplerate", 34,
+                "SampleRate result: requested=25 ok=24 fail=0 elapsed_ms=10 "
+                "hz=2400.0 ready_checks=24 ready_status_raw=0x0040\n",
+            ),
+            "soak 2 0x01": async_output(
+                "soak", 35,
+                "Soak results: seconds=2 cycles=2 ok=2 fail=0 elapsed_ms=1000\n",
+            ),
+        }
+        for command, output in cases.items():
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(
+                    command, output, False, fixture="no-sensor"
+                )
+                self.assertEqual("FAIL", status, reason)
+
+    def test_work_summaries_cannot_pass_zero_or_inconsistent_work(self) -> None:
+        cases = {
+            "discover": async_output(
+                "discover", 40,
+                "discover tested=2 responding=1 matched=1 mismatched=0 "
+                "failed=1 variant=UNKNOWN code=0\n",
+            ),
+            "dump config": async_output(
+                "dump", 41, "dump complete scope=config count=0 failures=0\n"
+            ),
+            "dump all confirm": async_output(
+                "dump", 42, "dump complete scope=config count=36 failures=0\n"
+            ),
+            "verify": async_output(
+                "verify", 43,
+                "verify complete checked=0 matched=0 mismatched=0 read_failures=0\n",
+            ),
+            "selftest": async_output(
+                "selftest", 44, "Selftest result: pass=0 fail=0 skip=9\n"
+            ),
+        }
+        for command, output in cases.items():
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("FAIL", status, reason)
+
+    def test_arduino_discovery_requires_exact_ambiguous_nack_provenance(self) -> None:
+        discovery = base_golden_outputs()["discover"]
+        self.assertEqual(
+            "PASS", runner.classify_command("discover", discovery, False)[0]
+        )
+        for broken in (
+            discovery.replace("code=14 detail=259", "code=18 detail=259"),
+            discovery.replace("code=14 detail=259", "code=14 detail=0"),
+        ):
+            with self.subTest(output=broken):
+                self.assertEqual(
+                    "FAIL", runner.classify_command("discover", broken, False)[0]
+                )
+
+    def test_reported_rates_and_readiness_must_reconcile(self) -> None:
+        cases = (
+            (
+                "stress 25 0x01",
+                async_output(
+                    "stress", 50,
+                    "Stress result: requested=25 ok=25 fail=0 "
+                    "elapsed_ms=100 hz=1.0\n",
+                ),
+            ),
+            (
+                "samplerate 0 2",
+                async_output(
+                    "samplerate", 51,
+                    "SampleRate result: requested=2 ok=2 fail=0 elapsed_ms=20 "
+                    "hz=100.000000 ready_checks=1 ready_status_raw=0x0040\n",
+                ),
+            ),
+            (
+                "samplerate 0 2",
+                async_output(
+                    "samplerate", 52,
+                    "SampleRate result: requested=2 ok=2 fail=0 elapsed_ms=20 "
+                    "hz=100.000000 ready_checks=2 ready_status_raw=0x0000\n",
+                ),
+            ),
+            (
+                "stress_id 2",
+                async_output(
+                    "stress_id", 53,
+                    "IdentityStress result: requested=2 completed=2 ok=2 fail=0 "
+                    "first_failure_iteration=-1 elapsed_ms=0 hz=0.000000\n",
+                ),
+            ),
+        )
+        for command, output in cases:
+            with self.subTest(command=command, output=output):
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("FAIL", status, reason)
+
+    def test_new_bus_and_stress_evidence_rejects_false_success(self) -> None:
+        discovery = base_golden_outputs()["discover"]
+        cases = (
+            (
+                "discover",
+                discovery.replace("matched=1 mismatched=0", "matched=2 mismatched=0"),
+            ),
+            (
+                "discover",
+                discovery.replace("0x2B strap=ADDR_VDD", "0x2B strap=ADDR_GND"),
+            ),
+            (
+                "busfreq 100000 confirm",
+                "busfreq previous_hz=400000 requested_hz=100000 "
+                "active_hz=400000 reinitialized=0 outcome=SUCCESS code=0\n> ",
+            ),
+            (
+                "bus",
+                base_golden_outputs()["bus"].replace("open=1", "open=0"),
+            ),
+            (
+                "xfer stats",
+                "xfer write=1 write_read=2 discover=3 total=5 failures=0 "
+                "last_code=0 outcome=SUCCESS code=0\n> ",
+            ),
+            (
+                "stress_id 3",
+                async_output(
+                    "stress_id", 70,
+                    "IdentityStress result: requested=2 completed=2 ok=2 fail=0 "
+                    "first_failure_iteration=-1 elapsed_ms=20 hz=100.000000\n",
+                ),
+            ),
+            (
+                "stress_reset 3 confirm",
+                async_output(
+                    "stress_reset", 71,
+                    "ResetStress result: requested=3 completed=2 ok=2 fail=0 "
+                    "first_failure_iteration=-1 elapsed_ms=20\n",
+                ),
+            ),
+            (
+                "stress_busfreq 3 confirm",
+                async_output(
+                    "stress_busfreq", 72,
+                    "BusFrequencyStress result: requested=3 completed=3 ok=3 fail=0 "
+                    "initial_hz=400000 active_hz=100000 restored_hz=100000 "
+                    "restore_code=0 first_failure_iteration=-1 elapsed_ms=90\n",
+                ),
+            ),
+        )
+        for command, output in cases:
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("FAIL", status, reason)
+
+    def test_xfer_reset_and_assert_have_exact_counter_contracts(self) -> None:
+        reset = (
+            "xfer write=0 write_read=0 discover=0 total=0 failures=0 "
+            "last_code=0 outcome=SUCCESS code=0\n> "
+        )
+        self.assertEqual("PASS", runner.classify_command("xfer reset", reset, False)[0])
+        assertion = (
+            "xfer_assert expected_write=1 actual_write=1 expected_write_read=2 "
+            "actual_write_read=2 expected_discover=3 actual_discover=3 "
+            "expected_total=6 actual_total=6 outcome=SUCCESS code=0\n> "
+        )
+        self.assertEqual(
+            "PASS",
+            runner.classify_command("xfer assert 1 2 3 6", assertion, False)[0],
+        )
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command("xfer assert 1 2 3 5", assertion, False)[0],
+        )
+        failed_assertion = (
+            "xfer_assert expected_write=1 actual_write=2 expected_write_read=2 "
+            "actual_write_read=2 expected_discover=3 actual_discover=3 "
+            "expected_total=6 actual_total=7 outcome=FAILED code=3\n> "
+        )
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command(
+                "xfer assert 1 2 3 6", failed_assertion, False
+            )[0],
+        )
+        failed_outcome_only = assertion.replace(
+            "outcome=SUCCESS code=0", "outcome=FAILED code=3"
+        )
+        self.assertEqual(
+            "FAIL",
+            runner.classify_command(
+                "xfer assert 1 2 3 6", failed_outcome_only, False
+            )[0],
+        )
+
 
 class CheckerRobustnessTests(unittest.TestCase):
     def test_bounded_parser_checker_captures_semantic_parameter_name(self) -> None:
@@ -555,6 +1001,45 @@ class CheckerRobustnessTests(unittest.TestCase):
         invalid = valid.replace("parsed > ceiling", "parsed > UINT64_MAX")
         with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
             cli_checker.require_bounded_unsigned_parser(invalid)
+
+    def test_ambiguous_transaction_mapping_checker_rejects_bus_classification(self) -> None:
+        valid = """LDC1614::Status mapTransactionErr(esp_err_t error, const char* context) {
+  if (error == ESP_ERR_INVALID_STATE) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context, error);
+  }
+  return mapEspErr(error, context);
+}
+"""
+        cli_checker.require_ambiguous_transaction_mapping(valid)
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
+            cli_checker.require_ambiguous_transaction_mapping(
+                valid.replace("Err::I2C_ERROR", "Err::I2C_BUS")
+            )
+
+    def test_invalid_input_matrix_requires_clean_idle_state(self) -> None:
+        clean = {
+            "command": "state", "status": "PASS",
+            "output": (
+                "state bound=1 applied=APPLIED_ACTIVE profile_dirty=0 "
+                "session_kind=NONE active=0 pending_result=0\n> "
+            ),
+        }
+        prefix = [{
+            "command": "xfer assert 0 0 0 0", "status": "PASS", "output": "> ",
+        }]
+        accepted = [*prefix, clean]
+        runner.append_matrix_consistency_results(accepted)
+        self.assertEqual(2, len(accepted))
+
+        corrupted = [
+            *prefix,
+            {**clean, "output": clean["output"].replace(
+                "profile_dirty=0", "profile_dirty=1"
+            )},
+        ]
+        runner.append_matrix_consistency_results(corrupted)
+        self.assertEqual("FAIL", corrupted[-1]["status"])
+        self.assertEqual("expect-invalid-input-state", corrupted[-1]["command"])
 
 
 class MatrixAndSummaryTests(unittest.TestCase):
@@ -603,6 +1088,13 @@ class MatrixAndSummaryTests(unittest.TestCase):
         matrix_end = result["commands"].index("drv", len(contract.NO_SENSOR_COMMANDS))
         self.assertEqual("profile discard", result["commands"][matrix_end - 1])
 
+    def test_every_configuration_matrix_echo_matches_its_command(self) -> None:
+        for command in runner.configuration_matrix_commands(4):
+            with self.subTest(command=command):
+                output = config_golden_output(command)
+                status, reason = runner.classify_command(command, output, False)
+                self.assertEqual("PASS", status, reason)
+
     def test_physical_fixture_gates_are_always_visible_as_not_run(self) -> None:
         result = runner.make_result(runner.parse_args([
             "--dry-run", "--fixture", "no-sensor",
@@ -616,6 +1108,33 @@ class MatrixAndSummaryTests(unittest.TestCase):
             self.assertIn(name, skipped)
             self.assertIn("NOT_RUN", skipped[name])
 
+        alternate_fixture = runner.make_result(runner.parse_args([
+            "--dry-run", "--fixture", "no-sensor", "--address", "0x2B",
+            "--channel-count", "2", "--include-address-0x2b",
+        ]))
+        alternate_skips = {
+            item["name"] for item in alternate_fixture["skipped_optional_tests"]
+        }
+        self.assertNotIn("address_0x2B", alternate_skips)
+        self.assertNotIn("variant_LDC1612", alternate_skips)
+
+    def test_requested_wired_fixture_commands_are_actually_scheduled(self) -> None:
+        result = runner.make_result(runner.parse_args([
+            "--dry-run", "--include-sd", "--include-intb",
+            "--include-drive-tuning",
+        ]))
+        for command in (
+            "sd status", "sd assert confirm", "sd release confirm", "intb",
+            "initdrive 0", "driveua 0",
+        ):
+            self.assertIn(command, result["commands"])
+        skipped = {
+            item["name"] for item in result["skipped_optional_tests"]
+        }
+        self.assertNotIn("sd_shutdown_wake", skipped)
+        self.assertNotIn("intb_observation", skipped)
+        self.assertNotIn("drive_current_tuning", skipped)
+
     def test_stress_is_scheduled_for_both_profiles(self) -> None:
         for profile in ("arduino", "idf"):
             args = runner.parse_args([
@@ -623,12 +1142,13 @@ class MatrixAndSummaryTests(unittest.TestCase):
             ])
             result = runner.make_result(args)
             expected = [
-                "stress 25 0x01", "stress_mix 25 0x01 confirm", "soak 2 0x01",
+                "stress 25 0x01", "stress_mix 25 0x01 confirm",
+                "stress_id 25", "soak 2 0x01",
             ]
             stress_index = result["commands"].index("stress 25 0x01")
             self.assertEqual("wake", result["commands"][stress_index - 1])
-            self.assertEqual(expected, result["commands"][stress_index:stress_index + 3])
-            self.assertEqual("drv", result["commands"][stress_index + 3])
+            self.assertEqual(expected, result["commands"][stress_index:stress_index + 4])
+            self.assertEqual("drv", result["commands"][stress_index + 4])
             self.assertFalse(any(item["name"] == "stress" for item in result["skipped_optional_tests"]))
 
             stress_outputs = {
@@ -642,7 +1162,12 @@ class MatrixAndSummaryTests(unittest.TestCase):
                     "StressMix results: requested=25 ok=25 fail=0 elapsed_ms=250\n",
                 ),
                 expected[2]: async_output(
-                    "soak", 12,
+                    "stress_id", 12,
+                    "IdentityStress result: requested=25 completed=25 ok=25 fail=0 "
+                    "first_failure_iteration=-1 elapsed_ms=100 hz=250.000000\n",
+                ),
+                expected[3]: async_output(
+                    "soak", 13,
                     "Soak results: seconds=2 cycles=2 ok=2 fail=0 elapsed_ms=2000\n",
                 ),
             }
@@ -650,6 +1175,32 @@ class MatrixAndSummaryTests(unittest.TestCase):
                 status, reason = runner.classify_command(
                     command, output, False, fixture="no-sensor"
                 )
+                self.assertEqual("PASS", status, reason)
+
+    def test_confirmed_reset_and_bus_frequency_stress_are_explicit_opt_ins(self) -> None:
+        result = runner.make_result(runner.parse_args([
+            "--dry-run", "--include-reset-stress", "--include-busfreq-stress",
+            "--stress-count", "3",
+        ]))
+        self.assertIn("stress_reset 3 confirm", result["commands"])
+        self.assertIn("stress_busfreq 3 confirm", result["commands"])
+
+        outputs = {
+            "stress_reset 3 confirm": async_output(
+                "stress_reset", 60,
+                "ResetStress result: requested=3 completed=3 ok=3 fail=0 "
+                "first_failure_iteration=-1 elapsed_ms=30\n",
+            ),
+            "stress_busfreq 3 confirm": async_output(
+                "stress_busfreq", 61,
+                "BusFrequencyStress result: requested=3 completed=3 ok=3 fail=0 "
+                "initial_hz=400000 active_hz=400000 restored_hz=400000 "
+                "restore_code=0 first_failure_iteration=-1 elapsed_ms=90\n",
+            ),
+        }
+        for command, output in outputs.items():
+            with self.subTest(command=command):
+                status, reason = runner.classify_command(command, output, False)
                 self.assertEqual("PASS", status, reason)
 
     def test_samplerate_runs_on_sensor_for_both_profiles_and_is_gated_without_sensor(self) -> None:
@@ -687,6 +1238,29 @@ class MatrixAndSummaryTests(unittest.TestCase):
         }])
         self.assertEqual("PASS", sample["status"])
         self.assertEqual(40.0, sample["effective_hz"])
+
+        mismatched_sample = runner.summarize_sample_rate(sample_args, [{
+            "command": "samplerate 0 50", "status": "PASS", "elapsed_s": 1.25,
+            "output": "SampleRate result: requested=49 ok=49 fail=0 "
+                      "elapsed_ms=1250 hz=39.200\n",
+        }])
+        self.assertEqual("FAIL", mismatched_sample["status"])
+
+    def test_explicit_optional_gate_failures_affect_overall_status(self) -> None:
+        self.assertEqual(
+            "FAIL", runner.combine_requested_gate_status("PASS", "FAIL", True)
+        )
+        self.assertEqual(
+            "UNKNOWN",
+            runner.combine_requested_gate_status("PASS", "NOT_RUN", True),
+        )
+        self.assertEqual(
+            "PASS", runner.combine_requested_gate_status("PASS", "FAIL", False)
+        )
+        self.assertEqual(
+            "NOT_RUN",
+            runner.combine_requested_gate_status("NOT_RUN", "NOT_RUN", True),
+        )
 
     def test_repeat_and_dry_run_remain_bounded_not_run(self) -> None:
         args = runner.parse_args([
@@ -754,6 +1328,38 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                     b"CLI result: command=init session=42 outcome=SUCCESS "
                     b"code=0 detail=0 msg=OK\n> "
                 )
+                return len(payload)
+
+        self.install_serial(FakeSerial)
+        args = runner.parse_args([
+            "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+        ])
+        results, _, _, _, _ = runner.run_serial_commands(args, ["init"])
+        self.assertEqual("PASS", results[0]["status"], results[0]["reason"])
+
+    def test_serial_async_waits_for_prompt_split_after_terminal_result(self) -> None:
+        class FakeSerial(FakeSerialBase):
+            release_prompt_at = 0.0
+            phase = "idle"
+
+            @property
+            def in_waiting(self) -> int:
+                if not self.buffer and self.phase == "terminal":
+                    self.buffer.extend(
+                        b"CLI result: command=init session=42 outcome=SUCCESS "
+                        b"code=0 detail=0 msg=OK\n"
+                    )
+                    self.phase = "prompt"
+                    self.release_prompt_at = time.monotonic() + 0.03
+                elif (not self.buffer and self.phase == "prompt" and
+                      time.monotonic() >= self.release_prompt_at):
+                    self.buffer.extend(b"> ")
+                    self.phase = "done"
+                return len(self.buffer)
+
+            def write(self, payload: bytes) -> int:
+                self.buffer.extend(b"CLI scheduled: command=init session=42\n")
+                self.phase = "terminal"
                 return len(payload)
 
         self.install_serial(FakeSerial)
@@ -846,6 +1452,7 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
             ("address", "address", "0x2B", "address"),
             ("channels", "channel_count", 2, "channel count"),
             ("commit", "expected_firmware_commit", "abcdef2", "commit"),
+            ("target", "expected_target", "esp32s3", "target"),
         ]
         for name, field, value, reason in expectation_cases:
             with self.subTest(name=name):
@@ -859,6 +1466,15 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                     setattr(args, field, original)
                 self.assertIsNotNone(failure)
                 self.assertIn(reason, failure)
+
+        wrong_stack = transcript.replace(
+            "platform=pioarduino-55.03.311", "platform=pioarduino-54.03.20"
+        )
+        failure = runner.base_acceptance_failure(
+            args, commands, results, wrong_stack
+        )
+        self.assertIsNotNone(failure)
+        self.assertIn("runtime stack mismatch", failure)
 
     def test_failed_base_matrix_prevents_soak_commands(self) -> None:
         class FakeSerial(FakeSerialBase):
@@ -1017,6 +1633,10 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                                 "status": status_output(),
                                 "sleep": sync_output("sleep"),
                                 "wake": sync_output("wake"),
+                                "busrecover confirm": sync_output("busrecover"),
+                                "state": recovery_state_output(),
+                                "init": async_output("init", 50),
+                                "drv": drv_output(),
                             }
                             output = outputs[command]
                         self.buffer.extend(output.encode())
@@ -1126,6 +1746,9 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                     "status": status_output(),
                     "sleep": sync_output("sleep"),
                     "wake": sync_output("wake"),
+                    "busrecover confirm": sync_output("busrecover"),
+                    "state": recovery_state_output(),
+                    "init": async_output("init", 51),
                     "drv": drv_output(),
                 }
                 self.buffer.extend(outputs[command].encode())
@@ -1158,9 +1781,10 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
             result["soak"]["cycle_count"] * len(runner.NO_SENSOR_SOAK_COMMANDS),
             result["soak"]["command_count"],
         )
-        for command in runner.NO_SENSOR_SOAK_COMMANDS:
+        for command in set(runner.NO_SENSOR_SOAK_COMMANDS):
             self.assertEqual(
-                result["soak"]["cycle_count"],
+                (result["soak"]["cycle_count"] *
+                 runner.NO_SENSOR_SOAK_COMMANDS.count(command)),
                 result["soak"]["command_counts"][command]["PASS"],
             )
         self.assertIn("### soak cycle", raw_text)
@@ -1194,6 +1818,10 @@ class BoundsAndSelfTestTests(unittest.TestCase):
                 self.assert_parse_fails([option, "nan"])
         self.assert_parse_fails(["--stress-count", str(runner.MAX_STRESS_COUNT + 1)])
         self.assert_parse_fails(["--sample-rate-count", "1", "--sample-rate-channel", "4"])
+        self.assert_parse_fails([
+            "--channel-count", "2", "--sample-rate-count", "1",
+            "--sample-rate-channel", "2",
+        ])
         self.assert_parse_fails(["--address", "0x29"])
 
     def test_reduced_soak_requires_explicit_scope_acknowledgement(self) -> None:

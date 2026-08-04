@@ -85,7 +85,8 @@ read.
   replay and readback are still not a substitute for electrical measurements.
 - STATUS, DATA, destructive raw-register reads, and `dump all confirm` consume
   or alter silicon evidence. Use the retained pre/post STATUS and effect fields.
-- A no-sensor self-test, scan, configuration verify, or protocol stress run can
+- A no-sensor self-test, protocol-qualified address discovery, configuration
+  verify, or protocol stress run can
   validate bounded transport behavior and register protocol only. It cannot
   validate conversion accuracy, fresh sensor cadence, drive tuning, INTB/SD
   electrical behavior, or production application policy.

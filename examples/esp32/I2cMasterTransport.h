@@ -26,26 +26,32 @@ struct BusConfig {
   bool enableInternalPullups = true;
 };
 
+struct TransferStats {
+  uint32_t writes = 0;
+  uint32_t writeReads = 0;
+  uint32_t discoveries = 0;
+  uint32_t failures = 0;
+  LDC1614::Status lastStatus = LDC1614::Status::Ok();
+};
+
 struct Context {
   i2c_master_bus_handle_t bus = nullptr;
   i2c_master_dev_handle_t device = nullptr;
+  i2c_master_dev_handle_t discoveryDevice = nullptr;
   BusConfig busConfig{};
   uint8_t address = 0x2A;
+  uint8_t discoveryAddress = 0;
   gpio_num_t intb = GPIO_NUM_NC;
   bool hasBusConfig = false;
-};
-
-enum class ProbeResult : uint8_t {
-  ACK,
-  NACK,
-  TIMEOUT,
-  ERROR,
+  TransferStats transferStats{};
 };
 
 LDC1614::Status open(Context& context, const BusConfig& config);
 LDC1614::Status close(Context& context);
 LDC1614::Status reopen(Context& context);
 LDC1614::Status recover(Context& context);
+uint32_t frequencyHz(const Context& context);
+LDC1614::Status setFrequency(Context& context, uint32_t frequencyHz);
 
 LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,
                       uint32_t timeoutMs, void* user);
@@ -53,7 +59,9 @@ LDC1614::Status writeRead(uint8_t address, const uint8_t* txData,
                           size_t txLength, uint8_t* rxData, size_t rxLength,
                           uint32_t timeoutMs, void* user);
 LDC1614::Status intbAsserted(bool& asserted, void* user);
-ProbeResult probe(Context& context, uint8_t address, uint32_t timeoutMs);
+LDC1614::Status readRegisterAt(Context& context, uint8_t address,
+                               uint8_t registerAddress, uint16_t& value,
+                               uint32_t timeoutMs);
 uint64_t uptimeMs();
 
 }  // namespace esp32_i2c

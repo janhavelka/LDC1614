@@ -14,8 +14,11 @@
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_err.h"
+#include "esp_idf_version.h"
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
 
 namespace {
 
@@ -84,21 +87,56 @@ LDC1614::Status configureGpio() {
   return statusFromEspErr(gpio_config(&config), "INTB GPIO config failed");
 }
 
-ldc1614_idf_cli::I2cProbeResult idfI2cProbe(uint8_t address,
-                                            uint32_t timeoutMs, void* user) {
+ldc1614_idf_cli::I2cBusInfo idfI2cBusInfo(void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
-  if (context == nullptr) return ldc1614_idf_cli::I2cProbeResult::ERROR;
-  switch (esp32_i2c::probe(*context, address, timeoutMs)) {
-    case esp32_i2c::ProbeResult::ACK:
-      return ldc1614_idf_cli::I2cProbeResult::ACK;
-    case esp32_i2c::ProbeResult::NACK:
-      return ldc1614_idf_cli::I2cProbeResult::NACK;
-    case esp32_i2c::ProbeResult::TIMEOUT:
-      return ldc1614_idf_cli::I2cProbeResult::TIMEOUT;
-    case esp32_i2c::ProbeResult::ERROR:
-      return ldc1614_idf_cli::I2cProbeResult::ERROR;
-  }
-  return ldc1614_idf_cli::I2cProbeResult::ERROR;
+  ldc1614_idf_cli::I2cBusInfo info{};
+  if (context == nullptr) return info;
+  info.open = context->bus != nullptr && context->device != nullptr;
+  info.port = static_cast<int8_t>(context->busConfig.port);
+  info.sda = static_cast<int8_t>(context->busConfig.sda);
+  info.scl = static_cast<int8_t>(context->busConfig.scl);
+  info.sdaLevel = context->busConfig.sda == GPIO_NUM_NC
+                      ? -1
+                      : static_cast<int8_t>(
+                            gpio_get_level(context->busConfig.sda));
+  info.sclLevel = context->busConfig.scl == GPIO_NUM_NC
+                      ? -1
+                      : static_cast<int8_t>(
+                            gpio_get_level(context->busConfig.scl));
+  info.address = context->address;
+  info.frequencyHz = esp32_i2c::frequencyHz(*context);
+  return info;
+}
+
+LDC1614::Status idfI2cSetFrequency(uint32_t frequencyHz, void* user) {
+  auto* context = static_cast<esp32_i2c::Context*>(user);
+  return context != nullptr
+             ? esp32_i2c::setFrequency(*context, frequencyHz)
+             : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                      "I2C frequency context missing");
+}
+
+LDC1614::Status idfI2cReadRegister(uint8_t address,
+                                   uint8_t registerAddress, uint16_t& value,
+                                   uint32_t timeoutMs, void* user) {
+  auto* context = static_cast<esp32_i2c::Context*>(user);
+  return context != nullptr
+             ? esp32_i2c::readRegisterAt(*context, address, registerAddress,
+                                         value, timeoutMs)
+             : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                      "I2C discovery context missing");
+}
+
+ldc1614_idf_cli::I2cTransferStats idfI2cTransferStats(void* user) {
+  auto* context = static_cast<esp32_i2c::Context*>(user);
+  ldc1614_idf_cli::I2cTransferStats stats{};
+  if (context == nullptr) return stats;
+  stats.writes = context->transferStats.writes;
+  stats.writeReads = context->transferStats.writeReads;
+  stats.discoveries = context->transferStats.discoveries;
+  stats.failures = context->transferStats.failures;
+  stats.lastStatus = context->transferStats.lastStatus;
+  return stats;
 }
 
 LDC1614::Status idfI2cRecover(void* user) {
@@ -158,10 +196,19 @@ ldc1614_idf_cli::Ldc1614IdfCli::Platform makeCliPlatform() {
   platform.vprintf = idfVPrintf;
   platform.makeConfig = makeDefaultConfig;
   platform.nowMs = idfNowMs;
-  platform.i2cProbe = idfI2cProbe;
+  platform.i2cBusInfo = idfI2cBusInfo;
+  platform.i2cSetFrequency = idfI2cSetFrequency;
+  platform.i2cReadRegister = idfI2cReadRegister;
+  platform.i2cTransferStats = idfI2cTransferStats;
   platform.i2cRecover = idfI2cRecover;
   // No SD callbacks: the fixed profile has no application-owned SD wiring.
-  platform.scanTimeoutMs = I2C_TIMEOUT_MS;
+  platform.platformName = "esp-idf-native";
+  platform.frameworkName = "esp-idf";
+  platform.frameworkVersion = esp_get_idf_version();
+  platform.idfVersion = esp_get_idf_version();
+  platform.targetName = CONFIG_IDF_TARGET;
+  platform.i2cBackend = "esp-idf-new-master";
+  platform.discoveryTimeoutMs = I2C_TIMEOUT_MS;
   return platform;
 }
 

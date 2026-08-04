@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive, table-driven Arduino and native ESP-IDF diagnostic CLIs with
   complete typed profile editing, register verification, INTB/SD visibility,
   pure calculation/decoder commands, and retained result/sample inspection.
-- Fixed-memory cooperative scan, dump, verify, self-test, watch, stress,
+- Fixed-memory cooperative protocol-qualified discovery, dump, verify,
+  self-test, watch, stress,
   mixed-stress, sample-rate, and bounded soak sessions with cancellation and
   exact operation/session correlation.
 - A host-only CLI contract manifest that enforces identical command, help,
@@ -30,8 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   safe cache-only setting boundaries, exact rejection output, recovery fences,
   and explicit `NOT_RUN` gates for sensor, INTB, SD, address/variant, drive, and
   active-cancellation fixtures.
-- Native ESP-IDF diagnostic bus scanning with the same bounded NACK/timeout/
-  bus-error contract as the Arduino bring-up CLI.
+- Native ESP-IDF LDC address discovery with the same bounded combined-read
+  NACK/timeout/bus-error contract as the Arduino bring-up CLI.
 - Explicit application-owned `busrecover` diagnostics in both example CLIs;
   recovery invalidates applied state and requires complete initialization.
 
@@ -68,20 +69,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Doxygen project metadata from the authoritative `library.json` version.
 - Pin maintained Arduino builds to pioarduino `55.03.311` (Arduino 3.3.11,
   ESP-IDF 5.5.5 libraries). PlatformIO is pinned to the required 6.1.19 host
-  version. COM8 still reproduced the open ESP-IDF new-master post-NACK
-  `ESP_ERR_INVALID_STATE` failure, so the pin is a build baseline rather than
-  recovery qualification and every target must repeat combined write/read and
-  post-NACK testing.
+  version. The example I2C frequency is now an explicit compile-time setting,
+  reported at startup, so 100/400 kHz HIL comparisons retain their actual
+  condition. Every target must still repeat combined write/read and controlled
+  NACK testing.
 - The Arduino and native ESP-IDF diagnostics now share one example-owned
   ESP-IDF new-master transport with exact backend error detail and bounded
-  explicit recovery. Recovery removes the owned device, deletes/recreates the
-  owned bus, recreates the device handle, runs the driver's bounded bus
-  reset/line-clear, and requires one bounded target ACK probe before reporting
-  success; initial
-  open now rolls back the bus if device registration fails. The redundant Wire
-  adapter and unused host framework stubs were removed. This contains recovery
-  policy in the diagnostic owner and is not a claim that the upstream
-  post-NACK state bug is fixed.
+  explicit controller recovery. Recovery removes the owned device,
+  deletes/recreates the owned bus, and recreates the device handle; it does not
+  line-clear or use an address-only ACK as admission. Initial open rolls back
+  the bus if device registration fails. The redundant Wire adapter and unused
+  host framework stubs were removed. Complete combined identity reads and
+  replay remain mandatory after recovery.
 
 ### Fixed
 
@@ -97,12 +96,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the experimental fixed post-reset delay after COM8 evidence showed it
   did not correct the ESP-IDF transport failure. Reset/reapply remains fully
   cooperative and reports the first reset-adjacent transport error unchanged.
-- ESP32 example recovery no longer reports success merely because handle
-  reconstruction succeeded. Its bounded bus reset/line-clear and final
-  target-address probe expose each failed phase before the required complete
-  initialization/replay. Repeated COM8 testing proved that an ACK is not enough
-  to qualify recovery: the following combined identity read can still fail on
-  the pinned ESP-IDF 5.5.5 baseline.
+- ESP-IDF 5.5.x raw `ESP_ERR_INVALID_STATE` transaction failures are no longer
+  mislabeled as shared-bus failures. The driver uses that value for every
+  synchronous transaction that does not reach `DONE`, including an ordinary
+  NACK, so the example retains raw detail 259 while returning generic
+  `I2C_ERROR` and avoiding destructive owner-wide escalation.
+- ESP32 example recovery no longer line-clears after an ambiguous transaction
+  result or reports an address-only ACK as device recovery. It reconstructs
+  controller resources, invalidates applied state, and requires complete
+  initialization/replay to qualify the LDC.
 - `selftest` is now a real bounded diagnostic rather than an alias for two
   identity reads; it reports explicit pass, failure, and fixture-dependent skip
   counts.
@@ -138,10 +140,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OFFSET validation now includes `FIN_DIVIDER`, matching the public frequency
   calculation and preventing an accepted offset from masking the configured
   minimum sensor frequency.
-- Diagnostic bus scans now refuse to interleave with an active cooperative
-  driver job, skip reserved I2C address groups, and no longer run implicitly at
-  Arduino example startup. The example HIL sequence explicitly reinitializes
-  the application-owned bus and replays configuration after scan NACK traffic.
+- Diagnostic discovery now refuses to interleave with an active cooperative
+  driver job, tests only the two supported LDC strap addresses with complete
+  combined identity reads, and no longer runs implicitly at Arduino startup.
+  The HIL sequence explicitly reconstructs the application-owned controller
+  and replays configuration after controlled absent-address NACK traffic.
 - ESP32-S2 internal-USB uploads now use automatic 1200-baud bootloader entry,
   wait for port re-enumeration, avoid a second pre-flash reset, and hard-reset
   back into the application instead of requiring operator reset cycles or

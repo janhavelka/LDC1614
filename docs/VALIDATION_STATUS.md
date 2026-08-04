@@ -48,8 +48,11 @@ COM8 matrix and one-hour regression evidence. The JSON artifacts embed their
 complete command results and target firmware identities; raw serial captures
 are retained beside them. Both the older stacks and the maintained
 pioarduino `55.03.311` / ESP-IDF 5.5.5 baseline exhibited NACK-related combined
-read failures. The upstream issue remains open, so the platform update must not
-be presented as a recovery fix.
+read failures. Exact source review established that ESP-IDF 5.5.5 collapses
+every synchronous non-`DONE` transaction result—including an ordinary
+NACK—to `ESP_ERR_INVALID_STATE` (`259`). Historical detail 259 therefore does
+not identify the failed ACK phase or prove a poisoned controller. The platform
+update must not be presented as a recovery fix.
 
 After a physical power cycle, clean `2358c30` firmware passed a no-scan cold
 gate, 100 reset/reapply plus identity cycles (400/400 commands), one controlled
@@ -58,6 +61,21 @@ cycles (300/300). A later comprehensive sequence nevertheless reproduced
 detail 259 on the first identity read after a successful software-reset write.
 These positive subsets narrow the trigger but do not close the intermittent
 backend regression or qualify recovery.
+
+A 2026-08-04 post-power-cycle diagnostic investigation further narrowed, but
+did not reproduce, the natural failure: 1,000 immediate software-reset plus
+combined-identity cycles passed at 100 kHz and another 1,000 passed at 400 kHz;
+a controlled absent-address transaction returned raw 259 and the immediately
+following LDC combined read still returned `0x5449`; 1,000 explicit bus clears
+and 1,000 address probes each retained valid following combined reads. After
+releasing the ESP-IDF controller, direct open-drain pin-level repeated-start
+reads returned `0x5449` with every ACK. A deliberately forbidden SDA pulse was
+NACKed by the LDC but did not poison the next correct transaction. These were
+dirty discriminator builds, not release acceptance. They disprove a required
+post-reset delay, a deterministic 400 kHz limit, and automatic post-NACK
+controller poisoning on the tested clean state. Without an SDA/SCL capture at
+the first natural recurrence, the originating physical edge or NACK phase
+remains unknown.
 
 The current clean candidate has positive no-sensor diagnostic and steady-state
 subsets, but none is a release certificate or sensor-equipped product evidence.
@@ -94,11 +112,13 @@ post-fix runner then classified a following `init` failure correctly after
 `custom_reduced` gate passed scan, owner recovery, full replay,
 wake, identity, and active-state checks before completing exactly 3,600 seconds:
 3,197 cycles, 19,182 commands, zero soak-command failures/unknowns/resets, and
-32 ms worst latency. This is positive steady-state evidence only. Repeated
+32 ms worst latency. This is positive steady-state evidence only. Historical
 recovery stress still showed bus-reset plus target ACK followed by an
-initialization failure, so a proven reset/recovery path remains required to
-close the COM8 transport
-regression.
+initialization failure. The corrected diagnostic no longer treats that
+sequence as recovery: it performs controller-only reconstruction, maps raw 259
+as a generic transaction failure, and requires combined identity plus full
+replay. A clean final one-hour gate for that corrected firmware remains
+required.
 Product-specific consumers may impose additional gates; TunnelMonitor's
 remaining requirements are listed
 in [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md).

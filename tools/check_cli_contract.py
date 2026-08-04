@@ -60,6 +60,27 @@ def require_bounded_unsigned_parser(source: str) -> None:
         fail("Arduino numeric parsing must enforce its caller-provided upper bound")
 
 
+def require_ambiguous_transaction_mapping(source: str) -> None:
+    mapping = re.search(
+        r"LDC1614::Status\s+mapTransactionErr\s*\([^)]*\)\s*\{"
+        r"(?P<body>.*?)\n\}",
+        source,
+        re.DOTALL,
+    )
+    if mapping is None:
+        fail("ESP32 transport must define transaction-specific error mapping")
+    invalid_state = re.search(
+        r"if\s*\(\s*error\s*==\s*ESP_ERR_INVALID_STATE\s*\)\s*\{"
+        r"(?P<body>.*?)\n\s*\}",
+        mapping.group("body"),
+        re.DOTALL,
+    )
+    if (invalid_state is None or
+            "LDC1614::Err::I2C_ERROR" not in invalid_state.group("body") or
+            "LDC1614::Err::I2C_BUS" in invalid_state.group("body")):
+        fail("IDF 5.5 ambiguous transaction state must map only to generic I2C_ERROR")
+
+
 def check_table_and_behavior(source: str) -> None:
     errors = compare_cpp_command_specs(source, "Arduino CLI")
     if errors:
@@ -101,6 +122,14 @@ def check_table_and_behavior(source: str) -> None:
     require(source, r"OperationOwner::SESSION", "Arduino CLI must identify CLI session ownership")
     require(source, r"SessionKind::SELFTEST|SessionKind::SELF_TEST",
             "Arduino CLI must expose a distinct selftest session")
+    require(source, r"SessionKind::DISCOVER",
+            "Arduino CLI must expose protocol-qualified discovery as a session")
+    require(source, r"SessionKind::STRESS_ID",
+            "Arduino CLI must expose bounded identity stress")
+    require(source, r"SessionKind::STRESS_RESET",
+            "Arduino CLI must expose bounded confirmed reset stress")
+    require(source, r"SessionKind::STRESS_BUS_FREQ",
+            "Arduino CLI must expose bounded confirmed bus-frequency stress")
     require(source, r"\.poll\s*\([^,]+,\s*1U?\s*\)",
             "Arduino cooperative service must call poll(now, 1)")
     for envelope in ("CLI scheduled:", "CLI result:", "CLI preview:"):
@@ -116,6 +145,8 @@ def check_table_and_behavior(source: str) -> None:
         "transfers=", "requested=", "completed=", "deadline_ms=", "outcome=",
         "effects=", "reg=", "channel=", "code=", "detail=", "msg=",
         "valid=", "fresh=", "error=", "overrun=", "completed_ms=",
+        "effects_names=", "platform=", "framework=", "framework_version=",
+        "idf_version=", "target=", "i2c_backend=", "frequency_hz=",
     ):
         if field not in source:
             fail(f"Arduino CLI missing required cfg/progress/result/batch field {field!r}")
@@ -129,6 +160,46 @@ def check_table_and_behavior(source: str) -> None:
     parsed_ids = {spec.canonical: spec.command_id for spec in parse_cpp_command_specs(source)}
     if parsed_ids.get("probe") == parsed_ids.get("selftest"):
         fail("Arduino probe and selftest must have distinct command IDs/implementations")
+
+    # Detailed help must expose the metadata already carried by each fixed
+    # command row instead of maintaining a second prose-only command list.
+    for token in (
+        "help command=", "aliases=", "section=", "execution=", "safety=",
+        "fixture=", "busy_allowed=", "synopsis:", "spec->description", "evidence=",
+    ):
+        if token not in source:
+            fail(f"Arduino detailed help missing metadata field {token!r}")
+
+    # Discovery is deliberately device-specific.  Every candidate is
+    # qualified with complete 16-bit identity-register reads; an address-only
+    # ACK is neither discovery nor admission for this silicon.
+    require(source, r"FIRST_LDC_ADDRESS\s*=\s*0x2A",
+            "Arduino discovery must test the ADDR_GND address 0x2A")
+    require(source, r"LAST_LDC_ADDRESS\s*=\s*0x2B",
+            "Arduino discovery must test the ADDR_VDD address 0x2B")
+    require(source, r"_platform\.i2cReadRegister\s*\([^;]*REG_MANUFACTURER_ID",
+            "Arduino discovery must fully read MANUFACTURER_ID")
+    require(source, r"_platform\.i2cReadRegister\s*\([^;]*REG_DEVICE_ID",
+            "Arduino discovery must fully read DEVICE_ID")
+    if "i2cProbe" in source or "I2cProbeResult" in source:
+        fail("Arduino CLI must not retain address-only discovery callbacks")
+
+    for token in (
+        "data_under=", "data_over=", "data_watchdog=",
+        "data_amplitude_high=", "data_amplitude_low=", "status_under=",
+        "status_over=", "status_watchdog=", "status_amplitude_high=",
+        "status_amplitude_low=", "status_zero_count=", "data_ready=",
+        "encoded=",
+    ):
+        if token not in source:
+            fail(f"Arduino full ERROR_CONFIG output missing {token!r}")
+    for token in (
+        "effectNames", "registerName", "printRegisterValue",
+        "register_decode name=CONFIG", "register_decode name=MUX_CONFIG",
+        "register_decode name=ERROR_CONFIG", '"desired"', '"staged"',
+    ):
+        if token not in source:
+            fail(f"Arduino deep diagnostic surface missing {token!r}")
 
 
 def main() -> int:
@@ -168,14 +239,30 @@ def main() -> int:
         fail("Arduino example must inject the shared ESP32 new-master transport")
     if "Ldc1614Cli.h" in idf_text:
         fail("ESP-IDF example must use its native fixed-buffer CLI")
-    if "I2cProbeResult::NACK" not in arduino_text:
-        fail("Arduino scan adapter must distinguish normal address NACK")
-    if "scan complete found=" not in cli_text or "I2C scan probe failed" not in cli_text:
-        fail("Arduino scan must expose bounded completion and transport failure")
+    if "esp32_i2c::readRegisterAt" not in arduino_text:
+        fail("Arduino discovery adapter must use protocol-complete register reads")
+    if "esp32_i2c::setFrequency" not in arduino_text:
+        fail("Arduino owner must expose transactional device-handle frequency changes")
+    for field in ("firmware_git=", "firmware_status=", "build_timestamp="):
+        if field not in cli_text:
+            fail(f"Arduino version output missing provenance field {field!r}")
+    if "i2c_master_probe" in arduino_text or "i2c_master_probe" in cli_text:
+        fail("Arduino discovery must not use address-only i2c_master_probe")
     if "i2cRecover" not in cli_text or "Owner reinitialized I2C bus" not in cli_text:
         fail("Arduino CLI must expose explicit owner-controlled bus recovery")
     if "i2c_master_transmit_receive" not in transport_text or "clampTimeoutMs(timeoutMs)" not in transport_text:
         fail("combined write-read must use one bounded new-master transaction")
+    require_ambiguous_transaction_mapping(transport_text)
+    write_start = transport_text.find("LDC1614::Status write(")
+    write_read_start = transport_text.find("LDC1614::Status writeRead(", write_start)
+    intb_start = transport_text.find("LDC1614::Status intbAsserted(", write_read_start)
+    discovery_start = transport_text.find("LDC1614::Status readRegisterAt(")
+    uptime_start = transport_text.find("uint64_t uptimeMs()", discovery_start)
+    if (min(write_start, write_read_start, intb_start, discovery_start, uptime_start) < 0 or
+            "mapTransactionErr(" not in transport_text[write_start:write_read_start] or
+            "mapTransactionErr(" not in transport_text[write_read_start:intb_start] or
+            "mapTransactionErr(" not in transport_text[discovery_start:uptime_start]):
+        fail("every physical I2C transaction path must use ambiguous-safe error mapping")
     for token in (
         "i2c_master_bus_rm_device", "i2c_del_master_bus", "reopen(context)",
     ):
@@ -188,6 +275,15 @@ def main() -> int:
             "i2c_master_bus_reset" in recover_text or
             "i2c_master_probe" in recover_text):
         fail("ambiguous owner recovery must not pulse lines or address-probe")
+    if "i2c_master_probe" in transport_text:
+        fail("shared LDC transport must not expose unsafe address-only probing")
+    for token in (
+        "setFrequency(Context& context", "readRegisterAt(Context& context",
+        "makeDeviceConfig(address, context.busConfig.frequencyHz)",
+        "i2c_master_transmit_receive", "&registerAddress", "sizeof(bytes)",
+    ):
+        if token not in transport_text:
+            fail(f"shared transport missing safe discovery/frequency token: {token}")
 
     for label, source in (("version generator", version_text), ("IDF build", idf_cmake_text)):
         if "--untracked-files=all" not in source or "--untracked-files=no" in source:

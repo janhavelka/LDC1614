@@ -8,6 +8,10 @@
 #include <cstdarg>
 #include <cstdio>
 
+#include "esp_arduino_version.h"
+#include "esp_idf_version.h"
+#include "esp_system.h"
+
 #include "examples/common/BoardConfig.h"
 #include "examples/common/Ldc1614Cli.h"
 #include "examples/esp32/I2cMasterTransport.h"
@@ -46,23 +50,55 @@ LDC1614::Status configureI2c(esp32_i2c::Context& context) {
   return esp32_i2c::open(context, config);
 }
 
-ldc1614_cli::I2cProbeResult arduinoI2cProbe(uint8_t address,
-                                            uint32_t timeoutMs, void* user) {
+ldc1614_cli::I2cBusInfo arduinoI2cBusInfo(void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
-  if (context == nullptr) {
-    return ldc1614_cli::I2cProbeResult::ERROR;
-  }
-  switch (esp32_i2c::probe(*context, address, timeoutMs)) {
-    case esp32_i2c::ProbeResult::ACK:
-      return ldc1614_cli::I2cProbeResult::ACK;
-    case esp32_i2c::ProbeResult::NACK:
-      return ldc1614_cli::I2cProbeResult::NACK;
-    case esp32_i2c::ProbeResult::TIMEOUT:
-      return ldc1614_cli::I2cProbeResult::TIMEOUT;
-    case esp32_i2c::ProbeResult::ERROR:
-      return ldc1614_cli::I2cProbeResult::ERROR;
-  }
-  return ldc1614_cli::I2cProbeResult::ERROR;
+  ldc1614_cli::I2cBusInfo info{};
+  if (context == nullptr) return info;
+  info.open = context->bus != nullptr && context->device != nullptr;
+  info.port = static_cast<int8_t>(context->busConfig.port);
+  info.sda = static_cast<int8_t>(context->busConfig.sda);
+  info.scl = static_cast<int8_t>(context->busConfig.scl);
+  info.sdaLevel = context->busConfig.sda == GPIO_NUM_NC
+                      ? -1
+                      : static_cast<int8_t>(gpio_get_level(context->busConfig.sda));
+  info.sclLevel = context->busConfig.scl == GPIO_NUM_NC
+                      ? -1
+                      : static_cast<int8_t>(gpio_get_level(context->busConfig.scl));
+  info.address = context->address;
+  info.frequencyHz = esp32_i2c::frequencyHz(*context);
+  return info;
+}
+
+LDC1614::Status arduinoI2cSetFrequency(uint32_t frequencyHz, void* user) {
+  auto* context = static_cast<esp32_i2c::Context*>(user);
+  return context != nullptr
+             ? esp32_i2c::setFrequency(*context, frequencyHz)
+             : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                      "I2C frequency context missing");
+}
+
+LDC1614::Status arduinoI2cReadRegister(uint8_t address,
+                                       uint8_t registerAddress,
+                                       uint16_t& value, uint32_t timeoutMs,
+                                       void* user) {
+  auto* context = static_cast<esp32_i2c::Context*>(user);
+  return context != nullptr
+             ? esp32_i2c::readRegisterAt(*context, address, registerAddress,
+                                         value, timeoutMs)
+             : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                      "I2C discovery context missing");
+}
+
+ldc1614_cli::I2cTransferStats arduinoI2cTransferStats(void* user) {
+  auto* context = static_cast<esp32_i2c::Context*>(user);
+  ldc1614_cli::I2cTransferStats stats{};
+  if (context == nullptr) return stats;
+  stats.writes = context->transferStats.writes;
+  stats.writeReads = context->transferStats.writeReads;
+  stats.discoveries = context->transferStats.discoveries;
+  stats.failures = context->transferStats.failures;
+  stats.lastStatus = context->transferStats.lastStatus;
+  return stats;
 }
 
 LDC1614::Status arduinoI2cRecover(void* user) {
@@ -126,9 +162,18 @@ ldc1614_cli::Cli::Platform makeCliPlatform() {
   platform.vprintf = arduinoVPrintf;
   platform.makeConfig = makeDefaultConfig;
   platform.nowMs = arduinoNowMs;
-  platform.i2cProbe = arduinoI2cProbe;
+  platform.i2cBusInfo = arduinoI2cBusInfo;
+  platform.i2cSetFrequency = arduinoI2cSetFrequency;
+  platform.i2cReadRegister = arduinoI2cReadRegister;
+  platform.i2cTransferStats = arduinoI2cTransferStats;
   platform.i2cRecover = arduinoI2cRecover;
-  platform.scanTimeoutMs = board::I2C_TIMEOUT_MS;
+  platform.platformName = "pioarduino-55.03.311";
+  platform.frameworkName = "arduino";
+  platform.frameworkVersion = ESP_ARDUINO_VERSION_STR;
+  platform.idfVersion = esp_get_idf_version();
+  platform.targetName = CONFIG_IDF_TARGET;
+  platform.i2cBackend = "esp-idf-new-master";
+  platform.discoveryTimeoutMs = board::I2C_TIMEOUT_MS;
   return platform;
 }
 

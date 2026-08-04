@@ -18,10 +18,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 REQUIRED_IDF_TOKENS = (
     '#include "driver/i2c_master.h"', "i2c_new_master_bus",
-    "i2c_master_bus_add_device", "i2c_master_probe",
+    "i2c_master_bus_add_device", "i2c_master_transmit_receive",
     "i2c_master_bus_rm_device", "i2c_del_master_bus", "esp32_i2c::recover",
     "esp32_i2c::recover(*context)",
     "Ldc1614IdfCli", "esp32_i2c::write", "esp32_i2c::writeRead",
+    "esp32_i2c::readRegisterAt", "esp32_i2c::setFrequency",
     "esp32_i2c::intbAsserted", "esp32_i2c::uptimeMs", ".bind(",
     ".startInitialize(", ".poll(", ".takeResult(", "select(",
     "readConsoleChar", "GPIO_PULLUP_DISABLE", "push-pull", "ErrorReporting::all",
@@ -98,14 +99,37 @@ def require_ansi(source: str, name: str, value: str) -> None:
         fail(f"native CLI missing exact ANSI {name} sequence {value!r}")
 
 
+def require_bounded_unsigned_parser(source: str) -> None:
+    parser = re.search(
+        r"\bbool\s+parseUnsigned\s*\(\s*const\s+char\s*\*\s*\w+\s*,\s*"
+        r"uint64_t\s+(?P<bound>[A-Za-z_]\w*)\s*,[^)]*\)\s*\{"
+        r"(?P<body>.*?)\n\}",
+        source,
+        re.DOTALL,
+    )
+    if parser is None:
+        fail("native CLI must define bounded numeric parsing")
+
+    bound = re.escape(parser.group("bound"))
+    if re.search(
+        rf"\bparsed\s*>\s*{bound}\b|\b{bound}\s*<\s*parsed\b",
+        parser.group("body"),
+    ) is None:
+        fail("native numeric parsing must enforce its caller-provided upper bound")
+
+
 def check_native_cli(source: str) -> None:
     errors = compare_cpp_command_specs(source, "native ESP-IDF CLI")
     if errors:
         fail("\n  - ".join(("firmware command-table parity errors:", *errors)))
     if source.count("COMMAND_SPECS") < 2:
         fail("native COMMAND_SPECS must drive lookup/help")
-    require(source, r"\bswitch\s*\([^)]*(?:(?:\.|->)id|CommandId)",
-            "native dispatch must switch on a table-resolved CommandId")
+    require(
+        source,
+        r"(?:\bswitch\s*\([^)]*(?:(?:\.|->)id|CommandId)|"
+        r"\bhandleCommand\s*\(\s*id\s*,)",
+        "native dispatch must use the table-resolved CommandId",
+    )
     for stale in STALE_COMMANDS:
         if re.search(rf'"{re.escape(stale)}"', source):
             fail(f"stale native command token remains: {stale}")
@@ -115,12 +139,10 @@ def check_native_cli(source: str) -> None:
             "native CLI must allow ANSI colors to be disabled")
     require(source, r"\b(?:requireConfirm(?:ation)?|isConfirm(?:ed)?)\b",
             "native mutations/destructive reads need confirmation")
-    require(source, r"\bparseUnsigned\b", "native CLI must use bounded numeric parsing")
+    require_bounded_unsigned_parser(source)
     require(source, r"end\s*==\s*text|end\s*==\s*token",
             "native numeric parsing must reject an empty conversion")
     require(source, r"\*end\s*!=\s*'\\0'", "native numeric parsing must reject trailing input")
-    require(source, r"parsed\s*>\s*maxValue|maxValue\s*<\s*parsed",
-            "native numeric parsing must enforce upper bounds")
     require(source, r"char\s+\w+\s*\[\s*(?:64|96|128|160|192|256)\s*\]",
             "native CLI must use fixed-capacity input")
     require(source, r"\b(?:rejectExtraArguments|noMoreArguments|requireEnd)\b",
@@ -129,6 +151,14 @@ def check_native_cli(source: str) -> None:
     require(source, r"OperationOwner::SESSION", "native CLI must identify CLI session ownership")
     require(source, r"SessionKind::SELFTEST|SessionKind::SELF_TEST",
             "native CLI must expose a distinct selftest session")
+    require(source, r"SessionKind::DISCOVER",
+            "native CLI must expose protocol-qualified discovery as a session")
+    require(source, r"SessionKind::STRESS_ID",
+            "native CLI must expose bounded identity stress")
+    require(source, r"SessionKind::STRESS_RESET",
+            "native CLI must expose bounded confirmed reset stress")
+    require(source, r"SessionKind::STRESS_BUS_FREQ",
+            "native CLI must expose bounded confirmed bus-frequency stress")
     require(source, r"\.poll\s*\([^,]+,\s*1U?\s*\)",
             "native service must advance the core with poll(now, 1)")
     for envelope in ("CLI scheduled:", "CLI result:", "CLI preview:"):
@@ -143,6 +173,8 @@ def check_native_cli(source: str) -> None:
         "transfers=", "requested=", "completed=", "deadline_ms=", "outcome=",
         "effects=", "reg=", "channel=", "code=", "detail=", "msg=",
         "valid=", "fresh=", "error=", "overrun=", "completed_ms=",
+        "effects_names=", "platform=", "framework=", "framework_version=",
+        "idf_version=", "target=", "i2c_backend=", "frequency_hz=",
     ):
         if field not in source:
             fail(f"native CLI missing required cfg/progress/result/batch field {field!r}")
@@ -155,6 +187,44 @@ def check_native_cli(source: str) -> None:
     ids = {spec.canonical: spec.command_id for spec in parse_cpp_command_specs(source)}
     if ids.get("probe") == ids.get("selftest"):
         fail("native probe and selftest must be distinct")
+
+    for token in (
+        "help command=", "aliases=", "section=", "execution=", "safety=",
+        "fixture=", "busy_allowed=", "synopsis:", "spec->description", "evidence=",
+    ):
+        if token not in source:
+            fail(f"native detailed help missing metadata field {token!r}")
+
+    # Discovery is silicon-specific: qualify both legal addresses with full
+    # 16-bit identity-register transactions.  An address ACK alone is not
+    # evidence that an LDC1612/LDC1614 is present.
+    require(source, r"FIRST_LDC_ADDRESS\s*=\s*0x2A",
+            "native discovery must test the ADDR_GND address 0x2A")
+    require(source, r"LAST_LDC_ADDRESS\s*=\s*0x2B",
+            "native discovery must test the ADDR_VDD address 0x2B")
+    require(source, r"_platform\.i2cReadRegister\s*\([^;]*REG_MANUFACTURER_ID",
+            "native discovery must fully read MANUFACTURER_ID")
+    require(source, r"_platform\.i2cReadRegister\s*\([^;]*REG_DEVICE_ID",
+            "native discovery must fully read DEVICE_ID")
+    if "i2cProbe" in source or "I2cProbeResult" in source:
+        fail("native CLI must not retain address-only discovery callbacks")
+
+    for token in (
+        "data_under=", "data_over=", "data_watchdog=",
+        "data_amplitude_high=", "data_amplitude_low=", "status_under=",
+        "status_over=", "status_watchdog=", "status_amplitude_high=",
+        "status_amplitude_low=", "status_zero_count=", "data_ready=",
+        "encoded=",
+    ):
+        if token not in source:
+            fail(f"native full ERROR_CONFIG output missing {token!r}")
+    for token in (
+        "effectNames", "registerName", "printRegisterValue",
+        "register_decode name=CONFIG", "register_decode name=MUX_CONFIG",
+        "register_decode name=ERROR_CONFIG", '"desired"', '"staged"',
+    ):
+        if token not in source:
+            fail(f"native deep diagnostic surface missing {token!r}")
 
 
 def main() -> int:
@@ -193,6 +263,11 @@ def main() -> int:
             if re.search(pattern, source):
                 fail(f"forbidden native token in {rel(path)}: {label}")
     all_native = "\n".join(read(path) for path in scan_paths) + "\n" + cmake_text
+    if "i2c_master_probe" in all_native:
+        fail("native discovery must not use address-only i2c_master_probe")
+    for field in ("firmware_git=", "firmware_status=", "build_timestamp="):
+        if field not in all_native:
+            fail(f"native version output missing provenance field {field!r}")
     for token in REQUIRED_IDF_TOKENS:
         if token not in all_native:
             fail(f"required native token missing: {token}")

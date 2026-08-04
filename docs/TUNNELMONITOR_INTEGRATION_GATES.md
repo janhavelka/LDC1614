@@ -5,7 +5,7 @@ this library. Reusable driver behavior is documented by the public API,
 [I2C owner integration](I2C_INTEGRATION.md), and the changelog rather than
 repeated here.
 
-Last cross-repository review: 2026-08-03.
+Last cross-repository review: 2026-08-04.
 
 - LDC1614 checkout: unreleased `3.1.0` candidate. Clean COM8 firmware
   `c3e2ed876dd884ceefc46ac6e579effa83e45325` passed the current default and
@@ -59,16 +59,17 @@ Do not consume this branch, a moving commit, or a reinterpreted `v3.0.0` tag.
 ## Consumer platform gate
 
 TunnelMonitor currently pins pioarduino `54.03.20`; this library's maintained
-Arduino builds pin `55.03.311`. COM8 testing reproduced persistent post-NACK
-`ESP_ERR_INVALID_STATE` on the latter as well, so neither pin is qualified as a
-TunnelMonitor recovery fix. Treat `55.03.311` as a separate platform-migration
-candidate and qualify it on the exact ESP32-S3 target across I2C, OTA, USB,
-RMT, Wi-Fi, SD, and PSRAM before changing TunnelMonitor's active pin. Preserve
-TunnelMonitor's existing failed-read bus-recreation fence until target fault
-injection proves a simpler policy safe. A successful build alone does not
-close this gate. The COM8 diagnostic's bus reset and target ACK also failed to
-guarantee the following combined read, reinforcing that TunnelMonitor must
-require module-specific replay/admission after its owner recovery.
+Arduino builds pin `55.03.311`. On its ESP-IDF 5.5.5 base, raw
+`ESP_ERR_INVALID_STATE` (`259`) is also the synchronous transaction result for
+an ordinary NACK; it is not proof that a shared bus is stuck. Treat
+`55.03.311` as a separate platform-migration candidate and qualify it on the
+exact ESP32-S3 target across I2C, OTA, USB, RMT, Wi-Fi, SD, and PSRAM before
+changing TunnelMonitor's active pin. Preserve TunnelMonitor's existing
+controller-recreation fence after a failed read until target fault injection
+proves it unnecessary, but do not escalate raw `259` alone to SCL pulses or a
+product-wide device reset. A successful build alone does not close this gate.
+Every LDC recovery path must require module-specific combined identity reads
+and complete replay; an address ACK is insufficient.
 
 ## Owner-module gate
 
@@ -89,15 +90,25 @@ module called only by TunnelMonitor's `I2cTask`. The module must:
   complete initialize/replay before acquisition resumes; and
 - after a serialized shared-bus reconstruction, recreate any owner-retained
   device handles and require each affected module's bounded device-specific
-  admission before that module resumes combined reads or configuration replay;
-  and
+  admission before ordinary acquisition or configuration resumes; and
 - keep queueing, retry, health, recovery, settings, calibration, and public DTO
   policy in TunnelMonitor.
 
 If the owner cannot distinguish address-NACK from data-NACK, map a failed write
 conservatively to data-NACK or generic I2C failure. After an indeterminate
-write, terminate the job, perform owner recovery, invalidate applied state, and
-schedule complete initialize/replay. Never retry only the failed register.
+write, terminate the job and invalidate applied state. A raw `259` may justify
+TunnelMonitor's existing controller-instance reconstruction fence, but it does
+not by itself justify line pulsing. The failed command terminates; a later
+application retry uses both a new TunnelMonitor request/token and a new LDC
+operation ID, then runs whole initialization. Never retry only the failed
+register or repeat the reset write. The LDC module must not infer reconstruction
+success from raw `259` or request a second recovery: current per-request bus
+observations do not expose the backend's reconstruction diagnostics, so owner
+policy owns that decision. Escalate to serialized physical bus recovery only
+on independent held-line, typed timeout/bus-stuck, or cross-peer failure
+evidence. Repeated failure of the LDC alone is device absence/offline/backoff
+evidence. If approved LDC-specific SD or power control is wired, use it as a
+bounded device reset before full replay rather than disturbing unrelated peers.
 
 ## Target HIL gate
 
@@ -106,17 +117,23 @@ per-transfer device-handle lifecycle differs from this repository's diagnostic
 transport. Before integration, exercise that exact backend on the selected
 board:
 
-1. induce a controlled absent-address NACK;
-2. perform repeated valid combined reads while retaining raw backend codes and
-   proving that expected scan/probe NACKs did not poison the next transaction;
-3. execute explicit owner controller recovery without rebooting the MCU;
-4. invalidate LDC applied state and complete full initialization/replay; and
-5. prove another shared-bus device remains responsive throughout recovery.
+1. induce a controlled absent-address NACK and prove the next valid combined
+   read still works;
+2. inject a failed combined read while retaining the exact raw backend result;
+3. assert owner diagnostics report both `driverRecreationAttempted=true` and
+   `driverRecreated=true`, without using `I2cOperation::BusRecover`, rebooting
+   the MCU, or pulsing SCL;
+4. terminate that request, invalidate LDC applied state, then submit a fresh
+   request/token and operation ID for complete initialization/replay; and
+5. prove the next combined LDC read and another shared-bus device read both
+   succeed.
 
 The library diagnostic can reconstruct its sole owned bus/device handle after
 explicit `busrecover`. TunnelMonitor must not copy that teardown literally:
-its shared owner must serialize recovery and recreate every handle registered
-on that bus before admitting any device operation.
+its current backend uses per-transfer device handles and already performs a
+controller-recreation fence after a failed combined read. The LDC module should
+publish the original terminal failure and let later owner policy decide whether
+physical shared-bus recovery is independently justified.
 
 For the selected LDC board and sensors, also retain:
 

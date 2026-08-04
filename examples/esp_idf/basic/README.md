@@ -15,7 +15,8 @@ The 64 command families cover the full public driver surface:
   decoded/raw STATUS, optional INTB, and INIT_IDRIVE diagnostics;
 - a bus-silent staged profile for mode, clock, deglitch, activation, timeout,
   error routing, and every physical-channel register value and sensor bound;
-- identity probe, bounded scan, register dumps, replay verification, guarded
+- identity probe, bounded protocol-qualified address discovery, register dumps,
+  replay verification, guarded
   raw register access, STATUS/DATA decoding, frequency/timing helpers, and
   drive-current conversion;
 - driver/state inspection, a multi-phase self-test, acquisition and mixed-I2C
@@ -48,9 +49,10 @@ The application owns bus handles, serialization, pins, per-transfer timeout,
 scheduling, recovery, and device-presence policy. The shared example transport
 in `examples/esp32/I2cMasterTransport.*` owns native combined transfers, error
 mapping, bounded probe operations, transactional open/rollback, and explicit
-bus/device reconstruction followed by the driver's bounded bus reset/line-clear
-and one bounded target-address ACK probe. The diagnostic owns only one registered
-device handle; a production shared-bus owner must coordinate every handle.
+bus/device reconstruction. Reconstruction does not line-clear or address-probe
+the LDC and does not claim device recovery; complete identity reads and replay
+are the admission test. The diagnostic owns only one registered device handle;
+a production shared-bus owner must coordinate every handle.
 Transport counters are diagnostic facts, not applied-configuration authority.
 
 ## Profile and safety model
@@ -66,12 +68,12 @@ owner transport/device-handle rebuild and rebind.
 Commands that can mutate hardware, perform broad/raw destructive reads, reset
 the owner bus, or require special wiring use explicit `confirm` or fixture
 gates. Explicit semantic STATUS/readiness/acquisition commands instead retain
-their destructive-read evidence without a confirmation prompt. `scan` covers
-usable addresses `0x08..0x77`, treats address NACK as a normal absence, and
-stops on timeout/bus failure. After `busrecover confirm`, applied state is
+their destructive-read evidence without a confirmation prompt. `discover`
+(with `scan` retained only as an alias) tests the two supported strap addresses
+using complete identity-register reads, treats an address NACK as normal
+absence, and stops on timeout/bus failure. After `busrecover confirm`, applied state is
 invalid and a complete `init` is required. Reconstructing the diagnostic's bus
-is containment, not a guarantee that the open ESP-IDF post-NACK invalid-state
-failure was repaired.
+is containment, not proof that the device or its next combined read recovered.
 Optional INTB and SD commands report `SKIP` when callbacks are not configured.
 LDC1612 profiles reject channels 2 and 3 throughout settings, register helpers,
 and sessions.

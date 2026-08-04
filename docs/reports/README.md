@@ -25,8 +25,12 @@ identity, timeout, and nonzero-status failures were not.
 
 This comparison selected an upgrade containing Espressif's earlier NACK
 reporting fix (`459b75f`) instead of another core-library workaround. It did
-not close the separate persistent-invalid-state problem tracked by
-[Espressif issue #14030](https://github.com/espressif/esp-idf/issues/14030).
+not close the intermittent combined-read failure. Later exact-source review
+showed that this ESP-IDF generation reports every synchronous non-`DONE`
+transaction, including an ordinary NACK, as raw
+`ESP_ERR_INVALID_STATE` (`259`). The retained failures are compatible with
+[Espressif issue #14030](https://github.com/espressif/esp-idf/issues/14030),
+but without the original SDA/SCL trace they do not prove the same root cause.
 
 Compact 2026-07-01 v2 artifacts had no raw transcript and did not exercise the
 v3 ownership contract, so they are available only through Git history.
@@ -91,8 +95,10 @@ one-hour invocation for ESP32-S2 COM8, LDC1614 at `0x2A`, a second device at
 
 The runner now gates soak entry on a complete passing base matrix, preserves
 partial serial evidence on exceptions, stops after the first unexpected base
-failure, and counts only complete cycles. The reset failure poisoned the
-ESP-IDF backend again, so the intended one-hour acceptance soak did not start.
+failure, and counts only complete cycles. The reset failure left subsequent
+combined reads unavailable, so the intended one-hour acceptance soak did not
+start; raw detail 259 alone cannot identify whether the initiating NACK was
+caused by the controller waveform, the LDC parser, or the electrical fixture.
 Temporary dirty-firmware investigations are intentionally excluded from this
 curated evidence bundle and are not used to support acceptance conclusions.
 
@@ -131,8 +137,8 @@ The final clean diagnostic firmware for this session was `c3e2ed8`:
   was hardware-state equivalent, so commit `24a198b` was reverted by `51c9a68`.
 
 Together these artifacts demonstrate stable non-reset traffic while preserving
-the unresolved ESP-IDF 5.5.5 reset/recovery regression as a hard acceptance
-failure.
+the unresolved reset-adjacent combined-read/recovery failure as a hard
+acceptance failure. They do not establish a definitive physical culprit.
 
 Positive release acceptance still requires a proven explicit recovery/replay
 after the observed failure and a production sensor-cadence soak whose complete

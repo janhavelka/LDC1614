@@ -7,11 +7,23 @@
 
 namespace ldc1614_cli {
 
-enum class I2cProbeResult : uint8_t {
-  ACK,
-  NACK,
-  TIMEOUT,
-  ERROR,
+struct I2cBusInfo {
+  bool open = false;
+  int8_t port = -1;
+  int8_t sda = -1;
+  int8_t scl = -1;
+  int8_t sdaLevel = -1;
+  int8_t sclLevel = -1;
+  uint8_t address = 0;
+  uint32_t frequencyHz = 0;
+};
+
+struct I2cTransferStats {
+  uint32_t writes = 0;
+  uint32_t writeReads = 0;
+  uint32_t discoveries = 0;
+  uint32_t failures = 0;
+  LDC1614::Status lastStatus = LDC1614::Status::Ok();
 };
 
 /// Tells the platform loop whether one prompt is due after a command/service
@@ -26,6 +38,7 @@ enum class CommandId : uint8_t {
   VERSION,
   COLOR,
   VERBOSE,
+  BUS,
   BIND,
   END,
   INIT,
@@ -38,6 +51,7 @@ enum class CommandId : uint8_t {
   RESULT,
   INVALIDATE,
   BUS_RECOVER,
+  BUS_FREQ,
   READ,
   LAST,
   WATCH,
@@ -70,7 +84,7 @@ enum class CommandId : uint8_t {
   DRIVE,
   SENSOR_BOUNDS,
   PROBE,
-  SCAN,
+  DISCOVER,
   DUMP,
   VERIFY,
   REG,
@@ -81,9 +95,14 @@ enum class CommandId : uint8_t {
   DRIVE_UA,
   DRIVER,
   STATE,
+  DIAG,
+  XFER,
   SELFTEST,
   STRESS,
   STRESS_MIX,
+  STRESS_ID,
+  STRESS_RESET,
+  STRESS_BUS_FREQ,
   SOAK,
   SD,
   UNKNOWN,
@@ -92,7 +111,7 @@ enum class CommandId : uint8_t {
 enum class SessionKind : uint8_t {
   NONE,
   PROBE,
-  SCAN,
+  DISCOVER,
   DUMP_CONFIG,
   DUMP_ALL,
   VERIFY,
@@ -100,6 +119,9 @@ enum class SessionKind : uint8_t {
   SAMPLE_RATE,
   STRESS,
   STRESS_MIX,
+  STRESS_ID,
+  STRESS_RESET,
+  STRESS_BUS_FREQ,
   SOAK,
   SELF_TEST,
 };
@@ -111,7 +133,8 @@ enum class SessionPhase : uint8_t {
   WAIT_ACQUIRE,
   PROBE_MANUFACTURER,
   PROBE_DEVICE,
-  SCAN_ADDRESS,
+  DISCOVER_MANUFACTURER,
+  DISCOVER_DEVICE,
   DUMP_REGISTER,
   VERIFY_REGISTER,
   MIX_STATUS,
@@ -128,6 +151,11 @@ enum class SessionPhase : uint8_t {
   SELF_INIT_DRIVE,
   SELF_VERIFY,
   SELF_ACQUIRE,
+  STRESS_ID_MANUFACTURER,
+  STRESS_ID_DEVICE,
+  STRESS_RESET_SCHEDULE,
+  STRESS_BUS_FREQ_SWITCH,
+  STRESS_BUS_FREQ_RESTORE,
 };
 
 enum class OperationOwner : uint8_t {
@@ -143,8 +171,15 @@ class Cli {
   using VPrintfFn = void (*)(void* user, const char* fmt, va_list args);
   using MakeConfigFn = LDC1614::Config (*)(void* user);
   using NowMsFn = uint64_t (*)(void* user);
-  using I2cProbeFn = I2cProbeResult (*)(uint8_t address, uint32_t timeoutMs,
-                                        void* user);
+  using I2cBusInfoFn = I2cBusInfo (*)(void* user);
+  using I2cSetFrequencyFn = LDC1614::Status (*)(uint32_t frequencyHz,
+                                                void* user);
+  using I2cReadRegisterFn = LDC1614::Status (*)(uint8_t address,
+                                                uint8_t registerAddress,
+                                                uint16_t& value,
+                                                uint32_t timeoutMs,
+                                                void* user);
+  using I2cTransferStatsFn = I2cTransferStats (*)(void* user);
   using I2cRecoverFn = LDC1614::Status (*)(void* user);
   using SdReadFn = LDC1614::Status (*)(bool& asserted, void* user);
   using SdWriteFn = LDC1614::Status (*)(bool asserted, void* user);
@@ -154,11 +189,20 @@ class Cli {
     VPrintfFn vprintf = nullptr;
     MakeConfigFn makeConfig = nullptr;
     NowMsFn nowMs = nullptr;
-    I2cProbeFn i2cProbe = nullptr;
+    I2cBusInfoFn i2cBusInfo = nullptr;
+    I2cSetFrequencyFn i2cSetFrequency = nullptr;
+    I2cReadRegisterFn i2cReadRegister = nullptr;
+    I2cTransferStatsFn i2cTransferStats = nullptr;
     I2cRecoverFn i2cRecover = nullptr;
     SdReadFn sdRead = nullptr;
     SdWriteFn sdWrite = nullptr;
-    uint32_t scanTimeoutMs = 50;
+    const char* platformName = "unknown";
+    const char* frameworkName = "unknown";
+    const char* frameworkVersion = "unknown";
+    const char* idfVersion = "unknown";
+    const char* targetName = "unknown";
+    const char* i2cBackend = "unknown";
+    uint32_t discoveryTimeoutMs = 50;
   };
 
   Cli(LDC1614::LDC1614& device, Platform platform);
@@ -243,13 +287,20 @@ class Cli {
     uint32_t sampleReadyChecks = 0;
     uint8_t channel = 0;
     uint8_t physicalChannel = 0;
-    uint8_t scanAddress = 0x08;
-    uint8_t scanFound = 0;
+    uint8_t discoveryAddress = 0x2A;
+    uint8_t discoveryResponding = 0;
+    uint8_t discoveryMatched = 0;
+    uint8_t discoveryMismatched = 0;
+    uint8_t discoveryFailed = 0;
     uint8_t registerIndex = 0;
     bool iterationFailed = false;
     bool stopRequested = false;
     uint16_t manufacturerId = 0;
     uint16_t deviceId = 0;
+    uint32_t initialFrequencyHz = 0;
+    uint32_t activeFrequencyHz = 0;
+    uint32_t firstFailureIteration = UINT32_MAX;
+    LDC1614::Status restoreStatus = LDC1614::Status::Ok();
     LDC1614::DeviceStatus lastReadyStatus{};
     bool hasReadyStatus = false;
     SessionStats stats{};
@@ -273,6 +324,7 @@ class Cli {
                                      LDC1614::JobKind kind,
                                      LDC1614::ChannelMask channels,
                                      uint32_t deadlineMs);
+  LDC1614::Status scheduleSessionJob(LDC1614::JobKind kind);
   LDC1614::Status scheduleSessionAcquire();
   void drainResults();
   void handleOperationResult(const LDC1614::OperationResult& result);
@@ -287,7 +339,10 @@ class Cli {
   void advanceSamplingSession(uint64_t nowMs);
   void advanceMixedSession();
   void advanceProbeSession();
-  void advanceScanSession();
+  void advanceDiscoverSession();
+  void advanceIdentityStressSession();
+  void advanceResetStressSession();
+  void advanceBusFrequencyStressSession();
   void advanceDumpSession();
   void advanceVerifySession(bool selfTest);
   void advanceSelfTestSession();
@@ -307,6 +362,9 @@ class Cli {
   void markStagedChanged(const char* field);
   void printConfig(const LDC1614::Config& config, const char* label) const;
   void printDriver() const;
+  void printBus() const;
+  void printDiagnostics() const;
+  I2cTransferStats transferStatsSinceBaseline() const;
   void printState() const;
   void printProgress() const;
   void printResult(const LDC1614::OperationResult& result) const;
@@ -315,6 +373,8 @@ class Cli {
                          const char* label = "STATUS") const;
   void printConfigFault(const LDC1614::ConfigFault& fault) const;
   void printQuality(LDC1614::SampleQualityFlags quality) const;
+  void printRegisterValue(uint8_t registerAddress, uint16_t value,
+                          const char* scope) const;
 
   LDC1614::OperationId nextOperationId();
   uint32_t nextSessionId();
@@ -336,6 +396,7 @@ class Cli {
   bool _verbose = false;
   bool _promptDeferred = false;
   uint64_t _lastNowMs = 0;
+  I2cTransferStats _transferBaseline{};
 };
 
 }  // namespace ldc1614_cli

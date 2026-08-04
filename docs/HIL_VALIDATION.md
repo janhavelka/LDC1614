@@ -41,25 +41,29 @@ To stress the same no-sensor matrix repeatedly in one captured run, add
 `--repeat-command-set N`. The runner records both the base command count and
 the expanded command count in the artifact.
 
-After any persistent post-NACK `ESP_ERR_INVALID_STATE`, first capture the
-failure and attempt the explicit reconstructed-owner recovery. Recovery must
-recreate the diagnostic's bus/device lifecycle, run the driver's bounded bus
-reset/line-clear, obtain one bounded target ACK, then complete
-initialization/replay and repeated combined reads without a power cycle. If
-that gate fails, physically remove and reapply power to the
+After any raw `ESP_ERR_INVALID_STATE` (`259`), first capture the exact failed
+command, phase, register, and subsequent combined-read behavior. On ESP-IDF
+5.5.5 this raw value includes ordinary NACK, so it must not be labeled a stuck
+bus without independent evidence. Attempt the explicit controller-only owner
+reconstruction, then require complete initialization/replay and repeated
+combined reads without a power cycle. Do not line-clear solely because of
+`259`, and do not use an address-only ACK as admission. If that gate fails,
+physically remove and reapply power to the
 ESP32 and LDC/shared bus before collecting another candidate run. A firmware
 reboot is not a device power cycle. The first cold gate must read `version`,
-`cfg`, `probe`, `init`, and `probe` without a preceding scan. Then run a
-controlled absent-address NACK/scan, explicit owner recovery, initialization,
+`cfg`, `probe`, `init`, and `probe` without preceding discovery. Then run a
+controlled absent-address combined-read NACK, explicit owner recovery, initialization,
 and repeated valid combined reads. Run at least 100 correlated reset/reapply
 cycles before the full matrix. Stop on the first failed gate; do not soak an
-already-poisoned transport state.
+already-failed transport/device state. A logic-analyzer capture of SDA and SCL
+at the first natural failure is required before assigning its physical cause
+to the controller, signal integrity, or the LDC161x parser.
 
 The maintained runner enforces that stop rule: after the first unexpected base
 result it sends no later command and records the remaining matrix entries as
 `NOT_RUN`. The diagnostic `busrecover` command reconstructs its sole owned
-ESP-IDF bus/device lifecycle, runs a bounded bus reset/line-clear, requires a
-bounded target ACK, invalidates applied state, and still requires `init`. A
+ESP-IDF bus/device lifecycle without pulsing the lines or probing an address,
+invalidates applied state, and still requires `init`. A
 production shared-bus manager must
 coordinate and recreate all registered device handles and re-admit every
 required peer; do not copy the single-device example as a general shared-bus
@@ -69,13 +73,15 @@ For a time-bounded no-sensor soak, request the duration explicitly. The soak
 keeps the port open, executes only complete cycles, and ends every cycle awake:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
 ```
 
 The runner first requires every base-matrix command and firmware identity check
 to pass. It will not spend an hour soaking an ambiguous candidate. The fixed
-soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, and `drv`. Every `drv` response must prove `bound=1` and
-`applied=APPLIED_ACTIVE`. The summary records requested/actual duration,
+soak cycle is `version`, `probe`, `status`, `sleep`, `wake`, `busrecover
+confirm`, `state`, `init`, `wake`, `probe`, and `drv`. The intermediate
+`state` must prove `applied=UNKNOWN`; every final `drv` must prove `bound=1`
+and `applied=APPLIED_ACTIVE`. The summary records requested/actual duration,
 complete cycles, command counts, failures, ambiguous responses, unexpected
 startup banners, incomplete cycle, and worst command latency. Raw output is
 journaled and flushed after startup and every command; a serial or close-time
@@ -223,7 +229,7 @@ Run these only when hardware and operator setup explicitly support them:
 | LDC1614 sensor reads 0..3 | Yes if channels populated | LDC1614 hardware/sensors | Not run, no sensor attached | Safe reads for channels 0..3 |
 | Safe raw read per enabled channel | Yes | Sensors connected | Not run | Raw/read transcript with DATA error flags checked |
 | Config readback | Yes | Hardware | Clean `c3e2ed8` default and extended matrices passed | Repeat cleanly with the production profile |
-| Reset/reapply and owner recovery | Yes | Hardware | Clean `c3e2ed8` default and extended matrices each passed one reset/reapply, then the full soak gate reproduced detail 259; a clean post-fix runner correctly classified the following initialization failure after bus-reset/ACK recovery | Provide a deterministic recovery/replay path and repeated valid combined reads without a power cycle |
+| Reset/reapply and owner recovery | Yes | Hardware | Clean `c3e2ed8` default and extended matrices each passed one reset/reapply, then the full soak gate reproduced ambiguous detail 259; a clean post-fix runner correctly classified the following initialization failure after historical bus-reset/ACK recovery | Qualify controller-only reconstruction plus complete identity/replay and repeated valid combined reads without a power cycle |
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |

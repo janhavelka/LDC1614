@@ -34,20 +34,28 @@ the reset write and the next identity read. A NACK or backend failure terminates
 the job, preserves reset/write provenance, and leaves applied state dirty; the
 application then owns any bus/device recovery and complete reinitialization.
 
-The maintained ESP32 diagnostic demonstrates one explicit recovery policy for
-its sole owned device handle: remove the device, delete and recreate the bus,
-recreate the handle, run the ESP-IDF driver's bounded bus reset/line-clear, then
-require one bounded target-address ACK probe. The reset and probe are owner
-recovery evidence, not register retries. On the pinned ESP-IDF 5.5.5 baseline,
-repeated COM8 testing showed that this sequence can report ACK while the next
-combined read still returns `ESP_ERR_INVALID_STATE`; only the required complete
-initialization replay establishes recovery. This is not library behavior and is
-not a general shared-bus recipe. A production owner must serialize the operation,
-rebuild any owner-retained device handles, require bounded device-specific
-admission before each affected module resumes, invalidate each affected
-driver's applied state, and surface any failed recovery phase without a hidden
-transaction retry. Not every I2C device supports address-only probing, so peer
-admission is a product/device contract rather than a universal probe sweep.
+The maintained ESP32 diagnostic demonstrates one explicit controller-recovery
+policy for its sole owned device handle: remove the device, delete and recreate
+the bus, and recreate the handle. It deliberately does not run a blind line
+clear and does not treat an address-only ACK as device admission. TI documents
+that early termination or a forbidden SDA pulse can corrupt an LDC161x I2C
+transaction, while ESP-IDF 5.5.5 returns the same raw
+`ESP_ERR_INVALID_STATE` (`259`) for an ordinary transaction NACK. That
+ambiguity is not authority to pulse a shared bus.
+
+Controller reconstruction is not proof of device recovery. Only the required
+complete initialization—both combined identity reads followed by full
+replay—re-establishes trusted LDC applied state. This is example policy, not
+core library behavior or a general shared-bus recipe. A production owner must
+serialize reconstruction and rebuild any owner-retained handles. Invalidate
+the LDC whose transaction or configuration trust failed and require bounded
+device-specific admission before its ordinary operations resume. Controller-
+resource reconstruction alone does not prove that peer hardware state changed;
+a physical bus reset, line clear, or device reset instead invalidates every
+module actually affected by that action. If an LDC remains unavailable and SD
+or switched power is part of the product design, the owner may perform that
+explicit device reset, wait the data-sheet-specified 2 ms after SD deassertion,
+and then run complete initialization. Never replay only the failed register.
 
 ## Request lifecycle
 

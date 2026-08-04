@@ -7,13 +7,27 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifndef LDC1614_CLI_ENABLE_COLOR
+#define LDC1614_CLI_ENABLE_COLOR 1
+#endif
+
+#ifndef LDC1614_CLI_COLOR_DEFAULT
+#define LDC1614_CLI_COLOR_DEFAULT 1
+#endif
 
 namespace ldc1614_idf_cli {
 namespace cli_style {
 
-enum class Color : uint8_t { RESET, RED, GREEN, YELLOW, CYAN };
+enum class Color : uint8_t {
+  RESET,
+  RED,
+  GREEN,
+  YELLOW,
+  CYAN,
+};
 
 inline const char* code(bool enabled, Color color) {
+#if LDC1614_CLI_ENABLE_COLOR
   if (!enabled) return "";
   switch (color) {
     case Color::RESET: return "\033[0m";
@@ -22,6 +36,10 @@ inline const char* code(bool enabled, Color color) {
     case Color::YELLOW: return "\033[33m";
     case Color::CYAN: return "\033[36m";
   }
+#else
+  (void)enabled;
+  (void)color;
+#endif
   return "";
 }
 
@@ -29,9 +47,11 @@ inline const char* code(bool enabled, Color color) {
 namespace {
 
 constexpr uint64_t JOB_DEADLINE_MS = 2000;
-constexpr uint8_t FIRST_SCAN_ADDRESS = 0x08;
-constexpr uint8_t LAST_SCAN_ADDRESS = 0x77;
-constexpr uint8_t SCAN_PROBE_COUNT = 112;
+constexpr uint8_t FIRST_LDC_ADDRESS = 0x2A;
+constexpr uint8_t LAST_LDC_ADDRESS = 0x2B;
+constexpr uint32_t MIN_I2C_FREQUENCY_HZ = 10000U;
+constexpr uint32_t MAX_I2C_FREQUENCY_HZ = 400000U;
+constexpr uint32_t STRESS_LOW_I2C_FREQUENCY_HZ = 100000U;
 
 enum class HelpSection : uint8_t {
   COMMON,
@@ -84,7 +104,7 @@ struct CommandSpec {
 // One canonical row per command family. Help, dispatch, contract checking, and
 // Arduino/IDF parity all key off this deliberately boring fixed table.
 static constexpr CommandSpec COMMAND_SPECS[] = {
-    {CommandId::HELP, "help", "?", "help / ?",
+    {CommandId::HELP, "help", "?", "help / ? [command]",
      "Show the complete command reference", HelpSection::COMMON, CommandSafety::SAFE,
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
      "command_count"},
@@ -100,6 +120,10 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      "Show or change per-step diagnostics", HelpSection::COMMON, CommandSafety::SAFE,
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
      "enabled"},
+    {CommandId::BUS, "bus", "i2c", "bus / i2c",
+     "Show owner bus, pins, levels, address, and speed", HelpSection::COMMON, CommandSafety::SAFE,
+     ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
+     "open backend port sda scl sda_level scl_level address frequency_hz timeout_ms"},
     {CommandId::BIND, "bind", "", "bind",
      "Bind the platform default profile (zero I2C)", HelpSection::LIFECYCLE, CommandSafety::SAFE,
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
@@ -148,6 +172,10 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      "Rebuild owner bus/device, then require init", HelpSection::LIFECYCLE, CommandSafety::CONFIRM_MUTATION,
      ExecutionKind::OWNER_BUS, FixtureRequirement::ANY,
      "command outcome code"},
+    {CommandId::BUS_FREQ, "busfreq", "i2cfreq", "busfreq / i2cfreq [hz confirm]",
+     "Show or replace the owner device-handle speed", HelpSection::LIFECYCLE, CommandSafety::CONFIRM_MUTATION,
+     ExecutionKind::OWNER_BUS, FixtureRequirement::ANY,
+     "previous_hz requested_hz active_hz reinitialized outcome code"},
     {CommandId::READ, "read", "acquire", "read / acquire [mask]",
      "Acquire one sequential readout batch", HelpSection::MEASUREMENTS, CommandSafety::SAFE,
      ExecutionKind::CORE_JOB, FixtureRequirement::NO_SENSOR_OK,
@@ -239,7 +267,7 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
     {CommandId::ERRORS, "errors", "", "errors [show|all|none]",
      "Show or stage all error routes", HelpSection::CONFIGURATION, CommandSafety::SAFE,
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
-     "ur or wd ah al zc drdy"},
+     "data_under data_over data_watchdog data_amplitude_high data_amplitude_low status_under status_over status_watchdog status_amplitude_high status_amplitude_low status_zero_count data_ready encoded"},
     {CommandId::ERROR, "error", "", "error <field> <0|1>",
      "Stage one named DATA/STATUS/DRDY route", HelpSection::CONFIGURATION, CommandSafety::SAFE,
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
@@ -276,10 +304,10 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      "Cooperatively read and verify both IDs", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
      ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
      "manufacturer_id device_id match code"},
-    {CommandId::SCAN, "scan", "", "scan",
-     "Cooperatively probe 0x08..0x77", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
-     ExecutionKind::OWNER_BUS, FixtureRequirement::ANY,
-     "found probes code"},
+    {CommandId::DISCOVER, "discover", "scan", "discover / scan",
+     "Protocol-qualify LDC identity at 0x2A and 0x2B", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
+     ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
+     "address strap manufacturer_id device_id match tested responding matched mismatched failed code"},
     {CommandId::DUMP, "dump", "", "dump config\ndump all confirm",
      "Cooperatively dump mapped registers", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::CONFIRM_DESTRUCTIVE_READ,
      ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
@@ -300,14 +328,14 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      "Run pure STATUS or DATA decoding", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
      ExecutionKind::PURE, FixtureRequirement::ANY,
      "kind raw drdy unread err_ch ur or wd ah al zc count quality"},
-    {CommandId::FREQ, "freq", "", "freq <channel> <raw28>",
+    {CommandId::FREQ, "freq", "", "freq <channel> <raw28>\nfreq <desired|staged> <channel> <raw28>",
      "Calculate sensor frequency", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
      ExecutionKind::PURE, FixtureRequirement::ANY,
-     "channel raw frequency_hz code"},
-    {CommandId::TIMING, "timing", "", "timing [mask]",
+     "profile channel raw frequency_hz code"},
+    {CommandId::TIMING, "timing", "", "timing [mask]\ntiming <desired|staged> [mask]",
      "Estimate conservative chip timing", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
      ExecutionKind::PURE, FixtureRequirement::ANY,
-     "mask wake_settle_us conversion_us sequential_frame_us acquisition_transfers code"},
+     "profile mask wake_settle_us conversion_us sequential_frame_us acquisition_transfers code"},
     {CommandId::DRIVE_UA, "driveua", "", "driveua <code>",
      "Convert IDRIVE code to nominal uA", HelpSection::REGISTERS_AND_HELPERS, CommandSafety::SAFE,
      ExecutionKind::PURE, FixtureRequirement::ANY,
@@ -320,6 +348,14 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      "Show compact parseable driver state", HelpSection::DIAGNOSTICS, CommandSafety::SAFE,
      ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
      "bound applied profile_dirty session_kind active pending_result"},
+    {CommandId::DIAG, "diag", "", "diag",
+     "Show a bus-silent consolidated diagnostic snapshot", HelpSection::DIAGNOSTICS, CommandSafety::SAFE,
+     ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
+     "platform target frequency_hz bound applied revision profile_dirty active pending_result attempts success failures last_code outcome code"},
+    {CommandId::XFER, "xfer", "", "xfer stats|reset\nxfer assert <write> <write_read> <discover> <total>",
+     "Inspect or baseline owner transport attempts", HelpSection::DIAGNOSTICS, CommandSafety::SAFE,
+     ExecutionKind::CACHE_ONLY, FixtureRequirement::ANY,
+     "write write_read discover total failures last_code expected actual outcome code"},
     {CommandId::SELFTEST, "selftest", "", "selftest",
      "Run full cooperative safe self-test", HelpSection::DIAGNOSTICS, CommandSafety::SAFE,
      ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
@@ -329,9 +365,21 @@ static constexpr CommandSpec COMMAND_SPECS[] = {
      ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
      "command session requested ok fail elapsed_ms hz outcome code"},
     {CommandId::STRESS_MIX, "stress_mix", "", "stress_mix <n> [mask] confirm",
-     "Stress mixed STATUS/INTB/IDRIVE/acquisition paths", HelpSection::DIAGNOSTICS, CommandSafety::CONFIRM_MUTATION,
+     "Stress mixed STATUS/INTB/IDRIVE/acquisition paths", HelpSection::DIAGNOSTICS, CommandSafety::CONFIRM_DESTRUCTIVE_READ,
      ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
      "command session requested ok fail elapsed_ms outcome code"},
+    {CommandId::STRESS_ID, "stress_id", "", "stress_id <count>",
+     "Stress protocol-complete identity reads", HelpSection::DIAGNOSTICS, CommandSafety::SAFE,
+     ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
+     "command session requested completed ok fail first_failure_iteration elapsed_ms hz outcome code"},
+    {CommandId::STRESS_RESET, "stress_reset", "", "stress_reset <count> confirm",
+     "Stress full software-reset and replay jobs", HelpSection::DIAGNOSTICS, CommandSafety::CONFIRM_MUTATION,
+     ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
+     "command session requested completed ok fail first_failure_iteration elapsed_ms outcome code"},
+    {CommandId::STRESS_BUS_FREQ, "stress_busfreq", "", "stress_busfreq <count> confirm",
+     "Alternate 100/400 kHz with full initialization", HelpSection::DIAGNOSTICS, CommandSafety::CONFIRM_MUTATION,
+     ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
+     "command session requested completed ok fail initial_hz active_hz restored_hz restore_code first_failure_iteration elapsed_ms outcome code"},
     {CommandId::SOAK, "soak", "", "soak <seconds> [mask]",
      "Run bounded periodic acquisition soak", HelpSection::DIAGNOSTICS, CommandSafety::SAFE,
      ExecutionKind::CLI_JOB, FixtureRequirement::NO_SENSOR_OK,
@@ -448,6 +496,21 @@ const char* outcomeName(LDC1614::TerminalOutcome outcome) {
   return "UNKNOWN";
 }
 
+const char* effectNames(LDC1614::EffectFlags effects) {
+  switch (effects & 0x07U) {
+    case 0x00U: return "NONE";
+    case 0x01U: return "READ_SIDE_EFFECTS";
+    case 0x02U: return "PARTIAL_WRITE";
+    case 0x03U: return "READ_SIDE_EFFECTS|PARTIAL_WRITE";
+    case 0x04U: return "INDETERMINATE_WRITE";
+    case 0x05U: return "READ_SIDE_EFFECTS|INDETERMINATE_WRITE";
+    case 0x06U: return "PARTIAL_WRITE|INDETERMINATE_WRITE";
+    case 0x07U:
+      return "READ_SIDE_EFFECTS|PARTIAL_WRITE|INDETERMINATE_WRITE";
+  }
+  return "UNKNOWN";
+}
+
 const char* phaseName(LDC1614::JobPhase phase) {
   switch (phase) {
     case LDC1614::JobPhase::NONE: return "NONE";
@@ -493,7 +556,7 @@ const char* sessionName(SessionKind kind) {
   switch (kind) {
     case SessionKind::NONE: return "NONE";
     case SessionKind::PROBE: return "PROBE";
-    case SessionKind::SCAN: return "SCAN";
+    case SessionKind::DISCOVER: return "DISCOVER";
     case SessionKind::DUMP_CONFIG: return "DUMP_CONFIG";
     case SessionKind::DUMP_ALL: return "DUMP_ALL";
     case SessionKind::VERIFY: return "VERIFY";
@@ -501,8 +564,49 @@ const char* sessionName(SessionKind kind) {
     case SessionKind::SAMPLE_RATE: return "SAMPLE_RATE";
     case SessionKind::STRESS: return "STRESS";
     case SessionKind::STRESS_MIX: return "STRESS_MIX";
+    case SessionKind::STRESS_ID: return "STRESS_ID";
+    case SessionKind::STRESS_RESET: return "STRESS_RESET";
+    case SessionKind::STRESS_BUS_FREQ: return "STRESS_BUS_FREQ";
     case SessionKind::SOAK: return "SOAK";
     case SessionKind::SELF_TEST: return "SELF_TEST";
+  }
+  return "UNKNOWN";
+}
+
+const char* sessionPhaseName(SessionPhase phase) {
+  switch (phase) {
+    case SessionPhase::NONE: return "NONE";
+    case SessionPhase::WAIT_INTERVAL: return "WAIT_INTERVAL";
+    case SessionPhase::SAMPLE_READY: return "SAMPLE_READY";
+    case SessionPhase::WAIT_ACQUIRE: return "WAIT_ACQUIRE";
+    case SessionPhase::PROBE_MANUFACTURER: return "PROBE_MANUFACTURER";
+    case SessionPhase::PROBE_DEVICE: return "PROBE_DEVICE";
+    case SessionPhase::DISCOVER_MANUFACTURER: return "DISCOVER_MANUFACTURER";
+    case SessionPhase::DISCOVER_DEVICE: return "DISCOVER_DEVICE";
+    case SessionPhase::DUMP_REGISTER: return "DUMP_REGISTER";
+    case SessionPhase::VERIFY_REGISTER: return "VERIFY_REGISTER";
+    case SessionPhase::MIX_STATUS: return "MIX_STATUS";
+    case SessionPhase::MIX_READY: return "MIX_READY";
+    case SessionPhase::MIX_INTB: return "MIX_INTB";
+    case SessionPhase::MIX_INIT_DRIVE: return "MIX_INIT_DRIVE";
+    case SessionPhase::MIX_ACQUIRE: return "MIX_ACQUIRE";
+    case SessionPhase::SELF_PURE: return "SELF_PURE";
+    case SessionPhase::SELF_MANUFACTURER: return "SELF_MANUFACTURER";
+    case SessionPhase::SELF_DEVICE: return "SELF_DEVICE";
+    case SessionPhase::SELF_STATUS: return "SELF_STATUS";
+    case SessionPhase::SELF_READY: return "SELF_READY";
+    case SessionPhase::SELF_INTB: return "SELF_INTB";
+    case SessionPhase::SELF_INIT_DRIVE: return "SELF_INIT_DRIVE";
+    case SessionPhase::SELF_VERIFY: return "SELF_VERIFY";
+    case SessionPhase::SELF_ACQUIRE: return "SELF_ACQUIRE";
+    case SessionPhase::STRESS_ID_MANUFACTURER:
+      return "STRESS_ID_MANUFACTURER";
+    case SessionPhase::STRESS_ID_DEVICE: return "STRESS_ID_DEVICE";
+    case SessionPhase::STRESS_RESET_SCHEDULE: return "STRESS_RESET_SCHEDULE";
+    case SessionPhase::STRESS_BUS_FREQ_SWITCH:
+      return "STRESS_BUS_FREQ_SWITCH";
+    case SessionPhase::STRESS_BUS_FREQ_RESTORE:
+      return "STRESS_BUS_FREQ_RESTORE";
   }
   return "UNKNOWN";
 }
@@ -519,7 +623,43 @@ const char* sectionName(HelpSection section) {
   return "Commands";
 }
 
-bool parseUnsigned(const char* text, uint64_t maxValue, uint64_t& value) {
+const char* safetyName(CommandSafety safety) {
+  switch (safety) {
+    case CommandSafety::SAFE: return "SAFE";
+    case CommandSafety::CONFIRM_MUTATION: return "CONFIRM_MUTATION";
+    case CommandSafety::CONFIRM_DESTRUCTIVE_READ:
+      return "CONFIRM_DESTRUCTIVE_READ";
+    case CommandSafety::BUILD_PROFILE_ONLY: return "BUILD_PROFILE_ONLY";
+  }
+  return "UNKNOWN";
+}
+
+const char* executionName(ExecutionKind execution) {
+  switch (execution) {
+    case ExecutionKind::CACHE_ONLY: return "CACHE_ONLY";
+    case ExecutionKind::PURE: return "PURE";
+    case ExecutionKind::ONE_TRANSFER: return "ONE_TRANSFER";
+    case ExecutionKind::CORE_JOB: return "CORE_JOB";
+    case ExecutionKind::CLI_JOB: return "CLI_JOB";
+    case ExecutionKind::OWNER_BUS: return "OWNER_BUS";
+    case ExecutionKind::LIFECYCLE: return "LIFECYCLE";
+  }
+  return "UNKNOWN";
+}
+
+const char* fixtureName(FixtureRequirement fixture) {
+  switch (fixture) {
+    case FixtureRequirement::ANY: return "ANY";
+    case FixtureRequirement::NO_SENSOR_OK: return "NO_SENSOR_OK";
+    case FixtureRequirement::SENSOR_REQUIRED: return "SENSOR_REQUIRED";
+    case FixtureRequirement::INTB_WIRED: return "INTB_WIRED";
+    case FixtureRequirement::SD_WIRED: return "SD_WIRED";
+    case FixtureRequirement::DRIVE_TUNING: return "DRIVE_TUNING";
+  }
+  return "UNKNOWN";
+}
+
+bool parseUnsigned(const char* text, uint64_t maximum, uint64_t& value) {
   value = 0;
   if (text == nullptr || *text == '\0' || *text == '+' || *text == '-') return false;
   int base = 10;
@@ -530,7 +670,7 @@ bool parseUnsigned(const char* text, uint64_t maxValue, uint64_t& value) {
   errno = 0;
   char* end = nullptr;
   const unsigned long long parsed = std::strtoull(text, &end, base);
-  if (errno == ERANGE || end == text || *end != '\0' || parsed > maxValue) return false;
+  if (errno == ERANGE || end == text || *end != '\0' || parsed > maximum) return false;
   value = static_cast<uint64_t>(parsed);
   return true;
 }
@@ -578,6 +718,63 @@ bool isDestructiveRegister(uint8_t reg) {
   return reg <= LDC1614::cmd::REG_DATA3_LSB || reg == LDC1614::cmd::REG_STATUS;
 }
 
+const char* registerName(uint8_t reg) {
+  static constexpr const char* DATA_NAMES[] = {
+      "DATA0_MSB", "DATA0_LSB", "DATA1_MSB", "DATA1_LSB",
+      "DATA2_MSB", "DATA2_LSB", "DATA3_MSB", "DATA3_LSB"};
+  static constexpr const char* RCOUNT_NAMES[] = {
+      "RCOUNT0", "RCOUNT1", "RCOUNT2", "RCOUNT3"};
+  static constexpr const char* OFFSET_NAMES[] = {
+      "OFFSET0", "OFFSET1", "OFFSET2", "OFFSET3"};
+  static constexpr const char* SETTLE_NAMES[] = {
+      "SETTLECOUNT0", "SETTLECOUNT1", "SETTLECOUNT2", "SETTLECOUNT3"};
+  static constexpr const char* DIVIDER_NAMES[] = {
+      "CLOCK_DIVIDERS0", "CLOCK_DIVIDERS1", "CLOCK_DIVIDERS2",
+      "CLOCK_DIVIDERS3"};
+  static constexpr const char* DRIVE_NAMES[] = {
+      "DRIVE_CURRENT0", "DRIVE_CURRENT1", "DRIVE_CURRENT2",
+      "DRIVE_CURRENT3"};
+  if (reg <= LDC1614::cmd::REG_DATA3_LSB) return DATA_NAMES[reg];
+  if (reg >= LDC1614::cmd::REG_RCOUNT0 && reg <= LDC1614::cmd::REG_RCOUNT3) {
+    return RCOUNT_NAMES[reg - LDC1614::cmd::REG_RCOUNT0];
+  }
+  if (reg >= LDC1614::cmd::REG_OFFSET0 && reg <= LDC1614::cmd::REG_OFFSET3) {
+    return OFFSET_NAMES[reg - LDC1614::cmd::REG_OFFSET0];
+  }
+  if (reg >= LDC1614::cmd::REG_SETTLECOUNT0 &&
+      reg <= LDC1614::cmd::REG_SETTLECOUNT3) {
+    return SETTLE_NAMES[reg - LDC1614::cmd::REG_SETTLECOUNT0];
+  }
+  if (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS0 &&
+      reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) {
+    return DIVIDER_NAMES[reg - LDC1614::cmd::REG_CLOCK_DIVIDERS0];
+  }
+  if (reg >= LDC1614::cmd::REG_DRIVE_CURRENT0 &&
+      reg <= LDC1614::cmd::REG_DRIVE_CURRENT3) {
+    return DRIVE_NAMES[reg - LDC1614::cmd::REG_DRIVE_CURRENT0];
+  }
+  switch (reg) {
+    case LDC1614::cmd::REG_STATUS: return "STATUS";
+    case LDC1614::cmd::REG_ERROR_CONFIG: return "ERROR_CONFIG";
+    case LDC1614::cmd::REG_CONFIG: return "CONFIG";
+    case LDC1614::cmd::REG_MUX_CONFIG: return "MUX_CONFIG";
+    case LDC1614::cmd::REG_RESET_DEV: return "RESET_DEV";
+    case LDC1614::cmd::REG_MANUFACTURER_ID: return "MANUFACTURER_ID";
+    case LDC1614::cmd::REG_DEVICE_ID: return "DEVICE_ID";
+    default: return "UNMAPPED";
+  }
+}
+
+const char* registerAccess(uint8_t reg) {
+  if (reg <= LDC1614::cmd::REG_DATA3_LSB ||
+      reg == LDC1614::cmd::REG_STATUS ||
+      reg == LDC1614::cmd::REG_MANUFACTURER_ID ||
+      reg == LDC1614::cmd::REG_DEVICE_ID) {
+    return "R";
+  }
+  return std::strcmp(registerName(reg), "UNMAPPED") == 0 ? "-" : "RW";
+}
+
 bool isChannelRegisterForUnavailableChannel(const LDC1614::Config& config,
                                              uint8_t reg) {
   if (config.variant != LDC1614::DeviceVariant::LDC1612) return false;
@@ -609,7 +806,14 @@ const char* resetColor(bool enabled) {
 
 Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device, Platform platform)
     : _device(device), _platform(platform) {
+#if LDC1614_CLI_ENABLE_COLOR && LDC1614_CLI_COLOR_DEFAULT
   _colorEnabled = true;
+#else
+  _colorEnabled = false;
+#endif
+  if (_platform.i2cTransferStats != nullptr) {
+    _transferBaseline = _platform.i2cTransferStats(_platform.user);
+  }
 }
 
 LDC1614::Config Ldc1614IdfCli::makeDefaultConfig() const {
@@ -723,6 +927,7 @@ bool Ldc1614IdfCli::asynchronousWorkActive() const {
 bool Ldc1614IdfCli::commandAllowedWhileBusy(CommandId id) const {
   return id == CommandId::HELP || id == CommandId::VERSION ||
          id == CommandId::COLOR || id == CommandId::VERBOSE ||
+         id == CommandId::BUS || id == CommandId::DIAG ||
          id == CommandId::JOB || id == CommandId::DRIVER ||
          id == CommandId::STATE || id == CommandId::RESULT ||
          id == CommandId::LAST || id == CommandId::CANCEL;
@@ -914,10 +1119,10 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
 
 void Ldc1614IdfCli::printConfigFault(const LDC1614::ConfigFault& fault) const {
   printf("config_fault valid=%u job=%s phase=%s register=0x%02X channel=%u "
-         "effects=0x%02X\n",
+         "effects=0x%02X effects_names=%s\n",
          fault.valid ? 1U : 0U, jobName(fault.job), phaseName(fault.phase),
          fault.registerAddress, static_cast<unsigned>(fault.channel),
-         static_cast<unsigned>(fault.effects));
+         static_cast<unsigned>(fault.effects), effectNames(fault.effects));
   if (fault.valid) printStatus(fault.cause);
 }
 
@@ -942,6 +1147,64 @@ void Ldc1614IdfCli::printDriver() const {
   printConfigFault(_device.configFault());
 }
 
+void Ldc1614IdfCli::printBus() const {
+  const I2cBusInfo info = _platform.i2cBusInfo != nullptr
+                              ? _platform.i2cBusInfo(_platform.user)
+                              : I2cBusInfo{};
+  const uint32_t timeoutMs = _device.isBound()
+                                 ? _device.config().i2cTimeoutMs
+                                 : makeDefaultConfig().i2cTimeoutMs;
+  printf("bus open=%u backend=%s port=%d sda=%d scl=%d sda_level=%d "
+         "scl_level=%d address=0x%02X frequency_hz=%lu timeout_ms=%lu\n",
+         info.open ? 1U : 0U, _platform.i2cBackend,
+         static_cast<int>(info.port), static_cast<int>(info.sda),
+         static_cast<int>(info.scl), static_cast<int>(info.sdaLevel),
+         static_cast<int>(info.sclLevel), static_cast<unsigned>(info.address),
+         static_cast<unsigned long>(info.frequencyHz),
+         static_cast<unsigned long>(timeoutMs));
+}
+
+I2cTransferStats Ldc1614IdfCli::transferStatsSinceBaseline() const {
+  const I2cTransferStats current =
+      _platform.i2cTransferStats != nullptr
+          ? _platform.i2cTransferStats(_platform.user)
+          : I2cTransferStats{};
+  I2cTransferStats delta{};
+  delta.writes = current.writes - _transferBaseline.writes;
+  delta.writeReads = current.writeReads - _transferBaseline.writeReads;
+  delta.discoveries = current.discoveries - _transferBaseline.discoveries;
+  delta.failures = current.failures - _transferBaseline.failures;
+  const uint64_t total = static_cast<uint64_t>(delta.writes) +
+                         static_cast<uint64_t>(delta.writeReads) +
+                         static_cast<uint64_t>(delta.discoveries);
+  delta.lastStatus = total == 0U ? LDC1614::Status::Ok()
+                                 : current.lastStatus;
+  return delta;
+}
+
+void Ldc1614IdfCli::printDiagnostics() const {
+  const I2cBusInfo bus = _platform.i2cBusInfo != nullptr
+                             ? _platform.i2cBusInfo(_platform.user)
+                             : I2cBusInfo{};
+  const LDC1614::TransportStats core = _device.transportStats();
+  printf("diag platform=%s framework=%s framework_version=%s idf_version=%s "
+         "target=%s frequency_hz=%lu bound=%u applied=%s revision=%lu "
+         "profile_dirty=%u active=%u pending_result=%u attempts=%lu "
+         "success=%lu failures=%lu last_code=%u outcome=SUCCESS code=0\n",
+         _platform.platformName, _platform.frameworkName,
+         _platform.frameworkVersion, _platform.idfVersion,
+         _platform.targetName, static_cast<unsigned long>(bus.frequencyHz),
+         _device.isBound() ? 1U : 0U,
+         appliedName(_device.appliedConfigState()),
+         static_cast<unsigned long>(_device.configRevision()),
+         _stagedDirty ? 1U : 0U, asynchronousWorkActive() ? 1U : 0U,
+         _device.resultAvailable() ? 1U : 0U,
+         static_cast<unsigned long>(core.totalAttempts),
+         static_cast<unsigned long>(core.totalSuccess),
+         static_cast<unsigned long>(core.totalFailures),
+         static_cast<unsigned>(core.lastStatus.code));
+}
+
 void Ldc1614IdfCli::printState() const {
   const LDC1614::JobProgress progress = _device.jobProgress();
   printf("bound=%u applied=%s config_revision=%lu job_active=%u "
@@ -961,18 +1224,19 @@ void Ldc1614IdfCli::printProgress() const {
   const LDC1614::JobProgress progress = _device.jobProgress();
   printf("job active=%u operation=%" PRIu64 " kind=%s phase=%s transfers=%u "
          "maximum=%u requested=0x%02X completed=0x%02X deadline_ms=%" PRIu64
-         " effects=0x%02X revision=%lu\n",
+         " effects=0x%02X effects_names=%s revision=%lu\n",
          progress.active ? 1U : 0U, progress.operationId, jobName(progress.kind),
          phaseName(progress.phase), static_cast<unsigned>(progress.completedTransfers),
          static_cast<unsigned>(progress.maximumTransfers),
          static_cast<unsigned>(progress.requestedChannels.bits),
          static_cast<unsigned>(progress.completedChannels.bits), progress.deadlineMs,
-         static_cast<unsigned>(progress.effects),
+         static_cast<unsigned>(progress.effects), effectNames(progress.effects),
          static_cast<unsigned long>(progress.configRevision));
-  printf("session active=%u id=%lu kind=%s phase=%u completed=%lu/%lu "
+  printf("session active=%u id=%lu kind=%s phase=%s phase_code=%u completed=%lu/%lu "
          "pass=%lu fail=%lu skip=%lu\n",
          _session.kind != SessionKind::NONE ? 1U : 0U,
          static_cast<unsigned long>(_session.id), sessionName(_session.kind),
+         sessionPhaseName(_session.phase),
          static_cast<unsigned>(_session.phase),
          static_cast<unsigned long>(_session.stats.completed),
          static_cast<unsigned long>(_session.stats.requested),
@@ -1021,6 +1285,113 @@ void Ldc1614IdfCli::printQuality(LDC1614::SampleQualityFlags quality) const {
   if (first) printf("NONE");
 }
 
+void Ldc1614IdfCli::printRegisterValue(uint8_t reg, uint16_t value,
+                             const char* scope) const {
+  bool reservedValid = true;
+  if (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS0 &&
+      reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) {
+    reservedValid = (value & 0x0C00U) == 0U;
+  } else if (reg == LDC1614::cmd::REG_STATUS) {
+    reservedValid = (value & static_cast<uint16_t>(~0xFF4FU)) == 0U;
+  } else if (reg == LDC1614::cmd::REG_ERROR_CONFIG) {
+    reservedValid =
+        (value & static_cast<uint16_t>(~LDC1614::cmd::MASK_ERRCFG_ALLOWED)) == 0U;
+  } else if (reg == LDC1614::cmd::REG_CONFIG) {
+    reservedValid = (value & 0x0100U) == 0U &&
+                    (value & LDC1614::cmd::MASK_CFG_RESERVED_LOW) ==
+                        LDC1614::cmd::CONFIG_RESERVED_VALUE;
+  } else if (reg == LDC1614::cmd::REG_MUX_CONFIG) {
+    reservedValid = (value & LDC1614::cmd::MASK_MUX_RESERVED) ==
+                    LDC1614::cmd::MUX_CONFIG_RESERVED_VALUE;
+  } else if (reg == LDC1614::cmd::REG_RESET_DEV) {
+    reservedValid = (value & static_cast<uint16_t>(~LDC1614::cmd::MASK_RESET_DEV)) == 0U;
+  } else if (reg >= LDC1614::cmd::REG_DRIVE_CURRENT0 &&
+             reg <= LDC1614::cmd::REG_DRIVE_CURRENT3) {
+    reservedValid = (value & 0x003FU) == 0U;
+  }
+  printf("%s register=0x%02X name=%s access=%s destructive=%u value=0x%04X "
+         "reserved_valid=%u\n",
+         scope, reg, registerName(reg), registerAccess(reg),
+         isDestructiveRegister(reg) ? 1U : 0U, value,
+         reservedValid ? 1U : 0U);
+
+  if (reg <= LDC1614::cmd::REG_DATA3_LSB) {
+    if ((reg & 1U) == 0U) {
+      printf("register_decode name=%s data_msb=0x%03X ur=%u or=%u wd=%u ae=%u\n",
+             registerName(reg), value & LDC1614::cmd::MASK_DATA_MSB_DATA,
+             (value & LDC1614::cmd::MASK_DATA_ERR_UR) != 0U ? 1U : 0U,
+             (value & LDC1614::cmd::MASK_DATA_ERR_OR) != 0U ? 1U : 0U,
+             (value & LDC1614::cmd::MASK_DATA_ERR_WD) != 0U ? 1U : 0U,
+             (value & LDC1614::cmd::MASK_DATA_ERR_AE) != 0U ? 1U : 0U);
+    } else {
+      printf("register_decode name=%s data_lsb=0x%04X\n", registerName(reg),
+             value);
+    }
+  } else if (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS0 &&
+             reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) {
+    printf("register_decode name=%s fin_div=%u fref_div=%u\n", registerName(reg),
+           static_cast<unsigned>((value & LDC1614::cmd::MASK_FIN_DIVIDER) >>
+                                 LDC1614::cmd::BIT_FIN_DIVIDER),
+           static_cast<unsigned>(value & LDC1614::cmd::MASK_FREF_DIVIDER));
+  } else if (reg == LDC1614::cmd::REG_STATUS) {
+    printDeviceStatus(LDC1614::LDC1614::decodeDeviceStatus(value),
+                      "register_status");
+  } else if (reg == LDC1614::cmd::REG_ERROR_CONFIG) {
+    printf("register_decode name=ERROR_CONFIG data_under=%u data_over=%u "
+           "data_watchdog=%u data_ah=%u data_al=%u status_under=%u "
+           "status_over=%u status_watchdog=%u status_ah=%u status_al=%u "
+           "status_zc=%u drdy=%u\n",
+           (value & LDC1614::cmd::MASK_ERRCFG_UR_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_OR_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_WD_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_AH_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_AL_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_UR_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_OR_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_WD_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_AH_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_AL_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_ZC_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_ERRCFG_DRDY_2INT) != 0U ? 1U : 0U);
+  } else if (reg == LDC1614::cmd::REG_CONFIG) {
+    printf("register_decode name=CONFIG active_channel=%u sleep=%u rp_override=%u "
+           "low_power_activation=%u auto_amp_disabled=%u external_ref=%u "
+           "intb_disabled=%u high_current=%u\n",
+           static_cast<unsigned>((value & LDC1614::cmd::MASK_CFG_ACTIVE_CHAN) >>
+                                 LDC1614::cmd::BIT_CFG_ACTIVE_CHAN),
+           (value & LDC1614::cmd::MASK_CFG_SLEEP_MODE_EN) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_CFG_RP_OVERRIDE_EN) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_CFG_SENSOR_ACTIVATE_SEL) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_CFG_AUTO_AMP_DIS) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_CFG_REF_CLK_SRC) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_CFG_INTB_DIS) != 0U ? 1U : 0U,
+           (value & LDC1614::cmd::MASK_CFG_HIGH_CURRENT_DRV) != 0U ? 1U : 0U);
+  } else if (reg == LDC1614::cmd::REG_MUX_CONFIG) {
+    printf("register_decode name=MUX_CONFIG autoscan=%u rr_sequence=%u deglitch=%u\n",
+           (value & LDC1614::cmd::MASK_MUX_AUTOSCAN_EN) != 0U ? 1U : 0U,
+           static_cast<unsigned>((value & LDC1614::cmd::MASK_MUX_RR_SEQUENCE) >>
+                                 LDC1614::cmd::BIT_MUX_RR_SEQUENCE),
+           static_cast<unsigned>(value & LDC1614::cmd::MASK_MUX_DEGLITCH));
+  } else if (reg == LDC1614::cmd::REG_RESET_DEV) {
+    printf("register_decode name=RESET_DEV reset_bit=%u\n",
+           (value & LDC1614::cmd::MASK_RESET_DEV) != 0U ? 1U : 0U);
+  } else if (reg >= LDC1614::cmd::REG_DRIVE_CURRENT0 &&
+             reg <= LDC1614::cmd::REG_DRIVE_CURRENT3) {
+    printf("register_decode name=%s idrive=%u init_idrive=%u\n", registerName(reg),
+           static_cast<unsigned>((value & LDC1614::cmd::MASK_IDRIVE) >>
+                                 LDC1614::cmd::BIT_IDRIVE),
+           static_cast<unsigned>((value & LDC1614::cmd::MASK_INIT_IDRIVE) >>
+                                 LDC1614::cmd::BIT_INIT_IDRIVE));
+  } else if (reg == LDC1614::cmd::REG_MANUFACTURER_ID ||
+             reg == LDC1614::cmd::REG_DEVICE_ID) {
+    const uint16_t expected = reg == LDC1614::cmd::REG_MANUFACTURER_ID
+                                  ? LDC1614::cmd::MANUFACTURER_ID_VALUE
+                                  : LDC1614::cmd::DEVICE_ID_VALUE;
+    printf("register_decode name=%s expected=0x%04X match=%u variant=UNKNOWN\n",
+           registerName(reg), expected, value == expected ? 1U : 0U);
+  }
+}
+
 void Ldc1614IdfCli::printBatch(const LDC1614::SampleBatch& batch) const {
   printf("batch type=SEQUENTIAL_READOUT selected=0x%02X valid=0x%02X fresh=0x%02X "
          "error=0x%02X overrun=0x%02X revision=%lu completed_ms=%" PRIu64
@@ -1067,10 +1438,11 @@ void Ldc1614IdfCli::printBatch(const LDC1614::SampleBatch& batch) const {
 
 void Ldc1614IdfCli::printResult(const LDC1614::OperationResult& result) const {
   printf("Operation result: operation=%" PRIu64 " kind=%s outcome=%s effects=0x%02X "
+         "effects_names=%s "
          "revision=%lu completed_ms=%" PRIu64 " phase=%s reg=0x%02X "
          "channel=%u transfers=%u maximum=%u code=%u detail=%ld msg=%s\n",
          result.operationId, jobName(result.kind), outcomeName(result.outcome),
-         static_cast<unsigned>(result.effects),
+         static_cast<unsigned>(result.effects), effectNames(result.effects),
          static_cast<unsigned long>(result.configRevision), result.completedUptimeMs,
          phaseName(result.finalProgress.phase), result.finalProgress.registerAddress,
          static_cast<unsigned>(result.finalProgress.channel),
@@ -1306,17 +1678,29 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
   }
 
   if (id == CommandId::ERRORS) {
-    if (line.argc == 1U ||
-        (line.argc == 2U && std::strcmp(line.argv[1], "show") == 0)) {
-      const LDC1614::ErrorReporting& routes = _stagedConfig.errorReporting;
-      printf("errors ur=%u or=%u wd=%u ah=%u al=%u zc=%u drdy=%u\n",
+    const auto printRoutes = [this](const LDC1614::ErrorReporting& routes) {
+      printf("errors data_under=%u data_over=%u data_watchdog=%u "
+             "data_amplitude_high=%u data_amplitude_low=%u status_under=%u "
+             "status_over=%u status_watchdog=%u status_amplitude_high=%u "
+             "status_amplitude_low=%u status_zero_count=%u data_ready=%u "
+             "encoded=0x%04X\n",
+             routes.dataUnderRange ? 1U : 0U,
+             routes.dataOverRange ? 1U : 0U,
+             routes.dataWatchdog ? 1U : 0U,
+             routes.dataAmplitudeHigh ? 1U : 0U,
+             routes.dataAmplitudeLow ? 1U : 0U,
              routes.statusUnderRange ? 1U : 0U,
              routes.statusOverRange ? 1U : 0U,
              routes.statusWatchdog ? 1U : 0U,
              routes.statusAmplitudeHigh ? 1U : 0U,
              routes.statusAmplitudeLow ? 1U : 0U,
              routes.statusZeroCount ? 1U : 0U,
-             routes.dataReady ? 1U : 0U);
+             routes.dataReady ? 1U : 0U,
+             LDC1614::LDC1614::encodeErrorReporting(routes));
+    };
+    if (line.argc == 1U ||
+        (line.argc == 2U && std::strcmp(line.argv[1], "show") == 0)) {
+      printRoutes(_stagedConfig.errorReporting);
       return promptActionForCurrentState();
     }
     if (line.argc != 2U ||
@@ -1328,14 +1712,7 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
         std::strcmp(line.argv[1], "all") == 0
             ? LDC1614::ErrorReporting::all()
             : LDC1614::ErrorReporting{};
-    const LDC1614::ErrorReporting& routes = _stagedConfig.errorReporting;
-    printf("ur=%u or=%u wd=%u ah=%u al=%u zc=%u drdy=%u\n",
-           routes.statusUnderRange ? 1U : 0U,
-           routes.statusOverRange ? 1U : 0U,
-           routes.statusWatchdog ? 1U : 0U,
-           routes.statusAmplitudeHigh ? 1U : 0U,
-           routes.statusAmplitudeLow ? 1U : 0U,
-           routes.statusZeroCount ? 1U : 0U, routes.dataReady ? 1U : 0U);
+    printRoutes(_stagedConfig.errorReporting);
     markStagedChanged("errors");
     return promptActionForCurrentState();
   }
@@ -1586,6 +1963,34 @@ LDC1614::Status Ldc1614IdfCli::scheduleSessionAcquire() {
   return status;
 }
 
+LDC1614::Status Ldc1614IdfCli::scheduleSessionJob(LDC1614::JobKind kind) {
+  if (_session.kind == SessionKind::NONE ||
+      _pending.owner != OperationOwner::NONE || _device.jobProgress().active) {
+    return LDC1614::Status::Error(LDC1614::Err::BUSY,
+                                  "Cannot admit session job");
+  }
+  const LDC1614::OperationId operation = nextOperationId();
+  const uint64_t started = nowMs();
+  const uint64_t deadline = started + JOB_DEADLINE_MS;
+  LDC1614::Status status;
+  if (kind == LDC1614::JobKind::INITIALIZE) {
+    status = _device.startInitialize(operation, deadline);
+  } else if (kind == LDC1614::JobKind::RESET_AND_REAPPLY) {
+    status = _device.startResetAndReapply(operation, deadline);
+  } else {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                                  "Unsupported session job kind");
+  }
+  if (status.inProgress()) {
+    _pending.owner = OperationOwner::SESSION;
+    _pending.id = operation;
+    _pending.kind = kind;
+    _pending.command = _session.command;
+    _pending.startedMs = started;
+  }
+  return status;
+}
+
 LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
                                    uint32_t count,
                                    LDC1614::ChannelMask channels,
@@ -1599,7 +2004,7 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
         "CLI monotonic clock callback is required for asynchronous work");
   }
   const bool needsBoundDevice =
-      kind != SessionKind::SCAN && kind != SessionKind::SELF_TEST;
+      kind != SessionKind::DISCOVER && kind != SessionKind::SELF_TEST;
   if (needsBoundDevice && !_device.isBound()) {
     return LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
                                   "Driver not bound");
@@ -1622,6 +2027,22 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
                                     "Session mask must be configured");
     }
   }
+  I2cBusInfo initialBus{};
+  if (kind == SessionKind::STRESS_BUS_FREQ) {
+    if (_platform.i2cBusInfo == nullptr ||
+        _platform.i2cSetFrequency == nullptr) {
+      return LDC1614::Status::Error(
+          LDC1614::Err::INVALID_CONFIG,
+          "Bus-frequency callbacks unavailable");
+    }
+    initialBus = _platform.i2cBusInfo(_platform.user);
+    if (!initialBus.open ||
+        initialBus.frequencyHz < MIN_I2C_FREQUENCY_HZ ||
+        initialBus.frequencyHz > MAX_I2C_FREQUENCY_HZ) {
+      return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                    "Active I2C frequency unavailable");
+    }
+  }
   _session = DiagnosticSession{};
   _session.kind = kind;
   _session.command = command;
@@ -1630,12 +2051,14 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
   _session.count = count;
   _session.periodMs = periodMs;
   _session.channel = channel;
-  _session.scanAddress = FIRST_SCAN_ADDRESS;
+  _session.discoveryAddress = FIRST_LDC_ADDRESS;
   _session.stats.requested = count;
   _session.stats.startedMs = nowMs();
   switch (kind) {
     case SessionKind::PROBE: _session.phase = SessionPhase::PROBE_MANUFACTURER; break;
-    case SessionKind::SCAN: _session.phase = SessionPhase::SCAN_ADDRESS; break;
+    case SessionKind::DISCOVER:
+      _session.phase = SessionPhase::DISCOVER_MANUFACTURER;
+      break;
     case SessionKind::DUMP_CONFIG:
     case SessionKind::DUMP_ALL: _session.phase = SessionPhase::DUMP_REGISTER; break;
     case SessionKind::VERIFY: _session.phase = SessionPhase::VERIFY_REGISTER; break;
@@ -1647,6 +2070,18 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
       _session.nextDueMs = _session.stats.startedMs;
       break;
     case SessionKind::STRESS_MIX: _session.phase = SessionPhase::MIX_STATUS; break;
+    case SessionKind::STRESS_ID:
+      _session.phase = SessionPhase::STRESS_ID_MANUFACTURER;
+      break;
+    case SessionKind::STRESS_RESET:
+      _session.phase = SessionPhase::STRESS_RESET_SCHEDULE;
+      break;
+    case SessionKind::STRESS_BUS_FREQ: {
+      _session.initialFrequencyHz = initialBus.frequencyHz;
+      _session.activeFrequencyHz = initialBus.frequencyHz;
+      _session.phase = SessionPhase::STRESS_BUS_FREQ_SWITCH;
+      break;
+    }
     case SessionKind::SELF_TEST: _session.phase = SessionPhase::SELF_PURE; break;
     case SessionKind::NONE:
       return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
@@ -1751,12 +2186,16 @@ void Ldc1614IdfCli::printSessionSummary() const {
                  ? static_cast<unsigned>(LDC1614::Err::OK)
                  : static_cast<unsigned>(_session.stats.lastFailure.code));
       break;
-    case SessionKind::SCAN:
-      printf("scan complete found=%u probes=%u code=%u\n",
-             static_cast<unsigned>(_session.scanFound), SCAN_PROBE_COUNT,
-             _session.stats.failed == 0U
+    case SessionKind::DISCOVER:
+      printf("discover tested=2 responding=%u matched=%u mismatched=%u failed=%u "
+             "variant=UNKNOWN code=%u\n",
+             static_cast<unsigned>(_session.discoveryResponding),
+             static_cast<unsigned>(_session.discoveryMatched),
+             static_cast<unsigned>(_session.discoveryMismatched),
+             static_cast<unsigned>(_session.discoveryFailed),
+             _session.discoveryMatched != 0U
                  ? static_cast<unsigned>(LDC1614::Err::OK)
-                 : static_cast<unsigned>(_session.stats.lastFailure.code));
+                 : static_cast<unsigned>(LDC1614::Err::DEVICE_NOT_FOUND));
       break;
     case SessionKind::DUMP_CONFIG:
     case SessionKind::DUMP_ALL:
@@ -1805,6 +2244,47 @@ void Ldc1614IdfCli::printSessionSummary() const {
              static_cast<unsigned long>(_session.stats.requested),
              static_cast<unsigned long>(_session.stats.passed),
              static_cast<unsigned long>(_session.stats.failed), elapsed);
+      break;
+    case SessionKind::STRESS_ID:
+      printf("IdentityStress result: requested=%lu completed=%lu ok=%lu fail=%lu "
+             "first_failure_iteration=%ld elapsed_ms=%" PRIu64 " hz=%.6f\n",
+             static_cast<unsigned long>(_session.stats.requested),
+             static_cast<unsigned long>(_session.stats.completed),
+             static_cast<unsigned long>(_session.stats.passed),
+             static_cast<unsigned long>(_session.stats.failed),
+             _session.firstFailureIteration == UINT32_MAX
+                 ? -1L
+                 : static_cast<long>(_session.firstFailureIteration),
+             elapsed, hz);
+      break;
+    case SessionKind::STRESS_RESET:
+      printf("ResetStress result: requested=%lu completed=%lu ok=%lu fail=%lu "
+             "first_failure_iteration=%ld elapsed_ms=%" PRIu64 "\n",
+             static_cast<unsigned long>(_session.stats.requested),
+             static_cast<unsigned long>(_session.stats.completed),
+             static_cast<unsigned long>(_session.stats.passed),
+             static_cast<unsigned long>(_session.stats.failed),
+             _session.firstFailureIteration == UINT32_MAX
+                 ? -1L
+                 : static_cast<long>(_session.firstFailureIteration),
+             elapsed);
+      break;
+    case SessionKind::STRESS_BUS_FREQ:
+      printf("BusFrequencyStress result: requested=%lu completed=%lu ok=%lu fail=%lu "
+             "initial_hz=%lu active_hz=%lu restored_hz=%lu restore_code=%u "
+             "first_failure_iteration=%ld elapsed_ms=%" PRIu64 "\n",
+             static_cast<unsigned long>(_session.stats.requested),
+             static_cast<unsigned long>(_session.stats.completed),
+             static_cast<unsigned long>(_session.stats.passed),
+             static_cast<unsigned long>(_session.stats.failed),
+             static_cast<unsigned long>(_session.initialFrequencyHz),
+             static_cast<unsigned long>(_session.activeFrequencyHz),
+             static_cast<unsigned long>(_session.activeFrequencyHz),
+             static_cast<unsigned>(_session.restoreStatus.code),
+             _session.firstFailureIteration == UINT32_MAX
+                 ? -1L
+                 : static_cast<long>(_session.firstFailureIteration),
+             elapsed);
       break;
     case SessionKind::SOAK:
       printf("Soak results: seconds=%lu cycles=%lu ok=%lu fail=%lu elapsed_ms=%" PRIu64
@@ -1862,6 +2342,15 @@ void Ldc1614IdfCli::printSessionSummary() const {
 void Ldc1614IdfCli::finishSession(const LDC1614::Status& status, const char* outcome) {
   const CommandId command = _session.command;
   const uint32_t sessionId = _session.id;
+  if (_session.kind == SessionKind::STRESS_BUS_FREQ) {
+    if (_platform.i2cBusInfo != nullptr) {
+      _session.activeFrequencyHz =
+          _platform.i2cBusInfo(_platform.user).frequencyHz;
+    }
+    if (status.code == LDC1614::Err::CANCELLED) {
+      _session.restoreStatus = status;
+    }
+  }
   printSessionSummary();
   if (_session.stats.hasFailure) {
     printf("first_failure ");
@@ -1872,6 +2361,10 @@ void Ldc1614IdfCli::finishSession(const LDC1614::Status& status, const char* out
   printf("CLI result: command=%s session=%lu outcome=%s code=%u\n",
          commandName(command), static_cast<unsigned long>(sessionId), outcome,
          static_cast<unsigned>(status.code));
+  if (_session.kind == SessionKind::STRESS_BUS_FREQ &&
+      status.code == LDC1614::Err::CANCELLED) {
+    println("Cancellation was bus-silent; restore busfreq and run 'init' explicitly.");
+  }
   _session = DiagnosticSession{};
 }
 
@@ -2081,44 +2574,221 @@ void Ldc1614IdfCli::advanceProbeSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceScanSession() {
+void Ldc1614IdfCli::advanceDiscoverSession() {
   if (_session.stopRequested) {
     finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
     return;
   }
-  if (_platform.i2cProbe == nullptr) {
+  if (_platform.i2cReadRegister == nullptr) {
     const LDC1614::Status status = LDC1614::Status::Error(
-        LDC1614::Err::INVALID_CONFIG, "I2C probe callback unavailable");
+        LDC1614::Err::INVALID_CONFIG,
+        "Protocol-qualified discovery callback unavailable");
     recordSessionFailure(status);
     finishSession(status, "FAILED");
     return;
   }
-  const uint8_t address = _session.scanAddress;
-  const I2cProbeResult result =
-      _platform.i2cProbe(address, _platform.scanTimeoutMs, _platform.user);
+  const uint8_t address = _session.discoveryAddress;
+  uint16_t value = 0U;
+  if (_session.phase == SessionPhase::DISCOVER_MANUFACTURER) {
+    const LDC1614::Status status = _platform.i2cReadRegister(
+        address, LDC1614::cmd::REG_MANUFACTURER_ID, value,
+        _platform.discoveryTimeoutMs, _platform.user);
+    ++_session.stats.completed;
+    if (!status.ok()) {
+      ++_session.discoveryFailed;
+      printf("discover address=0x%02X strap=%s manufacturer_id=unavailable "
+             "device_id=unavailable match=0 variant=UNKNOWN code=%u detail=%ld\n",
+             address, address == FIRST_LDC_ADDRESS ? "ADDR_GND" : "ADDR_VDD",
+             static_cast<unsigned>(status.code), static_cast<long>(status.detail));
+      if (address == LAST_LDC_ADDRESS) {
+        const LDC1614::Status terminal =
+            _session.discoveryMatched != 0U
+                ? LDC1614::Status::Ok()
+                : LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+                                          "No protocol-qualified LDC161x found");
+        if (!terminal.ok()) recordSessionFailure(terminal);
+        finishSession(terminal, terminal.ok() ? "SUCCESS" : "FAILED");
+      } else {
+        _session.discoveryAddress = LAST_LDC_ADDRESS;
+      }
+      return;
+    }
+    ++_session.discoveryResponding;
+    _session.manufacturerId = value;
+    _session.phase = SessionPhase::DISCOVER_DEVICE;
+    return;
+  }
+
+  const LDC1614::Status status = _platform.i2cReadRegister(
+      address, LDC1614::cmd::REG_DEVICE_ID, value,
+      _platform.discoveryTimeoutMs, _platform.user);
   ++_session.stats.completed;
-  if (result == I2cProbeResult::ACK) {
-    ++_session.scanFound;
-    printf("I2C device at 0x%02X\n", address);
-  } else if (result == I2cProbeResult::TIMEOUT ||
-             result == I2cProbeResult::ERROR) {
-    const LDC1614::Status status = LDC1614::Status::Error(
-        result == I2cProbeResult::TIMEOUT ? LDC1614::Err::I2C_TIMEOUT
-                                          : LDC1614::Err::I2C_BUS,
-        result == I2cProbeResult::TIMEOUT ? "I2C scan probe timed out"
-                                          : "I2C scan probe failed",
-        address);
+  if (status.ok()) _session.deviceId = value;
+  const bool match = status.ok() &&
+                     _session.manufacturerId ==
+                         LDC1614::cmd::MANUFACTURER_ID_VALUE &&
+                     _session.deviceId == LDC1614::cmd::DEVICE_ID_VALUE;
+  if (match) ++_session.discoveryMatched;
+  else if (status.ok()) ++_session.discoveryMismatched;
+  else ++_session.discoveryFailed;
+  printf("discover address=0x%02X strap=%s manufacturer_id=0x%04X ", address,
+         address == FIRST_LDC_ADDRESS ? "ADDR_GND" : "ADDR_VDD",
+         _session.manufacturerId);
+  if (status.ok()) printf("device_id=0x%04X ", _session.deviceId);
+  else printf("device_id=unavailable ");
+  printf("match=%u variant=UNKNOWN code=%u detail=%ld\n", match ? 1U : 0U,
+         static_cast<unsigned>(status.code), static_cast<long>(status.detail));
+
+  if (address == LAST_LDC_ADDRESS) {
+    const LDC1614::Status terminal =
+        _session.discoveryMatched != 0U
+            ? LDC1614::Status::Ok()
+            : LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+                                      "No protocol-qualified LDC161x found");
+    if (!terminal.ok()) recordSessionFailure(terminal);
+    finishSession(terminal, terminal.ok() ? "SUCCESS" : "FAILED");
+  } else {
+    _session.discoveryAddress = LAST_LDC_ADDRESS;
+    _session.manufacturerId = 0U;
+    _session.deviceId = 0U;
+    _session.phase = SessionPhase::DISCOVER_MANUFACTURER;
+  }
+}
+
+void Ldc1614IdfCli::advanceIdentityStressSession() {
+  if (_session.index >= _session.count) {
+    finishSession(_session.stats.failed == 0U ? LDC1614::Status::Ok()
+                                              : _session.stats.lastFailure,
+                  _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
+    return;
+  }
+  uint16_t value = 0U;
+  const bool manufacturer =
+      _session.phase == SessionPhase::STRESS_ID_MANUFACTURER;
+  LDC1614::Status status = _device.readRegister16(
+      manufacturer ? LDC1614::cmd::REG_MANUFACTURER_ID
+                   : LDC1614::cmd::REG_DEVICE_ID,
+      value);
+  if (status.ok()) {
+    const uint16_t expected = manufacturer
+                                  ? LDC1614::cmd::MANUFACTURER_ID_VALUE
+                                  : LDC1614::cmd::DEVICE_ID_VALUE;
+    if (value != expected) {
+      status = LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+                                      "Identity mismatch", value);
+    }
+  }
+  if (!status.ok()) {
+    ++_session.stats.completed;
     ++_session.stats.failed;
+    _session.firstFailureIteration = _session.index;
     recordSessionFailure(status);
     finishSession(status, "FAILED");
     return;
   }
-  if (address == LAST_SCAN_ADDRESS) {
+  if (manufacturer) {
+    _session.phase = SessionPhase::STRESS_ID_DEVICE;
+    return;
+  }
+  ++_session.stats.completed;
+  ++_session.stats.passed;
+  ++_session.index;
+  _session.phase = SessionPhase::STRESS_ID_MANUFACTURER;
+}
+
+void Ldc1614IdfCli::advanceResetStressSession() {
+  if (_session.index >= _session.count) {
     finishSession(LDC1614::Status::Ok(), "SUCCESS");
-  } else {
-    ++_session.scanAddress;
+    return;
+  }
+  const LDC1614::Status status =
+      scheduleSessionJob(LDC1614::JobKind::RESET_AND_REAPPLY);
+  if (!status.inProgress()) {
+    ++_session.stats.completed;
+    ++_session.stats.failed;
+    _session.firstFailureIteration = _session.index;
+    recordSessionFailure(status);
+    finishSession(status, "FAILED");
+  }
+}
+
+void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
+  if (_session.phase == SessionPhase::STRESS_BUS_FREQ_RESTORE) {
+    _session.restoreStatus = _platform.i2cSetFrequency(
+        _session.initialFrequencyHz, _platform.user);
+    const I2cBusInfo restored = _platform.i2cBusInfo(_platform.user);
+    _session.activeFrequencyHz = restored.frequencyHz;
+    if (_session.restoreStatus.ok() &&
+        (!restored.open ||
+         restored.frequencyHz != _session.initialFrequencyHz)) {
+      _session.restoreStatus = LDC1614::Status::Error(
+          LDC1614::Err::I2C_BUS,
+          "Owner frequency restore did not reach initial state",
+          static_cast<int32_t>(restored.frequencyHz));
+    }
+    if (!_session.restoreStatus.ok()) {
+      recordSessionFailure(_session.restoreStatus);
+      finishSession(_session.restoreStatus, "FAILED");
+      return;
+    }
+    _device.invalidateAppliedState(LDC1614::Status::Error(
+        LDC1614::Err::CONFIG_DIRTY,
+        "Owner restored I2C frequency; full initialization required"));
+    const LDC1614::Status scheduled =
+        scheduleSessionJob(LDC1614::JobKind::INITIALIZE);
+    if (!scheduled.inProgress()) {
+      _session.restoreStatus = scheduled;
+      recordSessionFailure(scheduled);
+      finishSession(scheduled, "FAILED");
+    }
+    return;
+  }
+
+  if (_session.index >= _session.count) {
+    _session.phase = SessionPhase::STRESS_BUS_FREQ_RESTORE;
+    return;
+  }
+  const uint32_t firstHz =
+      _session.initialFrequencyHz == STRESS_LOW_I2C_FREQUENCY_HZ
+          ? MAX_I2C_FREQUENCY_HZ
+          : STRESS_LOW_I2C_FREQUENCY_HZ;
+  const uint32_t requestedHz = (_session.index & 1U) == 0U
+                                   ? firstHz
+                                   : (firstHz == STRESS_LOW_I2C_FREQUENCY_HZ
+                                          ? MAX_I2C_FREQUENCY_HZ
+                                          : STRESS_LOW_I2C_FREQUENCY_HZ);
+  LDC1614::Status changed =
+      _platform.i2cSetFrequency(requestedHz, _platform.user);
+  const I2cBusInfo active = _platform.i2cBusInfo(_platform.user);
+  _session.activeFrequencyHz = active.frequencyHz;
+  if (changed.ok() &&
+      (!active.open || active.frequencyHz != requestedHz)) {
+    changed = LDC1614::Status::Error(
+        LDC1614::Err::I2C_BUS,
+        "Owner frequency callback did not reach requested state",
+        static_cast<int32_t>(active.frequencyHz));
+  }
+  if (!changed.ok()) {
+    ++_session.stats.completed;
+    ++_session.stats.failed;
+    _session.firstFailureIteration = _session.index;
+    recordSessionFailure(changed);
+    _session.phase = SessionPhase::STRESS_BUS_FREQ_RESTORE;
+    return;
+  }
+  _device.invalidateAppliedState(LDC1614::Status::Error(
+      LDC1614::Err::CONFIG_DIRTY,
+      "Owner changed I2C frequency; full initialization required"));
+  const LDC1614::Status scheduled =
+      scheduleSessionJob(LDC1614::JobKind::INITIALIZE);
+  if (!scheduled.inProgress()) {
+    ++_session.stats.completed;
+    ++_session.stats.failed;
+    _session.firstFailureIteration = _session.index;
+    recordSessionFailure(scheduled);
+    _session.phase = SessionPhase::STRESS_BUS_FREQ_RESTORE;
   }
 }
 
@@ -2145,8 +2815,7 @@ void Ldc1614IdfCli::advanceDumpSession() {
   ++_session.stats.completed;
   if (status.ok()) {
     ++_session.stats.passed;
-    printf("dump scope=%s register=0x%02X value=0x%04X\n",
-           all ? "all" : "config", reg, value);
+    printRegisterValue(reg, value, all ? "dump_all" : "dump_config");
   } else {
     ++_session.stats.failed;
     recordSessionFailure(status);
@@ -2409,7 +3078,7 @@ void Ldc1614IdfCli::advanceSession(uint64_t now) {
   switch (_session.kind) {
     case SessionKind::NONE: return;
     case SessionKind::PROBE: advanceProbeSession(); return;
-    case SessionKind::SCAN: advanceScanSession(); return;
+    case SessionKind::DISCOVER: advanceDiscoverSession(); return;
     case SessionKind::DUMP_CONFIG:
     case SessionKind::DUMP_ALL: advanceDumpSession(); return;
     case SessionKind::VERIFY: advanceVerifySession(false); return;
@@ -2418,6 +3087,11 @@ void Ldc1614IdfCli::advanceSession(uint64_t now) {
     case SessionKind::STRESS:
     case SessionKind::SOAK: advanceSamplingSession(now); return;
     case SessionKind::STRESS_MIX: advanceMixedSession(); return;
+    case SessionKind::STRESS_ID: advanceIdentityStressSession(); return;
+    case SessionKind::STRESS_RESET: advanceResetStressSession(); return;
+    case SessionKind::STRESS_BUS_FREQ:
+      advanceBusFrequencyStressSession();
+      return;
     case SessionKind::SELF_TEST: advanceSelfTestSession(); return;
   }
 }
@@ -2426,18 +3100,33 @@ void Ldc1614IdfCli::handleSessionOperationResult(
     const LDC1614::OperationResult& result) {
   _lastResult = result;
   _hasLastResult = true;
-  const bool success = result.outcome == LDC1614::TerminalOutcome::SUCCESS &&
-                       result.status.ok() && result.hasSampleBatch;
+  const bool terminalSuccess =
+      result.outcome == LDC1614::TerminalOutcome::SUCCESS &&
+      result.status.ok();
+  const bool expectsSample = _pending.kind == LDC1614::JobKind::ACQUIRE;
+  const LDC1614::Status effectiveStatus =
+      terminalSuccess && expectsSample && !result.hasSampleBatch
+          ? LDC1614::Status::Error(
+                LDC1614::Err::RESULT_NOT_READY,
+                "Successful acquisition omitted its complete sample batch")
+          : result.status;
+  const bool success = terminalSuccess &&
+                       (!expectsSample || result.hasSampleBatch);
   if (result.outcome != LDC1614::TerminalOutcome::CANCELLED) {
     recordLatency(_pending.startedMs, result.completedUptimeMs);
   }
-  if (!success) printResult(result);
-  if (success) {
+  if (!success) {
+    LDC1614::OperationResult effectiveResult = result;
+    effectiveResult.outcome = LDC1614::TerminalOutcome::FAILED;
+    effectiveResult.status = effectiveStatus;
+    printResult(effectiveResult);
+  }
+  if (!success) {
+    recordSessionFailure(effectiveStatus);
+  } else if (result.hasSampleBatch) {
     _lastBatch = result.sampleBatch;
     _hasLastBatch = true;
     recordBatchStats(result.sampleBatch);
-  } else {
-    recordSessionFailure(result.status);
   }
 
   if (_session.stopRequested ||
@@ -2446,6 +3135,54 @@ void Ldc1614IdfCli::handleSessionOperationResult(
     finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
+    return;
+  }
+
+  if (_session.kind == SessionKind::STRESS_RESET) {
+    ++_session.stats.completed;
+    _pending = PendingOperation{};
+    if (!success) {
+      ++_session.stats.failed;
+      _session.firstFailureIteration = _session.index;
+      finishSession(effectiveStatus, "FAILED");
+      return;
+    }
+    ++_session.stats.passed;
+    ++_session.index;
+    _session.phase = SessionPhase::STRESS_RESET_SCHEDULE;
+    return;
+  }
+
+  if (_session.kind == SessionKind::STRESS_BUS_FREQ) {
+    const bool restoring =
+        _session.phase == SessionPhase::STRESS_BUS_FREQ_RESTORE;
+    _pending = PendingOperation{};
+    if (restoring) {
+      if (!success) {
+        _session.restoreStatus = effectiveStatus;
+        finishSession(effectiveStatus, "FAILED");
+        return;
+      }
+      _session.restoreStatus = LDC1614::Status::Ok();
+      const LDC1614::Status terminal =
+          _session.stats.failed == 0U ? LDC1614::Status::Ok()
+                                      : _session.stats.lastFailure;
+      finishSession(terminal,
+                    _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
+      return;
+    }
+    ++_session.stats.completed;
+    if (success) {
+      ++_session.stats.passed;
+      ++_session.index;
+      _session.phase = _session.index >= _session.count
+                           ? SessionPhase::STRESS_BUS_FREQ_RESTORE
+                           : SessionPhase::STRESS_BUS_FREQ_SWITCH;
+    } else {
+      ++_session.stats.failed;
+      _session.firstFailureIteration = _session.index;
+      _session.phase = SessionPhase::STRESS_BUS_FREQ_RESTORE;
+    }
     return;
   }
 
@@ -2461,7 +3198,7 @@ void Ldc1614IdfCli::handleSessionOperationResult(
                      "transport passed but fixture/sample flags are not acceptance evidence");
       }
     } else {
-      selfTestFail("acquisition transport", result.status);
+      selfTestFail("acquisition transport", effectiveStatus);
       selfTestSkip("sensor quality", "acquisition transport failed");
     }
     _pending = PendingOperation{};
@@ -2485,7 +3222,7 @@ void Ldc1614IdfCli::handleSessionOperationResult(
   }
 
   if (_session.kind == SessionKind::SAMPLE_RATE) {
-    LDC1614::Status acceptance = result.status;
+    LDC1614::Status acceptance = effectiveStatus;
     bool accepted = success;
     bool selected = false;
     bool valid = false;
@@ -2708,17 +3445,41 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   LDC1614::Status status = LDC1614::Status::Ok();
 
   if (id == CommandId::HELP) {
-    if (rejectExtraArguments(line.argc, 1U)) return usage("help / ?");
-    printHelp();
+    if (line.argc > 2U) return usage("help / ? [command]");
+    if (line.argc == 2U) {
+      const CommandId requested = resolveCommand(line.argv[1]);
+      const CommandSpec* spec = commandSpec(requested);
+      if (spec == nullptr) {
+        logError("unknown help topic '%s'", line.argv[1]);
+        return promptActionForCurrentState();
+      }
+      printf("help command=%s aliases=%s section=%s execution=%s safety=%s "
+             "fixture=%s busy_allowed=%u evidence=%s\n",
+             spec->name, spec->aliases[0] != '\0' ? spec->aliases : "none",
+             sectionName(spec->section), executionName(spec->execution),
+             safetyName(spec->safety), fixtureName(spec->fixture),
+             commandAllowedWhileBusy(spec->id) ? 1U : 0U, spec->evidence);
+      printf("  synopsis: %s\n  %s\n", spec->synopsis, spec->description);
+    } else {
+      printHelp();
+    }
     printf("command_count=%u\n",
            static_cast<unsigned>(sizeof(COMMAND_SPECS) / sizeof(COMMAND_SPECS[0])));
     return promptActionForCurrentState();
   }
   if (id == CommandId::VERSION) {
     if (rejectExtraArguments(line.argc, 1U)) return usage("version / ver");
-    printf("version=%s firmware_git=%s firmware_status=%s build_timestamp=%s\n",
+    const I2cBusInfo bus = _platform.i2cBusInfo != nullptr
+                               ? _platform.i2cBusInfo(_platform.user)
+                               : I2cBusInfo{};
+    printf("version=%s firmware_git=%s firmware_status=%s build_timestamp=%s "
+           "platform=%s framework=%s framework_version=%s idf_version=%s "
+           "target=%s i2c_backend=%s frequency_hz=%lu\n",
            LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
-           LDC1614::BUILD_TIMESTAMP);
+           LDC1614::BUILD_TIMESTAMP, _platform.platformName,
+           _platform.frameworkName, _platform.frameworkVersion,
+           _platform.idfVersion, _platform.targetName, _platform.i2cBackend,
+           static_cast<unsigned long>(bus.frequencyHz));
     return promptActionForCurrentState();
   }
   if (id == CommandId::COLOR) {
@@ -2746,6 +3507,11 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     _verbose = std::strcmp(line.argv[1], "1") == 0;
     printf("verbose enabled=%u\n", _verbose ? 1U : 0U);
+    return promptActionForCurrentState();
+  }
+  if (id == CommandId::BUS) {
+    if (line.argc != 1U) return usage("bus / i2c");
+    printBus();
     return promptActionForCurrentState();
   }
 
@@ -2837,7 +3603,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
       _promptDeferred = true;
       return PromptAction::NONE;
     }
-    // A synchronous diagnostic session (for example, scan) can finish inside
+    // A synchronous diagnostic session (for example, discovery) can finish inside
     // stopActiveWork(). Its original deferred prompt is superseded by the
     // prompt returned for this cancel command.
     _promptDeferred = false;
@@ -2886,6 +3652,67 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
            status.ok() ? "SUCCESS" : "FAILED",
            static_cast<unsigned>(status.code));
     println("Run 'init' before trusted device use.");
+    return promptActionForCurrentState();
+  }
+  if (id == CommandId::BUS_FREQ) {
+    if (_platform.i2cBusInfo == nullptr) {
+      status = LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                                      "Bus information callback unavailable");
+      printStatus(status);
+      return promptActionForCurrentState();
+    }
+    const I2cBusInfo before = _platform.i2cBusInfo(_platform.user);
+    if (line.argc == 1U) {
+      printf("busfreq previous_hz=%lu requested_hz=%lu active_hz=%lu "
+             "reinitialized=0 outcome=SUCCESS code=0\n",
+             static_cast<unsigned long>(before.frequencyHz),
+             static_cast<unsigned long>(before.frequencyHz),
+             static_cast<unsigned long>(before.frequencyHz));
+      return promptActionForCurrentState();
+    }
+    if (line.argc != 3U ||
+        !parseUnsigned(line.argv[1], MAX_I2C_FREQUENCY_HZ, value) ||
+        value < MIN_I2C_FREQUENCY_HZ ||
+        !requireConfirmation(line.argv[2])) {
+      return usage("busfreq / i2cfreq [hz confirm]");
+    }
+    status = _platform.i2cSetFrequency != nullptr
+                 ? _platform.i2cSetFrequency(static_cast<uint32_t>(value),
+                                             _platform.user)
+                 : LDC1614::Status::Error(
+                       LDC1614::Err::INVALID_CONFIG,
+                       "Bus-frequency callback unavailable");
+    const I2cBusInfo after = _platform.i2cBusInfo(_platform.user);
+    if (status.ok() &&
+        (!after.open || after.frequencyHz != static_cast<uint32_t>(value))) {
+      status = LDC1614::Status::Error(
+          LDC1614::Err::I2C_BUS,
+          "Owner frequency callback did not reach requested state",
+          static_cast<int32_t>(after.frequencyHz));
+    }
+    const bool frequencyChanged =
+        status.ok() && before.frequencyHz != after.frequencyHz;
+    if (_device.isBound() && (!status.ok() || frequencyChanged)) {
+      _device.invalidateAppliedState(
+          status.ok()
+              ? LDC1614::Status::Error(
+                    LDC1614::Err::CONFIG_DIRTY,
+                    "Owner changed I2C frequency; full initialization required")
+              : status);
+    }
+    printf("busfreq previous_hz=%lu requested_hz=%lu active_hz=%lu "
+           "reinitialized=0 outcome=%s code=%u\n",
+           static_cast<unsigned long>(before.frequencyHz),
+           static_cast<unsigned long>(value),
+           static_cast<unsigned long>(after.frequencyHz),
+           status.ok() ? "SUCCESS" : "FAILED",
+           static_cast<unsigned>(status.code));
+    printStatus(status);
+    if (!status.ok() || frequencyChanged) {
+      println("Run 'init' before trusted device use.");
+    } else {
+      println("I2C frequency unchanged; applied-state trust was preserved.");
+    }
     return promptActionForCurrentState();
   }
 
@@ -3072,9 +3899,9 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
   }
-  if (id == CommandId::SCAN) {
-    if (line.argc != 1U) return usage("scan");
-    status = startSession(SessionKind::SCAN, CommandId::SCAN);
+  if (id == CommandId::DISCOVER) {
+    if (line.argc != 1U) return usage("discover / scan");
+    status = startSession(SessionKind::DISCOVER, CommandId::DISCOVER);
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
   }
@@ -3098,9 +3925,14 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     uint16_t registerValue = 0;
     status = _device.readRegister16(static_cast<uint8_t>(value), registerValue);
-    printf("register=0x%02lX value=0x%04X code=%u\n",
-           static_cast<unsigned long>(value), registerValue,
-           static_cast<unsigned>(status.code));
+    if (status.ok()) {
+      printRegisterValue(static_cast<uint8_t>(value), registerValue, "reg");
+    } else {
+      printf("reg register=0x%02lX name=%s read_failed code=%u\n",
+             static_cast<unsigned long>(value),
+             registerName(static_cast<uint8_t>(value)),
+             static_cast<unsigned>(status.code));
+    }
     printStatus(status);
     return promptActionForCurrentState();
   }
@@ -3112,8 +3944,11 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     status = _device.writeRegister16(static_cast<uint8_t>(value),
                                      static_cast<uint16_t>(second));
-    printf("register=0x%02lX value=0x%04lX code=%u\n",
-           static_cast<unsigned long>(value), static_cast<unsigned long>(second),
+    printf("wreg register=0x%02lX name=%s access=%s value=0x%04lX code=%u\n",
+           static_cast<unsigned long>(value),
+           registerName(static_cast<uint8_t>(value)),
+           registerAccess(static_cast<uint8_t>(value)),
+           static_cast<unsigned long>(second),
            static_cast<unsigned>(status.code));
     printStatus(status);
     return promptActionForCurrentState();
@@ -3121,39 +3956,83 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   if (id == CommandId::DECODE) return handleDecode(line);
   if (id == CommandId::FREQ) {
     uint64_t raw = 0;
-    if (line.argc != 3U || !parseUnsigned(line.argv[1], 3U, value) ||
+    const bool explicitProfile = line.argc == 4U;
+    const char* profile = _device.isBound() ? "desired" : "staged";
+    uint8_t channelArg = 1U;
+    uint8_t rawArg = 2U;
+    if (explicitProfile) {
+      if (std::strcmp(line.argv[1], "desired") != 0 &&
+          std::strcmp(line.argv[1], "staged") != 0) {
+        return usage("freq <channel> <raw28>\nfreq <desired|staged> <channel> <raw28>");
+      }
+      profile = line.argv[1];
+      channelArg = 2U;
+      rawArg = 3U;
+    }
+    if ((line.argc != 3U && line.argc != 4U) ||
+        !parseUnsigned(line.argv[channelArg], 3U, value) ||
         (_device.isBound() && _device.config().variant ==
                                   LDC1614::DeviceVariant::LDC1612 && value >= 2U) ||
-        !parseUnsigned(line.argv[2], 0x0FFFFFFFU, raw)) {
-      return usage("freq <channel> <raw28>");
+        !parseUnsigned(line.argv[rawArg], 0x0FFFFFFFU, raw)) {
+      return usage("freq <channel> <raw28>\nfreq <desired|staged> <channel> <raw28>");
     }
     ensureStagedProfile();
+    if (std::strcmp(profile, "desired") == 0 && !_device.isBound()) {
+      printStatus(LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+                                         "Desired profile unavailable"));
+      return promptActionForCurrentState();
+    }
+    const LDC1614::Config& config = std::strcmp(profile, "staged") == 0
+                                        ? _stagedConfig
+                                        : _device.config();
     double frequency = 0.0;
     status = LDC1614::LDC1614::calculateSensorFrequencyHz(
-        _device.isBound() ? _device.config() : _stagedConfig,
+        config,
         static_cast<LDC1614::Channel>(value), static_cast<uint32_t>(raw),
         frequency);
-    printf("channel=%lu raw=0x%07lX frequency_hz=%.6f code=%u\n",
-           static_cast<unsigned long>(value), static_cast<unsigned long>(raw),
-           frequency, static_cast<unsigned>(status.code));
+    printf("profile=%s channel=%lu raw=0x%07lX frequency_hz=%.6f code=%u\n",
+           profile, static_cast<unsigned long>(value),
+           static_cast<unsigned long>(raw), frequency,
+           static_cast<unsigned>(status.code));
     printStatus(status);
     return promptActionForCurrentState();
   }
   if (id == CommandId::TIMING) {
-    uint64_t mask = _device.isBound() ? _device.config().channels.bits : 0U;
-    if ((line.argc != 1U && line.argc != 2U) ||
-        (line.argc == 2U &&
-         (!parseUnsigned(line.argv[1], 0x0FU, mask) || mask == 0U))) {
-      return usage("timing [mask]");
-    }
     ensureStagedProfile();
+    const char* profile = _device.isBound() ? "desired" : "staged";
+    uint8_t maskArg = 0U;
+    if (line.argc >= 2U &&
+        (std::strcmp(line.argv[1], "desired") == 0 ||
+         std::strcmp(line.argv[1], "staged") == 0)) {
+      profile = line.argv[1];
+      maskArg = line.argc == 3U ? 2U : 0U;
+      if (line.argc > 3U) {
+        return usage("timing [mask]\ntiming <desired|staged> [mask]");
+      }
+    } else if (line.argc == 2U) {
+      maskArg = 1U;
+    } else if (line.argc != 1U) {
+      return usage("timing [mask]\ntiming <desired|staged> [mask]");
+    }
+    if (std::strcmp(profile, "desired") == 0 && !_device.isBound()) {
+      printStatus(LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+                                         "Desired profile unavailable"));
+      return promptActionForCurrentState();
+    }
+    const LDC1614::Config& config = std::strcmp(profile, "staged") == 0
+                                        ? _stagedConfig
+                                        : _device.config();
+    uint64_t mask = config.channels.bits;
+    if (maskArg != 0U &&
+        (!parseUnsigned(line.argv[maskArg], 0x0FU, mask) || mask == 0U)) {
+      return usage("timing [mask]\ntiming <desired|staged> [mask]");
+    }
     LDC1614::FrameTiming timing;
     status = LDC1614::LDC1614::estimateFrameTiming(
-        _device.isBound() ? _device.config() : _stagedConfig,
-        LDC1614::ChannelMask{static_cast<uint8_t>(mask)}, timing);
-    printf("mask=0x%02lX wake_settle_us=%" PRIu64 " conversion_us=%" PRIu64
+        config, LDC1614::ChannelMask{static_cast<uint8_t>(mask)}, timing);
+    printf("profile=%s mask=0x%02lX wake_settle_us=%" PRIu64 " conversion_us=%" PRIu64
            " sequential_frame_us=%" PRIu64 " acquisition_transfers=%u code=%u\n",
-           static_cast<unsigned long>(mask), timing.wakeAndSettleUs,
+           profile, static_cast<unsigned long>(mask), timing.wakeAndSettleUs,
            timing.conversionUs, timing.sequentialFrameUs,
            static_cast<unsigned>(timing.acquisitionTransfers),
            static_cast<unsigned>(status.code));
@@ -3181,6 +4060,71 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   if (id == CommandId::STATE) {
     if (line.argc != 1U) return usage("state");
     printState();
+    return promptActionForCurrentState();
+  }
+  if (id == CommandId::DIAG) {
+    if (line.argc != 1U) return usage("diag");
+    printDiagnostics();
+    return promptActionForCurrentState();
+  }
+  if (id == CommandId::XFER) {
+    if (_platform.i2cTransferStats == nullptr) {
+      status = LDC1614::Status::Error(
+          LDC1614::Err::INVALID_CONFIG,
+          "Owner transport statistics callback unavailable");
+      printStatus(status);
+      return promptActionForCurrentState();
+    }
+    if (line.argc == 2U && std::strcmp(line.argv[1], "reset") == 0) {
+      _transferBaseline = _platform.i2cTransferStats(_platform.user);
+      println("xfer write=0 write_read=0 discover=0 total=0 failures=0 "
+              "last_code=0 outcome=SUCCESS code=0");
+      return promptActionForCurrentState();
+    }
+    const I2cTransferStats stats = transferStatsSinceBaseline();
+    const uint64_t total = static_cast<uint64_t>(stats.writes) +
+                           static_cast<uint64_t>(stats.writeReads) +
+                           static_cast<uint64_t>(stats.discoveries);
+    if (line.argc == 2U && std::strcmp(line.argv[1], "stats") == 0) {
+      printf("xfer write=%lu write_read=%lu discover=%lu total=%" PRIu64 " failures=%lu "
+             "last_code=%u outcome=SUCCESS code=0\n",
+             static_cast<unsigned long>(stats.writes),
+             static_cast<unsigned long>(stats.writeReads),
+             static_cast<unsigned long>(stats.discoveries),
+             total,
+             static_cast<unsigned long>(stats.failures),
+             static_cast<unsigned>(stats.lastStatus.code));
+      return promptActionForCurrentState();
+    }
+    uint64_t expectedWrite = 0U;
+    uint64_t expectedWriteRead = 0U;
+    uint64_t expectedDiscover = 0U;
+    uint64_t expectedTotal = 0U;
+    if (line.argc != 6U || std::strcmp(line.argv[1], "assert") != 0 ||
+        !parseUnsigned(line.argv[2], UINT32_MAX, expectedWrite) ||
+        !parseUnsigned(line.argv[3], UINT32_MAX, expectedWriteRead) ||
+        !parseUnsigned(line.argv[4], UINT32_MAX, expectedDiscover) ||
+        !parseUnsigned(line.argv[5], UINT32_MAX, expectedTotal)) {
+      return usage("xfer stats|reset\nxfer assert <write> <write_read> <discover> <total>");
+    }
+    const bool match = stats.writes == expectedWrite &&
+                       stats.writeReads == expectedWriteRead &&
+                       stats.discoveries == expectedDiscover &&
+                       total == expectedTotal;
+    printf("xfer_assert expected_write=%lu actual_write=%lu "
+           "expected_write_read=%lu actual_write_read=%lu "
+           "expected_discover=%lu actual_discover=%lu expected_total=%lu "
+           "actual_total=%" PRIu64 " outcome=%s code=%u\n",
+           static_cast<unsigned long>(expectedWrite),
+           static_cast<unsigned long>(stats.writes),
+           static_cast<unsigned long>(expectedWriteRead),
+           static_cast<unsigned long>(stats.writeReads),
+           static_cast<unsigned long>(expectedDiscover),
+           static_cast<unsigned long>(stats.discoveries),
+           static_cast<unsigned long>(expectedTotal),
+           total, match ? "SUCCESS" : "FAILED",
+           match ? static_cast<unsigned>(LDC1614::Err::OK)
+                 : static_cast<unsigned>(LDC1614::Err::INVALID_PARAM));
     return promptActionForCurrentState();
   }
   if (id == CommandId::SELFTEST) {
@@ -3221,6 +4165,42 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
   }
+  if (id == CommandId::STRESS_ID) {
+    uint64_t count = 0U;
+    if (line.argc != 2U ||
+        !parseUnsigned(line.argv[1], MAX_SESSION_COUNT, count) || count == 0U) {
+      return usage("stress_id <count>");
+    }
+    status = startSession(SessionKind::STRESS_ID, CommandId::STRESS_ID,
+                          static_cast<uint32_t>(count));
+    if (!status.inProgress()) printStatus(status);
+    return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
+  }
+  if (id == CommandId::STRESS_RESET) {
+    uint64_t count = 0U;
+    if (line.argc != 3U ||
+        !parseUnsigned(line.argv[1], MAX_SESSION_COUNT, count) || count == 0U ||
+        !requireConfirmation(line.argv[2])) {
+      return usage("stress_reset <count> confirm");
+    }
+    status = startSession(SessionKind::STRESS_RESET, CommandId::STRESS_RESET,
+                          static_cast<uint32_t>(count));
+    if (!status.inProgress()) printStatus(status);
+    return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
+  }
+  if (id == CommandId::STRESS_BUS_FREQ) {
+    uint64_t count = 0U;
+    if (line.argc != 3U ||
+        !parseUnsigned(line.argv[1], MAX_SESSION_COUNT, count) || count == 0U ||
+        !requireConfirmation(line.argv[2])) {
+      return usage("stress_busfreq <count> confirm");
+    }
+    status = startSession(SessionKind::STRESS_BUS_FREQ,
+                          CommandId::STRESS_BUS_FREQ,
+                          static_cast<uint32_t>(count));
+    if (!status.inProgress()) printStatus(status);
+    return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
+  }
   if (id == CommandId::SOAK) {
     uint64_t seconds = 0;
     uint64_t mask = _device.isBound() ? _device.config().channels.bits : 0U;
@@ -3245,21 +4225,17 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
 PromptAction Ldc1614IdfCli::processCommand(const char* commandLine) {
   ParsedLine line;
   if (!parseLine(commandLine, line)) return promptActionForCurrentState();
-  const CommandId resolvedCommandId = resolveCommand(line.argv[0]);
-  switch (resolvedCommandId) {
-    case CommandId::UNKNOWN:
-      logError("unknown command '%s'; type help", line.argv[0]);
-      return promptActionForCurrentState();
-    default:
-      break;
+  const CommandId id = resolveCommand(line.argv[0]);
+  if (id == CommandId::UNKNOWN) {
+    logError("unknown command '%s'; type help", line.argv[0]);
+    return promptActionForCurrentState();
   }
-  if (asynchronousWorkActive() &&
-      !commandAllowedWhileBusy(resolvedCommandId)) {
+  if (asynchronousWorkActive() && !commandAllowedWhileBusy(id)) {
     printStatus(LDC1614::Status::Error(LDC1614::Err::BUSY,
                                        "CLI work active; use job or cancel"));
     return PromptAction::NONE;
   }
-  return handleCommand(resolvedCommandId, line);
+  return handleCommand(id, line);
 }
 
 static_assert(sizeof(Ldc1614IdfCli) <= 2048U,

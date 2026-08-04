@@ -14,12 +14,13 @@ using ldc1614_test::FakeLdc1614Device;
 struct CliFixture {
   FakeLdc1614Device fake{};
   uint64_t nowMs = 1000;
-  uint16_t probeCalls = 0;
+  uint16_t discoveryCalls = 0;
   uint16_t recoveryCalls = 0;
   uint16_t sdReadCalls = 0;
   uint16_t sdWriteCalls = 0;
   bool sdAsserted = false;
   bool useLdc1612 = false;
+  uint32_t busFrequencyHz = 400000U;
   char output[32768]{};
   size_t outputLength = 0;
 
@@ -92,12 +93,55 @@ LDC1614::Config fixtureConfig(void* user) {
   return config;
 }
 
-ldc1614_cli::I2cProbeResult fixtureProbe(uint8_t address, uint32_t, void* user) {
+ldc1614_cli::I2cBusInfo fixtureBusInfo(void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
-  ++fixture->probeCalls;
-  return address == fixture->fake.acceptedAddress
-             ? ldc1614_cli::I2cProbeResult::ACK
-             : ldc1614_cli::I2cProbeResult::NACK;
+  ldc1614_cli::I2cBusInfo info{};
+  info.open = true;
+  info.port = 0;
+  info.sda = 8;
+  info.scl = 9;
+  info.sdaLevel = 1;
+  info.sclLevel = 1;
+  info.address = fixture->fake.acceptedAddress;
+  info.frequencyHz = fixture->busFrequencyHz;
+  return info;
+}
+
+LDC1614::Status fixtureSetFrequency(uint32_t frequencyHz, void* user) {
+  auto* fixture = static_cast<CliFixture*>(user);
+  if (frequencyHz < 10000U || frequencyHz > 400000U) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                                  "invalid fixture I2C frequency");
+  }
+  fixture->busFrequencyHz = frequencyHz;
+  return LDC1614::Status::Ok();
+}
+
+LDC1614::Status fixtureReadRegister(uint8_t address, uint8_t registerAddress,
+                                    uint16_t& value, uint32_t, void* user) {
+  auto* fixture = static_cast<CliFixture*>(user);
+  ++fixture->discoveryCalls;
+  value = 0U;
+  if (address != fixture->fake.acceptedAddress) {
+    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR,
+                                  "fixture discovery NACK", 259);
+  }
+  if (registerAddress != LDC1614::cmd::REG_MANUFACTURER_ID &&
+      registerAddress != LDC1614::cmd::REG_DEVICE_ID) {
+    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                                  "unsupported fixture discovery register");
+  }
+  value = fixture->fake.reg[registerAddress];
+  return LDC1614::Status::Ok();
+}
+
+ldc1614_cli::I2cTransferStats fixtureTransferStats(void* user) {
+  auto* fixture = static_cast<CliFixture*>(user);
+  ldc1614_cli::I2cTransferStats stats{};
+  stats.writes = fixture->fake.writeCalls;
+  stats.writeReads = fixture->fake.readCalls;
+  stats.discoveries = fixture->discoveryCalls;
+  return stats;
 }
 
 LDC1614::Status fixtureRecoverObserved(void* user) {
@@ -125,11 +169,14 @@ ldc1614_cli::Cli::Platform fixturePlatform(CliFixture& fixture) {
   platform.vprintf = capturePrintf;
   platform.makeConfig = fixtureConfig;
   platform.nowMs = fixtureNow;
-  platform.i2cProbe = fixtureProbe;
+  platform.i2cBusInfo = fixtureBusInfo;
+  platform.i2cSetFrequency = fixtureSetFrequency;
+  platform.i2cReadRegister = fixtureReadRegister;
+  platform.i2cTransferStats = fixtureTransferStats;
   platform.i2cRecover = fixtureRecoverObserved;
   platform.sdRead = fixtureSdRead;
   platform.sdWrite = fixtureSdWrite;
-  platform.scanTimeoutMs = 25;
+  platform.discoveryTimeoutMs = 25;
   return platform;
 }
 
@@ -188,7 +235,7 @@ void test_cli_fixed_memory_and_complete_colored_help() {
   TEST_ASSERT_TRUE(contains(fixture, "\033[36m=== LDC1614 CLI ==="));
   TEST_ASSERT_TRUE(contains(fixture, "profile commit confirm"));
   TEST_ASSERT_TRUE(contains(fixture, "stress_mix <n> [mask] confirm"));
-  TEST_ASSERT_TRUE(contains(fixture, "command_count=64"));
+  TEST_ASSERT_TRUE(contains(fixture, "command_count=71"));
 
   fixture.clearOutput();
   cli.processCommand("version");
@@ -223,7 +270,10 @@ void test_cli_strict_arguments_confirmation_and_zero_i2c_rejection() {
   fixture.clearOutput();
   cli.processCommand("reg 0x7E confirm");
   TEST_ASSERT_EQUAL_UINT16(1U, fixture.fake.transferCalls);
-  TEST_ASSERT_TRUE(contains(fixture, "register=0x7E value=0x5449 code=0"));
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "reg register=0x7E name=MANUFACTURER_ID access=R destructive=0 "
+      "value=0x5449 reserved_valid=1"));
 }
 
 void test_cli_staging_is_bus_silent_transactional_and_commit_is_explicit() {
@@ -290,11 +340,13 @@ void test_cli_cooperative_probe_scan_watch_and_machine_evidence() {
   TEST_ASSERT_TRUE(contains(fixture, "device_id=0x3055"));
 
   fixture.clearOutput();
-  fixture.probeCalls = 0;
+  fixture.discoveryCalls = 0;
   cli.processCommand("scan");
   serviceToIdle(cli, fixture);
-  TEST_ASSERT_EQUAL_UINT16(112U, fixture.probeCalls);
-  TEST_ASSERT_TRUE(contains(fixture, "scan complete found=1 probes=112 code=0"));
+  TEST_ASSERT_EQUAL_UINT16(3U, fixture.discoveryCalls);
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "discover tested=2 responding=1 matched=1 mismatched=0 failed=1"));
 
   fixture.clearOutput();
   cli.processCommand("init");
@@ -318,7 +370,7 @@ void test_cli_cooperative_probe_scan_watch_and_machine_evidence() {
 
 void test_cli_all_canonical_commands_reject_surplus_arguments_without_i2c() {
   static const char* const commands[] = {
-      "help extra",
+      "help help extra",
       "version extra",
       "color on extra",
       "verbose 1 extra",
@@ -334,6 +386,8 @@ void test_cli_all_canonical_commands_reject_surplus_arguments_without_i2c() {
       "result extra",
       "invalidate confirm extra",
       "busrecover confirm extra",
+      "bus extra",
+      "busfreq 100000 confirm extra",
       "read 1 extra",
       "last 0 extra",
       "watch 1 1 0 extra",
@@ -377,13 +431,18 @@ void test_cli_all_canonical_commands_reject_surplus_arguments_without_i2c() {
       "driveua 1 extra",
       "drv extra",
       "state extra",
+      "diag extra",
+      "xfer stats extra",
       "selftest extra",
       "stress 1 1 extra",
       "stress_mix 1 1 confirm extra",
+      "stress_id 1 extra",
+      "stress_reset 1 confirm extra",
+      "stress_busfreq 1 confirm extra",
       "soak 1 1 extra",
       "sd status extra",
   };
-  static_assert(sizeof(commands) / sizeof(commands[0]) == 64U,
+  static_assert(sizeof(commands) / sizeof(commands[0]) == 71U,
                 "Canonical surplus-argument matrix must cover all commands");
 
   CliFixture fixture;
@@ -398,7 +457,7 @@ void test_cli_all_canonical_commands_reject_surplus_arguments_without_i2c() {
         static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
         static_cast<uint8_t>(cli.processCommand(command)));
     TEST_ASSERT_EQUAL_UINT16(before, fixture.fake.transferCalls);
-    TEST_ASSERT_TRUE(contains(fixture, "usage:"));
+    TEST_ASSERT_TRUE_MESSAGE(contains(fixture, "usage:"), command);
     TEST_ASSERT_FALSE(contains(fixture, "unknown command"));
     TEST_ASSERT_FALSE(cli.asynchronousWorkActive());
   }
@@ -411,7 +470,7 @@ void test_cli_all_aliases_dispatch_to_their_canonical_families() {
     bool asynchronous;
   };
   static const AliasCase aliases[] = {
-      {"?", "command_count=64", false},
+      {"?", "command_count=71", false},
       {"ver", "version=", false},
       {"stop", "command=cancel", false},
       {"progress", "job active=", false},
@@ -421,6 +480,9 @@ void test_cli_all_aliases_dispatch_to_their_canonical_families() {
       {"id", "manufacturer_id=", true},
       {"rreg 0x7E", "register=0x7E", false},
       {"health", "drv bound=", false},
+      {"i2c", "bus open=", false},
+      {"i2cfreq", "busfreq previous_hz=", false},
+      {"scan", "command=discover", true},
   };
   CliFixture fixture;
   LDC1614::LDC1614 device;
@@ -459,7 +521,7 @@ void test_cli_complete_staged_profile_surface_is_silent_and_transactional() {
       {"autoamp 1", "enabled=1"},
       {"highcurrent 1", "enabled=1"},
       {"intbconfig 0", "enabled=0"},
-      {"errors none", "ur=0 or=0 wd=0 ah=0 al=0 zc=0 drdy=0"},
+      {"errors none", "errors data_under=0 data_over=0 data_watchdog=0"},
       {"rcount 0 1300", "channel=0 value=1300"},
       {"settle 0 20", "channel=0 value=20"},
       {"findiv 0 3", "channel=0 value=3"},
@@ -536,7 +598,10 @@ void test_cli_complete_staged_profile_surface_is_silent_and_transactional() {
   TEST_ASSERT_TRUE(contains(fixture, "cfg label=desired"));
   TEST_ASSERT_TRUE(contains(fixture, "address=0x2A build_profile_only=1"));
   TEST_ASSERT_TRUE(contains(fixture, "variant=LDC1614 variant_channels=4"));
-  TEST_ASSERT_TRUE(contains(fixture, "ur=1 or=1 wd=1 ah=1 al=1 zc=1 drdy=1"));
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "errors data_under=1 data_over=1 data_watchdog=1 "
+      "data_amplitude_high=1 data_amplitude_low=1"));
 
   fixture.clearOutput();
   cli.processCommand("sensorbounds 0 5000000 100000");
@@ -609,8 +674,13 @@ void test_cli_reading_register_and_pure_helpers_emit_complete_evidence() {
   TEST_ASSERT_TRUE(contains(fixture, "ready="));
   TEST_ASSERT_TRUE(contains(fixture, "intb asserted="));
   TEST_ASSERT_TRUE(contains(fixture, "channel=0 init_drive_code="));
-  TEST_ASSERT_TRUE(contains(fixture, "register=0x7E value=0x5449 code=0"));
-  TEST_ASSERT_TRUE(contains(fixture, "register=0x08 value=0x04D6 code=0"));
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "reg register=0x7E name=MANUFACTURER_ID access=R destructive=0 "
+      "value=0x5449 reserved_valid=1"));
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "wreg register=0x08 name=RCOUNT0 access=RW value=0x04D6 code=0"));
   TEST_ASSERT_TRUE(contains(fixture, "decode kind=status"));
   TEST_ASSERT_TRUE(contains(fixture, "decode kind=data"));
   TEST_ASSERT_TRUE(contains(fixture, "frequency_hz="));
@@ -676,7 +746,7 @@ void test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths() 
   TEST_ASSERT_EQUAL_UINT8(
       static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
       static_cast<uint8_t>(cli.processCommand("cancel")));
-  TEST_ASSERT_TRUE(contains(fixture, "command=scan"));
+  TEST_ASSERT_TRUE(contains(fixture, "command=discover"));
   TEST_ASSERT_TRUE(contains(fixture, "outcome=CANCELLED"));
 
   fixture.clearOutput();
@@ -701,7 +771,7 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
   fixture.fake.clearIo();
   cli.processCommand("dump config");
   serviceToIdle(cli, fixture);
-  TEST_ASSERT_TRUE(contains(fixture, "dump scope=config register="));
+  TEST_ASSERT_TRUE(contains(fixture, "dump_config register="));
   TEST_ASSERT_TRUE(contains(fixture, "dump complete scope=config count="));
 
   fixture.clearOutput();
@@ -850,6 +920,44 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   TEST_ASSERT_TRUE(contains(fixture, "detail=-9300"));
 }
 
+void test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure() {
+  CliFixture fixture;
+  LDC1614::LDC1614 device;
+  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
+  initializeAndWake(cli, device, fixture);
+
+  fixture.fake.clearIo();
+  fixture.fake.injectConversion(0U, 0x01234567U);
+  cli.processCommand("read 0x01");
+  serviceToIdle(cli, fixture);
+
+  fixture.clearOutput();
+  cli.processCommand("stress_reset 1 confirm");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "ResetStress result: requested=1 completed=1 ok=1 fail=0 "));
+  TEST_ASSERT_FALSE(contains(fixture, "first_failure "));
+
+  fixture.clearOutput();
+  cli.processCommand("last 0");
+  TEST_ASSERT_TRUE(contains(fixture, "raw28=0x1234567"));
+
+  fixture.clearOutput();
+  cli.processCommand("stress_busfreq 1 confirm");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "BusFrequencyStress result: requested=1 completed=1 ok=1 fail=0 "));
+  TEST_ASSERT_TRUE(contains(fixture, "restored_hz=400000 restore_code=0"));
+  TEST_ASSERT_FALSE(contains(fixture, "first_failure "));
+
+  fixture.clearOutput();
+  cli.processCommand("last 0");
+  TEST_ASSERT_TRUE(contains(fixture, "raw28=0x1234567"));
+}
+
 void test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent() {
   CliFixture fixture;
   LDC1614::LDC1614 device;
@@ -948,5 +1056,6 @@ void registerLdc1614CliTests() {
   RUN_TEST(test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths);
   RUN_TEST(test_cli_dump_verify_selftest_sampling_stress_soak_and_failures);
   RUN_TEST(test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples);
+  RUN_TEST(test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure);
   RUN_TEST(test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent);
 }
