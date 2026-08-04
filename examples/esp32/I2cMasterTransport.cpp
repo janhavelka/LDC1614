@@ -143,14 +143,10 @@ LDC1614::Status reopen(Context& context) {
   return open(context, config);
 }
 
-LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
+LDC1614::Status recover(Context& context) {
   if (!context.hasBusConfig) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                   "I2C bus configuration unavailable");
-  }
-  if (timeoutMs == 0U) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
-                                  "I2C recovery timeout must be nonzero");
   }
   if (context.device != nullptr && context.bus == nullptr) {
     return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
@@ -165,28 +161,13 @@ LDC1614::Status recover(Context& context, uint32_t timeoutMs) {
     return status;
   }
 
-  status = mapEspErr(i2c_master_bus_reset(context.bus),
-                     "I2C recovery bus reset failed");
-  if (!status.ok()) {
-    return status;
-  }
-
-  // The pinned ESP-IDF 5.5.5 backend uses one generic INVALID_STATE result for
-  // several failed synchronous-transaction outcomes. This bounded probe proves
-  // only that the rebuilt target acknowledges its address. It does not prove
-  // that a following combined read will succeed; the caller must still perform
-  // complete initialization and replay before accepting recovery.
-  const esp_err_t probeError = i2c_master_probe(
-      context.bus, context.address, clampTimeoutMs(timeoutMs));
-  if (probeError == ESP_OK) {
-    return LDC1614::Status::Ok();
-  }
-  if (probeError == ESP_ERR_NOT_FOUND) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_NACK_ADDR,
-                                  "I2C recovery target did not ACK",
-                                  static_cast<int32_t>(probeError));
-  }
-  return mapEspErr(probeError, "I2C recovery target probe failed");
+  // Reconstruct only software/controller state here. ESP-IDF 5.5.x collapses
+  // NACK and several controller outcomes into ESP_ERR_INVALID_STATE. Blindly
+  // clocking the lines after that ambiguous result can corrupt an LDC161x
+  // transaction, and an address-only probe does not qualify its required
+  // combined register-read protocol. The owner must invalidate every affected
+  // device and use full device-specific initialization/replay for admission.
+  return LDC1614::Status::Ok();
 }
 
 LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,

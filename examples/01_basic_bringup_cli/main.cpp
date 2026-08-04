@@ -71,7 +71,7 @@ LDC1614::Status arduinoI2cRecover(void* user) {
     return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
                                   "I2C recovery context missing");
   }
-  return esp32_i2c::recover(*context, board::I2C_TIMEOUT_MS);
+  return esp32_i2c::recover(*context);
 }
 
 LDC1614::Config makeDefaultConfig(void* user) {

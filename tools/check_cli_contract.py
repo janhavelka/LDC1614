@@ -178,12 +178,16 @@ def main() -> int:
         fail("combined write-read must use one bounded new-master transaction")
     for token in (
         "i2c_master_bus_rm_device", "i2c_del_master_bus", "reopen(context)",
-        "i2c_master_bus_reset(context.bus)",
-        "const esp_err_t probeError = i2c_master_probe",
-        "context.bus, context.address, clampTimeoutMs(timeoutMs)",
     ):
         if token not in transport_text:
-            fail("owner recovery must rebuild and verify the owned bus/device lifecycle")
+            fail("owner recovery must rebuild the owned bus/device lifecycle")
+    recover_start = transport_text.find("LDC1614::Status recover(Context& context)")
+    recover_end = transport_text.find("LDC1614::Status write(", recover_start)
+    recover_text = transport_text[recover_start:recover_end]
+    if (recover_start < 0 or recover_end < 0 or
+            "i2c_master_bus_reset" in recover_text or
+            "i2c_master_probe" in recover_text):
+        fail("ambiguous owner recovery must not pulse lines or address-probe")
 
     for label, source in (("version generator", version_text), ("IDF build", idf_cmake_text)):
         if "--untracked-files=all" not in source or "--untracked-files=no" in source:

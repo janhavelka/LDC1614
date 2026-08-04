@@ -18,9 +18,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 REQUIRED_IDF_TOKENS = (
     '#include "driver/i2c_master.h"', "i2c_new_master_bus",
-    "i2c_master_bus_add_device", "i2c_master_bus_reset", "i2c_master_probe",
+    "i2c_master_bus_add_device", "i2c_master_probe",
     "i2c_master_bus_rm_device", "i2c_del_master_bus", "esp32_i2c::recover",
-    "esp32_i2c::recover(*context, I2C_TIMEOUT_MS)",
+    "esp32_i2c::recover(*context)",
     "Ldc1614IdfCli", "esp32_i2c::write", "esp32_i2c::writeRead",
     "esp32_i2c::intbAsserted", "esp32_i2c::uptimeMs", ".bind(",
     ".startInitialize(", ".poll(", ".takeResult(", "select(",

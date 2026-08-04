@@ -45,7 +45,7 @@ enum class ProbeResult : uint8_t {
 LDC1614::Status open(Context& context, const BusConfig& config);
 LDC1614::Status close(Context& context);
 LDC1614::Status reopen(Context& context);
-LDC1614::Status recover(Context& context, uint32_t timeoutMs);
+LDC1614::Status recover(Context& context);
 
 LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,
                       uint32_t timeoutMs, void* user);
