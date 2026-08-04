@@ -30,8 +30,12 @@ static constexpr int I2C_SDA = 8;
 /// @brief I2C SCL pin (clock line). Example default for ESP32-S2/S3.
 static constexpr int I2C_SCL = 9;
 
-/// @brief I2C clock frequency in Hz.
-static constexpr uint32_t I2C_FREQ_HZ = 400000;
+#ifndef LDC1614_EXAMPLE_I2C_FREQUENCY_HZ
+#define LDC1614_EXAMPLE_I2C_FREQUENCY_HZ 100000
+#endif
+
+/// @brief Example I2C clock frequency in Hz. Override for HIL A/B tests.
+static constexpr uint32_t I2C_FREQ_HZ = LDC1614_EXAMPLE_I2C_FREQUENCY_HZ;
 
 /// @brief I2C timeout in milliseconds for example transactions.
 static constexpr uint16_t I2C_TIMEOUT_MS = 50;
@@ -54,6 +58,8 @@ static_assert(LDC_I2C_ADDRESS == 0x2A || LDC_I2C_ADDRESS == 0x2B,
               "LDC example address must be 0x2A or 0x2B");
 static_assert(LDC_CHANNEL_COUNT == 2 || LDC_CHANNEL_COUNT == 4,
               "LDC example variant must have 2 or 4 channels");
+static_assert(I2C_FREQ_HZ > 0U && I2C_FREQ_HZ <= 400000U,
+              "LDC example I2C frequency must be 1..400000 Hz");
 
 /// @brief INTB pin from LDC1614 (push-pull, active low).
 /// Set to -1 to disable.

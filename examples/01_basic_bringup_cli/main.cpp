@@ -201,7 +201,9 @@ void setup() {
     ldcCli.printPrompt();
     return;
   }
-  ldcCli.logInfo("I2C initialized (SDA=%d, SCL=%d)", board::I2C_SDA, board::I2C_SCL);
+  ldcCli.logInfo("I2C initialized (SDA=%d, SCL=%d, frequency_hz=%lu)",
+                 board::I2C_SDA, board::I2C_SCL,
+                 static_cast<unsigned long>(board::I2C_FREQ_HZ));
 
   board::initIntbPin();
 
