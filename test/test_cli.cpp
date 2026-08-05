@@ -809,7 +809,7 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
   fixture.fake.injectConversion(0U, 0x01234567U);
   cli.processCommand("stress 2 0x01");
   serviceToIdle(cli, fixture);
-  TEST_ASSERT_TRUE(contains(fixture, "Stress results: 2 ok, 0 failed"));
+  TEST_ASSERT_TRUE(contains(fixture, "Stress result: requested=2 ok=2 fail=0"));
 
   fixture.clearOutput();
   fixture.fake.clearIo();

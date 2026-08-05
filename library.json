@@ -74,7 +74,6 @@
       ".vscode/**",
       "test/**",
       "tools/**",
-      "prompts/**",
       "*.tar.gz",
       "*.tgz",
       "*.zip"

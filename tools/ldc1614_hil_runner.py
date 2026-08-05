@@ -10,6 +10,7 @@ explicit-duration bounded soak.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -90,7 +91,7 @@ class SerialRunFailure(RuntimeError):
 
 
 class TranscriptJournal:
-    """Incremental raw transcript with an in-memory mirror for JSON evidence."""
+    """Incremental raw transcript with an in-memory mirror for classification."""
 
     def __init__(self, path: str) -> None:
         self.path = Path(path) if path else None
@@ -628,7 +629,6 @@ OK_PATTERNS = [
         r"\bReadFresh result:",
         r"\bReadStaged result:",
         r"\bSampleRate result:.*\bfail=(?:\x1b\[[0-9;]*m)*0\b",
-        r"\bStress results:.*\b0\s+failed\b",
     )
 ]
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
@@ -638,10 +638,6 @@ PROMPT_BOUNDARY_PATTERN = re.compile(
 )
 SAMPLE_LINE_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\b", re.IGNORECASE)
 SAMPLE_FAIL_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\s+failed\b", re.IGNORECASE)
-STRESS_RESULT_PATTERN = re.compile(
-    r"Stress results:\s*(\d+)\s+ok,\s*(\d+)\s+failed",
-    re.IGNORECASE,
-)
 STRESS_DETAIL_PATTERN = re.compile(
     r"Stress result:\s*requested=(\d+)\s+ok=(\d+)\s+fail=(\d+)"
     r"\s+elapsed_ms=(\d+)(?:\s+hz=(\d+(?:\.\d+)?))?",
@@ -2295,8 +2291,7 @@ def summarize_stress(args: argparse.Namespace,
 
     output = strip_ansi(str(result.get("output", "")))
     detail_match = STRESS_DETAIL_PATTERN.search(output)
-    legacy_match = STRESS_RESULT_PATTERN.search(output)
-    if detail_match is None and legacy_match is None:
+    if detail_match is None:
         summary["status"] = "FAIL" if status == "FAIL" else "UNKNOWN"
         summary["reason"] = (
             str(result.get("reason", "stress command failed"))
@@ -2305,23 +2300,15 @@ def summarize_stress(args: argparse.Namespace,
         )
         return summary
 
-    if detail_match is not None:
-        requested_count = int(detail_match.group(1))
-        ok_count = int(detail_match.group(2))
-        fail_count = int(detail_match.group(3))
-        elapsed_s = int(detail_match.group(4)) / 1000.0
-        reported_hz = (
-            float(detail_match.group(5))
-            if detail_match.group(5) is not None else None
-        )
-        summary["elapsed_s"] = elapsed_s
-    else:
-        assert legacy_match is not None
-        ok_count = int(legacy_match.group(1))
-        fail_count = int(legacy_match.group(2))
-        requested_count = ok_count + fail_count
-        elapsed_s = float(summary["elapsed_s"])
-        reported_hz = None
+    requested_count = int(detail_match.group(1))
+    ok_count = int(detail_match.group(2))
+    fail_count = int(detail_match.group(3))
+    elapsed_s = int(detail_match.group(4)) / 1000.0
+    reported_hz = (
+        float(detail_match.group(5))
+        if detail_match.group(5) is not None else None
+    )
+    summary["elapsed_s"] = elapsed_s
     summary["success_count"] = ok_count
     summary["failure_count"] = fail_count
     summary["effective_hz"] = (
@@ -3378,18 +3365,27 @@ def render_markdown(result: Dict[str, object]) -> str:
 
 
 def write_outputs(args: argparse.Namespace, result: Dict[str, object]) -> None:
-    json_text = json.dumps(result, indent=2, sort_keys=True) + "\n"
     markdown_text = render_markdown(result)
+    transcript = str(result.get("transcript", ""))
+
+    artifact_result = dict(result)
+    if args.raw_transcript_out:
+        raw_path = Path(args.raw_transcript_out)
+        raw_path.write_text(transcript, encoding="utf-8", newline="\n")
+        raw_bytes = raw_path.read_bytes()
+        artifact_result.pop("transcript", None)
+        artifact_result["raw_transcript"] = {
+            "file": raw_path.name,
+            "bytes": len(raw_bytes),
+            "sha256": hashlib.sha256(raw_bytes).hexdigest(),
+        }
+
+    json_text = json.dumps(artifact_result, indent=2, sort_keys=True) + "\n"
 
     if args.json_out:
         Path(args.json_out).write_text(json_text, encoding="utf-8", newline="\n")
     if args.markdown_out:
         Path(args.markdown_out).write_text(markdown_text, encoding="utf-8", newline="\n")
-    if args.raw_transcript_out:
-        Path(args.raw_transcript_out).write_text(
-            str(result.get("transcript", "")), encoding="utf-8", newline="\n"
-        )
-
     if not args.quiet:
         print(markdown_text)
 

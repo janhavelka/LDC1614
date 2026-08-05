@@ -41,6 +41,9 @@ wifi_credentials.h
 *.tmp
 *.bak
 *.log
+*.runner.md
+/hil*.json
+/hil*.serial.txt
 dist/
 *.tar.gz
 *.tgz

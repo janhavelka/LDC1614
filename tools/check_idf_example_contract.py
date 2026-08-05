@@ -25,7 +25,8 @@ REQUIRED_IDF_TOKENS = (
     "esp32_i2c::readRegisterAt", "esp32_i2c::setFrequency",
     "esp32_i2c::intbAsserted", "esp32_i2c::uptimeMs", ".bind(",
     ".startInitialize(", ".poll(", ".takeResult(", "select(",
-    "readConsoleChar", "GPIO_PULLUP_DISABLE", "push-pull", "ErrorReporting::all",
+    "readConsoleChar", "gpioPinMask", "GPIO_PULLUP_DISABLE", "push-pull",
+    "ErrorReporting::all",
 )
 FORBIDDEN_IDF_PATTERNS = (
     (r'#\s*include\s*[<"]Arduino\.h[>"]', "Arduino.h"),

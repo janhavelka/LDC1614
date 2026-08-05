@@ -36,7 +36,7 @@ cycles.
 
 Type `help` for the canonical, colored command reference. It is generated from
 the same fixed command manifest used to check Arduino/ESP-IDF parity and groups
-all 64 command families by purpose. Repository contract checks separately
+the command surface by purpose. Repository contract checks separately
 associate each row with its execution class, safety class, fixture requirement,
 and stable evidence keys. `color off` emits the same help without ANSI escapes
 for logs and parsers; `verbose 1` adds bounded per-step diagnostics without

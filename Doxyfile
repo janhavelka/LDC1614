@@ -1,5 +1,4 @@
-# Doxygen configuration for LDC1614
-# Generated and maintained for unified API documentation.
+# Maintained Doxygen configuration for LDC1614 public documentation.
 
 PROJECT_NAME           = "LDC1614"
 PROJECT_NUMBER         = "3.1.0"
@@ -33,7 +32,6 @@ STRIP_CODE_COMMENTS    = NO
 
 INPUT                  = README.md \
                          CHANGELOG.md \
-                         CONTRIBUTING.md \
                          include \
                          docs/I2C_INTEGRATION.md \
                          docs/HARDWARE_INTEGRATION.md \

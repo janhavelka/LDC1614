@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-08-05
+
 ### Added
 
 - Public, bus-silent `validateConfig()` and canonical configuration-register
@@ -49,9 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   terminal result or diagnostic-session summary is printed.
 - HIL stress and sensor-gated sample-rate coverage now use stable CLI
   scheduled/result envelopes for both maintained firmware profiles.
-- Replaced the completed TunnelMonitor suitability-audit ledger with a concise
-  open-gates guide, and reduced validation status to repeatable release checks,
-  retained evidence boundaries, and unresolved physical validation.
+- Reduced validation status to repeatable release checks, retained evidence
+  boundaries, and unresolved physical validation.
 - Consolidated HIL artifact guidance into the maintained validation procedure;
   retained transcript-bearing JSON and raw serial captures while removing
   generated Markdown copies and completed report/audit narratives.
@@ -65,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exported the maintained guides, contribution and Doxygen configuration, and
   primary datasheet so documentation links in packaged README files remain
   usable.
+- Added a repository release procedure with the complete validation, commit,
+  annotated-tag, push, and GitHub publication commands.
+- Added a CI hygiene check for broken local documentation links, generated or
+  one-time tracked files, and JSON/raw HIL transcript integrity.
 - The version generator now synchronizes and checks `idf_component.yml` and
   Doxygen project metadata from the authoritative `library.json` version.
 - Pin maintained Arduino builds to pioarduino `55.03.311` (Arduino 3.3.11,
@@ -81,6 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the bus if device registration fails. The redundant Wire adapter and unused
   host framework stubs were removed. Complete combined identity reads and
   replay remain mandatory after recovery.
+
+### Removed
+
+- Removed superseded HIL parser/recovery experiments, duplicate embedded
+  transcripts, generated report copies, and historical debug bundles from the
+  current evidence archive. Commit `d3b434a` remains the historical recovery
+  point for the complete pre-cleanup archive.
+- Removed the consumer-specific TunnelMonitor work ledger and the obsolete
+  `prompts/**` package exclusion from this generic library repository.
+- Removed the duplicate legacy prose `stress` summary and its host-parser
+  fallback; the structured counted/rate record remains the command contract.
 
 ### Fixed
 
@@ -115,10 +131,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   target rail cycle. Recovery guidance therefore terminates the operation,
   avoids register retry/line clearing, and prefers bounded device-local SD or
   power recovery followed by full identity and replay.
-- TunnelMonitor integration guidance excludes `RESET_DEV` from its normal
-  lifecycle, uses complete initialization for boot/re-admission and full apply
-  for profile changes, and keeps reset qualification separate from its exact
-  ESP32-S3 production-path soak.
 - Exact clean COM8 evidence now includes a 187/187-command non-reset matrix and
   a 3,600-second, 2,926-cycle controller-reconstruction/re-admission soak with
   32,186 commands, zero failures/unknowns/resets, and 32 ms worst latency. A
@@ -171,6 +183,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Maintained ESP32 PlatformIO uploads suppress esptool's Unicode progress bar,
   avoiding Windows console-encoding failures that can interrupt a flash and
   leave the native USB loader endpoint occupied.
+- Native ESP-IDF optional-GPIO mask construction now shifts a validated runtime
+  index, avoiding ESP-IDF 6 compile-time overflow diagnostics when INTB is
+  configured as `GPIO_NUM_NC`.
 - Absolute 64-bit job deadlines now use half-range wrap-safe comparison, so a
   valid deadline immediately after `uint64_t` rollover is not timed out early.
 - The HIL runner rejects non-finite timing arguments and applies one absolute
@@ -181,6 +196,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the true RCOUNT boundaries, requires a clean final staged profile, and stops
   at the first unexpected base-command failure. Every unsent command is
   retained as explicit `NOT_RUN` instead of exercising a poisoned backend.
+- HIL JSON now references the separately retained raw transcript by filename,
+  byte count, and SHA-256 instead of embedding a duplicate full transcript.
+- Release, validation, and HIL documentation now separates the retained
+  no-sensor evidence from exact-release and sensor-equipped acceptance.
+- Added explicit repository line-ending rules for source, documentation,
+  metadata, Windows command wrappers, and binary PDF references.
+- Updated maintained GitHub Actions to the current Node 24-based checkout,
+  Python setup, and cache major versions.
 
 ## [3.0.0] - 2026-07-22
 
@@ -452,7 +475,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0

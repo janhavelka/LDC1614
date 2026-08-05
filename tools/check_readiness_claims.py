@@ -39,7 +39,6 @@ def maintained_files() -> Iterable[Path]:
         ROOT / "docs" / "HARDWARE_INTEGRATION.md",
         ROOT / "docs" / "HIL_VALIDATION.md",
         ROOT / "docs" / "VALIDATION_STATUS.md",
-        ROOT / "docs" / "TUNNELMONITOR_INTEGRATION_GATES.md",
     ]
     for path in explicit:
         if path.exists():

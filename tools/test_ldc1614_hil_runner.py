@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import sys
@@ -733,7 +734,6 @@ class ClassifierTests(unittest.TestCase):
         )
         stress = async_output(
             "stress", 17,
-            "Stress results: 25 ok, 0 failed\n"
             "Stress result: requested=25 ok=25 fail=0 elapsed_ms=100 hz=250.0\n"
             "session_channel=0 selected=25 valid=0 fresh=25 error=25 "
             "overrun=3 bounds_fail=25\n",
@@ -1218,7 +1218,6 @@ class MatrixAndSummaryTests(unittest.TestCase):
             stress_outputs = {
                 expected[0]: async_output(
                     "stress", 10,
-                    "Stress results: 25 ok, 0 failed\n"
                     "Stress result: requested=25 ok=25 fail=0 elapsed_ms=100 hz=250.000000\n",
                 ),
                 expected[1]: async_output(
@@ -1289,7 +1288,8 @@ class MatrixAndSummaryTests(unittest.TestCase):
         stress_args = runner.parse_args(["--include-stress", "--stress-count", "10"])
         stress = runner.summarize_stress(stress_args, [{
             "command": "stress 10 0x01", "status": "PASS", "elapsed_s": 0.5,
-            "output": "Stress results: 10 ok, 0 failed\n",
+            "output": "Stress result: requested=10 ok=10 fail=0 "
+                      "elapsed_ms=500 hz=20.000\n",
         }])
         self.assertEqual("PASS", stress["status"])
         self.assertEqual(10, stress["success_count"])
@@ -1785,12 +1785,20 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
                 "--raw-transcript-out", str(raw), "--json-out", str(result_path), "--quiet",
             ])
             result = json.loads(result_path.read_text(encoding="utf-8"))
-            raw_text = raw.read_text(encoding="utf-8")
+            raw_bytes = raw.read_bytes()
+            raw_text = raw_bytes.decode("utf-8")
         self.assertEqual(1, exit_code)
         self.assertEqual("FAIL", result["overall_status"])
         self.assertEqual("serial_failure", result["evidence_type"])
         self.assertEqual("OSError", result["serial_failure"]["type"])
         self.assertEqual("3.0.0", result["firmware_version"])
+        self.assertNotIn("transcript", result)
+        self.assertEqual(raw.name, result["raw_transcript"]["file"])
+        self.assertEqual(len(raw_bytes), result["raw_transcript"]["bytes"])
+        self.assertEqual(
+            hashlib.sha256(raw_bytes).hexdigest(),
+            result["raw_transcript"]["sha256"],
+        )
         self.assertIn("### command 1: version", raw_text)
         self.assertIn("simulated mid-run disconnect", raw_text)
 

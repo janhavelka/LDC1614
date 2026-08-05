@@ -70,6 +70,10 @@ LDC1614::Status configureI2c(esp32_i2c::Context& context) {
   return esp32_i2c::open(context, config);
 }
 
+uint64_t gpioPinMask(uint32_t pin) {
+  return uint64_t{1} << pin;
+}
+
 LDC1614::Status configureGpio() {
   if (INTB_PIN == GPIO_NUM_NC) return LDC1614::Status::Ok();
   const int pin = static_cast<int>(INTB_PIN);
@@ -78,7 +82,7 @@ LDC1614::Status configureGpio() {
                                   "INTB GPIO pin invalid", pin);
   }
   gpio_config_t config{};
-  config.pin_bit_mask = 1ULL << static_cast<uint32_t>(pin);
+  config.pin_bit_mask = gpioPinMask(static_cast<uint32_t>(pin));
   config.mode = GPIO_MODE_INPUT;
   // LDC1612/LDC1614 INTB is push-pull active-low/configurable.
   config.pull_up_en = GPIO_PULLUP_DISABLE;

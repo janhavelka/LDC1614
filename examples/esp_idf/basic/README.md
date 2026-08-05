@@ -6,7 +6,7 @@ APIs, a fixed input buffer, and a fixed-state command engine. It does not
 include or compile Arduino or `examples/common/Ldc1614Cli.*`; repository
 contract checks keep both implementations aligned.
 
-The 64 command families cover the full public driver surface:
+The table-driven command surface covers the full public driver API:
 
 - identity, color, verbosity, and complete categorized help;
 - bind/end, initialize/apply/reset jobs, sleep/wake, cancellation, result

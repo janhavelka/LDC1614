@@ -39,6 +39,8 @@ Thank you for considering contributing to this project!
 - Keep public API comments, README examples, integration guides, and the
   changelog consistent in the same change.
 - Run `doxygen Doxyfile`; warnings are errors.
+- Run `python tools/check_repository_hygiene.py`; local documentation links and
+  retained JSON/raw HIL evidence must remain consistent.
 - Do not edit or commit `docs/doxygen/`. It is generated output.
 - Keep hardware and CI claims evidence-based. A build or dry run is not HIL.
 - On Windows, run PlatformIO only through `.\scripts\pio.cmd`; do not install a
@@ -47,6 +49,8 @@ Thank you for considering contributing to this project!
   tests, and HIL parser together when the command or output contract changes.
 - Hardware claims require a retained structured result and its raw transcript
   with matching firmware-reported revision and source status.
+- Maintainers follow [the release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md) and create a
+  new annotated tag only after the exact release commit passes CI.
 
 ### What We Accept
 - Bug fixes

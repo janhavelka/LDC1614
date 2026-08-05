@@ -70,6 +70,11 @@
   "overall_status": "FAIL",
   "port": "COM8",
   "profile": "arduino",
+  "raw_transcript": {
+    "bytes": 260,
+    "file": "transient-direct-identity-discriminator.serial.txt",
+    "sha256": "5a077407dcea18561204b5670d12b3749eccdee693ff3649fc1a4680d5f67672"
+  },
   "repeat_command_set": 1,
   "sample_rate": {
     "channel": 0,
@@ -158,6 +163,5 @@
   },
   "timestamp_utc": "2026-08-04T11:15:04+00:00",
   "tool": "ldc1614_hil_runner",
-  "transcript": "### startup\n\n### command 1: transient_direct\nCLI result: command=end outcome=SUCCESS code=0\n\u001b[36m[I]\u001b[0m TRANSIENT direct_identity bus_free=1 address_write_ack=1 register_ack=1 address_read_ack=0 manufacturer_id=0x0000 close_code=0 reopen_code=0 bind_code=0\n> ",
   "write_timeout_s": 1.0
 }

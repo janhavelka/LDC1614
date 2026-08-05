@@ -2195,9 +2195,6 @@ void Cli::printSessionSummary() const {
              _session.hasReadyStatus ? _session.lastReadyStatus.raw : 0U);
       break;
     case SessionKind::STRESS:
-      printf("Stress results: %lu ok, %lu failed\n",
-             static_cast<unsigned long>(_session.stats.passed),
-             static_cast<unsigned long>(_session.stats.failed));
       printf("Stress result: requested=%lu ok=%lu fail=%lu elapsed_ms=%" PRIu64
              " hz=%.6f\n",
              static_cast<unsigned long>(_session.stats.requested),
@@ -2435,7 +2432,7 @@ void Cli::advanceMixedSession() {
                   _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
     return;
   }
-  LDC1614::Status status = LDC1614::Status::Ok();
+  LDC1614::Status status;
   if (_session.phase == SessionPhase::MIX_STATUS) {
     LDC1614::DeviceStatus deviceStatus;
     status = _device.readDeviceStatus(deviceStatus);
@@ -3086,8 +3083,6 @@ void Cli::handleSessionOperationResult(
     effectiveResult.outcome = LDC1614::TerminalOutcome::FAILED;
     effectiveResult.status = effectiveStatus;
     printResult(effectiveResult);
-  }
-  if (!success) {
     recordSessionFailure(effectiveStatus);
   } else if (result.hasSampleBatch) {
     _lastBatch = result.sampleBatch;
@@ -3408,7 +3403,7 @@ PromptAction Cli::handleDump(const ParsedLine& line) {
 PromptAction Cli::handleCommand(CommandId id, const ParsedLine& line) {
   uint64_t value = 0;
   uint64_t second = 0;
-  LDC1614::Status status = LDC1614::Status::Ok();
+  LDC1614::Status status;
 
   if (id == CommandId::HELP) {
     if (line.argc > 2U) return usage("help / ? [command]");

@@ -189,7 +189,9 @@ and INA228 I2C libraries, adapted to the LDC1614 ownership contract:
    ID/probe/read failures are failures, not skips.
 5. Write a JSON result with command classification evidence and retain a raw
    target transcript or logic-analyzer trace for the exact release fixture.
-   Repeated stress output may be condensed when metadata, command counts,
+   When `--raw-transcript-out` is supplied, the JSON stores the raw filename,
+   byte count, and SHA-256 digest instead of embedding duplicate transcript
+   text. Repeated stress output may be condensed when metadata, command counts,
    per-base-command outcomes, firmware/device identity, and every non-pass
    detail remain available. `--markdown-out` is an optional review rendering;
    do not commit it beside the canonical JSON when it only duplicates the same
@@ -244,18 +246,20 @@ Run these only when hardware and operator setup explicitly support them:
 | Induced address NACK | No | Operator/fault fixture | Clean `e4d0436` repeatedly tolerated protocol-complete `0x2B` NACK during discovery and re-admitted `0x2A`; older evidence included peer `0x3C` | Repeat with controlled phase injection and prove the production shared peer remains usable |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
-| Bounded soak | No | Stable fixture | Clean `e4d0436` completed 3,600.0 seconds: 2,926 no-reset reconstruction/re-admission cycles, 32,186 commands, zero failures/unknowns/resets, 32 ms worst latency | Repeat at production sensor cadence and on TunnelMonitor's exact ESP32-S3 backend; qualify RESET_DEV separately if exposed |
+| Bounded soak | No | Stable fixture | Clean `e4d0436` completed 3,600.0 seconds: 2,926 no-reset reconstruction/re-admission cycles, 32,186 commands, zero failures/unknowns/resets, 32 ms worst latency | Repeat at production sensor cadence on the exact application-owned ESP32 backend; qualify RESET_DEV separately if exposed |
 | Drive-current tuning | No | Sensor/oscilloscope/procedure | Not run | IDRIVE setting, amplitude evidence, application calibration notes |
 
 ## Evidence Rules
 
 - Retain the JSON result and raw transcript with the release artifacts. Do not
-  create pass artifacts by hand. Compact JSON is acceptable for repeated stress
-  only when it preserves counts, command outcomes, and every non-pass detail.
+  create pass artifacts by hand. Keep the transcript in the raw file only and
+  bind it to compact JSON with its filename, byte count, and SHA-256 digest.
+  Preserve counts, base-command outcomes, and every non-pass detail.
 - At least one raw serial transcript or logic-analyzer trace must be retained
   for production acceptance of the exact board, sensor, wiring, configuration,
-  and release revision. The committed post-v3 transcripts are negative
-  transport-regression evidence; no positive exact-release raw artifact exists.
+  and release revision. Positive committed no-sensor evidence exists for clean
+  `e4d0436`, but no positive sensor-equipped artifact exists for the exact
+  `v3.1.0` release commit.
 - Standalone `*.log` files are ignored as temporary output. Use a nonignored
   extension such as `.serial.txt` for a reviewed repository capture; release-only
   captures may instead remain attached to the release.
@@ -265,5 +269,8 @@ Run these only when hardware and operator setup explicitly support them:
 - Hardware logs must name the board, sensor/coil, address strap, channel count,
   firmware profile, firmware-reported Git commit/status, host checkout, and
   operator.
+- Run `python tools/check_repository_hygiene.py` before committing evidence; it
+  verifies that each structured artifact references one tracked raw transcript
+  with matching size and SHA-256.
 - Simulation, native tests, and PlatformIO/CI builds are useful software
   evidence, but they are not hardware validation.

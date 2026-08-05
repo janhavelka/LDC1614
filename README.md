@@ -5,11 +5,10 @@ converter driver for externally owned I2C buses. The v3 API is cooperative:
 multi-register procedures execute only when the application calls `poll()` and
 never exceed its transfer budget.
 
-The latest tagged API release is **v3.0.0**; the current branch contains
-unreleased changes. Deployment still requires evidence for the exact board,
-address strap, reference clock, LC sensors, channel mapping, INTB/SD wiring,
-fault policy, calibration, cadence, and soak conditions. See the maintained
-validation status and HIL guide before selecting a release.
+This tree is version **3.1.0**. Deployment still requires evidence for the exact
+board, address strap, reference clock, LC sensors, channel mapping, INTB/SD
+wiring, fault policy, calibration, cadence, and soak conditions. See the
+maintained validation status and HIL guide before selecting a release.
 
 ## Core contract
 
@@ -375,11 +374,17 @@ v3 is a deliberate breaking release.
 - [HIL validation](docs/HIL_VALIDATION.md): target procedure and evidence rules.
 - [Validation status](docs/VALIDATION_STATUS.md): repeatable release checks,
   retained evidence boundaries, and remaining physical gates.
-- [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md):
-  product-specific decisions, owner-module constraints, release selection, and
-  target HIL still required before that integration.
+- [Release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md): exact maintainer
+  validation, commit, annotated-tag, and GitHub publication sequence.
 - [Documentation index](https://github.com/janhavelka/LDC1614/blob/main/docs/README.md): maintained guides, references, and
   archive boundaries.
+
+Clean firmware `e4d0436` passed the retained 187-command no-reset matrix and a
+one-hour ESP32-S2/LDC1614 no-sensor soak (2,926 cycles and 32,186 commands with
+zero failures, unknowns, or resets). This is transport/lifecycle evidence, not
+sensor-equipped or exact-release target acceptance; `RESET_DEV` also remains
+unqualified. See [Validation status](docs/VALIDATION_STATUS.md) for the precise
+boundary.
 
 Generate the public API and maintained-guide site locally with:
 

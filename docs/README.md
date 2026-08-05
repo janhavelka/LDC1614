@@ -14,9 +14,9 @@ cited hardware evidence and vendor references. Start with the repository
 - [HIL validation](HIL_VALIDATION.md) - hardware-in-the-loop procedure and evidence matrix.
 - [Validation status](VALIDATION_STATUS.md) - repeatable release checks,
   retained evidence boundaries, and hardware evidence still required.
-- Repository-only [TunnelMonitor integration gates](https://github.com/janhavelka/LDC1614/blob/main/docs/TUNNELMONITOR_INTEGRATION_GATES.md) -
-  unresolved product, release, owner-module, and target-HIL requirements; this
-  consumer-specific ledger is excluded from the generic library package.
+- [Release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md) - maintainer preflight, commit, annotated
+  tag, push, and GitHub release steps. This repository-only guide is excluded
+  from the generic library package.
 
 The maintained examples have their own guides:
 
@@ -51,9 +51,10 @@ and vendor reference material are deliberately excluded from the public site.
 
 ## Evidence Boundaries
 
-The repository-only [`reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md) archive retains structured HIL evidence and raw serial transcripts, not
-generated Markdown copies or finished audit narratives. One-time implementation
-instructions and no-hardware or empty-payload artifacts are not retained; Git
-history preserves them if an audit needs them. Current behavior is defined by
-the public headers, root README, maintained guides above, and changelog.
-Hardware readiness still requires the evidence defined by the HIL procedure.
+The repository-only [`reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md)
+archive retains only canonical structured HIL evidence and its SHA-256-bound raw
+serial captures. Superseded experiments, generated reports, consumer-specific
+ledgers, and one-time implementation instructions remain available through Git
+history instead of the current tree. Current behavior is defined by the public
+headers, root README, maintained guides above, and changelog. Hardware readiness
+still requires the evidence defined by the HIL procedure.
