@@ -16,7 +16,11 @@ using OperationId = uint64_t;
 using I2cWriteFn = Status (*)(uint8_t address, const uint8_t* data, size_t length,
                               uint32_t timeoutMs, void* user);
 
-/// One bounded combined I2C write/read attempt. The callback must return within timeoutMs.
+/// One bounded combined-format I2C write/read attempt: the register-pointer
+/// write and the two-byte read are joined by a repeated START with no STOP
+/// between them (datasheet 7.5.1, Figure 12). A write terminated by STOP
+/// followed by a separate read does not return coherent DATA. The callback
+/// must return within timeoutMs.
 using I2cWriteReadFn = Status (*)(uint8_t address,
                                   const uint8_t* txData, size_t txLength,
                                   uint8_t* rxData, size_t rxLength,
@@ -150,7 +154,8 @@ struct ErrorReporting {
   bool statusAmplitudeHigh = false; ///< Route high-amplitude error to STATUS/INTB.
   bool statusAmplitudeLow = false; ///< Route low-amplitude error to STATUS/INTB.
   bool statusZeroCount = false;    ///< Route zero-count error to STATUS/INTB.
-  bool dataReady = false;          ///< Route data-ready to INTB.
+  bool dataReady = false;          ///< Route data-ready to STATUS/INTB;
+                                   ///< false leaves STATUS.DRDY permanently clear.
 
   /// @return Policy with every supported error/data-ready route enabled.
   static constexpr ErrorReporting all() {

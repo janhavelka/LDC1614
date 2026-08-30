@@ -1,6 +1,8 @@
 # Improving ENOB of a Multichannel LDC by 4 Bits Using Gain and Offset
 **Source:** improving_enob.pdf | **Doc #:** SSZTCK1 | **Pages:** 5
 
+> **Naming note.** Register and field names below are quoted as SSZTCK1 writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - LDC1312/LDC1314 have an internal 16-bit converter but only expose 12 bits by default — gain/offset registers can recover up to 4 additional bits
 - Gain settings of 4×, 8×, 16× shift the data window by 2, 3, or 4 bits respectively with no impact on timing or power

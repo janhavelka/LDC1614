@@ -6,9 +6,12 @@ hardware validation.
 
 ## Release state
 
-`library.json` is the version source of truth. The current tree is prepared as
-version `3.1.0`; publication requires a reviewed commit and a new annotated
-`v3.1.0` tag. Never move or reinterpret an existing tag.
+`library.json` is the version source of truth. Version `3.1.0` is published:
+the annotated tag `v3.1.0` points at commit `9a86034`, matching the `3.1.0`
+entry in `CHANGELOG.md`. Never move or reinterpret an existing tag. The next
+publication requires a new version in `library.json` (for example through
+`python scripts/generate_version.py bump patch`), a reviewed commit that passes
+CI, and its own annotated tag; `docs/RELEASING.md` holds the procedure.
 
 No retained run qualifies the exact release commit on a sensor-equipped target.
 The strongest current hardware evidence used clean firmware commit `e4d0436` on
@@ -54,9 +57,13 @@ The canonical JSON/transcript pairs are indexed in the repository-only
 | MCU-only upload/reboot | Clean `e4d0436`: a previously readable energized LDC refused the first combined read after the upload/reboot interval; a true rail cycle restored it | Qualify MCU-only reset and defined SD/power behavior on every product. The initiating electrical edge was not captured. |
 | Wire-level discriminator | Temporary direct reader observed ACK for `0x2A` write and pointer `0x7E`, then NACK for the repeated-start read address; all ACKs and `0x5449` returned after a rail cycle | Narrows the persistent condition but does not identify its initiating cause or provide release acceptance. |
 
-ESP-IDF 5.5.5 reports every synchronous transaction that does not reach its
-internal `DONE` state as `ESP_ERR_INVALID_STATE` (`259`), including an ordinary
-NACK. Raw detail `259` therefore does not prove a stuck shared bus. Controller
+Every retained run above used the Arduino platform pinned in `platformio.ini`
+(pioarduino `55.03.311`, ESP-IDF 5.5.5), which reports every synchronous
+transaction that does not reach its internal `DONE` state as
+`ESP_ERR_INVALID_STATE` (`259`), including an ordinary NACK. Raw detail `259`
+therefore does not prove a stuck shared bus. No retained run exercises the
+natively supported ESP-IDF 6.x generation, whose transaction error codes
+differ; re-qualify the raw detail before relying on it there. Controller
 reconstruction is not device admission; complete identity plus replay remains
 required.
 
@@ -65,12 +72,17 @@ required.
 Before claiming suitability for a specific deployment, retain evidence for:
 
 - the exact board, release firmware, device variant, address strap, populated
-  channels, reference clock, and complete production profile;
-- sensor-attached DATA MSB-before-LSB behavior, STATUS/UNREAD/INTB side effects,
-  freshness, data loss, frequency bounds, and physical response;
+  channels, reference clock, complete production profile, and full identity
+  and configuration readback;
+- sensor-attached DATA MSB-before-LSB ordering under active conversions,
+  STATUS/UNREAD/INTB/error-channel side effects, freshness, delayed-read data
+  loss, frequency bounds, under-range, over-range, watchdog, zero-count, and
+  amplitude conditions where electrically safe, and physical response on every
+  selected channel;
 - coil tuning, target range, deglitch choice, drive current, and calibration;
-- correlated initialization, apply, acquisition, active cancellation, deadline,
-  invalidation, and exactly-once terminal-result behavior;
+- correlated initialization, apply, acquisition, active cancellation, deadline
+  cancellation followed by a clean new operation, invalidation, and
+  exactly-once terminal-result behavior;
 - controlled NACK/timeout, unplug/replug or power loss, bounded owner recovery,
   full replay, and continued operation of another shared-bus device;
 - MCU-only reset, `RESET_DEV` if exposed by the product, INTB, and SD behavior;

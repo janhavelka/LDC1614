@@ -1,11 +1,13 @@
 # Setting LDC1312/4, LDC1612/4, and LDC1101 Sensor Drive Configuration
 **Source:** sensor_configuration_settings.pdf | **Doc #:** SNOA950 | **Pages:** 8
 
+> **Naming note.** Register and field names below are quoted as SNOA950 writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - The IDRIVE register controls sensor oscillation amplitude and must be tuned per-sensor based on the parallel resistance RP.
 - Target oscillation amplitude: **1.2 Vp ≤ VOSC ≤ 1.8 Vp** — set IDRIVE to the highest value that keeps VOSC below 1.8 Vp.
 - For normal operation, always use manual drive: set **RP_OVERRIDE_EN=1** and **AUTO_AMP_DIS=1** to disable automatic amplitude control.
-- Channel 0 has a HIGH_CURRENT_DRV mode (up to 3 mA) for very low RP sensors, but requires AUTOSCAN_EN=0.
+- Channel 0 has a HIGH_CURRENT_DRV mode for very low RP sensors, but requires AUTOSCAN_EN=0. SNOA950 states 3 mA (2x the 1.5 mA normal maximum); the LDC1612/LDC1614 datasheet specifies IHDSENSORMAX = 6 mA with a typical drive current above 3.5 mA and RP_HD_MIN = 250 Ω (pp. 6, 45). Use the datasheet values.
 - When using identical sensors across channels, use the same IDRIVE for all — take the lowest acceptable setting.
 
 ## Summary
@@ -65,7 +67,7 @@ Automatic amplitude control should only be used for prototyping — never in pro
 | RP_OVERRIDE_EN | 1 | Disable automatic RP measurement during conversion |
 | AUTO_AMP_DIS | 1 | Disable automatic amplitude correction |
 | DRIVE_CURRENT_CHx[15:11] | Per sensor | Set IDRIVE to highest value where VOSC ≤ 1.8 Vp |
-| HIGH_CURRENT_DRV | 0 or 1 | CH0 only, doubles max current to 3 mA; requires AUTOSCAN_EN=0 |
+| HIGH_CURRENT_DRV | 0 or 1 | CH0 only; requires AUTOSCAN_EN=0. SNOA950 says 3 mA; the datasheet says IHDSENSORMAX = 6 mA, typical above 3.5 mA, sensor RP down to 250 Ω (pp. 6, 45) |
 
 ### IDRIVE Calibration Procedure (Oscilloscope Method)
 1. Move target to maximum operating distance from sensor

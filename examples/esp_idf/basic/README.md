@@ -8,9 +8,11 @@ contract checks keep both implementations aligned.
 
 The table-driven command surface covers the full public driver API:
 
-- identity, color, verbosity, and complete categorized help;
+- identity, color, verbosity, owner bus/pin/level snapshot, and complete
+  categorized help;
 - bind/end, initialize/apply/reset jobs, sleep/wake, cancellation, result
-  retention, applied-state invalidation, and explicit owner bus recovery;
+  retention, applied-state invalidation, explicit owner bus recovery, and owner
+  bus-speed control;
 - acquisition, cached batches, bounded watch/sample-rate sessions, readiness,
   decoded/raw STATUS, optional INTB, and INIT_IDRIVE diagnostics;
 - a bus-silent staged profile for mode, clock, deglitch, activation, timeout,
@@ -19,8 +21,10 @@ The table-driven command surface covers the full public driver API:
   replay verification, guarded
   raw register access, STATUS/DATA decoding, frequency/timing helpers, and
   drive-current conversion;
-- driver/state inspection, a multi-phase self-test, acquisition and mixed-I2C
-  stress sessions, timed soak, and optional application-owned SD control.
+- driver/state inspection, consolidated diagnostic and transport-counter
+  snapshots, a multi-phase self-test, acquisition, mixed-I2C, identity, reset,
+  and bus-speed stress sessions, timed soak, and optional application-owned SD
+  control.
 
 Run `help` for the canonical grammar and aliases. Help is generated from a
 fixed command table and matches the Arduino CLI's order, colors, grammar, and

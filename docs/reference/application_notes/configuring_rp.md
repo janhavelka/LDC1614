@@ -1,6 +1,8 @@
 # Configuring Inductive-to-Digital Converters for Parallel Resistance (Rp) Variation
 **Source:** configuring_rp.pdf | **Doc #:** SNAA221B | **Pages:** 11
 
+> **Naming note.** Register and field names below are quoted as SNAA221B writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; the addresses (`0x1E`-`0x21`) and bit fields ([15:11], [10:6]) are unchanged.
+
 ## Key Takeaways
 - LDC1614 does not measure Rp but must be configured for proper drive current based on the sensor's Rp range (1 kΩ to 100 kΩ)
 - Drive current is set via the DRIVE_CURRENT_CHx register (CHx_IDRIVE field, bits 15:11) with 32 discrete levels (0–31)

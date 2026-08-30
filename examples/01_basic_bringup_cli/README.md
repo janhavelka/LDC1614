@@ -40,27 +40,31 @@ the command surface by purpose. Repository contract checks separately
 associate each row with its execution class, safety class, fixture requirement,
 and stable evidence keys. `color off` emits the same help without ANSI escapes
 for logs and parsers; `verbose 1` adds bounded per-step diagnostics without
-changing scheduling.
+changing scheduling. `version` reports library and firmware identity and `bus`
+reports the owner bus, pins, levels, address, and speed.
 
 The surface covers:
 
 - lifecycle and job control: `bind`, `end`, `init`, `apply`, `resetreapply`,
-  `sleep`, `wake`, `cancel`, `job`, `result`, `invalidate`, and `busrecover`;
+  `sleep`, `wake`, `cancel`, `job`, `result`, `invalidate`, `busrecover`, and
+  `busfreq`;
 - readings: `read`, `last`, `watch`, `samplerate`, `ready`, `status`,
   `status_raw`, `intb`, and `initdrive`;
 - the complete profile: `mode`, `refclk`, `deglitch`, `activation`, `timeout`,
   RP/auto-amplitude/high-current/INTB behavior, all error routes, and every
   per-channel RCOUNT, SETTLECOUNT, divider, OFFSET, IDRIVE, and sensor bound;
-- registers and calculations: `probe`, `scan`, `dump`, `verify`, `reg`, `wreg`,
-  `decode`, `freq`, `timing`, and `driveua`; and
-- diagnostics: `drv`, `state`, `selftest`, `stress`, `stress_mix`, `soak`, and
+- registers and calculations: `probe`, `discover`, `dump`, `verify`, `reg`,
+  `wreg`, `decode`, `freq`, `timing`, and `driveua`; and
+- diagnostics: `drv`, `state`, `diag`, `xfer`, `selftest`, `stress`,
+  `stress_mix`, `stress_id`, `stress_reset`, `stress_busfreq`, `soak`, and
   optional application-owned shutdown-pin control through `sd`.
 
 Profile setters only change a fixed-size staged copy and perform no I2C. Use
 `profile validate`, put verified hardware to sleep, then run
 `profile commit confirm`; the commit changes desired state but still performs
 no I2C. `apply` is the explicit full replay and verification step. `addr` and
-`variant` are intentional build-profile facts: change `makeBoardConfig()`, end,
+`variant` are intentional build-profile facts: change `makeDefaultConfig()` in
+`main.cpp` and the `board::` constants in `examples/common/BoardConfig.h`, end,
 rebuild, and bind instead of changing the live transport identity from the CLI.
 The accepted `error` fields are `data-under`, `data-over`, `data-watchdog`,
 `data-amplitude-high`, `data-amplitude-low`, `status-under`, `status-over`,
@@ -81,7 +85,8 @@ Every multi-transfer core job and CLI diagnostic session is cooperative.
 `maxTransfers == 0` is never used to hide work. `cancel` is bus-silent, job
 results are correlated by operation ID and consumed once, and fixed session
 limits prevent unbounded loops. `watch`, `samplerate`, `stress`, `stress_mix`,
-and `soak` report requested/completed/failure counts and terminal outcomes.
+`stress_id`, `stress_reset`, `stress_busfreq`, and `soak` report
+requested/completed/failure counts and terminal outcomes.
 `samplerate` first performs at most one destructive STATUS readiness read per
 pass and waits only until a fixed per-sample deadline. It accepts a sample only
 when the requested channel is selected, valid, fresh, fault-free, not overrun,
@@ -106,6 +111,7 @@ or authority to pulse a shared bus. Use controller-only `busrecover confirm`,
 then `init`, when application policy has independent evidence that rebuilding
 the controller is appropriate.
 
-The example profile values, GPIO8/GPIO9 pins, 43 MHz internal-clock estimate,
-sensor-frequency bounds, and drive-current code are placeholders. Replace and
-validate them against the exact board, LC tank, target, and clock plan.
+The example profile values, internal I2C pull-up setting, GPIO8/GPIO9 pins,
+43 MHz internal-clock estimate, sensor-frequency bounds, and drive-current code
+are placeholders. Replace and validate them against the exact board, LC tank,
+target, and clock plan. Production hardware needs sized external pull-ups.

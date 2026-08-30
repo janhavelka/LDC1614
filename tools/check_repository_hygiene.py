@@ -12,7 +12,8 @@ from typing import List, Set
 
 ROOT = Path(__file__).resolve().parent.parent
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
-FORBIDDEN_PREFIXES = ("docs/doxygen/", "prompts/")
+FORBIDDEN_PREFIXES = ("docs/doxygen/",)
+FORBIDDEN_DIRECTORIES = ("prompts",)
 FORBIDDEN_SUFFIXES = (".runner.md",)
 
 
@@ -33,7 +34,10 @@ def tracked_files() -> Set[str]:
 def check_tracked_artifacts(tracked: Set[str]) -> List[str]:
     errors: List[str] = []
     for path in sorted(tracked):
-        if path.startswith(FORBIDDEN_PREFIXES):
+        if path.startswith(FORBIDDEN_PREFIXES) or any(
+            directory in FORBIDDEN_DIRECTORIES
+            for directory in path.split("/")[:-1]
+        ):
             errors.append(f"tracked generated/one-time path: {path}")
         if path.endswith(FORBIDDEN_SUFFIXES):
             errors.append(f"tracked generated report: {path}")

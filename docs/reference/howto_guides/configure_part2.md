@@ -1,6 +1,8 @@
 # How to Configure a Multichannel LDC System — Part 2: Timing
 **Source:** configure_part2.pdf | **Doc #:** SSZTCQ7 | **Pages:** 4
 
+> **Naming note.** Register and field names below are quoted as SSZTCQ7 writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - LDC multichannel timing is fully deterministic — sample readiness can be calculated without polling DRDY
 - Total dwell time per channel = sensor-activation time + conversion time + channel-switch delay
@@ -75,6 +77,15 @@ Configuration: CHn_RCOUNT = 0x08 (128 FREF cycles)
 |---|---|
 | Dual-channel (AUTOSCAN_EN=1, RR_SEQUENCE=00) | 33.5 ms |
 | Quad-channel (AUTOSCAN_EN=1, RR_SEQUENCE=10) | 67.0 ms |
+
+> **Vendor arithmetic caveat.** SSZTCQ7 p. 3 prints these figures verbatim and
+> they do not reconcile: 1.8 + 3.2 + 0.75 = 5.75 ms, not 16.75 ms, and 128 FREF
+> cycles is 3.2 µs at f_REF = 40 MHz (compare the 80-cycle → 2 µs figure above),
+> not 3.2 ms. The 33.5 ms and 67.0 ms cycle times are 2x and 4x the unexplained
+> 16.75 ms value. Do not size a polling interval from this table. Compute real
+> timings from the datasheet: conversion time tCx = (RCOUNTx × 16 + 4)/fREFx
+> (eq. 7, p. 39), settling time tSx = (SETTLECOUNTx × 16)/fREFx (eq. 9, p. 40),
+> and channel switch delay = 692 ns + 5/fREF (eq. 8, p. 39).
 
 ### Register Configuration Summary (Multichannel)
 

@@ -82,8 +82,10 @@ full initialization, is the simple isolated design pattern to qualify.
   with a caller-selected transport budget. A budget of zero performs no I2C.
   Cancellation and invalidation are bus-silent.
 - After owner-observed removal, reset, brownout, shutdown, or shared-bus
-  recovery, call `invalidateAppliedState()` and complete initialization or
-  configuration replay before acquiring another trusted sample.
+  recovery, call `invalidateAppliedState(reason)` with the owner-observed
+  cause, which is retained as configuration-fault provenance, and complete
+  initialization or configuration replay before acquiring another trusted
+  sample.
 - Reading `DATAx_MSB` latches its corresponding LSB, consumes
   `UNREADCONVx`, and can clear the channel's latched error/INTB evidence.
   Reading STATUS captures then clears sticky status/INTB evidence. Production
@@ -114,19 +116,9 @@ full initialization, is the simple isolated design pattern to qualify.
 ## Required physical evidence before release
 
 Capture raw logs or a logic trace for the exact board, variant, address strap,
-clock, channel mask, LC tanks, and firmware cadence:
-
-- identity and full configuration readback;
-- DATAx_MSB-before-DATAx_LSB ordering under active conversions;
-- fresh values and expected physical sensor response on every selected channel;
-- STATUS, UNREAD, error-channel, INTB, and delayed-read data-loss behavior;
-- under-range, over-range, watchdog, zero-count, and amplitude conditions where
-  electrically safe;
-- deadline cancellation followed by a clean new operation;
-- unplug/replug or controlled power loss followed by complete replay;
-- owner-controlled shared-bus recovery while another device remains usable;
-- SD and INTB behavior if those pins are populated; and
-- a bounded soak at production settings and cadence.
+clock, channel mask, LC tanks, and firmware cadence. The required evidence set
+is maintained once in the hardware-evidence checklist of
+[Validation status](VALIDATION_STATUS.md).
 
 The retained ESP32-S2 chip-only/no-sensor evidence does not satisfy these
 sensor-attached target gates.

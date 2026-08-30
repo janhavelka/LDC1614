@@ -1,17 +1,19 @@
 # LDC1312, LDC1314, LDC1612, LDC1614 Sensor Status Monitoring
 **Source:** sensor_status_monitoring.pdf | **Doc #:** SNOA959 | **Pages:** 14
 
+> **Naming note.** Register and field names below are quoted as SNOA959 writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - Three reporting mechanisms: DATA_CHx register error bits, STATUS register, and INTB pin assertion.
 - Six error/warning conditions: Under-range, Over-range, Watchdog Timeout, Amplitude High, Amplitude Low, and Zero Count.
-- STATUS register bits are **sticky** — must read STATUS to clear them and de-assert INTB. Exception: CHx_UNREADCONV is not sticky.
+- STATUS register bits are **sticky** — cleared by reading STATUS, or by reading the DATAx_MSB register of the error channel; either read also de-asserts INTB (datasheet pp. 26, 47; SNOA959 Table 4, p. 10). SNOA959 p. 5 mentions only the STATUS read. Exception: CHx_UNREADCONV is not sticky.
 - Use INTB reporting **in addition to** STATUS polling to avoid missing errors from multiple channels.
 - DATA_CHx error bits are **not sticky** — cleared by next successful conversion or by reading the register.
 
 ## Summary
 The LDC1612/LDC1614 provide comprehensive error and status reporting through three mechanisms. The DATA_CHx output registers embed error flags in the four MSBs alongside conversion data. The STATUS register (0x18) provides a global view of all error conditions with channel identification. The INTB pin provides hardware interrupt notification when errors or data-ready conditions occur.
 
-Error reporting is highly configurable through the ERROR_CONFIG register (0x19). Each error type can be independently routed to the DATA output registers (via `*_ERR2OUT` bits) and/or to the STATUS register and INTB pin (via `*_ERR2INT` bits). The STATUS register bits are sticky — they latch on first occurrence and are only cleared by reading STATUS. If an error occurs on CH0 and is not cleared before CH1 errors, the CH1 error will be missed unless INTB-based reporting is also used (reading STATUS clears the error and re-arms INTB for the next event).
+Error reporting is highly configurable through the ERROR_CONFIG register (0x19). Each error type can be independently routed to the DATA output registers (via `*_ERR2OUT` bits) and/or to the STATUS register and INTB pin (via `*_ERR2INT` bits). The STATUS register bits are sticky — they latch on first occurrence and are cleared by reading STATUS or by reading the DATAx_MSB register of the channel named in ERR_CHAN (datasheet pp. 26, 47; SNOA959 Table 4, p. 10). If an error occurs on CH0 and is not cleared before CH1 errors, the CH1 error will be missed unless INTB-based reporting is also used (reading STATUS clears the error and re-arms INTB for the next event).
 
 Data readiness can be detected via the DRDY bit in STATUS, the CHx_UNREADCONV bits for per-channel notification in multi-channel mode, or by polling at a calculated fixed interval when the LDC and MCU share a clock source.
 
@@ -45,7 +47,7 @@ Data readiness can be detected via the DRDY bit in STATUS, the CHx_UNREADCONV bi
 | Bit | Field | Type | Reset | Description |
 |---|---|---|---|---|
 | 15:14 | ERR_CHAN | R | 00 | Error source channel: b00=CH0, b01=CH1, b10=CH2, b11=CH3 |
-| 13 | ERR_UR | R | 0 | Under-range error flag (sticky, clear by reading STATUS) |
+| 13 | ERR_UR | R | 0 | Under-range error flag (sticky; cleared by reading STATUS or the error channel's DATAx_MSB) |
 | 12 | ERR_OR | R | 0 | Over-range error flag (sticky) |
 | 11 | ERR_WD | R | 0 | Watchdog timeout error flag (sticky) |
 | 10 | ERR_AHE | R | 0 | Amplitude high error flag (sticky) |

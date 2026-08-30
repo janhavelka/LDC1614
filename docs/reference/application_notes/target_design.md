@@ -1,6 +1,8 @@
 # LDC Target Design
 **Source:** target_design.pdf | **Doc #:** SNOA957B | **Pages:** 11
 
+> **Naming note.** Register and field names below are quoted as SNOA957B writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - Target must be at least as large as the sensor coil for maximum inductance shift; undersized targets drastically reduce response.
 - Target thickness should be ≥ 2–3 skin depths for optimal eddy current generation (95% current at 3δ).

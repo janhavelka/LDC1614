@@ -1,6 +1,8 @@
 # LDC1612/LDC1614 Linear Position Sensing
 **Source:** linear_positioning_sensing.pdf | **Doc #:** SNOA931A | **Pages:** 15
 
+> **Naming note.** Register and field names below are quoted as SNOA931A writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - Two approaches: circular coil + triangular target (higher resolution, larger target) vs. stretched coil + rectangular target (smaller target, simpler shape)
 - At RCOUNT = 0xFFFF, measurement noise as low as 0.36 µm (circular) and 0.85 µm (stretched) standard deviation

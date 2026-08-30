@@ -25,7 +25,7 @@ EXCLUDED_DIR_PARTS = {
     ".git",
     ".pio",
     "__pycache__",
-    "extracted-md",
+    "build",
 }
 
 
@@ -39,6 +39,9 @@ def maintained_files() -> Iterable[Path]:
         ROOT / "docs" / "HARDWARE_INTEGRATION.md",
         ROOT / "docs" / "HIL_VALIDATION.md",
         ROOT / "docs" / "VALIDATION_STATUS.md",
+        ROOT / "docs" / "I2C_INTEGRATION.md",
+        ROOT / "docs" / "README.md",
+        ROOT / "docs" / "RELEASING.md",
     ]
     for path in explicit:
         if path.exists():
@@ -47,6 +50,7 @@ def maintained_files() -> Iterable[Path]:
     for base, patterns in (
         (ROOT / "examples", ("*.md", "*.cpp", "*.h", "*.hpp")),
         (ROOT / "docs" / "reference" / "application_notes", ("*.md",)),
+        (ROOT / "docs" / "reference" / "howto_guides", ("*.md",)),
     ):
         if not base.exists():
             continue

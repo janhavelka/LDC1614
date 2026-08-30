@@ -32,13 +32,24 @@ examples/
   01_*/
   common/                - Example-only helpers
   esp32/                 - Native ESP32 transport shared by target examples
+  esp_idf/basic/         - Native ESP-IDF diagnostic application
+test/                    - Native unit tests
+tools/                   - Repo-local contract checkers and HIL host tooling
+scripts/                 - PlatformIO wrapper and version generator
+docs/                    - Integration guides, references, retained evidence
 platformio.ini
 library.json
+CMakeLists.txt           - ESP-IDF component build
+idf_component.yml        - ESP-IDF component metadata
+Doxyfile                 - Doxygen configuration
 README.md
 CHANGELOG.md
 AGENTS.md
 ```
 
+- The tree shows the maintained layout, not every tracked path. Standard
+  repository furniture (`LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODEOWNERS`, `.github/`, `requirements-dev.txt`) is omitted.
 - `examples/common/` is not part of the library. It simulates project glue and keeps examples self-contained.
 - `examples/esp32/` is also example-only application glue. It owns native
   ESP-IDF bus/device handles for the maintained ESP32 diagnostics.
@@ -150,19 +161,20 @@ struct Status {
 
 ## Versioning and Releases
 
-`library.json` is the version source of truth. `Version.h` is generated and must not be edited.
+`library.json` is the version source of truth. `include/LDC1614/Version.h` is
+generated and must not be edited; `python scripts/generate_version.py sync`
+regenerates it and re-stamps the same version into `idf_component.yml` and
+`Doxyfile`. CI and the ESP-IDF component build both fail on
+`python scripts/generate_version.py check` drift.
 
 - MAJOR: breaking API/Config/enum changes.
 - MINOR: backward-compatible features or appended error codes.
 - PATCH: fixes, refactors, and documentation.
 
-Release steps:
-
-1. Update `library.json`.
-2. Update `CHANGELOG.md`.
-3. Update README/API/examples together.
-4. Commit, then create an annotated tag:
-   `git tag -a vX.Y.Z -m "Release vX.Y.Z"`.
+Release steps: follow [`docs/RELEASING.md`](docs/RELEASING.md) exactly. It is
+the single authoritative sequence - validation commands, commit, green CI on
+the exact release commit, annotated tag, and GitHub release. Do not restate a
+condensed copy of it here.
 
 ## Validation Claims
 

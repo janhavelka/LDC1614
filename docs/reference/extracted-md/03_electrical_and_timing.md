@@ -7,6 +7,7 @@
 | Supply voltage, `VDD` | 2.7 V to 3.6 V | datasheet, p. 5 |
 | Sensor oscillation frequency | 1 kHz to 10 MHz | datasheet, pp. 1, 6 |
 | External `CLKIN` frequency | 2 MHz to 40 MHz | datasheet, p. 6 |
+| Internal reference clock, `fINTCLK` | 35 MHz to 55 MHz (typ 43.4 MHz) | datasheet, p. 7 |
 | I2C clock frequency | 10 kHz to 400 kHz | datasheet, p. 7 |
 | Sensor `RP` operating range | 1 kohm to 100 kohm | datasheet, p. 6 |
 | Operating junction temperature in abs-max table | -55 degC to +150 degC | datasheet, p. 5 |
@@ -44,6 +45,13 @@ generated if those errors are enabled. Source: datasheet, pp. 22-23, 40.
 
 The datasheet gives a minimum settle-count relationship based on sensor Q,
 sensor frequency, and reference frequency. Source: datasheet, p. 40.
+
+Multi-channel (auto-scan) operation tightens both counts. Table 43 requires
+`RCOUNTx` > 8 and `SETTLECOUNTx` > 3, so the per-register minimums above are
+not sufficient when more than one channel is sequenced. The driver encodes
+these as `cmd::MULTI_RCOUNT_MIN` (`0x0009`) and `cmd::MULTI_SETTLE_MIN`
+(`0x0004`) and rejects a `MULTI_CHANNEL_SEQUENTIAL` profile below them.
+Source: datasheet, p. 46.
 
 ## Clock and Divider Constraints
 

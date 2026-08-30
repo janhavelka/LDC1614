@@ -24,8 +24,9 @@ The example demonstrates the v3 boundary:
 The application owns bus creation/destruction, lock policy, callback timeout,
 task scheduling, deadline, retry/backoff, device presence, health, SD/reset
 GPIOs, shared-bus recovery, and physical validation. If it resets or recovers
-the device or bus, it must call `invalidateAppliedState()` and schedule complete
-initialization/replay before acquisition.
+the device or bus, it must call `invalidateAppliedState(reason)` with the
+owner-observed cause and schedule complete initialization/replay before
+acquisition.
 
 Because the diagnostic has one driver-owning task, its transport does not add
 a second mutex wait ahead of the native I2C timeout. Multi-task applications
@@ -33,9 +34,9 @@ must serialize before invoking the driver and include lock wait in their own
 whole-request deadline.
 
 The diagnostic `probe` session performs two identity reads and is not the
-normal owner initialization path. Scan, dump, verify, self-test, watch, stress,
-sample-rate, and soak are bounded example-owned sessions rather than production
-scheduling policy. The example's internal I2C pull-up setting,
+normal owner initialization path. Discovery, dump, verify, self-test, watch,
+stress, sample-rate, and soak are bounded example-owned sessions rather than
+production scheduling policy. The example's internal I2C pull-up setting,
 GPIO8/GPIO9 pins, `0x2A` address, internal-clock estimate, and single-channel
 sensor profile are placeholders. Production hardware needs sized external
 pull-ups and a reviewed board profile.
@@ -51,6 +52,8 @@ The checker parses the ESP-IDF `SRCS` list, scans compiled sources and local
 headers, and compares the local command table against the host-only CLI
 manifest and Arduino implementation. The IDF build never compiles the Arduino
 or common CLI source. The checker does not replace an `idf.py` build. Maintained CI builds ESP32-S2
-and ESP32-S3 with the pinned IDF version recorded in the workflow. No hardware
-behavior is claimed without target logs for the exact variant, address, clock,
+and ESP32-S3 with the pinned IDF version recorded in the workflow, and
+`idf_component.yml` declares the matching `idf: ">=6.0.0"` component floor.
+No hardware behavior is claimed without target logs for the exact variant,
+address, clock,
 sensor, INTB/SD wiring, deadline/fault procedure, and soak configuration.

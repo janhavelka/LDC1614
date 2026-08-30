@@ -91,8 +91,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed superseded HIL parser/recovery experiments, duplicate embedded
   transcripts, generated report copies, and historical debug bundles from the
-  current evidence archive. Commit `d3b434a` remains the historical recovery
-  point for the complete pre-cleanup archive.
+  current evidence archive. Commit `d3b434a` retains the 20260722, 20260803,
+  and 20260804 evidence removed at release; the generated Markdown report
+  copies were removed earlier in this cycle and remain at `0fef0f9^`
+  (`117c4f8`).
 - Removed the consumer-specific TunnelMonitor work ledger and the obsolete
   `prompts/**` package exclusion from this generic library repository.
 - Removed the duplicate legacy prose `stress` summary and its host-parser
@@ -251,7 +253,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed unused v2-era example helper headers and their stale guard
   requirements; current examples retain only their actual owners.
 - Clarified monotonic 64-bit owner time, non-reentrant callbacks, poll-boundary
-  timestamps, TunnelMonitor retry boundaries, release-tag verification, and HIL
+  timestamps, external-owner retry boundaries, release-tag verification, and HIL
   evidence limits.
 - **Breaking:** `begin(config)` is replaced by zero-I2C `bind(config)` followed
   by `startInitialize(id, deadline)`, budgeted `poll()`, and exactly-once

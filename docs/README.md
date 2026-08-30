@@ -28,15 +28,15 @@ The maintained examples have their own guides:
 ## Generated Doxygen Site
 
 Run `doxygen Doxyfile` from the repository root. The generated site starts at
-`docs/doxygen/html/index.html` and includes the public headers and the reusable
-integration, hardware, IDF, HIL, and validation guides.
+`docs/doxygen/html/index.html` and includes the public headers, the changelog,
+and the reusable integration, hardware, IDF, HIL, and validation guides.
 Repository/example `README.md` files remain linked from the main page rather
 than duplicated as generated pages. Generation fails on undocumented public
 API, missing parameter documentation, or documentation errors.
 
 `docs/doxygen/` is ignored build output. Do not edit or commit it.
-Product-specific gates, internal engineering instructions, historical evidence,
-and vendor reference material are deliberately excluded from the public site.
+Internal engineering instructions, historical evidence, and vendor reference
+material are deliberately excluded from the public site.
 
 ## Reference Material
 

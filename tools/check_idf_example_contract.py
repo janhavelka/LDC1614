@@ -19,13 +19,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 REQUIRED_IDF_TOKENS = (
     '#include "driver/i2c_master.h"', "i2c_new_master_bus",
     "i2c_master_bus_add_device", "i2c_master_transmit_receive",
-    "i2c_master_bus_rm_device", "i2c_del_master_bus", "esp32_i2c::recover",
+    "i2c_master_bus_rm_device", "i2c_del_master_bus",
     "esp32_i2c::recover(*context)",
     "Ldc1614IdfCli", "esp32_i2c::write", "esp32_i2c::writeRead",
     "esp32_i2c::readRegisterAt", "esp32_i2c::setFrequency",
     "esp32_i2c::intbAsserted", "esp32_i2c::uptimeMs", ".bind(",
     ".startInitialize(", ".poll(", ".takeResult(", "select(",
-    "readConsoleChar", "gpioPinMask", "GPIO_PULLUP_DISABLE", "push-pull",
+    "readConsoleChar", "gpioPinMask", "GPIO_PULLUP_DISABLE", "GPIO_MODE_INPUT",
     "ErrorReporting::all",
 )
 FORBIDDEN_IDF_PATTERNS = (

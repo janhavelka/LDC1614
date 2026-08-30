@@ -106,7 +106,8 @@ struct DeviceStatus {
   bool errorAmplitudeHigh = false;      ///< Sticky high-amplitude indication.
   bool errorAmplitudeLow = false;       ///< Sticky low-amplitude indication.
   bool errorZeroCount = false;          ///< Sticky zero-count indication.
-  bool dataReady = false;               ///< STATUS.DRDY snapshot.
+  bool dataReady = false;               ///< STATUS.DRDY snapshot; always false
+                                        ///< unless ErrorReporting::dataReady is set.
   ChannelMask unreadChannels{};         ///< STATUS.UNREADCONVx snapshot.
   uint16_t raw = 0;                     ///< Unmodified STATUS register value.
 
@@ -124,7 +125,7 @@ enum class SampleQualityFlag : uint16_t {
   STALE = 1U << 1,              ///< Pre-read STATUS did not report unread data.
   UNDER_RANGE = 1U << 2,        ///< Raw endpoint or silicon flag indicates under-range.
   OVER_RANGE = 1U << 3,         ///< Raw endpoint or silicon flag indicates over-range.
-  WATCHDOG = 1U << 4,           ///< DATA watchdog flag was set.
+  WATCHDOG = 1U << 4,           ///< DATA or STATUS watchdog fault attributed to this channel.
   AMPLITUDE_SUSPECT = 1U << 5,  ///< DATA/STATUS amplitude fault; sample is invalid.
   ZERO_COUNT = 1U << 6,         ///< STATUS zero-count was attributed to the channel.
   DATA_LOST = 1U << 7,          ///< New unread conversion appeared during readout.
@@ -329,8 +330,12 @@ class LDC1614 {
   /// @return OK when a result was removed, or RESULT_NOT_READY.
   Status takeResult(OperationResult& out);
 
-  /// Mark hardware configuration unknown after removal, reset, brownout, or owner recovery.
-  /// Performs zero I2C and preserves the supplied full status as provenance.
+  /// Mark hardware configuration unknown after removal, reset, brownout, or
+  /// owner recovery. Performs zero I2C and preserves the supplied full status
+  /// as provenance. An active job is cancelled and produces one CANCELLED
+  /// terminal result that occupies a result slot and reserves its operation id
+  /// until takeResult() drains it, so drain results before starting recovery
+  /// work or the next start reports RESULT_QUEUE_FULL.
   /// @param reason Owner-observed cause retained as configuration-fault evidence.
   void invalidateAppliedState(const Status& reason);
 

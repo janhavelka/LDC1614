@@ -18,13 +18,15 @@ the no-sensor fixture matrix:
 python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
 ```
 
-The no-sensor mode exercises target/device identity, exhaustive desired-profile
-output, masked configuration readback, STATUS and selected register reads,
-sleep/wake, initialization, full apply, confirmed reset/reapply, one
-status-aware acquisition, invalidation/re-initialization, confirmed diagnostic
-write followed by full replay, end/bind/re-initialization, idle cancellation, true
-self-test, and pure helpers. With `--include-stress`, it also runs bounded
-protocol-only stress. Every asynchronous command
+The no-sensor mode exercises target/device identity, owner bus, bus-frequency,
+and transfer-statistics diagnostics, exhaustive desired-profile output, masked
+configuration readback, STATUS and selected register reads, sleep/wake,
+initialization, full apply, confirmed reset/reapply, one status-aware
+acquisition, invalidation/re-initialization, confirmed diagnostic write
+followed by full replay, confirmed controller-only bus recovery with the
+required state check and re-initialization, end/bind/re-initialization, idle
+cancellation, true self-test, and pure helpers. With `--include-stress`, it
+also runs bounded protocol-only stress. Every asynchronous command
 prints `CLI scheduled: command=<name> session=<id>` and exactly one correlated
 terminal `CLI result`. A prompt or immediate in-progress status is never a
 pass. With no LC sensor, acquisition and stress validate transport, protocol,
@@ -42,9 +44,9 @@ To stress the same no-sensor matrix repeatedly in one captured run, add
 the expanded command count in the artifact.
 
 After any raw `ESP_ERR_INVALID_STATE` (`259`), first capture the exact failed
-command, phase, register, and subsequent combined-read behavior. On ESP-IDF
-5.5.5 this raw value includes ordinary NACK, so it must not be labeled a stuck
-bus without independent evidence. Attempt the explicit controller-only owner
+command, phase, register, and subsequent combined-read behavior. On the
+Arduino profile's pinned ESP-IDF 5.5.5 this raw value includes ordinary NACK,
+so it must not be labeled a stuck bus without independent evidence. Attempt the explicit controller-only owner
 reconstruction, then require complete initialization/replay and repeated
 combined reads without a power cycle. Do not line-clear solely because of
 `259`, and do not use an address-only ACK as admission. If that gate fails,
@@ -81,7 +83,13 @@ the open reset-adjacent failure, use `--skip-default-commands`, supply an
 explicit non-reset base sequence, and opt in with `--allow-reduced-soak-gate`;
 label the artifact `custom_reduced`. An unconfirmed `resetreapply` may appear
 only as an invalid-input test that proves zero-I2C rejection. Never describe a
-reduced non-reset soak as RESET_DEV qualification.
+reduced non-reset soak as RESET_DEV qualification. The retained one-hour
+artifact `docs/reports/20260804/one-hour-nonreset-e4d0436.json` is exactly that
+reduced variant: `--skip-default-commands --allow-reduced-soak-gate` with the
+base sequence `version`, `cfg`, `discover`, `busrecover confirm`, `state`,
+`init`, `wake`, `probe`, `drv`, `wake`, `drv`. No retained artifact records a
+passing complete default gate; `comprehensive-no-sensor-5e3199e.json` is the
+only default-scope run kept, and it stops at its confirmed `resetreapply`.
 
 The runner first requires every base-matrix command and firmware identity check
 to pass. It will not spend an hour soaking an ambiguous candidate. The fixed
@@ -115,8 +123,11 @@ and stores the host checkout identity separately. A host SHA is never treated
 as proof of the flashed image. Firmware cleanliness includes tracked and
 untracked source-tree changes; a failed Git-status query reports `unknown` and
 cannot pass acceptance. Missing address, variant channel count, exact TI
-identity, or target build identity makes the run fail. `UNKNOWN` is also a
-nonzero verification exit, not a successful run.
+identity, or target build identity makes the run fail. `--expected-target`
+names the required firmware-reported build target; `--expected-idf-version`
+names the exact ESP-IDF version and is required by the `idf` profile, while
+the `arduino` profile is pinned to `5.5.5`. `UNKNOWN` is also a nonzero
+verification exit, not a successful run.
 
 ## No-hardware runner checks
 
@@ -164,8 +175,8 @@ they are physical binding facts. Stress is diagnostic, not a production
 scheduler. Sample-rate acceptance is enabled only for a sensor-equipped fixture
 and counts fresh, valid, in-range samples with no error/overrun evidence.
 
-The runner follows the same coverage categories used by the maintained BME280
-and INA228 I2C libraries, adapted to the LDC1614 ownership contract:
+The runner groups evidence into the following coverage categories, mapped to
+the LDC1614 ownership contract:
 
 | Category | Automatic LDC1614 evidence | Deliberate boundary |
 | --- | --- | --- |
@@ -204,8 +215,21 @@ Run these only when hardware and operator setup explicitly support them:
 - Address `0x2B` requires rebuilding with an explicit `ADDR_VDD` profile; the
   runner records `--include-address-0x2b` as a skipped external setup item.
 - `--include-stress` runs the bounded cooperative `stress`, confirmed
-  `stress_mix`, and short CLI `soak` sessions for either firmware profile. A
-  no-sensor run proves protocol/transport stability only.
+  `stress_mix`, protocol-complete `stress_id`, and short CLI `soak` sessions
+  for either firmware profile; `--stress-count` sets the iteration count
+  (default 10; the retained 187-command artifact used 100). A no-sensor run
+  proves protocol/transport stability only.
+- `--include-reset-stress` appends the confirmed bounded `stress_reset`
+  session: repeated reset-and-reapply jobs, each writing `RESET_DEV` and
+  replaying the complete profile. It is accepted on the no-sensor fixture but
+  drives the software-reset path the Validation Matrix still records as
+  negative, so run it only while that gate is being qualified; no retained
+  artifact contains a completed `stress_reset` session.
+- `--include-busfreq-stress` appends the confirmed bounded `stress_busfreq`
+  session: repeated owner 100/400 kHz switch and restore, applied-state
+  invalidation, and full re-initialization on the no-sensor fixture. It
+  produced the 100/400 kHz re-admission result recorded in
+  `docs/reports/20260804/nonreset-exhaustive-post-rail-v2-e4d0436.json`.
 - `--include-config-matrix` exercises every safe cache-only setting family,
   legal enum values and per-physical-channel numeric boundaries. It never
   commits the staged profile; it finishes with profile reset, validation,
@@ -243,7 +267,7 @@ Run these only when hardware and operator setup explicitly support them:
 | Deadline/cancel/result identity | Yes | Hardware | Native tests only | Correlated operation IDs and bus-silent deadline/cancel trace |
 | INTB behavior | No | INTB wired/observable | Not run | Active-low push-pull behavior logs or analyzer capture |
 | SD shutdown/wake | No | SD wired/controlled | Not run | Shutdown/wake transcript and current/identity behavior |
-| Induced address NACK | No | Operator/fault fixture | Clean `e4d0436` repeatedly tolerated protocol-complete `0x2B` NACK during discovery and re-admitted `0x2A`; older evidence included peer `0x3C` | Repeat with controlled phase injection and prove the production shared peer remains usable |
+| Induced address NACK | No | Operator/fault fixture | Clean `e4d0436` repeatedly tolerated protocol-complete `0x2B` NACK during discovery and re-admitted `0x2A`. A shared peer at `0x3C` appears only in superseded bundles retained in Git history through `d3b434a`, not in the current evidence set. | Repeat with controlled phase injection and prove the production shared peer remains usable |
 | Unplug/replug | No | Operator/fault fixture | Not run | Failure, recovery, and post-recovery read logs |
 | Stuck bus | No | Test fixture | Not run | Bounded timeout/recovery logs |
 | Bounded soak | No | Stable fixture | Clean `e4d0436` completed 3,600.0 seconds: 2,926 no-reset reconstruction/re-admission cycles, 32,186 commands, zero failures/unknowns/resets, 32 ms worst latency | Repeat at production sensor cadence on the exact application-owned ESP32 backend; qualify RESET_DEV separately if exposed |

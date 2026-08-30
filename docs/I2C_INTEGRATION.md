@@ -39,9 +39,9 @@ policy for its sole owned device handle: remove the device, delete and recreate
 the bus, and recreate the handle. It deliberately does not run a blind line
 clear and does not treat an address-only ACK as device admission. TI documents
 that early termination or a forbidden SDA pulse can corrupt an LDC161x I2C
-transaction, while ESP-IDF 5.5.5 returns the same raw
-`ESP_ERR_INVALID_STATE` (`259`) for an ordinary transaction NACK. That
-ambiguity is not authority to pulse a shared bus.
+transaction, while the ESP-IDF 5.5.5 bundled in the pinned Arduino platform
+returns the same raw `ESP_ERR_INVALID_STATE` (`259`) for an ordinary
+transaction NACK. That ambiguity is not authority to pulse a shared bus.
 
 Controller reconstruction is not proof of device recovery. Only the required
 complete initialization—both combined identity reads followed by full

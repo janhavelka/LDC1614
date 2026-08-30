@@ -1,34 +1,31 @@
 # Release procedure
 
-`library.json` is the version source of truth. Release tags are annotated and
-immutable. Run every command from the repository root on the intended release
-commit; on Windows, invoke PlatformIO only through `scripts\pio.cmd`.
+`library.json` is the version source of truth. Release tags must be annotated
+and are immutable once pushed; the historical `v2.0.0` tag is lightweight and
+is deliberately not rewritten. Run every command from the repository root on
+the intended release commit; on Windows, invoke PlatformIO only through
+`scripts\pio.cmd`.
 
 ## 1. Validate the release candidate
 
-For `v3.1.0`:
+For `v3.1.0`, start from a clean working tree on that exact commit:
 
 ```powershell
 git status --short --branch
 git diff --check
-python tools/check_core_timing_guard.py
-python tools/check_cli_contract.py
-python tools/check_idf_example_contract.py
-python tools/check_readiness_claims.py
-python tools/check_repository_hygiene.py
-python tools/test_ldc1614_hil_runner.py
-python scripts/generate_version.py check
-python tools/check_clean_consumer_compile.py
-.\scripts\pio.cmd test -e native
-.\scripts\pio.cmd run -e esp32s3dev
-.\scripts\pio.cmd run -e esp32s2dev
-doxygen Doxyfile
 ```
 
+Then run every command in the
+[required software checks](VALIDATION_STATUS.md#required-software-checks) list,
+which is maintained there as the single copy.
+
 Confirm `library.json`, `idf_component.yml`, `Doxyfile`, and
-`include/LDC1614/Version.h` all report `3.1.0`. Review the validation boundary;
-the retained no-sensor HIL evidence does not qualify sensor-equipped product
-hardware.
+`include/LDC1614/Version.h` all report `3.1.0`. `scripts/generate_version.py`
+synchronises only the last three from `library.json`, so update the prose
+copies by hand in the same commit: `README.md`, `docs/VALIDATION_STATUS.md`,
+and every `3.1.0`/`v3.1.0` literal in this file. Review the validation
+boundary; the retained no-sensor HIL evidence does not qualify sensor-equipped
+product hardware.
 
 ## 2. Commit and push
 
@@ -42,7 +39,7 @@ git add -A
 git diff --cached --check
 git diff --cached --stat
 git diff --cached
-git commit -m "Prepare release v3.1.0"
+git commit -m "Prepare release $tag"
 git push origin main
 ```
 
@@ -66,12 +63,14 @@ git fetch --prune --tags
 git pull --ff-only origin main
 git status --short --branch
 git rev-list --left-right --count HEAD...origin/main
-git tag --list v3.1.0
+$version = (Get-Content library.json -Raw | ConvertFrom-Json).version
+$tag = "v$version"
+git tag --list $tag
 $releaseSha = git rev-parse HEAD
 gh run list --workflow ci.yml --commit $releaseSha --limit 1
-git tag -a v3.1.0 -m "Release v3.1.0"
-git show --stat v3.1.0
-git push origin v3.1.0
+git tag -a $tag -m "Release $tag"
+git show --stat $tag
+git push origin $tag
 ```
 
 The status must be clean, the existing-tag query must print nothing, and the
@@ -84,21 +83,22 @@ replacing a tag.
 In GitHub:
 
 1. Open **Releases** and select **Draft a new release**.
-2. Choose the existing tag `v3.1.0`; do not create a second tag in the UI.
-3. Keep `main` as the target and use title `LDC1614 v3.1.0`.
-4. Generate release notes, then reconcile them with the `3.1.0` section of
-   `CHANGELOG.md`.
+2. Choose the tag you just pushed (`$tag`); do not create a second tag in
+   the UI.
+3. Keep `main` as the target and use title `LDC1614 $tag`.
+4. Generate release notes, then reconcile them with the matching `$version`
+   section of `CHANGELOG.md`.
 5. Keep the no-sensor HIL limitations visible and publish the release.
 
 Equivalent GitHub CLI command:
 
 ```powershell
-gh release create v3.1.0 --verify-tag --title "LDC1614 v3.1.0" --generate-notes
+gh release create $tag --verify-tag --title "LDC1614 $tag" --generate-notes
 ```
 
 Verify the published objects:
 
 ```powershell
-git ls-remote --tags origin refs/tags/v3.1.0 refs/tags/v3.1.0^{}
-gh release view v3.1.0
+git ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}"
+gh release view $tag
 ```

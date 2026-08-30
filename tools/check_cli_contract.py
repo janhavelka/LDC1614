@@ -227,10 +227,6 @@ def main() -> int:
     version_text = read(version_script, "version generator")
     gitignore_text = read(gitignore, "Git ignore rules")
 
-    for deprecated in ("00_smoke_boot", "03_feature_walkthrough"):
-        if (ROOT / "examples" / deprecated).exists():
-            fail(f"forbidden deprecated example remains: examples/{deprecated}")
-
     if "Ldc1614Cli.h" not in arduino_text:
         fail("Arduino example must use shared Ldc1614Cli.h")
     if re.search(r"\b(?:Wire|TwoWire)\b", arduino_text):

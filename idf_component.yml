@@ -2,8 +2,21 @@ version: "3.1.0"
 description: "Framework-neutral cooperative LDC1614/LDC1612 inductance-to-digital converter driver."
 license: "MIT"
 url: "https://github.com/janhavelka/LDC1614"
-targets:
-  - esp32s2
-  - esp32s3
 dependencies:
   idf: ">=6.0.0"
+
+# Repository-only evidence, tests and host tooling are not part of the packaged
+# component. Keep this list in step with `export.include` in library.json.
+files:
+  exclude:
+    - "docs/reports/**/*"
+    - "docs/reference/extracted-md/**/*"
+    - "docs/reference/application_notes/**/*"
+    - "docs/reference/howto_guides/**/*"
+    - "docs/reference/PDF_MANIFEST.md"
+    - "docs/reference/README.md"
+    - "test/**/*"
+    - "tools/**/*"
+    - ".github/**/*"
+    - ".pio/**/*"
+    - ".vscode/**/*"

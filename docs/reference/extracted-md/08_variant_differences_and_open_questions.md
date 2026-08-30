@@ -29,8 +29,9 @@ configuration decision unless another verified source is added.
 |---|---|
 | Deglitch 33 MHz code | `MUX_CONFIG` field text lists 33 MHz as `b111`, while the application deglitch table lists 33 MHz as `b011`. Source: datasheet, pp. 29-30, 46. |
 | Conversion-time formula | Register tables describe conversion time as `RCOUNTx * 16 / fREFx`; the application text includes an added `+4` reference-clock term. Source: datasheet, pp. 20, 39. |
-| Channel table typos | The application sample-data table text has channel 2/3 row labeling errors in the raw extraction. The register map names `DATA2_*` at `0x04`/`0x05` and `DATA3_*` at `0x06`/`0x07`. Source: datasheet, pp. 15, 38. |
-| Sleep bit wording in example text | The configuration example text in the raw extraction appears to invert sleep-mode wording in two steps; the register definition is clear that `SLEEP_MODE_EN = 1` means sleep and `0` means conversion. Source: datasheet, pp. 12, 28, 49-51. |
+| Channel table typos | Datasheet Table 37 (p. 38) mislabels the channel 2 and channel 3 rows as `DATA1_MSB`/`DATA1_LSB` and describes the channel 3 LSB as Channel 0. The register list (p. 15) is authoritative: `DATA2_*` at `0x04`/`0x05` and `DATA3_*` at `0x06`/`0x07`. Source: datasheet, pp. 15, 38. |
+| Sleep bit polarity in the auto-calibration sequence | Section 8.1.5.2 (p. 44) steps 2 and 5 say to enter SLEEP with `CONFIG.SLEEP_MODE_EN = b0` and to exit with `b1`, inverting the CONFIG field definition on p. 29, where `b1` is Sleep Mode and `b0` is active. Follow the register definition. The design example on pp. 49-51 is correct: step 8b sets `SLEEP_MODE_EN = b0` to enable conversion and `CONFIG = 0x1601` has bit 13 clear. Source: datasheet, pp. 12, 29, 44, 49-51. |
+| Section 8.2.4 example self-conflict | Step 1b (p. 50) says the reference divider "can be set to 1" via `FREF_DIVIDER0 = 0x01`, but step 1c gives `CLOCK_DIVIDERS0 = 0x1002`, steps 2c and 3 compute with fREF = 20 MHz, and Table 47 (p. 51) states `FREF_DIVIDER0 = 2`. Section 8.2.3 (p. 49) states 500 SPS (TSAMPLE = 2.00 ms) while step 4 budgets 1000 - 8 - 1 = 991 us and Tables 47/48 label the result 1 kSPS. `07_initialization_reset_and_operational_notes.md` follows the register values (`FREF_DIVIDER0 = 2`, 1 kSPS). Source: datasheet, pp. 49-51. |
 
 ## Facts Not Documented in the PDFs
 

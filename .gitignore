@@ -15,7 +15,7 @@
 docs/doxygen/
 examples/esp_idf/basic/build/
 
-# Python (for scripts/)
+# Python (for tools/ and scripts/)
 __pycache__/
 *.py[cod]
 *$py.class

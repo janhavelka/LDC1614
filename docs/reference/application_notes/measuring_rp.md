@@ -1,6 +1,8 @@
 # Measuring Rp of an L-C Sensor for Inductive Sensing
 **Source:** measuring_rp.pdf | **Doc #:** SNOA936 | **Pages:** 4
 
+> **Naming note.** Register and field names below are quoted as SNOA936 writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
+
 ## Key Takeaways
 - Three practical methods exist to measure Rp: network analyzer, impedance analyzer, or signal generator + oscilloscope
 - Rp must be measured at both minimum and maximum target distances to determine the full operating range

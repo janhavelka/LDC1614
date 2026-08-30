@@ -53,6 +53,13 @@ The repository root is also an ESP-IDF component. Add it through
 `EXTRA_COMPONENT_DIRS` or component-manager metadata. The native diagnostic
 example is under `examples/esp_idf/basic`.
 
+As an ESP-IDF component the library requires ESP-IDF 6.0 or newer;
+`idf_component.yml` declares `idf: ">=6.0.0"`. The driver core compiles no
+ESP-IDF API, so that floor records the maintained example and CI surface
+rather than a source dependency. The manifest declares no target restriction
+because the core is chip-independent; maintained CI builds the example for
+ESP32-S2 and ESP32-S3 with the IDF version pinned in the workflow.
+
 Host validation tools are pinned in `requirements-dev.txt`; the maintained
 Arduino build uses pioarduino `55.03.311` (Arduino 3.3.11 with ESP-IDF 5.5.5),
 pinned in `platformio.ini`. In this ESP-IDF generation, a synchronous
@@ -63,17 +70,12 @@ generic transaction failure, never by itself to a failed shared bus. ESP-IDF 6
 renames the NACK result to `ESP_ERR_INVALID_RESPONSE`; see the
 [official migration note](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/migration-guides/release-6.x/6.0/peripherals.html#i2c-master-driver-updates).
 
-Both maintained ESP32 diagnostics use one example-owned ESP-IDF new-master
-transport rather than a parallel Wire backend. Explicit `busrecover` closes
-and recreates only the diagnostic's sole bus/device lifecycle. It deliberately
-does not clock-clear the lines or use an address-only ACK as device admission:
-the LDC161x data sheet rejects early-terminated/malformed I2C traffic, and an
-address ACK does not prove that a combined register read works. Recovery
-success means only that controller resources were reconstructed. The CLI then
-invalidates applied state and requires complete identity reads plus profile
-replay before trusted use. This is example/build-tool policy, not a dependency
-of the framework-neutral core, and a shared-bus product must coordinate every
-device handle and device-specific admission itself.
+Both maintained ESP32 diagnostics share one example-owned ESP-IDF new-master
+transport rather than a parallel Wire backend. Its explicit `busrecover`
+boundary is example/build-tool policy, not a dependency of the
+framework-neutral core; see [I2C owner integration](docs/I2C_INTEGRATION.md)
+for the controller-reconstruction contract and why an address ACK is not
+device admission.
 
 ## Explicit profile
 
@@ -295,11 +297,15 @@ required. Advanced raw writes invalidate the high-level applied-state contract.
   acquisition transfer count follows the requested mask. Application queueing,
   lock wait, I2C callback duration, and processing time remain outside this
   chip estimate.
-- `encodeErrorReporting()`, `decodeDeviceStatus()`, and
-  `decodeChannelSample()` are bus-silent pure helpers.
+- `encodeErrorReporting()`, `nominalDriveCurrentMicroamps()`,
+  `decodeDeviceStatus()`, and `decodeChannelSample()` are bus-silent pure
+  helpers.
 - `readRegister16()` and `writeRegister16()` are advanced diagnostic access.
   Prefer typed jobs/controls for normal use and reconcile any raw mutation by
   invalidation plus replay.
+- `readIntb()` reports the application-observed INTB level through the optional
+  bus-silent `Config::intbAsserted` callback. It performs no I2C and returns
+  `INVALID_CONFIG` when no INTB observer is enabled.
 - `TransportStats` records attempts, successes, failures, and the last status
   for diagnostics only; it does not own health or admission policy.
 
@@ -313,9 +319,10 @@ parity.
 
 Commands cover lifecycle/jobs, complete desired configuration, acquisition and
 cached batches, STATUS/INTB/SD visibility, every persistent configuration
-register, pure timing/frequency/current/decoder helpers, and bounded
-protocol-qualified discovery,
-verify, self-test, watch, stress, mixed-stress, sample-rate, and soak sessions.
+register, owner bus/speed and transport-counter diagnostics, pure
+timing/frequency/current/decoder helpers, and bounded protocol-qualified
+discovery, verify, self-test, watch, acquisition/mixed/identity/reset/bus-speed
+stress, sample-rate, and soak sessions.
 `cfg` prints every global field, every physical-channel register value and
 sensor bound, error routing, desired/applied revision, INTB availability, and
 configuration-fault provenance.
@@ -326,8 +333,8 @@ fixed candidate with zero I2C; `profile validate` checks the whole candidate and
 run the cooperative `apply` job. Address and variant remain physical binding
 facts and require `end()` plus a rebuilt/rebound transport profile.
 
-Scan, multi-register diagnostics, self-test, and stress functions are finite
-CLI-owned state machines. Each owner service pass performs at most one
+Discovery, multi-register diagnostics, self-test, and stress functions are
+finite CLI-owned state machines. Each owner service pass performs at most one
 `poll(now, 1)` callback or one direct diagnostic callback. Raw writes,
 destructive all-register dumps, reset/reapply, recovery, invalidation,
 mixed-stress, and example-owned SD transitions require explicit confirmation.

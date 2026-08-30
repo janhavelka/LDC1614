@@ -9,7 +9,7 @@ execute_process(
 )
 
 if(NOT LDC1614_VERSION_RESULT EQUAL 0)
-  message(FATAL_ERROR "include/LDC1614/Version.h is missing or out of date: ${LDC1614_VERSION_OUTPUT} ${LDC1614_VERSION_ERROR}")
+  message(FATAL_ERROR "Generated version metadata (include/LDC1614/Version.h, idf_component.yml, Doxyfile) is missing or out of date; run: python scripts/generate_version.py sync\n${LDC1614_VERSION_OUTPUT} ${LDC1614_VERSION_ERROR}")
 endif()
 
 idf_component_register(

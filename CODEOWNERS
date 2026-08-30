@@ -3,9 +3,3 @@
 
 # Default owner for everything
 * info@thymos.cz
-
-# Public API requires careful review
-/include/ info@thymos.cz
-
-# CI configuration
-/.github/ info@thymos.cz

@@ -37,10 +37,3 @@ for design guidance or additional explanation. If a supplemental document uses a
 related part such as LDC0851, LDC1000, LDC1101, or LDC131x, that content is not
 treated as an LDC1614 register or protocol source unless the note explicitly
 states applicability to LDC1612/LDC1614.
-
-## Cleanup Notes
-
-The previous compact files contained raw page extracts, notices, OCR artifacts,
-and unrelated supplemental-document text. Those dumps were removed from the
-compact notes. The authoritative PDFs remain alongside concise summaries; raw
-extraction artifacts are rebuildable and intentionally not retained.

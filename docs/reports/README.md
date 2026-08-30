@@ -8,10 +8,20 @@ the remaining hardware gates are listed in
 ## Fixture and scope
 
 The retained runs used an ESP32-S2 on COM8, an LDC1614 at `0x2A`, pioarduino
-`55.03.311` / ESP-IDF 5.5.5, 400 kHz I2C, and no LC sensor. They support
+`55.03.311` / ESP-IDF 5.5.5, 400 kHz owner I2C at startup, and no LC sensor.
+The rate leaves 400 kHz only inside the non-reset exhaustive matrix's bounded
+100/400 kHz switch-and-restore stress, which ends back at 400 kHz. They support
 identity, register/configuration, cooperative lifecycle, and no-reset transport
 claims only. They do not validate sensor physics, `0x2B`, LDC1612, INTB, SD,
-drive-current tuning, or an ESP32-S3 product bus owner.
+drive-current tuning, or an ESP32-S3 product bus owner. The `operator` field in
+these artifacts records the agent session that drove
+`tools/ldc1614_hil_runner.py` on that fixture, spelled `Codex` in three
+artifacts and `OpenAI Codex` in the other three, rather than a human name.
+
+Each JSON `operator` field records the tooling session that drove
+`tools/ldc1614_hil_runner.py`. It is not a record of the person who physically
+handled the fixture and performed the manual rail cycles; a run used as release
+acceptance should also name that person.
 
 ## Canonical artifacts
 

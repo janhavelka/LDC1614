@@ -37,7 +37,9 @@ Always read `DATAx_MSB` first. Source: datasheet, pp. 16-19, 38.
 `RCOUNTx` values below `0x0005` are not valid for normal conversion timing.
 `SETTLECOUNTx` values `0x0000` and `0x0001` have special short-settle meanings;
 `0x0002` through `0xFFFF` scale with the channel reference frequency. Source:
-datasheet, pp. 20, 22-23.
+datasheet, pp. 20, 22-23. Multi-channel operation applies tighter Table 43
+minimums; see
+[Electrical and timing notes](03_electrical_and_timing.md#conversion-timing).
 
 `CLOCK_DIVIDERSx` fields:
 
@@ -51,9 +53,11 @@ Source: datasheet, pp. 23-24.
 
 ## Control Registers
 
-`CONFIG` includes `ACTIVE_CHAN`, `SLEEP_MODE_EN`, `SENSOR_ACTIVATE_SEL`,
-`AUTO_AMP_DIS`, `REF_CLK_SRC`, `INTB_DIS`, and `HIGH_CURRENT_DRV`. Source:
-datasheet, pp. 28-29.
+`CONFIG` includes `ACTIVE_CHAN`, `SLEEP_MODE_EN`, `RP_OVERRIDE_EN`,
+`SENSOR_ACTIVATE_SEL`, `AUTO_AMP_DIS`, `REF_CLK_SRC`, `INTB_DIS`, and
+`HIGH_CURRENT_DRV`. `RP_OVERRIDE_EN = 1` makes the conversion use the
+programmed `IDRIVEx` value instead of the automatically determined drive
+current. Source: datasheet, pp. 28-29.
 
 `MUX_CONFIG` includes `AUTOSCAN_EN`, `RR_SEQUENCE`, reserved bits that must be
 set per the datasheet, and `DEGLITCH`. Source: datasheet, pp. 29-30.
@@ -64,3 +68,24 @@ p. 31.
 `DRIVE_CURRENTx` contains `IDRIVEx` and `INIT_IDRIVEx`; when writing
 `DRIVE_CURRENTx`, the lower reserved field is documented as zero. Source:
 datasheet, pp. 31-33.
+
+## Pre-Revision-A Name Map
+
+The retained vendor application notes and how-to guides predate datasheet
+revision A and use the older `CHx_NAME` / `NAME_CHx` identifiers. Revision A
+renamed them; addresses and bit positions are unchanged. The revision-A names
+are the ones used by the datasheet register tables and by
+`include/LDC1614/CommandTable.h`.
+
+| Pre-revision-A name | Revision-A name |
+|---|---|
+| `DATA_MSB_CHx` / `DATA_LSB_CHx` / `DATA_CHx` | `DATAx_MSB` / `DATAx_LSB` |
+| `CHx_ERR_UR` / `CHx_ERR_OR` / `CHx_ERR_WD` / `CHx_ERR_AE` | `ERR_URx` / `ERR_ORx` / `ERR_WDx` / `ERR_AEx` |
+| `RCOUNT_CHx`, `CHx_RCOUNT` | `RCOUNTx` |
+| `OFFSET_CHx`, `CHx_OFFSET` | `OFFSETx` |
+| `SETTLECOUNT_CHx`, `CHx_SETTLECOUNT` | `SETTLECOUNTx` |
+| `CLOCK_DIVIDERS_CHx`, `CHx_FIN_DIVIDER`, `CHx_FREF_DIVIDER` | `CLOCK_DIVIDERSx`, `FIN_DIVIDERx`, `FREF_DIVIDERx` |
+| `CHx_UNREADCONV` | `UNREADCONVx` |
+| `DRIVE_CURRENT_CHx`, `CHx_IDRIVE`, `CHx_INIT_IDRIVE` (`CHx_INIT_DRIVE` in SNAA221B) | `DRIVE_CURRENTx`, `IDRIVEx`, `INIT_IDRIVEx` |
+
+Source: datasheet, p. 2 (Revision History).

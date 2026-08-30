@@ -35,7 +35,7 @@ The internal deglitch filter reduces sensitivity to sensor noise. Since it is sh
 #### RR_SEQUENCE Channel Selection (LDC1314/LDC1614)
 | RR_SEQUENCE | Channels Enabled |
 |---|---|
-| 00 | CH0, CH1 (2-channel devices: LDC1312/LDC1612) |
+| 00 | CH0, CH1 (2 channels; reset default) |
 | 01 | CH0, CH1, CH2 (3 channels) |
 | 10 | CH0, CH1, CH2, CH3 (all 4 channels) |
 
