@@ -82,16 +82,9 @@ struct FakeLdc1614Device {
     reg[cmd::REG_MUX_CONFIG] = cmd::MUX_CONFIG_DEFAULT;
     reg[cmd::REG_ERROR_CONFIG] = cmd::ERROR_CONFIG_DEFAULT;
     for (uint8_t ch = 0; ch < 4; ++ch) {
-      liveMsb[ch] = 0;
-      liveLsb[ch] = 0;
-      shadowMsb[ch] = 0;
-      shadowLsb[ch] = 0;
-      shadowValid[ch] = false;
+      reg[cmd::regRcount(ch)] = cmd::RCOUNT_DEFAULT;
     }
-    unreadMask = 0;
-    stickyStatusErrors = 0;
-    errorChannel = 0;
-    intbAsserted = false;
+    clearConversionEvidence();
   }
 
   void clearIo() {
@@ -235,6 +228,20 @@ struct FakeLdc1614Device {
   }
 
 private:
+  void clearConversionEvidence() {
+    for (uint8_t ch = 0; ch < 4U; ++ch) {
+      liveMsb[ch] = 0U;
+      liveLsb[ch] = 0U;
+      shadowMsb[ch] = 0U;
+      shadowLsb[ch] = 0U;
+      shadowValid[ch] = false;
+    }
+    unreadMask = 0U;
+    stickyStatusErrors = 0U;
+    errorChannel = 0U;
+    intbAsserted = false;
+  }
+
   static uint16_t unreadStatusBit(uint8_t ch) {
     return static_cast<uint16_t>(1U << (3U - ch));
   }
@@ -311,10 +318,7 @@ private:
     }
     if (targetReg == cmd::REG_CONFIG &&
         (value & cmd::MASK_CFG_SLEEP_MODE_EN) != 0U) {
-      unreadMask = 0;
-      stickyStatusErrors = 0;
-      errorChannel = 0;
-      intbAsserted = false;
+      clearConversionEvidence();
     }
   }
 

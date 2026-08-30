@@ -18,8 +18,8 @@ using I2cWriteFn = Status (*)(uint8_t address, const uint8_t* data, size_t lengt
 
 /// One bounded combined-format I2C write/read attempt: the register-pointer
 /// write and the two-byte read are joined by a repeated START with no STOP
-/// between them (datasheet 7.5.1, Figure 12). A write terminated by STOP
-/// followed by a separate read does not return coherent DATA. The callback
+/// between them (datasheet 7.5.1, Figure 12). A STOP-separated write and read
+/// is unsupported and does not guarantee coherent register data. The callback
 /// must return within timeoutMs.
 using I2cWriteReadFn = Status (*)(uint8_t address,
                                   const uint8_t* txData, size_t txLength,
@@ -102,9 +102,9 @@ enum class RefClkSrc : uint8_t {
 };
 
 /// @brief Application-supplied reference-clock fact used for validation and calculations.
-/// External-clock tolerance must remain inside the datasheet input range. The
-/// internal-oscillator interval is conservatively clipped to its guaranteed
-/// datasheet range.
+/// External-clock validation uses the declared symmetric tolerance. Internal-
+/// clock limit and timing checks always use the full guaranteed 35-55 MHz
+/// device envelope; its nominal frequency feeds sensor-frequency conversion.
 struct ReferenceClock {
   RefClkSrc source = RefClkSrc::UNSPECIFIED; ///< Selected clock source.
   uint32_t frequencyHz = 0;                  ///< Nominal clock frequency in hertz.
@@ -142,6 +142,10 @@ enum class RRSequence : uint8_t {
 };
 
 /// @brief Typed ERROR_CONFIG policy. All fields are encoded by the driver.
+/// @details A disabled route makes its corresponding silicon quality evidence
+/// unavailable to SampleBatch. all() enables the maximal supported routing;
+/// STATUS still attributes only one error channel and zero-count has no DATA
+/// route.
 struct ErrorReporting {
   bool dataUnderRange = false;     ///< Route under-range to DATAx_MSB.
   bool dataOverRange = false;      ///< Route over-range to DATAx_MSB.

@@ -237,7 +237,10 @@ COMMAND_EVIDENCE_PATTERNS = {
         FIRMWARE_VERSION_PATTERN,
         re.compile(r"\bfirmware_git=[0-9a-f]{7,40}\b", re.IGNORECASE),
         re.compile(r"\bfirmware_status=clean\b", re.IGNORECASE),
-        re.compile(r"\bbuild_timestamp=\S+", re.IGNORECASE),
+        re.compile(
+            r"\bbuild_timestamp=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\b",
+            re.IGNORECASE,
+        ),
         re.compile(r"\bplatform=\S+\s+framework=\S+\s+framework_version=\S+\s+"
                    r"idf_version=\S+\s+target=\S+\s+i2c_backend=\S+\s+"
                    r"frequency_hz=\d+\b", re.IGNORECASE),
@@ -3578,7 +3581,7 @@ def parser_self_test() -> Tuple[bool, List[str]]:
     status, _ = classify_command(
         "version",
         "version=1.0.0 firmware_git=abcdef1 firmware_status=clean "
-        "build_timestamp=test platform=pioarduino-55.03.311 "
+        "build_timestamp=2026-08-30T12:34:56 platform=pioarduino-55.03.311 "
         "framework=arduino framework_version=3.3.11 idf_version=v5.5.5 "
         "target=esp32s2 i2c_backend=esp-idf-new-master frequency_hz=400000\n> ",
         False,

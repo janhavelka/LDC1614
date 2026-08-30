@@ -65,9 +65,10 @@ full initialization, is the simple isolated design pattern to qualify.
   batch is transactionally committed as one result, but it is not a
   simultaneous sensor frame. Budget channel settling/conversion, switch time,
   STATUS/DATA readout, clock tolerance, and application scheduling latency.
-- Treat raw zero and `0x0FFFFFFF` as under-range and over-range endpoints even
-  if device error reporting is disabled. Use the per-channel quality and batch
-  masks rather than treating a decoded 28-bit value as automatically usable.
+- Treat fresh raw zero and `0x0FFFFFFF` as under-range and over-range endpoints
+  even if device error reporting is disabled. Stale/sleep-cleared data is not a
+  conversion endpoint. Use per-channel quality and batch masks rather than
+  treating a decoded 28-bit value as automatically usable.
 - Frequency conversion is a chip-level calculation, not calibration to
   inductance, displacement, level, coating thickness, or material identity.
 
@@ -91,6 +92,9 @@ full initialization, is the simple isolated design pattern to qualify.
   Reading STATUS captures then clears sticky status/INTB evidence. Production
   acquisition therefore preserves a STATUS snapshot before any DATA read and
   reports a later STATUS comparison for data-loss detection.
+- Entering sleep clears DATA, unread/error status, and INTB evidence. Treat it
+  as a destructive acquisition boundary and do not expect a pre-sleep sample
+  to remain available after wake.
 - A failed or cancelled write sequence can leave hardware partially changed or
   indeterminate. Inspect the terminal operation result and configuration fault;
   do not publish cached configuration as verified hardware state.

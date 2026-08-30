@@ -35,7 +35,7 @@ enum class JobPhase : uint8_t {
   NONE = 0,            ///< No active/recorded phase.
   VERIFY_MANUFACTURER, ///< Read and verify MANUFACTURER_ID.
   VERIFY_DEVICE,       ///< Read and verify DEVICE_ID.
-  FORCE_SLEEP,         ///< Put the converter to sleep before replay.
+  FORCE_SLEEP,         ///< Sleep before replay; clears DATA/error/INTB evidence.
   WRITE_RCOUNT,        ///< Write one channel RCOUNT register.
   WRITE_SETTLECOUNT,   ///< Write one channel SETTLECOUNT register.
   WRITE_CLOCK_DIVIDERS, ///< Write one channel CLOCK_DIVIDERS register.
@@ -63,8 +63,8 @@ enum class TerminalOutcome : uint8_t {
 /// @brief Observable hardware-side effects accumulated by an operation.
 enum class EffectFlag : uint8_t {
   NONE = 0,                       ///< No known device-side effect.
-  READ_SIDE_EFFECTS = 1U << 0,   ///< At least one destructive read succeeded.
-  PARTIAL_WRITE = 1U << 1,       ///< At least one prior write was confirmed.
+  READ_SIDE_EFFECTS = 1U << 0,   ///< Destructive read reached or may have reached hardware.
+  PARTIAL_WRITE = 1U << 1,       ///< At least one register write was confirmed; partial on failure.
   INDETERMINATE_WRITE = 1U << 2, ///< Failed write may have reached hardware.
 };
 
@@ -123,12 +123,12 @@ enum class SampleQualityFlag : uint16_t {
   NONE = 0,                      ///< No quality evidence.
   FRESH = 1U << 0,              ///< Pre-read STATUS reported unread conversion.
   STALE = 1U << 1,              ///< Pre-read STATUS did not report unread data.
-  UNDER_RANGE = 1U << 2,        ///< Raw endpoint or silicon flag indicates under-range.
-  OVER_RANGE = 1U << 3,         ///< Raw endpoint or silicon flag indicates over-range.
+  UNDER_RANGE = 1U << 2,        ///< Raw endpoint (retained for fresh batches) or silicon flag.
+  OVER_RANGE = 1U << 3,         ///< Raw endpoint (retained for fresh batches) or silicon flag.
   WATCHDOG = 1U << 4,           ///< DATA or STATUS watchdog fault attributed to this channel.
   AMPLITUDE_SUSPECT = 1U << 5,  ///< DATA/STATUS amplitude fault; sample is invalid.
   ZERO_COUNT = 1U << 6,         ///< STATUS zero-count was attributed to the channel.
-  DATA_LOST = 1U << 7,          ///< New unread conversion appeared during readout.
+  DATA_LOST = 1U << 7,          ///< New conversion pending after this coherent sample was read.
   CONFIG_UNKNOWN = 1U << 8,     ///< Compatibility-only; never emitted. Use AppliedConfigState.
 };
 
@@ -157,12 +157,18 @@ struct ChannelSample {
 };
 
 /// @brief One sequential readout batch; channels are not simultaneous samples.
+/// @note Quality decoding is bounded by ERROR_CONFIG routing. STATUS reports
+/// one error channel; additional concurrent channel faults require their DATA
+/// routes. Zero-count has no DATA route and can latch after STATUS-before then
+/// be cleared by DATAx_MSB before it is decoded. With routes disabled,
+/// validChannels means fresh with no decoded range/silicon error, not
+/// fault-free silicon. Overrun/DATA_LOST is orthogonal and can coexist.
 struct SampleBatch {
   ChannelMask selectedChannels{};  ///< Channels requested by the owner.
-  ChannelMask validChannels{};     ///< Silicon-usable samples only.
+  ChannelMask validChannels{};     ///< Fresh samples with no decoded range/silicon error.
   ChannelMask freshChannels{};     ///< Channels with pre-read unread evidence.
   ChannelMask errorChannels{};     ///< Channels with decoded error quality.
-  ChannelMask overrunChannels{};   ///< New unread data observed after readout.
+  ChannelMask overrunChannels{};   ///< Newer conversion pending after channel read.
   DeviceStatus statusBefore{};     ///< STATUS captured before DATA reads.
   DeviceStatus statusAfter{};      ///< STATUS captured after DATA reads.
   ChannelSample channel[4]{};      ///< Fixed storage indexed by physical channel.
@@ -267,7 +273,7 @@ class LDC1614 {
 
   /// Verify both identity registers, then replay the complete profile into
   /// sleeping hardware. An identity-read failure makes applied configuration
-  /// unknown and records ConfigFault provenance. Maximum: 16 LDC1612 or 26
+  /// unknown and records ConfigFault provenance. Maximum: 15 LDC1612 or 25
   /// LDC1614 transfers.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
@@ -276,7 +282,7 @@ class LDC1614 {
   Status startInitialize(OperationId operationId, uint64_t deadlineMs);
 
   /// Replay the complete profile without identity reads. Requires established
-  /// identity/config state. Maximum: 14 LDC1612 or 24 LDC1614 transfers.
+  /// identity/config state. Maximum: 13 LDC1612 or 23 LDC1614 transfers.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
   /// deadline horizon must be less than 2^63 ms; natural uint64_t wrap is safe.
@@ -284,7 +290,7 @@ class LDC1614 {
   Status startApplyConfig(OperationId operationId, uint64_t deadlineMs);
 
   /// Issue software reset, verify identity, and replay the complete profile.
-  /// Maximum: 17 LDC1612 or 27 LDC1614 transfers; no write is retried.
+  /// Maximum: 16 LDC1612 or 26 LDC1614 transfers; no write is retried.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
   /// deadline horizon must be less than 2^63 ms; natural uint64_t wrap is safe.
@@ -356,6 +362,9 @@ class LDC1614 {
   /// @return Precise precondition, INTB-observation, or transport status.
   Status readDataReady(bool& ready, DeviceStatus& observedStatus);
   /// @brief Enter sleep mode with one bounded CONFIG write.
+  /// @details Sleep entry clears DATA registers, unread and latched error
+  /// evidence, and de-asserts INTB. Drain required evidence before sleeping;
+  /// after wake, wait for a fresh conversion before treating DATA as current.
   /// @return Precise precondition or transport status.
   Status sleep();
   /// @brief Leave sleep mode with one bounded CONFIG write.

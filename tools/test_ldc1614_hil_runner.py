@@ -40,7 +40,7 @@ def async_output(command: str, session: int, body: str = "") -> str:
 def version_output(commit: str = "abcdef1") -> str:
     return (
         f"version=3.0.0 firmware_git={commit} firmware_status=clean "
-        "build_timestamp=test platform=pioarduino-55.03.311 "
+        "build_timestamp=2026-08-30T12:34:56 platform=pioarduino-55.03.311 "
         "framework=arduino framework_version=3.3.11 idf_version=v5.5.5 "
         "target=esp32s2 i2c_backend=esp-idf-new-master frequency_hz=400000\n> "
     )

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Validate internal-oscillator limits and conservative timing against the full
+  guaranteed 35 MHz to 55 MHz range, independent of the nominal value supplied
+  for frequency conversion.
+- Preserve coherent channel validity when STATUS-after reports that a newer
+  conversion is pending, while retaining overrun/data-loss evidence.
+- Preserve the identity-before-apply fence across raw writes, reset failures,
+  cancellation, and partial jobs; retain successful replay write effects in
+  terminal results.
+- Report possible destructive read effects for ambiguous failed STATUS and
+  DATA-MSB transactions, and avoid deriving range faults from stale zero data.
+- Keep cancelled/timed-out CLI sessions distinct from failures, count verify
+  read failures once, and emit an unambiguous ISO-like build timestamp.
+
+### Changed
+
+- Removed the redundant trailing sleeping CONFIG write from full replay. Apply,
+  initialize, and reset/reapply now require at most 13/23, 15/25, and 16/26
+  callbacks for LDC1612/LDC1614 respectively.
+- Documented combined-read, sleep-destruction, error-routing, result-draining,
+  and sample-validity contracts and expanded their native regression coverage.
+
 ## [3.1.0] - 2026-08-05
 
 ### Added

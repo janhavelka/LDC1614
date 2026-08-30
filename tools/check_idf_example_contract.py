@@ -269,6 +269,22 @@ def main() -> int:
     for field in ("firmware_git=", "firmware_status=", "build_timestamp="):
         if field not in all_native:
             fail(f"native version output missing provenance field {field!r}")
+    if "build_timestamp=%sT%s" not in all_native:
+        fail("native version output must emit one dateTtime timestamp token")
+    for macro in (
+        "LDC1614_GIT_COMMIT", "LDC1614_GIT_STATUS",
+        "LDC1614_BUILD_DATE", "LDC1614_BUILD_TIME",
+    ):
+        if macro not in cmake_text:
+            fail(f"native CMake missing provenance definition {macro}")
+    for timestamp_call in (
+        'string(TIMESTAMP LDC1614_EXAMPLE_BUILD_TIMESTAMP '
+        '"%Y-%m-%dT%H:%M:%S" UTC)',
+        'string(SUBSTRING "${LDC1614_EXAMPLE_BUILD_TIMESTAMP}" 0 10',
+        'string(SUBSTRING "${LDC1614_EXAMPLE_BUILD_TIMESTAMP}" 11 8',
+    ):
+        if timestamp_call not in cmake_text:
+            fail(f"native CMake missing atomic UTC timestamp step: {timestamp_call}")
     for token in REQUIRED_IDF_TOKENS:
         if token not in all_native:
             fail(f"required native token missing: {token}")

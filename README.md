@@ -127,12 +127,14 @@ selected `ChannelMask` and clock frequency/tolerance are also explicit.
 Initialization writes a known register profile for every physical channel of
 the selected variant, so those register values must all be supplied; expected
 sensor-frequency bounds are required for channels selected for conversion.
-Validation uses both reference-clock tolerance extrema for fREF limits and the
+Validation uses both reference-clock extrema for fREF limits and the
 fIN < fREF/4 rule, and requires deglitch bandwidth to be strictly above the
-maximum expected sensor frequency. External-clock tolerance must remain within
-the device input range; internal-clock uncertainty is bounded by the guaranteed
-oscillator range. OFFSET must remain below the selected channel's worst-case
-minimum-sensor-frequency ratio so it cannot mask changing result bits.
+maximum expected sensor frequency. External-clock extrema come from the
+declared nominal frequency and tolerance. Internal-clock limit and timing
+checks always use the guaranteed 35 MHz to 55 MHz oscillator range; its nominal
+value is used only for sensor-frequency conversion. OFFSET must remain below
+the selected channel's worst-case minimum-sensor-frequency ratio so it cannot
+mask changing result bits.
 
 ## Owner loop
 
@@ -178,9 +180,9 @@ One instruction is one physical transport callback.
 | --- | --- | ---: | --- |
 | Steady state | `readDeviceStatus`, `readDataReady`, `sleep`, `wake`, `readInitDriveCurrent`, raw register read/write | 0 or 1 per call | Bounded by the injected callback timeout; no retry. INTB observation may be bus-silent. |
 | Acquisition | `startAcquire` | `2 + 2N`, up to 10 for four channels | STATUS before, MSB/LSB per selected channel, STATUS after; caller budgets each poll. |
-| Configuration apply | `startApplyConfig` | 14 for LDC1612; 24 for LDC1614 | Multi-poll write procedure; failure/cancel may leave partial or indeterminate hardware state. |
-| Initialization | `startInitialize` | 16 for LDC1612; 26 for LDC1614 | Two identity reads plus complete configuration replay. |
-| Chip reset/reapply | `startResetAndReapply` | 17 for LDC1612; 27 for LDC1614 | One software-reset write plus the complete initialization procedure. |
+| Configuration apply | `startApplyConfig` | 13 for LDC1612; 23 for LDC1614 | Multi-poll write procedure; failure/cancel may leave partial or indeterminate hardware state. |
+| Initialization | `startInitialize` | 15 for LDC1612; 25 for LDC1614 | Two identity reads plus complete configuration replay. |
+| Chip reset/reapply | `startResetAndReapply` | 16 for LDC1612; 26 for LDC1614 | One software-reset write plus the complete initialization procedure. |
 
 TI specifies the software-reset command but no software-reset recovery
 interval. The core therefore does not invent a delay or retry. An owner that
@@ -227,13 +229,21 @@ The device has destructive read behavior:
 
 For that reason acquisition always reads STATUS before DATA, preserves both
 STATUS snapshots, and reports detected overrun/data-loss evidence. DATAx is
-read MSB before LSB. Under-range zero and over-range `0x0FFFFFFF` are classified
-even when corresponding device reporting bits are disabled. Watchdog,
-amplitude, zero-count, stale, and data-loss conditions remain visible separately
-from transport success. All of those conditions exclude the affected channel
-from `validChannels`; `errorChannels` and per-channel quality retain the cause.
-Configuration trust is reported by `AppliedConfigState`; acquisition is
-rejected before I2C unless that state is `APPLIED_ACTIVE`.
+read MSB before LSB, so an overrun observed afterward means a newer conversion
+is pending; it does not invalidate the coherent pair already captured. An
+application may still reject overruns when its cadence policy requires every
+conversion. Fresh under-range zero and over-range `0x0FFFFFFF` are classified
+even when corresponding device reporting bits are disabled; stale zero is not
+misreported as a range fault. When routed and observed, watchdog, amplitude,
+zero-count, stale, and data-loss conditions remain visible separately from
+transport success. `validChannels` means fresh with no decoded range/silicon
+error, not proof that every silicon fault route was enabled; overrun/data-loss
+is orthogonal and can coexist. Disabled `ERROR_CONFIG` routes can hide evidence,
+and zero-count can latch after STATUS-before then be cleared by the matching
+DATAx_MSB read. `errorChannels` and per-channel quality retain every cause the
+driver can observe. Configuration
+trust is reported by `AppliedConfigState`; acquisition is rejected before I2C
+unless that state is `APPLIED_ACTIVE`.
 
 LDC multi-channel conversion is sequential. Atomic batch publication means the
 software result is committed together; it does not mean channels were sampled
@@ -250,13 +260,28 @@ loss, or shared-bus recovery, call:
 
 ```cpp
 device.invalidateAppliedState(reason);                 // zero I2C
-device.startInitialize(newId, absoluteDeadlineMs);      // full identity + replay
+while (device.resultAvailable()) {
+  LDC1614::OperationResult abandoned;
+  if (!device.takeResult(abandoned).ok()) {
+    break;
+  }
+  publishToMatchingRequest(abandoned.operationId, abandoned);
+}
+LDC1614::Status st =
+    device.startInitialize(newId, absoluteDeadlineMs);  // full identity + replay
+if (!st.ok()) {
+  reportAdmissionFailure(st);
+}
 ```
 
 The application decides if and when to retry. The driver does not reset the
 bus, toggle application GPIOs, apply backoff, or declare a device offline.
 Matching identity after return is not treated as proof that configuration
 survived; initialization replays the complete desired profile.
+
+Entering sleep is destructive to conversion evidence: DATA values, unread and
+error status, and INTB assertion are no longer available. Wake and acquire only
+after the application has accepted that boundary.
 
 Do not infer a stuck shared bus from ESP-IDF 5.5.x raw detail 259 or retry only
 the failed register. If controller reconstruction and idle-high lines do not

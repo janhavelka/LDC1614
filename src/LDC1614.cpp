@@ -58,15 +58,6 @@ uint8_t popcount(ChannelMask mask) {
   return count;
 }
 
-Channel firstChannel(ChannelMask mask) {
-  for (uint8_t index = 0; index < cmd::MAX_CHANNELS; ++index) {
-    if ((mask.bits & static_cast<uint8_t>(1U << index)) != 0U) {
-      return static_cast<Channel>(index);
-    }
-  }
-  return Channel::NONE;
-}
-
 Channel nextChannel(ChannelMask mask, Channel after) {
   const uint8_t start =
       after == Channel::NONE ? 0U : static_cast<uint8_t>(channelIndex(after) + 1U);
@@ -76,6 +67,17 @@ Channel nextChannel(ChannelMask mask, Channel after) {
     }
   }
   return Channel::NONE;
+}
+
+Channel advanceAcquireChannel(JobProgress& progress, Channel after) {
+  const Channel next = nextChannel(progress.requestedChannels, after);
+  progress.phase = next == Channel::NONE ? JobPhase::READ_STATUS_AFTER
+                                         : JobPhase::READ_DATA_MSB;
+  progress.registerAddress = next == Channel::NONE
+                                 ? cmd::REG_STATUS
+                                 : cmd::regDataMsb(channelIndex(next));
+  progress.channel = next;
+  return next;
 }
 
 ChannelMask sequenceMask(RRSequence sequence) {
@@ -138,7 +140,7 @@ bool isLdc1614OnlyRegister(uint8_t reg) {
           reg <= cmd::REG_DRIVE_CURRENT3);
 }
 
-bool writeFailureMayHaveCommitted(const Status& status) {
+bool transferFailureMayHaveReachedDevice(const Status& status) {
   return status.code != Err::I2C_NACK_ADDR;
 }
 
@@ -231,7 +233,7 @@ uint16_t buildMuxConfigRegister(const Config& config) {
 }
 
 uint8_t configurationTransferCount(uint8_t channelCount) {
-  return static_cast<uint8_t>(1U + channelCount * 5U + 3U);
+  return static_cast<uint8_t>(1U + channelCount * 5U + 2U);
 }
 
 struct ConfigWrite {
@@ -304,14 +306,10 @@ ConfigWrite configWriteAt(const Config& config, uint8_t channelCount,
     write.reg = cmd::REG_ERROR_CONFIG;
     write.value = LDC1614::encodeErrorReporting(config.errorReporting);
     write.phase = JobPhase::WRITE_ERROR_CONFIG;
-  } else if (globalStep == 1U) {
+  } else {
     write.reg = cmd::REG_MUX_CONFIG;
     write.value = buildMuxConfigRegister(config);
     write.phase = JobPhase::WRITE_MUX_CONFIG;
-  } else {
-    write.reg = cmd::REG_CONFIG;
-    write.value = buildConfigRegister(config, true);
-    write.phase = JobPhase::WRITE_FINAL_CONFIG;
   }
   return write;
 }
@@ -344,6 +342,19 @@ uint16_t configurationComparisonMask(uint8_t reg) {
 
 uint64_t ceilDivide(uint64_t numerator, uint64_t denominator) {
   return denominator == 0U ? 0U : (numerator + denominator - 1U) / denominator;
+}
+
+void referenceClockBoundsHz(const Config& config, uint64_t& minHz,
+                            uint64_t& maxHz) {
+  if (config.referenceClock.source == RefClkSrc::INTERNAL) {
+    minHz = INTERNAL_CLOCK_MIN_HZ;
+    maxHz = INTERNAL_CLOCK_MAX_HZ;
+    return;
+  }
+  const uint64_t clock = config.referenceClock.frequencyHz;
+  minHz = clock * (PPM_SCALE - config.referenceClock.tolerancePpm) / PPM_SCALE;
+  maxHz = ceilDivide(
+      clock * (PPM_SCALE + config.referenceClock.tolerancePpm), PPM_SCALE);
 }
 
 TerminalOutcome outcomeForFailure(const Status& status) {
@@ -542,7 +553,9 @@ Status LDC1614::poll(uint64_t nowMs, uint8_t maxTransfers) {
         Status::Error(Err::TIMEOUT, "Operation deadline expired");
     if (_progress.kind != JobKind::ACQUIRE &&
         hasEffect(_progress.effects, EffectFlag::PARTIAL_WRITE)) {
-      _appliedState = AppliedConfigState::DIRTY;
+      if (_appliedState != AppliedConfigState::UNKNOWN) {
+        _appliedState = AppliedConfigState::DIRTY;
+      }
       _recordConfigFault(timeout, _lastWritePhase, _lastWriteRegister,
                          _lastWriteChannel, _progress.effects);
     }
@@ -589,7 +602,9 @@ Status LDC1614::cancelJob() {
       Status::Error(Err::CANCELLED, "Operation cancelled");
   if (_progress.kind != JobKind::ACQUIRE &&
       hasEffect(_progress.effects, EffectFlag::PARTIAL_WRITE)) {
-    _appliedState = AppliedConfigState::DIRTY;
+    if (_appliedState != AppliedConfigState::UNKNOWN) {
+      _appliedState = AppliedConfigState::DIRTY;
+    }
     _recordConfigFault(cancelled, _lastWritePhase, _lastWriteRegister,
                        _lastWriteChannel, _progress.effects);
   }
@@ -644,12 +659,12 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        if (writeFailureMayHaveCommitted(status)) {
+        if (transferFailureMayHaveReachedDevice(status)) {
           _progress.effects |= effectFlag(EffectFlag::INDETERMINATE_WRITE);
         }
-        if (writeFailureMayHaveCommitted(status) ||
+        if (transferFailureMayHaveReachedDevice(status) ||
             hasEffect(_progress.effects, EffectFlag::PARTIAL_WRITE)) {
-          _appliedState = AppliedConfigState::DIRTY;
+          _appliedState = AppliedConfigState::UNKNOWN;
           _recordConfigFault(status, JobPhase::SOFTWARE_RESET,
                              cmd::REG_RESET_DEV, Channel::NONE,
                              _progress.effects);
@@ -660,80 +675,62 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
       _lastWritePhase = JobPhase::SOFTWARE_RESET;
       _lastWriteRegister = cmd::REG_RESET_DEV;
       _lastWriteChannel = Channel::NONE;
-      _appliedState = AppliedConfigState::APPLYING;
+      _appliedState = AppliedConfigState::UNKNOWN;
       ++_jobStep;
       _progress.phase = JobPhase::VERIFY_MANUFACTURER;
       _progress.registerAddress = cmd::REG_MANUFACTURER_ID;
       continue;
     }
 
-    const bool manufacturerStep =
-        (kind == JobKind::INITIALIZE && _jobStep == 0U) ||
-        (resetFirst && _jobStep == 1U);
-    if (manufacturerStep) {
-      _progress.phase = JobPhase::VERIFY_MANUFACTURER;
-      _progress.registerAddress = cmd::REG_MANUFACTURER_ID;
+    struct IdentityStep {
+      uint8_t reg;
+      uint16_t expected;
+      JobPhase phase;
+      const char* mismatch;
+    };
+    static constexpr IdentityStep IDENTITY_STEPS[] = {
+        {cmd::REG_MANUFACTURER_ID, cmd::MANUFACTURER_ID_VALUE,
+         JobPhase::VERIFY_MANUFACTURER, "Wrong MANUFACTURER_ID"},
+        {cmd::REG_DEVICE_ID, cmd::DEVICE_ID_VALUE,
+         JobPhase::VERIFY_DEVICE, "Wrong DEVICE_ID"},
+    };
+    const bool identityStep =
+        applyOffset != 0U && _jobStep >= applyOffset - 2U &&
+        _jobStep < applyOffset;
+    if (identityStep) {
+      const uint8_t identityIndex =
+          static_cast<uint8_t>(_jobStep - (applyOffset - 2U));
+      const IdentityStep& step = IDENTITY_STEPS[identityIndex];
+      _progress.phase = step.phase;
+      _progress.registerAddress = step.reg;
       _progress.channel = Channel::NONE;
       uint16_t value = 0;
-      Status status = _readRegister(cmd::REG_MANUFACTURER_ID, value,
-                                    transferTimeoutMs);
+      Status status = _readRegister(step.reg, value, transferTimeoutMs);
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        _appliedState = resetFirst ? AppliedConfigState::DIRTY
-                                   : AppliedConfigState::UNKNOWN;
-        _recordConfigFault(status, JobPhase::VERIFY_MANUFACTURER,
-                           cmd::REG_MANUFACTURER_ID, Channel::NONE,
+        _appliedState = AppliedConfigState::UNKNOWN;
+        _recordConfigFault(status, step.phase, step.reg, Channel::NONE,
                            _progress.effects);
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
-      if (value != cmd::MANUFACTURER_ID_VALUE) {
-        status = Status::Error(Err::DEVICE_NOT_FOUND,
-                               "Wrong MANUFACTURER_ID", value);
+      if (value != step.expected) {
+        status = Status::Error(Err::DEVICE_NOT_FOUND, step.mismatch, value);
         _appliedState = AppliedConfigState::UNKNOWN;
-        _recordConfigFault(status, JobPhase::VERIFY_MANUFACTURER,
-                           cmd::REG_MANUFACTURER_ID, Channel::NONE,
+        _recordConfigFault(status, step.phase, step.reg, Channel::NONE,
                            _progress.effects);
         return _finishJob(TerminalOutcome::FAILED, status, nowMs);
       }
-      ++_jobStep;
-      _progress.phase = JobPhase::VERIFY_DEVICE;
-      _progress.registerAddress = cmd::REG_DEVICE_ID;
-      continue;
-    }
-
-    const bool deviceStep =
-        (kind == JobKind::INITIALIZE && _jobStep == 1U) ||
-        (resetFirst && _jobStep == 2U);
-    if (deviceStep) {
-      _progress.phase = JobPhase::VERIFY_DEVICE;
-      _progress.registerAddress = cmd::REG_DEVICE_ID;
-      _progress.channel = Channel::NONE;
-      uint16_t value = 0;
-      Status status = _readRegister(cmd::REG_DEVICE_ID, value,
-                                    transferTimeoutMs);
-      --remainingTransfers;
-      ++_progress.completedTransfers;
-      if (!status.ok()) {
-        _appliedState = resetFirst ? AppliedConfigState::DIRTY
-                                   : AppliedConfigState::UNKNOWN;
-        _recordConfigFault(status, JobPhase::VERIFY_DEVICE,
-                           cmd::REG_DEVICE_ID, Channel::NONE,
-                           _progress.effects);
-        return _finishJob(outcomeForFailure(status), status, nowMs);
-      }
-      if (value != cmd::DEVICE_ID_VALUE) {
-        status =
-            Status::Error(Err::DEVICE_NOT_FOUND, "Wrong DEVICE_ID", value);
-        _appliedState = AppliedConfigState::UNKNOWN;
-        _recordConfigFault(status, JobPhase::VERIFY_DEVICE,
-                           cmd::REG_DEVICE_ID, Channel::NONE,
-                           _progress.effects);
-        return _finishJob(TerminalOutcome::FAILED, status, nowMs);
+      if (step.reg == cmd::REG_DEVICE_ID &&
+          _appliedState == AppliedConfigState::UNKNOWN) {
+        _appliedState = AppliedConfigState::DIRTY;
       }
       ++_jobStep;
-      _progress.phase = JobPhase::FORCE_SLEEP;
-      _progress.registerAddress = cmd::REG_CONFIG;
+      const bool moreIdentity = identityIndex + 1U < 2U;
+      _progress.phase = moreIdentity ? JobPhase::VERIFY_DEVICE
+                                     : JobPhase::FORCE_SLEEP;
+      _progress.registerAddress =
+          moreIdentity ? cmd::REG_DEVICE_ID : cmd::REG_CONFIG;
       continue;
     }
 
@@ -743,7 +740,6 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
     if (!write.valid) {
       _appliedState = AppliedConfigState::APPLIED_SLEEPING;
       _configFault = ConfigFault{};
-      _progress.effects = 0;
       return _finishJob(TerminalOutcome::SUCCESS, Status::Ok(), nowMs);
     }
 
@@ -754,10 +750,10 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
     --remainingTransfers;
     ++_progress.completedTransfers;
     if (!status.ok()) {
-      if (writeFailureMayHaveCommitted(status)) {
+      if (transferFailureMayHaveReachedDevice(status)) {
         _progress.effects |= effectFlag(EffectFlag::INDETERMINATE_WRITE);
       }
-      if (writeFailureMayHaveCommitted(status) ||
+      if (transferFailureMayHaveReachedDevice(status) ||
           hasEffect(_progress.effects, EffectFlag::PARTIAL_WRITE)) {
         _appliedState = AppliedConfigState::DIRTY;
         _recordConfigFault(status, write.phase, write.reg, write.channel,
@@ -775,7 +771,6 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
         configurationTransferCount(_configuredChannelCount())) {
       _appliedState = AppliedConfigState::APPLIED_SLEEPING;
       _configFault = ConfigFault{};
-      _progress.effects = 0;
       return _finishJob(TerminalOutcome::SUCCESS, Status::Ok(), nowMs);
     }
     const ConfigWrite nextWrite = configWriteAt(
@@ -800,19 +795,14 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
+        if (transferFailureMayHaveReachedDevice(status)) {
+          _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
+        }
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
       _scratchStatusBefore = decodeDeviceStatus(raw);
-      _jobChannel = firstChannel(_progress.requestedChannels);
-      _progress.phase = _jobChannel == Channel::NONE
-                            ? JobPhase::READ_STATUS_AFTER
-                            : JobPhase::READ_DATA_MSB;
-      _progress.registerAddress =
-          _jobChannel == Channel::NONE
-              ? cmd::REG_STATUS
-              : cmd::regDataMsb(channelIndex(_jobChannel));
-      _progress.channel = _jobChannel;
+      _jobChannel = advanceAcquireChannel(_progress, Channel::NONE);
       continue;
     }
 
@@ -826,6 +816,9 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
+        if (transferFailureMayHaveReachedDevice(status)) {
+          _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
+        }
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
@@ -851,15 +844,7 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       _scratchSamples[index] = decodeChannelSample(_scratchMsb, value);
       _scratchCompleted.bits |= static_cast<uint8_t>(1U << index);
       _progress.completedChannels = _scratchCompleted;
-      _jobChannel = nextChannel(_progress.requestedChannels, _jobChannel);
-      _progress.phase = _jobChannel == Channel::NONE
-                            ? JobPhase::READ_STATUS_AFTER
-                            : JobPhase::READ_DATA_MSB;
-      _progress.registerAddress =
-          _jobChannel == Channel::NONE
-              ? cmd::REG_STATUS
-              : cmd::regDataMsb(channelIndex(_jobChannel));
-      _progress.channel = _jobChannel;
+      _jobChannel = advanceAcquireChannel(_progress, _jobChannel);
       continue;
     }
 
@@ -871,6 +856,9 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
+        if (transferFailureMayHaveReachedDevice(status)) {
+          _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
+        }
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
@@ -936,6 +924,17 @@ SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
       sample.quality |= sampleQualityFlag(SampleQualityFlag::FRESH);
     } else {
       sample.quality |= sampleQualityFlag(SampleQualityFlag::STALE);
+      // Raw endpoints classify conversion results. Without unread evidence,
+      // sleep-cleared or previously consumed DATA registers are not a current
+      // range fault; retain only range bits explicitly reported by silicon.
+      if ((sample.rawDataMsb & cmd::MASK_DATA_ERR_UR) == 0U) {
+        sample.quality &= static_cast<SampleQualityFlags>(
+            ~sampleQualityFlag(SampleQualityFlag::UNDER_RANGE));
+      }
+      if ((sample.rawDataMsb & cmd::MASK_DATA_ERR_OR) == 0U) {
+        sample.quality &= static_cast<SampleQualityFlags>(
+            ~sampleQualityFlag(SampleQualityFlag::OVER_RANGE));
+      }
     }
 
     const bool statusApplies =
@@ -970,8 +969,7 @@ SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
         sampleQualityFlag(SampleQualityFlag::OVER_RANGE) |
         sampleQualityFlag(SampleQualityFlag::WATCHDOG) |
         sampleQualityFlag(SampleQualityFlag::AMPLITUDE_SUSPECT) |
-        sampleQualityFlag(SampleQualityFlag::ZERO_COUNT) |
-        sampleQualityFlag(SampleQualityFlag::DATA_LOST);
+        sampleQualityFlag(SampleQualityFlag::ZERO_COUNT);
     if ((sample.quality & invalidFlags) == 0U) {
       batch.validChannels.bits |= bit;
     }
@@ -1145,7 +1143,7 @@ Status LDC1614::sleep() {
       _writeRegister(cmd::REG_CONFIG, buildConfigRegister(_config, true),
                      _config.i2cTimeoutMs);
   if (!status.ok()) {
-    if (writeFailureMayHaveCommitted(status)) {
+    if (transferFailureMayHaveReachedDevice(status)) {
       _appliedState = AppliedConfigState::DIRTY;
       _recordConfigFault(
           status, JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE,
@@ -1175,7 +1173,7 @@ Status LDC1614::wake() {
       _writeRegister(cmd::REG_CONFIG, buildConfigRegister(_config, false),
                      _config.i2cTimeoutMs);
   if (!status.ok()) {
-    if (writeFailureMayHaveCommitted(status)) {
+    if (transferFailureMayHaveReachedDevice(status)) {
       _appliedState = AppliedConfigState::DIRTY;
       _recordConfigFault(
           status, JobPhase::WRITE_FINAL_CONFIG, cmd::REG_CONFIG, Channel::NONE,
@@ -1242,10 +1240,13 @@ Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
                          "Register is unavailable on LDC1612");
   }
   Status status = _writeRegister(reg, value, _config.i2cTimeoutMs);
-  const bool mutationPossible = status.ok() || writeFailureMayHaveCommitted(status);
+  const bool mutationPossible =
+      status.ok() || transferFailureMayHaveReachedDevice(status);
   if (mutationPossible) {
-    _appliedState = reg == cmd::REG_RESET_DEV ? AppliedConfigState::UNKNOWN
-                                              : AppliedConfigState::DIRTY;
+    _appliedState = reg == cmd::REG_RESET_DEV ||
+                            _appliedState == AppliedConfigState::UNKNOWN
+                        ? AppliedConfigState::UNKNOWN
+                        : AppliedConfigState::DIRTY;
   }
   const EffectFlags effects =
       status.ok() ? effectFlag(EffectFlag::PARTIAL_WRITE)
@@ -1253,17 +1254,13 @@ Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
                          ? effectFlag(EffectFlag::INDETERMINATE_WRITE)
                          : 0U);
   if (mutationPossible) {
-    _configFault.valid = true;
-    _configFault.job = JobKind::NONE;
-    _configFault.cause =
+    _recordConfigFault(
         status.ok()
             ? Status::Error(Err::CONFIG_DIRTY,
                             "Diagnostic write invalidated applied state")
-            : status;
-    _configFault.phase = configurationPhaseForRegister(reg);
-    _configFault.registerAddress = reg;
-    _configFault.channel = configurationChannelForRegister(reg);
-    _configFault.effects = effects;
+            : status,
+        configurationPhaseForRegister(reg), reg,
+        configurationChannelForRegister(reg), effects);
   }
   return status;
 }
@@ -1344,22 +1341,12 @@ Status LDC1614::validateConfig(const Config& config) {
     return Status::Error(Err::INVALID_CONFIG,
                          "Reference clock tolerance must be <1000000 ppm");
   }
-  uint64_t clockMin =
-      static_cast<uint64_t>(clock) *
-      (PPM_SCALE - config.referenceClock.tolerancePpm) / PPM_SCALE;
-  uint64_t clockMax = ceilDivide(
-      static_cast<uint64_t>(clock) *
-          (PPM_SCALE + config.referenceClock.tolerancePpm),
-      PPM_SCALE);
-  if (config.referenceClock.source == RefClkSrc::INTERNAL) {
-    if (clockMin < INTERNAL_CLOCK_MIN_HZ) {
-      clockMin = INTERNAL_CLOCK_MIN_HZ;
-    }
-    if (clockMax > INTERNAL_CLOCK_MAX_HZ) {
-      clockMax = INTERNAL_CLOCK_MAX_HZ;
-    }
-  } else if (clockMin < EXTERNAL_CLOCK_MIN_HZ ||
-             clockMax > EXTERNAL_CLOCK_MAX_HZ) {
+  uint64_t clockMin = 0;
+  uint64_t clockMax = 0;
+  referenceClockBoundsHz(config, clockMin, clockMax);
+  if (config.referenceClock.source != RefClkSrc::INTERNAL &&
+      (clockMin < EXTERNAL_CLOCK_MIN_HZ ||
+       clockMax > EXTERNAL_CLOCK_MAX_HZ)) {
     return Status::Error(Err::INVALID_CONFIG,
                          "Reference clock tolerance exceeds source range");
   }
@@ -1603,24 +1590,17 @@ Status LDC1614::estimateFrameTiming(const Config& config,
     return Status::Error(Err::INVALID_PARAM,
                          "Timing mask must be configured and nonzero");
   }
-  uint64_t clockMin =
-      static_cast<uint64_t>(config.referenceClock.frequencyHz) *
-      (PPM_SCALE - config.referenceClock.tolerancePpm) / PPM_SCALE;
-  if (config.referenceClock.source == RefClkSrc::INTERNAL &&
-      clockMin < INTERNAL_CLOCK_MIN_HZ) {
-    clockMin = INTERNAL_CLOCK_MIN_HZ;
-  }
+  uint64_t clockMin = 0;
+  uint64_t clockMax = 0;
+  referenceClockBoundsHz(config, clockMin, clockMax);
+  (void)clockMax;
   if (clockMin == 0U) {
     return Status::Error(Err::INVALID_CONFIG,
                          "Reference clock minimum is zero");
   }
-  // The post-sleep startup delay is clocked from fINT even when an external
-  // reference is selected. Use the configured lower bound for internal-clock
-  // operation and the datasheet internal-oscillator minimum otherwise.
-  const uint64_t wakeClockMin =
-      config.referenceClock.source == RefClkSrc::INTERNAL
-          ? clockMin
-          : static_cast<uint64_t>(INTERNAL_CLOCK_MIN_HZ);
+  // The post-sleep startup delay is clocked from fINT for either reference
+  // source, so only the guaranteed internal-oscillator floor is conservative.
+  const uint64_t wakeClockMin = INTERNAL_CLOCK_MIN_HZ;
   timing.wakeAndSettleUs =
       ceilDivide(WAKE_DELAY_CYCLES * MICROS_PER_SECOND, wakeClockMin);
   uint64_t switchTotalUs = 0;

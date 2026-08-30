@@ -14,6 +14,8 @@ cited hardware evidence and vendor references. Start with the repository
 - [HIL validation](HIL_VALIDATION.md) - hardware-in-the-loop procedure and evidence matrix.
 - [Validation status](VALIDATION_STATUS.md) - repeatable release checks,
   retained evidence boundaries, and hardware evidence still required.
+- [Code audit resolution](CODE_AUDIT_RESOLUTION.md) - disposition of every
+  F01-F34 audit candidate and the resulting implementation changes.
 - [Release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md) - maintainer preflight, commit, annotated
   tag, push, and GitHub release steps. This repository-only guide is excluded
   from the generic library package.

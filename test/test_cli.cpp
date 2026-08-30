@@ -242,6 +242,23 @@ void test_cli_fixed_memory_and_complete_colored_help() {
   cli.processCommand("verbose 1");
   TEST_ASSERT_TRUE(contains(fixture, "version="));
   TEST_ASSERT_TRUE(contains(fixture, "firmware_git="));
+  const char* timestampField = std::strstr(fixture.output, "build_timestamp=");
+  TEST_ASSERT_NOT_NULL(timestampField);
+  const char* timestamp = timestampField + std::strlen("build_timestamp=");
+  const char* timestampEnd = std::strchr(timestamp, ' ');
+  TEST_ASSERT_NOT_NULL(timestampEnd);
+  TEST_ASSERT_EQUAL_UINT32(19U,
+                           static_cast<uint32_t>(timestampEnd - timestamp));
+  for (uint8_t index = 0U; index < 19U; ++index) {
+    const bool separator = index == 4U || index == 7U || index == 10U ||
+                           index == 13U || index == 16U;
+    if (separator) {
+      const char expected = index == 10U ? 'T' : (index < 10U ? '-' : ':');
+      TEST_ASSERT_EQUAL_CHAR(expected, timestamp[index]);
+    } else {
+      TEST_ASSERT_TRUE(timestamp[index] >= '0' && timestamp[index] <= '9');
+    }
+  }
   TEST_ASSERT_TRUE(contains(fixture, "verbose enabled=1"));
 
   fixture.clearOutput();
@@ -791,6 +808,18 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
 
   fixture.clearOutput();
   fixture.fake.clearIo();
+  fixture.fake.failOnTransfer(
+      1U, LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT,
+                                 "CLI forced verify read failure", -9190));
+  cli.processCommand("verify");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "verify complete checked=23 matched=22 mismatched=0 read_failures=1"));
+  TEST_ASSERT_TRUE(contains(fixture, "outcome=FAILED"));
+
+  fixture.clearOutput();
+  fixture.fake.clearIo();
   fixture.fake.injectConversion(0U, 0x01234567U);
   cli.processCommand("selftest");
   serviceToIdle(cli, fixture);
@@ -918,6 +947,41 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   cli.processCommand("result");
   TEST_ASSERT_TRUE(contains(fixture, "kind=ACQUIRE outcome=FAILED effects="));
   TEST_ASSERT_TRUE(contains(fixture, "detail=-9300"));
+}
+
+void test_cli_session_cancel_and_deadline_keep_terminal_outcome() {
+  CliFixture fixture;
+  LDC1614::LDC1614 device;
+  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
+  initializeAndWake(cli, device, fixture);
+
+  fixture.clearOutput();
+  fixture.fake.clearIo();
+  fixture.fake.injectConversion(0U, 0x01234567U);
+  cli.processCommand("watch 1 2");
+  ++fixture.nowMs;
+  (void)cli.service();
+  ++fixture.nowMs;
+  (void)cli.service();
+  TEST_ASSERT_TRUE(device.jobProgress().active);
+  cli.processCommand("cancel");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_TRUE(contains(fixture, "kind=ACQUIRE outcome=CANCELLED"));
+  TEST_ASSERT_FALSE(contains(fixture, "kind=ACQUIRE outcome=FAILED"));
+  TEST_ASSERT_FALSE(contains(fixture, "first_failure"));
+
+  fixture.clearOutput();
+  fixture.fake.clearIo();
+  fixture.fake.injectConversion(0U, 0x01234567U);
+  cli.processCommand("watch 1 1");
+  ++fixture.nowMs;
+  (void)cli.service();
+  fixture.nowMs += 2500U;
+  (void)cli.service();
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_TRUE(contains(fixture, "kind=ACQUIRE outcome=TIMED_OUT"));
+  TEST_ASSERT_FALSE(contains(fixture, "kind=ACQUIRE outcome=FAILED"));
 }
 
 void test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure() {
@@ -1056,6 +1120,7 @@ void registerLdc1614CliTests() {
   RUN_TEST(test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths);
   RUN_TEST(test_cli_dump_verify_selftest_sampling_stress_soak_and_failures);
   RUN_TEST(test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples);
+  RUN_TEST(test_cli_session_cancel_and_deadline_keep_terminal_outcome);
   RUN_TEST(test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure);
   RUN_TEST(test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent);
 }

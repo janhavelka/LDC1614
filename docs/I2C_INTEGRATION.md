@@ -9,6 +9,9 @@ recovery decision.
 - Inject non-owning `Config::i2cWrite` and `Config::i2cWriteRead` callbacks.
   Each invocation is one complete physical transaction and must return within
   the supplied timeout.
+- A register read must be one combined transaction: write the register pointer,
+  issue a repeated START without an intervening STOP, then read both bytes.
+  STOP-separated emulation is unsupported and has no coherent-read guarantee.
 - Map framework errors to `Status`; retain backend detail in `Status::detail`.
   Do not leak `Wire` or `esp_err_t` types into the library contract.
 - The application configures and owns pins, bus lifecycle, pull-ups, locks,
@@ -31,8 +34,9 @@ TI specifies the software-reset command but no software-reset recovery
 interval. The core therefore neither guesses one nor retries a reset-adjacent
 failure. Use `poll(nowMs, 1)` when the owner needs a scheduling boundary between
 the reset write and the next identity read. A NACK or backend failure terminates
-the job, preserves reset/write provenance, and leaves applied state dirty; the
-application then owns any bus/device recovery and complete reinitialization.
+the job and preserves reset/write provenance. Once reset may have reached the
+device, applied state is unknown; the application owns any bus/device recovery
+and complete reinitialization.
 
 The maintained ESP32 diagnostic demonstrates one explicit controller-recovery
 policy for its sole owned device handle: remove the device, delete and recreate
@@ -58,8 +62,9 @@ explicit device reset, wait the data-sheet-specified 2 ms after SD deassertion,
 and then run complete initialization. Never replay only the failed register.
 
 A failed write is not part of a read-failure controller fence. Preserve its
-exact status and indeterminate-write evidence, mark applied state dirty, and
-schedule complete initialization later. Raw backend detail alone is not
+exact status and indeterminate-write evidence, mark applied state dirty or
+unknown according to retained identity trust, and schedule complete
+initialization later. Raw backend detail alone is not
 authority for a second controller reconstruction or a physical line clear.
 
 ## Request lifecycle
@@ -98,9 +103,9 @@ retries, or advances its own clock.
 | --- | --- |
 | One-transfer steady state | STATUS/readiness, sleep/wake, init-drive read, raw read/write: no more than one callback. |
 | Acquisition | STATUS-before + MSB/LSB per selected channel + STATUS-after: `2 + 2N`, maximum 10. |
-| Apply | 14 callbacks for LDC1612 or 24 for LDC1614. |
-| Initialize | Two identity reads plus apply: 16 or 26 callbacks. |
-| Reset/reapply | Software-reset write plus initialize: 17 or 27 callbacks. |
+| Apply | 13 callbacks for LDC1612 or 23 for LDC1614. |
+| Initialize | Two identity reads plus apply: 15 or 25 callbacks. |
+| Reset/reapply | Software-reset write plus initialize: 16 or 26 callbacks. |
 
 There is no device NVM procedure in this library. Calibration/commissioning
 storage and endurance policy are therefore outside its operation set. Raw
@@ -109,13 +114,15 @@ diagnostic writes are bounded single transactions and never retried blindly.
 ## Failure, cancellation, and hardware effects
 
 Jobs stop on the first transport failure. `OperationResult::effects` records
-whether at least one destructive read succeeded and whether configuration writes are known
-partial or may have taken effect despite an error. `ConfigFault` retains the
-full original status, job, exact phase, register, channel, and effect flags.
+whether a destructive read reached or may have reached the device and whether
+configuration writes are confirmed partial or may have taken effect despite an
+error. `ConfigFault` retains the full original status, job, exact phase,
+register, channel, and effect flags.
 
 A failed callback cannot always prove whether a write reached the device. The
-driver reports `INDETERMINATE_WRITE`, marks applied state dirty, and leaves the
-retry/reconciliation decision to the owner. It does not repeat the write. A
+driver reports `INDETERMINATE_WRITE`, marks applied state dirty or unknown
+according to retained identity trust, and leaves the retry/reconciliation
+decision to the owner. It does not repeat the write. A
 confirmed `I2C_NACK_ADDR` is different: the addressed device did not accept the
 transaction, so that attempt alone is not reported as an indeterminate device
 mutation. Earlier successful writes in the same job remain partial effects.
@@ -154,6 +161,10 @@ LDC reads are not observationally neutral:
 - STATUS returns a snapshot, clears sticky status evidence, and can deassert
   INTB; and
 - another conversion can overwrite an unread result during a chunked batch.
+
+Entering sleep also destroys conversion evidence: DATA values, unread/error
+status, and INTB assertion are cleared. Treat sleep as an explicit acquisition
+boundary rather than a reversible pause of the last sample.
 
 `startAcquire()` therefore owns the complete protocol: STATUS before DATA,
 MSB then LSB for each channel, and STATUS after DATA. Its fixed `SampleBatch`

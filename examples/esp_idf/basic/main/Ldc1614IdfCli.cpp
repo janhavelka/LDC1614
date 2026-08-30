@@ -2853,7 +2853,6 @@ void Ldc1614IdfCli::advanceVerifySession(bool selfTest) {
         selfTestFail("configuration register read", readStatus);
       } else {
         ++_session.stats.skipped;
-        ++_session.stats.failed;
         recordSessionFailure(readStatus);
       }
       printf("verify register=0x%02X read_failed code=%u\n", reg,
@@ -2884,10 +2883,11 @@ void Ldc1614IdfCli::advanceVerifySession(bool selfTest) {
   if (selfTest) {
     _session.phase = SessionPhase::SELF_ACQUIRE;
   } else {
-    finishSession(_session.stats.failed == 0U
-                      ? LDC1614::Status::Ok()
-                      : _session.stats.lastFailure,
-                  _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
+    const bool clean =
+        _session.stats.failed == 0U && _session.stats.skipped == 0U;
+    finishSession(clean ? LDC1614::Status::Ok()
+                        : _session.stats.lastFailure,
+                  clean ? "SUCCESS" : "FAILED");
   }
 }
 
@@ -3114,10 +3114,14 @@ void Ldc1614IdfCli::handleSessionOperationResult(
   }
   if (!success) {
     LDC1614::OperationResult effectiveResult = result;
-    effectiveResult.outcome = LDC1614::TerminalOutcome::FAILED;
+    if (terminalSuccess) {
+      effectiveResult.outcome = LDC1614::TerminalOutcome::FAILED;
+    }
     effectiveResult.status = effectiveStatus;
     printResult(effectiveResult);
-    recordSessionFailure(effectiveStatus);
+    if (result.outcome != LDC1614::TerminalOutcome::CANCELLED) {
+      recordSessionFailure(effectiveStatus);
+    }
   } else if (result.hasSampleBatch) {
     _lastBatch = result.sampleBatch;
     _hasLastBatch = true;
@@ -3467,11 +3471,11 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     const I2cBusInfo bus = _platform.i2cBusInfo != nullptr
                                ? _platform.i2cBusInfo(_platform.user)
                                : I2cBusInfo{};
-    printf("version=%s firmware_git=%s firmware_status=%s build_timestamp=%s "
+    printf("version=%s firmware_git=%s firmware_status=%s build_timestamp=%sT%s "
            "platform=%s framework=%s framework_version=%s idf_version=%s "
            "target=%s i2c_backend=%s frequency_hz=%lu\n",
            LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
-           LDC1614::BUILD_TIMESTAMP, _platform.platformName,
+           LDC1614::BUILD_DATE, LDC1614::BUILD_TIME, _platform.platformName,
            _platform.frameworkName, _platform.frameworkVersion,
            _platform.idfVersion, _platform.targetName, _platform.i2cBackend,
            static_cast<unsigned long>(bus.frequencyHz));
