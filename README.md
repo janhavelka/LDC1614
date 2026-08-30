@@ -187,8 +187,10 @@ One instruction is one physical transport callback.
 TI specifies the software-reset command but no software-reset recovery
 interval. The core therefore does not invent a delay or retry. An owner that
 needs a scheduling boundary may service reset/reapply with transfer budget one;
-any reset-adjacent NACK terminates the job with the exact transport status and
-dirty applied-state evidence.
+a confirmed address NACK on the reset write retains the prior applied state
+because the device did not accept the transaction. Once reset reached or may
+have reached the device, a later failure terminates with the exact transport
+status and unknown applied-state evidence.
 
 The LDC1612/LDC1614 has no library-managed NVM programming or calibration
 storage procedure. Commissioning/calibration remains application work. Raw

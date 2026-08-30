@@ -227,6 +227,18 @@ CLI_SESSION_PROGRESS_PATTERN = re.compile(
     r"fail=(\d+)\s+skip=(\d+)[ \t]*\r?$",
     re.IGNORECASE | re.MULTILINE,
 )
+OPERATION_RESULT_PATTERN = re.compile(
+    r"^Operation result:\s*operation=(?P<operation>\d+)\s+"
+    r"kind=(?P<kind>[A-Z_]+)\s+outcome=(?P<outcome>[A-Z_]+)\s+"
+    r"effects=0x(?P<effects>[0-9a-f]{2})\s+"
+    r"effects_names=(?P<effect_names>\S+)\s+revision=(?P<revision>\d+)\s+"
+    r"completed_ms=\d+\s+phase=(?P<phase>[A-Z_]+)\s+"
+    r"reg=0x(?P<register>[0-9a-f]{2})\s+channel=(?P<channel>\d+)\s+"
+    r"transfers=(?P<transfers>\d+)\s+maximum=(?P<maximum>\d+)\s+"
+    r"code=(?P<code>\d+)\s+detail=(?P<detail>-?\d+)\s+"
+    r"msg=(?P<message>.*)$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 COMMAND_EVIDENCE_PATTERNS = {
     "help": (
@@ -388,11 +400,7 @@ COMMAND_EVIDENCE_PATTERNS = {
         CLI_SESSION_PROGRESS_PATTERN,
     ),
     "result": (
-        re.compile(
-            r"\bOperation result:\s*operation=\d+\s+kind=\S+\s+outcome=\S+\s+"
-            r"effects=0x[0-9a-f]{2}\b.*\btransfers=\d+\s+maximum=\d+\s+code=0\b",
-            re.IGNORECASE,
-        ),
+        OPERATION_RESULT_PATTERN,
     ),
     "status": (
         re.compile(r"\bSTATUS=0x[0-9a-f]{4}\s+observed=[01]\s+raw=0x[0-9a-f]{4}\b",
@@ -1431,14 +1439,50 @@ def command_semantic_failure(
         return None
 
     if canonical == "result":
-        match = re.search(
-            r"\bOperation result:\s*operation=\d+\s+kind=\S+\s+outcome=\S+\s+"
-            r"effects=0x[0-9a-f]{2}\b[^\r\n]*\btransfers=(\d+)\s+"
-            r"maximum=(\d+)\s+code=0\b", output, re.IGNORECASE,
+        match, failure = unique_match(
+            OPERATION_RESULT_PATTERN, output, "terminal operation result"
         )
-        if match is None or int(match.group(1)) > int(match.group(2)):
-            return "terminal result violates its fixed transfer bound"
-        return None
+        if failure is not None:
+            return failure
+        assert match is not None
+        operation = int(match.group("operation"))
+        kind = match.group("kind").upper()
+        outcome = match.group("outcome").upper()
+        effects = int(match.group("effects"), 16)
+        effect_names = match.group("effect_names").upper()
+        revision = int(match.group("revision"))
+        phase = match.group("phase").upper()
+        register = int(match.group("register"), 16)
+        channel = int(match.group("channel"))
+        transfers = int(match.group("transfers"))
+        maximum = int(match.group("maximum"))
+        code = int(match.group("code"))
+        detail = int(match.group("detail"))
+        message = match.group("message").strip()
+        if (operation == 0 or revision == 0 or outcome != "SUCCESS" or
+                code != 0 or detail != 0 or message != "OK" or
+                transfers != maximum):
+            return "terminal result is not a complete successful operation"
+        config_maxima = {
+            "INITIALIZE": (15, 25),
+            "APPLY_CONFIG": (13, 23),
+            "RESET_AND_REAPPLY": (16, 26),
+        }
+        if kind in config_maxima:
+            if (maximum not in config_maxima[kind] or effects != 0x02 or
+                    effect_names != "PARTIAL_WRITE" or
+                    phase != "WRITE_MUX_CONFIG" or register != 0x1B or
+                    channel != 255):
+                return "successful configuration result is internally inconsistent"
+            return None
+        if kind == "ACQUIRE":
+            if (maximum not in (4, 6, 8, 10) or effects != 0x01 or
+                    effect_names != "READ_SIDE_EFFECTS" or
+                    phase != "READ_STATUS_AFTER" or register != 0x18 or
+                    channel != 255):
+                return "successful acquisition result is internally inconsistent"
+            return None
+        return "terminal result reported an unknown operation kind"
 
     if canonical == "drv":
         driver, failure = unique_match(DRIVER_RESULT_PATTERN, output, "driver summary")

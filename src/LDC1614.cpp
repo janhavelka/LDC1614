@@ -816,9 +816,8 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        if (transferFailureMayHaveReachedDevice(status)) {
-          _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
-        }
+        // STATUS-before already established aggregate destructive-read
+        // evidence before any DATAx_MSB attempt can be reached.
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
@@ -856,9 +855,8 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
       --remainingTransfers;
       ++_progress.completedTransfers;
       if (!status.ok()) {
-        if (transferFailureMayHaveReachedDevice(status)) {
-          _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);
-        }
+        // STATUS-before already established aggregate destructive-read
+        // evidence before STATUS-after can be reached.
         return _finishJob(outcomeForFailure(status), status, nowMs);
       }
       _progress.effects |= effectFlag(EffectFlag::READ_SIDE_EFFECTS);

@@ -893,6 +893,19 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   fixture.clearOutput();
   fixture.fake.clearIo();
   fixture.fake.injectConversion(0U, 0x01234567U);
+  fixture.fake.scheduleConversionAfter(3U, 0U, 0x07654321U);
+  cli.processCommand("samplerate 0 1");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_TRUE(contains(
+      fixture,
+      "selected=1 valid=1 fresh=1 error=0 overrun=1 within_bounds=1"));
+  TEST_ASSERT_TRUE(contains(fixture, "requested=1 ok=0 fail=1"));
+  TEST_ASSERT_TRUE(contains(fixture, "detail=55"));
+  TEST_ASSERT_TRUE(contains(fixture, "outcome=FAILED"));
+
+  fixture.clearOutput();
+  fixture.fake.clearIo();
+  fixture.fake.injectConversion(0U, 0x01234567U);
   cli.processCommand("samplerate 0 1");
   ++fixture.nowMs;
   TEST_ASSERT_EQUAL_UINT8(

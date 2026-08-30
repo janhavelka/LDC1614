@@ -15,9 +15,11 @@ CI, and its own annotated tag; `docs/RELEASING.md` holds the procedure.
 
 No retained run qualifies the exact release commit on a sensor-equipped target.
 The strongest current hardware evidence used clean firmware commit `e4d0436` on
-an ESP32-S2/LDC1614 no-sensor fixture. Later repository changes concern release
-documentation, host validation, evidence storage, and behavior-preserving CLI
-cleanup, but that distinction must remain visible.
+an ESP32-S2/LDC1614 no-sensor fixture. Later repository changes include
+behavior-changing fixes to clock validation and timing, identity trust,
+configuration replay, acquisition validity, and diagnostic outcomes. The
+retained run therefore does not validate current driver behavior; repeat HIL on
+the exact release firmware before making a current hardware claim.
 
 ## Required software checks
 

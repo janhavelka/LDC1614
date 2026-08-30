@@ -46,7 +46,7 @@ Thank you for considering contributing to this project!
   second PlatformIO Core for this repository.
 - Update both diagnostic CLI implementations, the host CLI manifest, behavioral
   tests, and HIL parser together when the command or output contract changes.
-- The per-class transfer maxima (14/24, 16/26, 17/27, and `2 + 2N` up to 10)
+- The per-class transfer maxima (13/23, 15/25, 16/26, and `2 + 2N` up to 10)
   are restated in `README.md`, `docs/I2C_INTEGRATION.md`, and the `start*()`
   doc comments in `include/LDC1614/LDC1614.h`. They derive from
   `configurationTransferCount()` in `src/LDC1614.cpp`; change all four

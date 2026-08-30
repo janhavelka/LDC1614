@@ -58,6 +58,26 @@ def read(path: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def method_body(source: str, class_name: str, method_name: str) -> str:
+    signature = f"void {class_name}::{method_name}("
+    start = source.find(signature)
+    if start < 0:
+        fail(f"missing {class_name}::{method_name} implementation")
+    opening = source.find("{", start)
+    if opening < 0:
+        fail(f"missing body for {class_name}::{method_name}")
+    depth = 0
+    for index in range(opening, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start:index + 1]
+    fail(f"unterminated body for {class_name}::{method_name}")
+    raise AssertionError("unreachable")
+
+
 def parse_idf_register_lists(cmake_path: pathlib.Path) -> dict[str, list[pathlib.Path]]:
     text = read(cmake_path)
     match = re.search(r"idf_component_register\s*\((.*?)\)", text, re.S)
@@ -244,6 +264,7 @@ def main() -> int:
     transport_header = transport_dir / "I2cMasterTransport.h"
 
     cmake_text = read(idf_cmake)
+    cmake_code = re.sub(r"(?m)#.*$", "", cmake_text)
     cmake_lists = parse_idf_register_lists(idf_cmake)
     compiled = cmake_lists["SRCS"]
     for path in compiled:
@@ -271,11 +292,20 @@ def main() -> int:
             fail(f"native version output missing provenance field {field!r}")
     if "build_timestamp=%sT%s" not in all_native:
         fail("native version output must emit one dateTtime timestamp token")
+    definitions = re.search(
+        r"target_compile_definitions\s*\(\s*\$\{COMPONENT_LIB\}\s+PRIVATE"
+        r"(?P<body>.*?)\)",
+        cmake_code,
+        re.DOTALL,
+    )
+    if definitions is None:
+        fail("native CMake missing COMPONENT_LIB private compile definitions")
+    definition_body = definitions.group("body")
     for macro in (
         "LDC1614_GIT_COMMIT", "LDC1614_GIT_STATUS",
         "LDC1614_BUILD_DATE", "LDC1614_BUILD_TIME",
     ):
-        if macro not in cmake_text:
+        if re.search(rf'"{macro}=\\"\$\{{[^}}]+\}}\\""', definition_body) is None:
             fail(f"native CMake missing provenance definition {macro}")
     for timestamp_call in (
         'string(TIMESTAMP LDC1614_EXAMPLE_BUILD_TIMESTAMP '
@@ -283,7 +313,7 @@ def main() -> int:
         'string(SUBSTRING "${LDC1614_EXAMPLE_BUILD_TIMESTAMP}" 0 10',
         'string(SUBSTRING "${LDC1614_EXAMPLE_BUILD_TIMESTAMP}" 11 8',
     ):
-        if timestamp_call not in cmake_text:
+        if timestamp_call not in cmake_code:
             fail(f"native CMake missing atomic UTC timestamp step: {timestamp_call}")
     for token in REQUIRED_IDF_TOKENS:
         if token not in all_native:
@@ -304,8 +334,10 @@ def main() -> int:
             fail(f"stale compatibility file remains: {stale}")
 
     check_native_cli(all_native)
-    arduino_specs = parse_cpp_command_specs(read(common / "Ldc1614Cli.cpp"))
-    native_specs = parse_cpp_command_specs(read(idf_cli))
+    arduino_cli_text = read(common / "Ldc1614Cli.cpp")
+    native_cli_text = read(idf_cli)
+    arduino_specs = parse_cpp_command_specs(arduino_cli_text)
+    native_specs = parse_cpp_command_specs(native_cli_text)
     if len(arduino_specs) != len(native_specs):
         fail("Arduino/native command tables differ in length")
     for arduino_spec, native_spec in zip(arduino_specs, native_specs):
@@ -313,6 +345,18 @@ def main() -> int:
             fail(
                 "Arduino/native help description differs for "
                 f"{arduino_spec.canonical!r}"
+            )
+    for method_name in ("advanceVerifySession", "handleSessionOperationResult"):
+        arduino_method = method_body(
+            arduino_cli_text, "Cli", method_name
+        ).replace("Cli::", "Ldc1614IdfCli::")
+        native_method = method_body(
+            native_cli_text, "Ldc1614IdfCli", method_name
+        )
+        if arduino_method != native_method:
+            fail(
+                "Arduino/native audited outcome behavior differs in "
+                f"{method_name}"
             )
     print(f"IDF example contract PASSED ({len(COMMAND_SPECS)} commands)")
     return 0

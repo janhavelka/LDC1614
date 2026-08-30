@@ -235,9 +235,10 @@ def base_golden_outputs() -> dict[str, str]:
             "completed=0/0 pass=0 fail=0 skip=0\n> "
         ),
         "result": (
-            "Operation result: operation=7 kind=INITIALIZE outcome=SUCCESS effects=0x00 "
-            "revision=1 completed_ms=99 phase=COMPLETE reg=0x00 channel=0 "
-            "transfers=20 maximum=20 code=0 detail=0 msg=OK\n> "
+            "Operation result: operation=7 kind=RESET_AND_REAPPLY outcome=SUCCESS effects=0x02 "
+            "effects_names=PARTIAL_WRITE revision=1 completed_ms=99 "
+            "phase=WRITE_MUX_CONFIG reg=0x1B channel=255 transfers=26 maximum=26 "
+            "code=0 detail=0 msg=OK\n> "
         ),
         "state": (
             recovery_state_output()
@@ -483,6 +484,20 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual("FAIL", status)
         self.assertEqual("PASS", runner.classify_command("cfg", cfg_output(), False)[0])
 
+    def test_version_rejects_malformed_build_timestamps(self) -> None:
+        valid = "build_timestamp=2026-08-30T12:34:56"
+        malformed = (
+            "build_timestamp=unknown-dateTunknown-time",
+            "build_timestamp=2026-08-30 12:34:56",
+            "build_timestamp=2026-08-30T12:34",
+        )
+        for replacement in malformed:
+            with self.subTest(timestamp=replacement):
+                output = version_output().replace(valid, replacement)
+                self.assertEqual(
+                    "FAIL", runner.classify_command("version", output, False)[0]
+                )
+
     def test_complete_frozen_no_sensor_golden_matrix_classifies(self) -> None:
         outputs = base_golden_outputs()
         self.assertEqual(set(contract.NO_SENSOR_COMMANDS), set(outputs))
@@ -504,9 +519,75 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual(
             "FAIL",
             runner.classify_command(
-                "result", outputs["result"].replace("maximum=20 ", ""), False
+                "result", outputs["result"].replace("maximum=26 ", ""), False
             )[0],
         )
+
+    def test_result_accepts_reachable_success_for_each_job_kind(self) -> None:
+        config_jobs = {
+            "INITIALIZE": (15, 25),
+            "APPLY_CONFIG": (13, 23),
+            "RESET_AND_REAPPLY": (16, 26),
+        }
+        outputs = []
+        for kind, maxima in config_jobs.items():
+            for maximum in maxima:
+                outputs.append(
+                    "Operation result: operation=7 "
+                    f"kind={kind} outcome=SUCCESS effects=0x02 "
+                    "effects_names=PARTIAL_WRITE revision=1 completed_ms=99 "
+                    "phase=WRITE_MUX_CONFIG reg=0x1B channel=255 "
+                    f"transfers={maximum} maximum={maximum} "
+                    "code=0 detail=0 msg=OK\n> "
+                )
+        for maximum in (4, 6, 8, 10):
+            outputs.append(
+                "Operation result: operation=8 kind=ACQUIRE outcome=SUCCESS "
+                "effects=0x01 effects_names=READ_SIDE_EFFECTS revision=1 "
+                "completed_ms=100 phase=READ_STATUS_AFTER reg=0x18 channel=255 "
+                f"transfers={maximum} maximum={maximum} "
+                "code=0 detail=0 msg=OK\n> "
+            )
+        for output in outputs:
+            with self.subTest(output=output):
+                status, reason = runner.classify_command("result", output, False)
+                self.assertEqual("PASS", status, reason)
+
+    def test_result_rejects_unreachable_or_contradictory_success_evidence(self) -> None:
+        result = base_golden_outputs()["result"]
+        acquire = (
+            "Operation result: operation=8 kind=ACQUIRE outcome=SUCCESS "
+            "effects=0x01 effects_names=READ_SIDE_EFFECTS revision=1 "
+            "completed_ms=100 phase=READ_STATUS_AFTER reg=0x18 channel=255 "
+            "transfers=4 maximum=4 code=0 detail=0 msg=OK\n> "
+        )
+        malformed = (
+            result.replace("operation=7", "operation=0"),
+            result.replace("revision=1", "revision=0"),
+            result.replace("outcome=SUCCESS", "outcome=FAILED"),
+            result.replace("code=0", "code=1"),
+            result.replace("detail=0", "detail=-9300"),
+            result.replace("msg=OK", "msg=I2C failure"),
+            result.replace("effects=0x02", "effects=0x00"),
+            result.replace("effects_names=PARTIAL_WRITE", "effects_names=NONE"),
+            result.replace("phase=WRITE_MUX_CONFIG", "phase=COMPLETE"),
+            result.replace("reg=0x1B", "reg=0x18"),
+            result.replace("channel=255", "channel=0"),
+            result.replace("transfers=26 maximum=26", "transfers=25 maximum=26"),
+            result.replace("transfers=26 maximum=26", "transfers=27 maximum=27"),
+            result.replace("kind=RESET_AND_REAPPLY", "kind=UNKNOWN"),
+            acquire.replace("effects=0x01", "effects=0x00"),
+            acquire.replace("effects_names=READ_SIDE_EFFECTS", "effects_names=NONE"),
+            acquire.replace("phase=READ_STATUS_AFTER", "phase=READ_DATA_LSB"),
+            acquire.replace("reg=0x18", "reg=0x1B"),
+            acquire.replace("channel=255", "channel=0"),
+            acquire.replace("transfers=4 maximum=4", "transfers=5 maximum=5"),
+        )
+        for output in malformed:
+            with self.subTest(output=output):
+                self.assertEqual(
+                    "FAIL", runner.classify_command("result", output, False)[0]
+                )
 
     def test_register_evidence_requires_current_metadata_and_success_status(self) -> None:
         outputs = base_golden_outputs()
@@ -703,8 +784,8 @@ class ClassifierTests(unittest.TestCase):
                 "completed=1/1 pass=0 fail=0 skip=0",
             )),
             ("job", outputs["job"].replace(session_record, session_record * 2)),
-            ("result", outputs["result"].replace("transfers=20 maximum=20",
-                                                  "transfers=21 maximum=20")),
+            ("result", outputs["result"].replace("transfers=26 maximum=26",
+                                                  "transfers=27 maximum=26")),
         )
         for command, output in malformed:
             with self.subTest(command=command):

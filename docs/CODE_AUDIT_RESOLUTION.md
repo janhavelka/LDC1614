@@ -74,18 +74,53 @@ No retained HIL artifact was modified and no new hardware-validation claim is
 made. The changes alter software contracts and simulation only; sensor, INTB,
 SD, address-strap, and soak acceptance still require current target evidence.
 
+## Fresh independent re-audit
+
+On 2026-08-30 the original audit was read again from Git history and the
+completed change was reviewed independently against the actual code and diff.
+Three parallel passes covered F01-F34 requirement disposition, production-core
+state/timing/acquisition behavior, and examples/tests/documentation/scope. The
+following residual gaps were confirmed and corrected:
+
+- Updated the contributor contract's replay maxima to 13/23 apply, 15/25
+  initialize, and 16/26 reset/reapply callbacks.
+- Corrected the reset failure prose: a confirmed address NACK on RESET_DEV
+  retains prior applied state, while a reset that reached or may have reached
+  the device followed by failure leaves identity/configuration unknown.
+- Corrected validation status to state that the behavior-changing core work is
+  not covered by the retained `e4d0436` no-sensor HIL evidence.
+- Added a parity guard for the two audited CLI behavior owners so native
+  ESP-IDF cannot silently diverge on terminal outcomes or verify accounting.
+- Tightened the native CMake provenance guard to inspect the actual private
+  compile-definition block rather than accepting macro names elsewhere.
+- Replaced the HIL runner's impossible cached-result fixture with the reachable
+  reset/reapply result from the maintained sequence. The parser now accepts the
+  reachable success envelopes for every job/variant and rejects contradictory
+  identity, revision, outcome, status, effect, phase, and transfer evidence.
+- Added negative HIL-parser regressions for malformed build timestamps and a
+  behavioral regression for the retained sample-rate non-overrun cadence gate.
+- Removed redundant later-read effect mutations. STATUS-before has already set
+  the aggregate destructive-read flag before DATAx_MSB or STATUS-after can run;
+  ambiguous failure on the first STATUS read remains explicitly handled.
+
+No production-core correctness defect remained after these corrections. The
+fresh review reconfirmed the original refutations, the deliberate F02 owner
+cadence policy, and the narrowed F13 simplification. The requested resolution
+report remains in the tree as this review record; the original one-time audit
+input remains available only through Git history.
+
 ## Validation
 
-- `scripts/pio.cmd test -e native`: 52/52 test cases passed.
+- `scripts/pio.cmd test -e native`: 52/52 test cases passed on the fresh pass.
 - `scripts/pio.cmd run -e esp32s2dev` and `-e esp32s3dev`: both Arduino target
   builds passed using the maintained pinned platform.
 - Core timing, CLI command-surface, native ESP-IDF example, readiness-claim,
   and repository-hygiene checkers passed.
-- HIL runner host suite: 62/62 tests passed. This is parser/tooling validation,
+- HIL runner host suite: 65/65 tests passed. This is parser/tooling validation,
   not a physical HIL run.
 - Generated-version drift and clean-package consumer compile checks passed.
-- Doxygen completed with warnings treated as errors.
+- Doxygen and `git diff --check` completed without errors.
 - A local native ESP-IDF firmware build was not run because `idf.py` was not
   installed in this shell; the repository's native ESP-IDF contract checker
-  passed, and the pushed commit remains subject to the CI ESP32-S2/S3 IDF
-  build matrix.
+  passed, and the maintained CI ESP32-S2/S3 IDF build matrix remains the native
+  firmware-build authority.

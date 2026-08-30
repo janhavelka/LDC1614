@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DATA-MSB transactions, and avoid deriving range faults from stale zero data.
 - Keep cancelled/timed-out CLI sessions distinct from failures, count verify
   read failures once, and emit an unambiguous ISO-like build timestamp.
+- Reject contradictory cached-operation evidence in the HIL parser and enforce
+  audited terminal-outcome/verify behavior parity across both diagnostic CLIs.
 
 ### Changed
 
