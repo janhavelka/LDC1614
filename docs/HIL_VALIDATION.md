@@ -283,7 +283,7 @@ Run these only when hardware and operator setup explicitly support them:
   for production acceptance of the exact board, sensor, wiring, configuration,
   and release revision. Positive committed no-sensor evidence exists for clean
   `e4d0436`, but no positive sensor-equipped artifact exists for the exact
-  `v3.1.0` release commit.
+  `v3.2.0` release commit.
 - Standalone `*.log` files are ignored as temporary output. Use a nonignored
   extension such as `.serial.txt` for a reviewed repository capture; release-only
   captures may instead remain attached to the release.

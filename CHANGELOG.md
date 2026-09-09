@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected post-release documentation state: added the missing `[3.2.0]`
+  changelog link definition, moved the `[Unreleased]` comparison base to
+  `v3.2.0`, and restated the release/HIL prose so it describes `3.2.0` as
+  published rather than pending publication.
+
 ## [3.2.0] - 2026-09-09
 
 ### Fixed
@@ -511,7 +518,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/janhavelka/LDC1614/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
