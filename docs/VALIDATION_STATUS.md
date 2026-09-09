@@ -6,12 +6,12 @@ hardware validation.
 
 ## Release state
 
-`library.json` is the version source of truth. Version `3.1.0` is published:
-the annotated tag `v3.1.0` points at commit `9a86034`, matching the `3.1.0`
-entry in `CHANGELOG.md`. Never move or reinterpret an existing tag. The next
-publication requires a new version in `library.json` (for example through
-`python scripts/generate_version.py bump patch`), a reviewed commit that passes
-CI, and its own annotated tag; `docs/RELEASING.md` holds the procedure.
+`library.json` is the version source of truth. This tree targets version
+`3.2.0`, matching the dated `3.2.0` entry in `CHANGELOG.md`. Publication requires
+the annotated tag `v3.2.0` on the exact reviewed commit that passes the required
+software checks and CI; `docs/RELEASING.md` holds the procedure. The historical
+annotated tag `v3.1.0` remains at the pre-audit commit `9a86034`. Never move or
+reinterpret an existing tag.
 
 No retained run qualifies the exact release commit on a sensor-equipped target.
 The strongest current hardware evidence used clean firmware commit `e4d0436` on

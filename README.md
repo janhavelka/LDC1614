@@ -5,7 +5,7 @@ converter driver for externally owned I2C buses. The v3 API is cooperative:
 multi-register procedures execute only when the application calls `poll()` and
 never exceed its transfer budget.
 
-This tree is version **3.1.0**. Deployment still requires evidence for the exact
+This tree is version **3.2.0**. Deployment still requires evidence for the exact
 board, address strap, reference clock, LC sensors, channel mapping, INTB/SD
 wiring, fault policy, calibration, cadence, and soak conditions. See the
 maintained validation status and HIL guide before selecting a release.

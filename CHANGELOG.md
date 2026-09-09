@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-09-09
+
 ### Fixed
 
 - Validate internal-oscillator limits and conservative timing against the full
@@ -26,9 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed the redundant trailing sleeping CONFIG write from full replay. Apply,
-  initialize, and reset/reapply now require at most 13/23, 15/25, and 16/26
-  callbacks for LDC1612/LDC1614 respectively.
+- `SampleBatch::validChannels` now includes fresh, coherent samples with no
+  decoded range/silicon error even when STATUS-after reports a newer conversion
+  pending. These channels were previously excluded. `overrunChannels` and
+  `DATA_LOST` evidence remain visible and may coexist with validity; owners
+  requiring a non-overrun batch must check that evidence separately.
+- Removed the redundant trailing sleeping CONFIG write from full replay. For
+  LDC1612/LDC1614 respectively, maximum callbacks decrease from 14/24 to 13/23
+  for apply, from 16/26 to 15/25 for initialize, and from 17/27 to 16/26 for
+  reset/reapply. Owners comparing exact transfer counts or scheduling from
+  these budgets must account for the earlier completion.
 - Documented combined-read, sleep-destruction, error-routing, result-draining,
   and sample-validity contracts and expanded their native regression coverage.
 
