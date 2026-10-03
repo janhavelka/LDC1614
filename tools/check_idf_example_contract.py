@@ -59,7 +59,7 @@ def read(path: pathlib.Path) -> str:
 
 
 def method_body(source: str, class_name: str, method_name: str) -> str:
-    signature = f"void {class_name}::{method_name}("
+    signature = f"{class_name}::{method_name}("
     start = source.find(signature)
     if start < 0:
         fail(f"missing {class_name}::{method_name} implementation")
@@ -346,7 +346,8 @@ def main() -> int:
                 "Arduino/native help description differs for "
                 f"{arduino_spec.canonical!r}"
             )
-    for method_name in ("advanceVerifySession", "handleSessionOperationResult"):
+    for method_name in ("advanceVerifySession", "handleSessionOperationResult",
+                        "advanceSamplingSession", "scheduleSessionAcquire"):
         arduino_method = method_body(
             arduino_cli_text, "Cli", method_name
         ).replace("Cli::", "Ldc1614IdfCli::")

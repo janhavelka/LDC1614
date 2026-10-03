@@ -29,7 +29,7 @@ for setup/hold timing in a low-level transport test. Source: datasheet, p. 7.
 
 ## Conversion Timing
 
-`RCOUNTx` controls conversion interval. Valid programmed values are
+`RCOUNTx` controls conversion interval. The register table allows encodings
 `0x0005` through `0xFFFF`; larger conversion times improve resolution, and
 `0xFFFF` is required for full resolution. Source: datasheet, pp. 20, 39.
 
@@ -46,12 +46,18 @@ generated if those errors are enabled. Source: datasheet, pp. 22-23, 40.
 The datasheet gives a minimum settle-count relationship based on sensor Q,
 sensor frequency, and reference frequency. Source: datasheet, p. 40.
 
-Multi-channel (auto-scan) operation tightens both counts. Table 43 requires
-`RCOUNTx` > 8 and `SETTLECOUNTx` > 3, so the per-register minimums above are
-not sufficient when more than one channel is sequenced. The driver encodes
-these as `cmd::MULTI_RCOUNT_MIN` (`0x0009`) and `cmd::MULTI_SETTLE_MIN`
-(`0x0004`) and rejects a `MULTI_CHANNEL_SEQUENTIAL` profile below them.
-Source: datasheet, p. 46.
+Table 43 requires `RCOUNTx` > 8 and `SETTLECOUNTx` > 3 for both single-channel
+and multi-channel operation. Its count-limit cells span all mode rows; PDF
+text extraction previously led these notes to incorrectly restrict the limits
+to auto-scan. Selected channels therefore require at least `0x0009` and
+`0x0004`, even though smaller register encodings exist. Source: datasheet,
+p. 46 (visually checked 2026-10-03).
+
+The programmed interval must also cover at least one divided sensor-input
+period at the declared minimum sensor frequency and maximum reference clock.
+Otherwise zero-count errors are possible within the intended range. This is
+an additional minimum, not a guarantee of oscillation or resolution. Source:
+SNOA959, section 3.5, p. 9.
 
 ## Clock and Divider Constraints
 

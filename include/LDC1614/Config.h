@@ -182,12 +182,12 @@ struct DriveCurrentCode {
 
 /// @brief Explicit per-channel electrical and conversion profile.
 struct ChannelConfig {
-  uint16_t rcount = 0;              ///< 0 is unspecified; valid configured range starts at 0x0005.
-  uint16_t settleCount = 0;         ///< Reference-clock settling count.
+  uint16_t rcount = 0;              ///< 0 is unspecified; selected channels require >=9 (Table 43) and at least one divided sensor period; unselected profiles >=5.
+  uint16_t settleCount = 0;         ///< Reference-clock settling count; selected channels require >=4 in either conversion mode.
   uint8_t finDivider = 0;           ///< 0 is unspecified; valid range is 1..15.
   uint16_t frefDivider = 0;         ///< 0 is unspecified; valid range is 1..1023.
   uint16_t offset = 0;              ///< Offset including FIN divider must remain below sensor minimum.
-  DriveCurrentCode driveCurrentCode{};  ///< Explicit code 0..31.
+  DriveCurrentCode driveCurrentCode{};  ///< Explicit normal-drive code 0..31; ignored by CH0 high-current mode.
   uint32_t expectedSensorMinHz = 0; ///< Expected minimum sensor frequency in hertz.
   uint32_t expectedSensorMaxHz = 0; ///< Expected maximum sensor frequency in hertz.
 };
@@ -206,7 +206,7 @@ struct Config {
   uint32_t i2cTimeoutMs = 0;             ///< Per-callback timeout cap in milliseconds.
   I2cAddress i2cAddress = I2cAddress::UNSPECIFIED; ///< Explicit 7-bit address.
 
-  IntbAssertedFn intbAsserted = nullptr; ///< Optional bus-silent INTB observer.
+  IntbAssertedFn intbAsserted = nullptr; ///< Optional bus-silent INTB observer; an application may instead handle INTB outside the driver.
   void* intbUser = nullptr;              ///< Opaque INTB callback context.
 
   DeviceVariant variant = DeviceVariant::UNSPECIFIED; ///< Explicit silicon variant.
@@ -219,10 +219,10 @@ struct Config {
   RRSequence rrSequence = RRSequence::UNSPECIFIED; ///< Sequence in multi-channel mode.
   Deglitch deglitch = Deglitch::UNSPECIFIED;       ///< Input deglitch bandwidth.
   SensorActivation sensorActivation = SensorActivation::LOW_POWER; ///< Activation-current mode.
-  bool rpOverrideEnabled = true;                    ///< CONFIG.RP_OVERRIDE_EN value.
-  bool autoAmplitudeCorrectionEnabled = false;     ///< Enable automatic amplitude correction.
-  bool highCurrentDriveEnabled = false;             ///< Enable channel-0 high-current drive.
-  bool intbDisabled = true;                         ///< Disable the INTB output when true.
+  bool rpOverrideEnabled = true;                    ///< True selects programmed IDRIVE; false enables initial drive-current calibration on entering active mode.
+  bool autoAmplitudeCorrectionEnabled = false;     ///< Adjust current between conversions and update INIT_IDRIVE; changing current can shift output codes.
+  bool highCurrentDriveEnabled = false;             ///< Enable single-channel CH0 high-current drive; IDRIVE no longer selects its current.
+  bool intbDisabled = true;                         ///< Disable the INTB output when true; enabling it does not require an observer callback.
   ErrorReporting errorReporting{};                  ///< Typed ERROR_CONFIG policy.
 };
 

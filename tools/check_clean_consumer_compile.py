@@ -60,8 +60,12 @@ def run_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[st
 def pack_library(temp: Path) -> Optional[Path]:
     output_dir = temp / "dist"
     output_dir.mkdir()
+    # Follow the repository's Windows installation contract even when this
+    # checker is launched with a different Python interpreter.
+    platformio = ([str(ROOT / "scripts" / "pio.cmd")] if os.name == "nt"
+                  else [sys.executable, "-m", "platformio"])
     result = run_command(
-        [sys.executable, "-m", "platformio", "pkg", "pack", str(ROOT), "-o", str(output_dir)],
+        [*platformio, "pkg", "pack", str(ROOT), "-o", str(output_dir)],
         ROOT,
     )
     if result.returncode != 0:
@@ -140,6 +144,12 @@ int main() {
     command = [
         compiler,
         "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic",
+        "-fno-exceptions",
+        "-fno-rtti",
         "-I",
         str(include_dir),
         str(consumer),
@@ -152,6 +162,11 @@ int main() {
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
         return fail("packed package consumer compile failed")
+    result = run_command([str(output)], temp)
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        return fail("packed package consumer execution failed")
     return 0
 
 

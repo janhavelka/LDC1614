@@ -630,6 +630,33 @@ void test_cli_complete_staged_profile_surface_is_silent_and_transactional() {
   TEST_ASSERT_EQUAL_UINT16(0U, fixture.fake.transferCalls);
 }
 
+void test_cli_selected_timing_minima_reject_invalid_staged_single_channel() {
+  CliFixture fixture;
+  LDC1614::LDC1614 device;
+  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
+  fixture.fake.clearIo();
+  cli.processCommand("mode single 0");
+  // Keep the conversion above one divided sensor period at RCOUNT=9.
+  cli.processCommand("sensorbounds 0 1000000 5000000");
+  cli.processCommand("rcount 0 8");
+  cli.processCommand("settle 0 4");
+  fixture.clearOutput();
+  cli.processCommand("profile validate");
+  TEST_ASSERT_TRUE(contains(fixture, "outcome=INVALID"));
+  cli.processCommand("rcount 0 9");
+  cli.processCommand("settle 0 3");
+  fixture.clearOutput();
+  cli.processCommand("profile validate");
+  TEST_ASSERT_TRUE(contains(fixture, "outcome=INVALID"));
+  cli.processCommand("settle 0 4");
+  fixture.clearOutput();
+  cli.processCommand("profile validate");
+  TEST_ASSERT_TRUE(contains(fixture, "valid=1 outcome=VALID"));
+  TEST_ASSERT_EQUAL_UINT16(0U, fixture.fake.transferCalls);
+  TEST_ASSERT_EQUAL_UINT16(0x04D6U, device.config().channel[0].rcount);
+}
+
 void test_cli_ldc1612_rejects_every_channel_2_3_staged_path_atomically() {
   static const char* const invalidCommands[] = {
       "mode single 2",       "mode single 3",       "mode seq 3",
@@ -912,8 +939,8 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
       static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.service()));
   fixture.fake.unreadMask = 0U;
-  serviceToIdle(cli, fixture);
-  TEST_ASSERT_TRUE(contains(fixture, "fresh=0"));
+  serviceToIdle(cli, fixture, 64U, 100U);
+  TEST_ASSERT_TRUE(contains(fixture, "ready=0"));
   TEST_ASSERT_TRUE(contains(fixture, "requested=1 ok=0 fail=1"));
   TEST_ASSERT_TRUE(contains(fixture, "outcome=FAILED"));
 
@@ -960,6 +987,103 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   cli.processCommand("result");
   TEST_ASSERT_TRUE(contains(fixture, "kind=ACQUIRE outcome=FAILED effects="));
   TEST_ASSERT_TRUE(contains(fixture, "detail=-9300"));
+}
+
+void test_cli_samplerate_owns_readiness_and_preserves_one_deadline() {
+  for (uint8_t useIntb = 0U; useIntb < 2U; ++useIntb) {
+    CliFixture fixture;
+    LDC1614::LDC1614 device;
+    ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+    LDC1614::Config config = fixtureConfig(&fixture);
+    if (useIntb == 0U) {
+      config.intbAsserted = nullptr;
+      config.intbDisabled = true;
+    }
+    TEST_ASSERT_TRUE(device.bind(config).ok());
+    initializeAndWake(cli, device, fixture);
+    fixture.clearOutput();
+    fixture.fake.clearIo();
+    // The first complete acquisition has no conversion. The next one must
+    // retain fresh evidence from its own initial STATUS, without a pre-read.
+    fixture.fake.scheduleConversionAfter(4U, 0U, 0x01234567U);
+    cli.processCommand("samplerate 0 1");
+    ++fixture.nowMs;
+    (void)cli.service();
+    TEST_ASSERT_TRUE(device.jobProgress().active);
+    const uint64_t deadline = device.jobProgress().deadlineMs;
+    for (uint8_t pass = 0U; pass < 4U; ++pass) {
+      ++fixture.nowMs;
+      const uint16_t before = fixture.fake.transferCalls;
+      (void)cli.service();
+      TEST_ASSERT_EQUAL_UINT16(before + 1U, fixture.fake.transferCalls);
+    }
+    TEST_ASSERT_FALSE(device.jobProgress().active);
+    TEST_ASSERT_TRUE(cli.asynchronousWorkActive());
+    ++fixture.nowMs;
+    (void)cli.service();
+    TEST_ASSERT_TRUE(device.jobProgress().active);
+    TEST_ASSERT_EQUAL_UINT64(deadline, device.jobProgress().deadlineMs);
+    serviceToIdle(cli, fixture);
+    TEST_ASSERT_EQUAL_UINT16(8U, fixture.fake.transferCalls);
+    TEST_ASSERT_TRUE(contains(fixture, "check=1 ready=0"));
+    TEST_ASSERT_TRUE(contains(fixture, "check=2 ready=1"));
+    TEST_ASSERT_TRUE(contains(fixture, "requested=1 ok=1 fail=0"));
+    TEST_ASSERT_TRUE(contains(fixture, "outcome=SUCCESS code=0"));
+
+    fixture.clearOutput();
+    fixture.fake.clearIo();
+    cli.processCommand("samplerate 0 1");
+    ++fixture.nowMs;
+    (void)cli.service();
+    fixture.nowMs = device.jobProgress().deadlineMs;
+    (void)cli.service();
+    serviceToIdle(cli, fixture);
+    TEST_ASSERT_EQUAL_UINT16(0U, fixture.fake.transferCalls);
+    TEST_ASSERT_TRUE(contains(fixture, "kind=ACQUIRE outcome=TIMED_OUT"));
+    TEST_ASSERT_TRUE(contains(fixture, "requested=1 ok=0 fail=1"));
+  }
+
+  CliFixture fixture;
+  LDC1614::LDC1614 device;
+  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC1614::Config config = fixtureConfig(&fixture);
+  config.errorReporting.dataReady = false;
+  TEST_ASSERT_TRUE(device.bind(config).ok());
+  initializeAndWake(cli, device, fixture);
+  fixture.clearOutput();
+  fixture.fake.clearIo();
+  fixture.fake.injectConversion(0U, 0x01234567U);
+  cli.processCommand("samplerate 0 1");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_EQUAL_UINT16(4U, fixture.fake.transferCalls);
+  TEST_ASSERT_TRUE(contains(fixture, "ready=1 status_snapshot=1 status_raw=0x0008"));
+  TEST_ASSERT_TRUE(contains(fixture, "requested=1 ok=1 fail=0"));
+}
+
+void test_cli_samplerate_accepts_fresh_channel_before_scan_drdy() {
+  CliFixture fixture;
+  LDC1614::LDC1614 device;
+  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC1614::Config config = fixtureConfig(&fixture);
+  config.mode = LDC1614::OperatingMode::MULTI_CHANNEL_SEQUENTIAL;
+  config.activeChannel = LDC1614::Channel::NONE;
+  config.rrSequence = LDC1614::RRSequence::CH0_CH1;
+  config.channels = LDC1614::ChannelMask{0x03U};
+  config.channel[1].expectedSensorMinHz = config.channel[0].expectedSensorMinHz;
+  config.channel[1].expectedSensorMaxHz = config.channel[0].expectedSensorMaxHz;
+  TEST_ASSERT_TRUE(device.bind(config).ok());
+  initializeAndWake(cli, device, fixture);
+  fixture.clearOutput();
+  fixture.fake.clearIo();
+  // CH0 completed; CH1 has not. DRDY denotes end-of-scan, but CH0 already
+  // has a new conversion and its original unread evidence must be retained.
+  fixture.fake.injectConversion(0U, 0x01234567U);
+  cli.processCommand("samplerate 0 1");
+  serviceToIdle(cli, fixture);
+  TEST_ASSERT_EQUAL_UINT16(4U, fixture.fake.transferCalls);
+  TEST_ASSERT_TRUE(contains(fixture, "ready=1 status_snapshot=1 status_raw=0x0008"));
+  TEST_ASSERT_TRUE(contains(fixture, "requested=1 ok=1 fail=0"));
+  TEST_ASSERT_TRUE(contains(fixture, "outcome=SUCCESS code=0"));
 }
 
 void test_cli_session_cancel_and_deadline_keep_terminal_outcome() {
@@ -1128,11 +1252,14 @@ void registerLdc1614CliTests() {
   RUN_TEST(test_cli_all_canonical_commands_reject_surplus_arguments_without_i2c);
   RUN_TEST(test_cli_all_aliases_dispatch_to_their_canonical_families);
   RUN_TEST(test_cli_complete_staged_profile_surface_is_silent_and_transactional);
+  RUN_TEST(test_cli_selected_timing_minima_reject_invalid_staged_single_channel);
   RUN_TEST(test_cli_ldc1612_rejects_every_channel_2_3_staged_path_atomically);
   RUN_TEST(test_cli_reading_register_and_pure_helpers_emit_complete_evidence);
   RUN_TEST(test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths);
   RUN_TEST(test_cli_dump_verify_selftest_sampling_stress_soak_and_failures);
   RUN_TEST(test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples);
+  RUN_TEST(test_cli_samplerate_owns_readiness_and_preserves_one_deadline);
+  RUN_TEST(test_cli_samplerate_accepts_fresh_channel_before_scan_drdy);
   RUN_TEST(test_cli_session_cancel_and_deadline_keep_terminal_outcome);
   RUN_TEST(test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure);
   RUN_TEST(test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent);

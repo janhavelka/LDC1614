@@ -43,6 +43,11 @@ Source: datasheet, p. 29.
 Source: datasheet, pp. 25-26.
 
 Reading `STATUS` clears error status bits and `ERR_CHAN`, and deasserts `INTB`.
+It also clears all `UNREADCONVx` flags after returning their snapshot:
+[SNOA959 section 2.1, p. 7](https://www.ti.com/lit/an/snoa959/snoa959.pdf)
+explicitly names both STATUS and DATA reads as clearing unread evidence.
+Do not poll STATUS and then expect another STATUS read to retain freshness
+for the same conversion.
 Reading `DATAx_MSB` also affects the relevant data-ready/unread-conversion
 state. Source: datasheet, pp. 25-26, 47.
 

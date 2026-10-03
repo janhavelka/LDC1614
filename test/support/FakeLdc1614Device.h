@@ -15,7 +15,8 @@ namespace cmd = LDC1614::cmd;
 /// The fixture deliberately models the destructive DATA/STATUS behavior that a
 /// flat register array misses: DATAx_MSB latches the matching LSB, consumes the
 /// channel's unread indication, and can clear channel error/INTB evidence;
-/// STATUS returns a snapshot and clears sticky error/INTB evidence.
+/// STATUS returns a snapshot and clears sticky error/INTB and UNREADCONV
+/// evidence (SNOA959 sections 1.2 and 2.1).
 struct FakeLdc1614Device {
   using Status = LDC1614::Status;
   using Err = LDC1614::Err;
@@ -50,6 +51,7 @@ struct FakeLdc1614Device {
   uint8_t unreadMask = 0;
   uint16_t stickyStatusErrors = 0;
   uint8_t errorChannel = 0;
+  bool dataReadyLatched = false;
   bool intbAsserted = false;
 
   Transfer transferLog[MAX_TRANSFERS] = {};
@@ -116,16 +118,20 @@ struct FakeLdc1614Device {
                                         (dataErrors & DATA_ERROR_MASK));
     liveLsb[ch] = static_cast<uint16_t>(raw28 & 0xFFFFU);
     unreadMask |= static_cast<uint8_t>(1U << ch);
-    if ((statusErrors & STATUS_ERROR_MASK) != 0U) {
-      stickyStatusErrors = static_cast<uint16_t>(statusErrors & STATUS_ERROR_MASK);
-      errorChannel = ch;
-    }
     const uint16_t errorConfig = reg[cmd::REG_ERROR_CONFIG];
     const bool drdyRouted = (errorConfig & cmd::MASK_ERRCFG_DRDY_2INT) != 0U;
-    const bool errorRouted = (errorConfig & 0x00FCU) != 0U;
+    // Injected error parameters represent already-routed DATA/STATUS bits.
+    // STATUS retains the first event; unlike UNREADCONV, DRDY is sticky and
+    // sequential-mode DRDY is generated only by the last scan channel.
+    if (stickyStatusErrors == 0U && !dataReadyLatched) {
+      stickyStatusErrors = static_cast<uint16_t>(statusErrors & STATUS_ERROR_MASK);
+      dataReadyLatched = drdyRouted && ch == lastConversionChannel();
+      if (stickyStatusErrors != 0U || dataReadyLatched) {
+        errorChannel = ch;
+      }
+    }
     const bool intbDisabled = (reg[cmd::REG_CONFIG] & cmd::MASK_CFG_INTB_DIS) != 0U;
-    if (!intbDisabled && ((drdyRouted && unreadMask != 0U) ||
-                         (errorRouted && stickyStatusErrors != 0U))) {
+    if (!intbDisabled && (dataReadyLatched || stickyStatusErrors != 0U)) {
       intbAsserted = true;
     }
   }
@@ -143,11 +149,10 @@ struct FakeLdc1614Device {
 
   uint16_t statusValue() const {
     uint16_t value = stickyStatusErrors;
-    if (stickyStatusErrors != 0U) {
+    if (stickyStatusErrors != 0U || dataReadyLatched) {
       value |= static_cast<uint16_t>(errorChannel) << cmd::BIT_STATUS_ERR_CHAN;
     }
-    if (unreadMask != 0U &&
-        (reg[cmd::REG_ERROR_CONFIG] & cmd::MASK_ERRCFG_DRDY_2INT) != 0U) {
+    if (dataReadyLatched) {
       value |= cmd::MASK_STATUS_DRDY;
     }
     for (uint8_t ch = 0; ch < 4; ++ch) {
@@ -239,7 +244,20 @@ private:
     unreadMask = 0U;
     stickyStatusErrors = 0U;
     errorChannel = 0U;
+    dataReadyLatched = false;
     intbAsserted = false;
+  }
+
+  uint8_t lastConversionChannel() const {
+    const uint16_t mux = reg[cmd::REG_MUX_CONFIG];
+    if ((mux & cmd::MASK_MUX_AUTOSCAN_EN) == 0U) {
+      return static_cast<uint8_t>((reg[cmd::REG_CONFIG] &
+                                   cmd::MASK_CFG_ACTIVE_CHAN) >>
+                                  cmd::BIT_CFG_ACTIVE_CHAN);
+    }
+    const uint8_t sequence = static_cast<uint8_t>(
+        (mux & cmd::MASK_MUX_RR_SEQUENCE) >> cmd::BIT_MUX_RR_SEQUENCE);
+    return sequence == 1U ? 2U : (sequence == 2U ? 3U : 1U);
   }
 
   static uint16_t unreadStatusBit(uint8_t ch) {
@@ -288,6 +306,8 @@ private:
     if (targetReg == cmd::REG_STATUS) {
       stickyStatusErrors = 0;
       errorChannel = 0;
+      dataReadyLatched = false;
+      unreadMask = 0U;
       intbAsserted = false;
       return;
     }
@@ -298,11 +318,10 @@ private:
     const uint8_t ch = static_cast<uint8_t>(msbCh);
     unreadMask &= static_cast<uint8_t>(~(1U << ch));
     liveMsb[ch] &= static_cast<uint16_t>(~DATA_ERROR_MASK);
-    if (stickyStatusErrors != 0U && errorChannel == ch) {
+    if ((stickyStatusErrors != 0U || dataReadyLatched) && errorChannel == ch) {
       stickyStatusErrors = 0;
       errorChannel = 0;
-    }
-    if (unreadMask == 0U && stickyStatusErrors == 0U) {
+      dataReadyLatched = false;
       intbAsserted = false;
     }
   }

@@ -8,6 +8,10 @@
 - Six error/warning conditions: Under-range, Over-range, Watchdog Timeout, Amplitude High, Amplitude Low, and Zero Count.
 - STATUS register bits are **sticky** — cleared by reading STATUS, or by reading the DATAx_MSB register of the error channel; either read also de-asserts INTB (datasheet pp. 26, 47; SNOA959 Table 4, p. 10). SNOA959 p. 5 mentions only the STATUS read. Exception: CHx_UNREADCONV is not sticky.
 - Use INTB reporting **in addition to** STATUS polling to avoid missing errors from multiple channels.
+- Section 2.1, p. 7 says STATUS or DATA reads clear unread-conversion flags.
+  A STATUS readiness read therefore consumes freshness for later acquisition;
+  preserve the first snapshot. In a sequential scan, an earlier channel can
+  be unread before the final channel sets global DRDY.
 - DATA_CHx error bits are **not sticky** — cleared by next successful conversion or by reading the register.
 
 ## Summary
@@ -128,7 +132,7 @@ Data readiness can be detected via the DRDY bit in STATUS, the CHx_UNREADCONV bi
 
 ### Recommended Error Handling Strategy
 1. Enable all errors via ERR2INT bits for INTB notification
-2. On INTB assertion, read STATUS register (clears error and de-asserts INTB)
+2. On INTB assertion, notify the serialized owner. For acquisition, retain the first STATUS snapshot inside the STATUS/DATA/STATUS sequence; a separate readiness read consumes unread flags.
 3. Check ERR_CHAN to identify error source channel
 4. Check individual error bits (ERR_UR, ERR_OR, ERR_WD, ERR_AHE, ERR_ALE, ERR_ZC) to identify error type
 5. Optionally enable ERR2OUT bits to embed error flags in DATA registers for per-read validation
@@ -144,10 +148,10 @@ Data readiness can be detected via the DRDY bit in STATUS, the CHx_UNREADCONV bi
 - AUTOSCAN_EN=1 (sequential): DRDY on completion of last channel in sequence (e.g., RR_SEQUENCE=0 → DRDY after both CH0 and CH1 complete)
 
 ## Relevance to LDC1614 Implementation
-This is the most critical application note for driver error handling. The driver must:
+Apply the note through the library's serialized, external-owner contract:
 1. Configure ERROR_CONFIG (0x19) during initialization to enable desired error reporting
-2. Implement an INTB interrupt handler that reads STATUS (0x18) and dispatches based on error type
+2. Keep any INTB interrupt handler in the application; it only notifies the owner. No driver API is ISR-safe.
 3. Validate DATA_CHx reads by checking the upper 4 error bits before using conversion data
-4. Handle watchdog errors by discarding data and potentially resetting the sensor
-5. Use CHx_UNREADCONV bits (STATUS bits 3:0) for efficient multi-channel data collection on the LDC1614
-6. Implement DRDY-based or interrupt-based readout rather than blind polling for reliable data acquisition
+4. Publish watchdog/error evidence and let the application choose bounded recovery.
+5. Use the acquisition's preserved UNREADCONV snapshot for per-channel freshness, including channels that finish before end-of-scan DRDY.
+6. Schedule `startAcquire()` and budgeted `poll()` from the owner. Standalone STATUS reads remain explicit destructive diagnostics.

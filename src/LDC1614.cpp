@@ -1381,11 +1381,6 @@ Status LDC1614::validateConfig(const Config& config) {
     return Status::Error(Err::INVALID_CONFIG,
                          "High-current drive is single-channel CH0 only");
   }
-  if (!config.intbDisabled && config.intbAsserted == nullptr) {
-    return Status::Error(Err::INVALID_CONFIG,
-                         "Enabled INTB requires observation callback");
-  }
-
   const uint32_t bandwidth = deglitchBandwidthHz(config.deglitch);
   for (uint8_t index = 0; index < channelCount; ++index) {
     const uint8_t bit = static_cast<uint8_t>(1U << index);
@@ -1402,11 +1397,12 @@ Status LDC1614::validateConfig(const Config& config) {
     if ((config.channels.bits & bit) == 0U) {
       continue;
     }
-    if (config.mode == OperatingMode::MULTI_CHANNEL_SEQUENTIAL &&
-        (channel.rcount < cmd::MULTI_RCOUNT_MIN ||
-         channel.settleCount < cmd::MULTI_SETTLE_MIN)) {
+    // Table 43's count-limit cells span both single and multi-channel rows.
+    // Lower register encodings exist, but do not meet the conversion limits.
+    if (channel.rcount < cmd::CONVERSION_RCOUNT_MIN ||
+        channel.settleCount < cmd::CONVERSION_SETTLE_MIN) {
       return Status::Error(Err::INVALID_CONFIG,
-                           "Sequential timing below datasheet minimum", index);
+                           "Conversion timing below datasheet minimum", index);
     }
     if (channel.expectedSensorMinHz < SENSOR_FREQUENCY_MIN_HZ ||
         channel.expectedSensorMaxHz > SENSOR_FREQUENCY_MAX_HZ ||
@@ -1438,15 +1434,30 @@ Status LDC1614::validateConfig(const Config& config) {
                            "Channel reference clock tolerance exceeds limit",
                            index);
     }
-    if (static_cast<uint64_t>(channel.offset) * frefMax *
+    // Equation 7 and SNOA959 section 3.5: a conversion shorter than one
+    // divided sensor period can report zero count. Use cross multiplication
+    // to preserve the exact divider ratio at the fastest reference clock.
+    const uint64_t conversionCycles =
+        static_cast<uint64_t>(channel.rcount) * 16ULL + 4ULL;
+    if (conversionCycles * channel.expectedSensorMinHz *
+            channel.frefDivider <
+        clockMax * channel.finDivider) {
+      return Status::Error(Err::INVALID_CONFIG,
+                           "Conversion shorter than minimum sensor period",
+                           index);
+    }
+    // Keep the divider ratios exact: separately rounding fREF or fIN can
+    // reject valid profiles close to these strict datasheet boundaries.
+    if (static_cast<uint64_t>(channel.offset) * clockMax *
             channel.finDivider >=
-        static_cast<uint64_t>(channel.expectedSensorMinHz) * 65536ULL) {
+        static_cast<uint64_t>(channel.expectedSensorMinHz) * 65536ULL *
+            channel.frefDivider) {
       return Status::Error(Err::INVALID_CONFIG,
                            "OFFSET masks expected sensor minimum", index);
     }
-    const uint64_t fin =
-        ceilDivide(channel.expectedSensorMaxHz, channel.finDivider);
-    if (fin * 4ULL >= frefMin) {
+    if (static_cast<uint64_t>(channel.expectedSensorMaxHz) * 4ULL *
+            channel.frefDivider >=
+        clockMin * channel.finDivider) {
       return Status::Error(Err::INVALID_CONFIG,
                            "Worst-case sensor input must be below fREFx/4",
                            index);

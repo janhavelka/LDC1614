@@ -216,11 +216,15 @@ struct TransportStats {
   Status lastStatus = Status::Ok();  ///< Most recent callback status.
 };
 
-/// @brief Conservative chip-time estimate; application-owned bus time is separate.
+/// @brief Chip-time planning estimate; application-owned bus time is separate.
+/// @details Clock tolerance and per-term rounding are conservative. The
+/// datasheet's channel-switch delay is typical, not a guaranteed maximum.
+/// Automatic amplitude calibration/correction and fault-recovery time are not
+/// specified by this estimate. Use observed readiness and owner deadlines.
 struct FrameTiming {
-  uint64_t wakeAndSettleUs = 0;   ///< Conservative wake plus selected-channel settling time.
-  uint64_t conversionUs = 0;      ///< Conservative selected-channel conversion time.
-  uint64_t sequentialFrameUs = 0; ///< Conservative full configured auto-scan frame time.
+  uint64_t wakeAndSettleUs = 0;   ///< Conservative wake plus configured-channel settling time.
+  uint64_t conversionUs = 0;      ///< Conservative configured-channel conversion time.
+  uint64_t sequentialFrameUs = 0; ///< First-post-wake frame estimate including typical switch delays.
   uint8_t acquisitionTransfers = 0;  ///< STATUS-before + DATA pairs + STATUS-after.
 };
 
@@ -299,6 +303,9 @@ class LDC1614 {
 
   /// Acquire one atomic software batch for a nonempty subset of configured
   /// channels. Requires APPLIED_ACTIVE. Maximum: 2 + 2N transfers.
+  /// STATUS snapshots consume UNREADCONV for all physical channels, including
+  /// channels outside the requested subset. Retain the returned snapshots if
+  /// that evidence matters; later acquisitions need new conversion evidence.
   /// @param channels Nonempty subset of configured channels to read.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
@@ -351,12 +358,20 @@ class LDC1614 {
   TransportStats transportStats() const { return _transportStats; }
 
   /// @brief Read and decode STATUS in one bounded callback.
+  /// @details Reading STATUS consumes latched error, DRDY, UNREADCONV, and
+  /// INTB evidence. The returned snapshot preserves the observed bits; a
+  /// subsequent acquisition needs a new conversion to establish freshness.
   /// @param out Destination snapshot, cleared before the attempt.
   /// @return Precise precondition or transport status.
   Status readDeviceStatus(DeviceStatus& out);
   /// Observe DRDY without discarding the STATUS snapshot that may contain
   /// destructive error evidence. An inactive enabled INTB can return
   /// bus-silently with a zero snapshot.
+  /// A STATUS read consumes UNREADCONV as well as DRDY/error/INTB evidence;
+  /// do not use this as a preflight before startAcquire() for the same data.
+  /// Observe INTB bus-silently or schedule acquisition from owner timing.
+  /// Without an INTB observer callback this reads STATUS directly, even when
+  /// the INTB output is enabled for application-owned interrupt handling.
   /// @param ready Receives the decoded data-ready state.
   /// @param observedStatus Receives the STATUS snapshot when one is read.
   /// @return Precise precondition, INTB-observation, or transport status.
@@ -371,6 +386,10 @@ class LDC1614 {
   /// @return Precise precondition or transport status.
   Status wake();
   /// @brief Read the silicon-selected initial IDRIVE code.
+  /// @details With RP override disabled, allow at least one complete sensor
+  /// measurement after wake before using this value. Automatic amplitude
+  /// correction also updates it between conversions. The normal-drive current
+  /// scale does not describe the separate CH0 high-current mode.
   /// @param channel Physical channel to read.
   /// @param code Receives the five-bit INIT_IDRIVE code.
   /// @return Precise parameter, precondition, or transport status.
@@ -428,10 +447,12 @@ class LDC1614 {
   static Status calculateSensorFrequencyHz(const Config& config, Channel channel,
                                            uint32_t rawCount28, double& frequencyHz);
 
-  /// Pure conservative first-post-wake device-time and read-transfer estimate.
+  /// Pure first-post-wake device-time and read-transfer planning estimate.
   /// Multi-channel timing includes the complete configured auto-scan sequence
   /// even when channels is only a readout subset. Application queue, lock,
-  /// callback, and processing time are excluded.
+  /// callback, and processing time are excluded. Clock tolerance and rounding
+  /// are conservative, but typical switching delay and unspecified automatic
+  /// amplitude calibration/correction time prevent a guaranteed upper bound.
   /// @param config Explicit desired profile.
   /// @param channels Nonempty configured readout subset.
   /// @param timing Receives conservative fixed-unit estimates.
@@ -443,6 +464,8 @@ class LDC1614 {
   /// @return Encoded ERROR_CONFIG register value with reserved bits clear.
   static uint16_t encodeErrorReporting(const ErrorReporting& reporting);
   /// Convert a five-bit IDRIVE code to its datasheet nominal current in uA.
+  /// Table 42 describes normal drive only; the result does not characterize
+  /// HIGH_CURRENT_DRV, automatic calibration, or actual measured coil current.
   /// @param code Five-bit IDRIVE code.
   /// @param microamps Receives nominal current in microamps.
   /// @return OK or INVALID_PARAM for an out-of-range code.

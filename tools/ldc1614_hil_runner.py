@@ -3,8 +3,8 @@
 
 The runner never reports PASS when no serial hardware is supplied. Without a
 port it emits a NOT_RUN artifact. Optional fault/address checks remain gated
-for board/operator control; the Arduino no-sensor profile also provides an
-explicit-duration bounded soak.
+for board/operator control. Both firmware profiles support explicit-duration
+sensor and no-sensor soaks and opt-in applied channel-mode matrices.
 """
 
 from __future__ import annotations
@@ -43,6 +43,9 @@ MAX_IDLE_GAP_S = 10.0
 MAX_COMMAND_SET_REPETITIONS = 100
 MAX_SOAK_DURATION_S = 24 * 60 * 60
 MAX_SOAK_CYCLE_DELAY_S = 60.0
+MAX_RESPONSE_BYTES = 1024 * 1024
+MAX_TRANSCRIPT_BYTES = 128 * 1024 * 1024
+RESPONSE_LIMIT_MARKER = "runner response capture limit exceeded; incomplete output; FAIL"
 SERIAL_LINE_STATES = ("on", "off", "unchanged")
 HELP_SECTION_LABELS = {
     "Common": "Common",
@@ -97,20 +100,34 @@ class TranscriptJournal:
         self.path = Path(path) if path else None
         self.parts: List[str] = []
         self._stream: Optional[TextIO] = None
+        self._byte_count = 0
+        self._limit_exceeded = False
 
     def open(self) -> None:
         if self.path is not None:
             self._stream = self.path.open("w", encoding="utf-8", newline="\n")
 
     def append(self, section: str) -> None:
-        self.parts.append(section)
-        if self._stream is None:
+        if self._limit_exceeded:
             return
-        if self._stream.tell() != 0:
-            self._stream.write("\n")
-        self._stream.write(section)
-        self._stream.flush()
-        os.fsync(self._stream.fileno())
+        encoded = section.encode("utf-8")
+        # Reserve space for the failure marker before admitting normal text.
+        exceeds = self._byte_count + len(encoded) + 1 > MAX_TRANSCRIPT_BYTES - 128
+        if exceeds:
+            remaining = max(0, MAX_TRANSCRIPT_BYTES - self._byte_count - 128)
+            section = encoded[:remaining].decode("utf-8", errors="ignore")
+            section += "\n### runner capture limit exceeded; incomplete transcript; FAIL\n"
+            self._limit_exceeded = True
+        self._byte_count += len(section.encode("utf-8")) + 1
+        self.parts.append(section)
+        if self._stream is not None:
+            if self._stream.tell() != 0:
+                self._stream.write("\n")
+            self._stream.write(section)
+            self._stream.flush()
+            os.fsync(self._stream.fileno())
+        if exceeds:
+            raise RuntimeError("bounded transcript capture limit exceeded")
 
     def text(self) -> str:
         return "\n".join(self.parts)
@@ -898,6 +915,40 @@ def configuration_matrix_commands(channel_count: int) -> List[str]:
     return commands
 
 
+def mode_matrix_commands(channel_count: int, fixture: str, count: int) -> List[str]:
+    """Apply every legal channel mode using the fixture's compiled profile.
+
+    Explicit opt-in: all physical channels must be configured for their coils.
+    The final replay restores the compiled profile, not arbitrary CLI edits.
+    """
+    commands: List[str] = []
+    modes = [(f"mode single {channel}", [channel]) for channel in range(channel_count)]
+    modes.extend((f"mode seq {size}", list(range(size)))
+                 for size in range(2, channel_count + 1))
+    for mode, channels in modes:
+        commands.extend(("sleep", "profile reset", mode, "profile validate",
+                         "profile commit confirm", "apply", "wake", "cfg", "verify"))
+        if fixture == "no-sensor":
+            mask = sum(1 << channel for channel in channels)
+            commands.append(f"read 0x{mask:02X}")
+        else:
+            for channel in channels:
+                commands.append(f"samplerate {channel} {count}")
+        commands.extend(("sleep", "wake", "drv"))
+    commands.extend(("sleep", "profile reset", "profile validate",
+                     "profile commit confirm", "apply", "wake", "cfg", "verify", "drv"))
+    return commands
+
+
+def soak_commands(args: argparse.Namespace) -> List[str]:
+    if args.fixture == "no-sensor":
+        return list(NO_SENSOR_SOAK_COMMANDS)
+    # samplerate uses acquisition-owned UNREAD and requires in-range evidence.
+    # Preserve the configured sensor mode; mode cycling is separately opt-in.
+    return ["version", "probe", "verify",
+            f"samplerate {args.sample_rate_channel} {args.soak_sample_count}", "drv"]
+
+
 def compile_token_patterns(tokens: Iterable[str]) -> List[re.Pattern[str]]:
     return [
         re.compile(re.escape(token), re.IGNORECASE)
@@ -976,8 +1027,105 @@ def expected_register_descriptor(address: int) -> Tuple[str, str, int]:
     return fixed.get(address, ("UNMAPPED", "-", 0))
 
 
+def batch_evidence_failure(command: str, output: str, fixture: str) -> Optional[str]:
+    if len(re.findall(r"^batch\b", output, re.MULTILINE)) != 1:
+        return "expected exactly one complete sample batch"
+    header, failure = unique_match(re.compile(
+        r"^batch type=SEQUENTIAL_READOUT selected=0x([0-9a-f]{2}) "
+        r"valid=0x([0-9a-f]{2}) fresh=0x([0-9a-f]{2}) "
+        r"error=0x([0-9a-f]{2}) overrun=0x([0-9a-f]{2}) "
+        r"revision=([1-9][0-9]*) completed_ms=\d+ simultaneous=0\s*$",
+        re.IGNORECASE | re.MULTILINE), output, "sample batch")
+    if failure is not None:
+        return failure
+    assert header is not None
+    selected, valid, fresh, error, overrun = (int(header.group(i), 16) for i in range(1, 6))
+    if selected == 0 or selected & ~0x0F or any(mask & ~selected for mask in (valid, fresh, error, overrun)):
+        return "batch masks contain unselected or unsupported channels"
+    tokens = normalized_command(command).split()
+    if len(tokens) == 2:
+        requested = parse_int_token(tokens[1])
+        if canonical_command_name(command) == "last" and requested is not None:
+            requested = 1 << requested
+        if selected != requested:
+            return "batch selected mask does not match the requested channels"
+    statuses = []
+    for label in ("status_before", "status_after"):
+        status, failure = unique_match(re.compile(
+            rf"^{label}=0x([0-9a-f]{{4}}) observed=1 raw=0x([0-9a-f]{{4}}) "
+            r"drdy=([01]) unread=0x([0-9a-f]{2}) err_ch=([0-3]|255) "
+            r"ur=([01]) or=([01]) wd=([01]) ah=([01]) al=([01]) zc=([01])\s*$",
+            re.IGNORECASE | re.MULTILINE), output, label)
+        if failure is not None:
+            return failure
+        assert status is not None
+        if status.group(1).lower() != status.group(2).lower():
+            return "batch raw STATUS observations disagree"
+        raw_status = int(status.group(1), 16)
+        decoded_unread = sum(1 << channel for channel in range(4) if raw_status & (8 >> channel))
+        if (int(status.group(3)) != bool(raw_status & 0x0040) or
+                int(status.group(4), 16) != decoded_unread or
+                int(status.group(5)) != (raw_status >> 14 if raw_status & 0x3F00 else 255) or
+                any(int(status.group(index)) != bool(raw_status & mask)
+                    for index, mask in enumerate((0x2000, 0x1000, 0x0800, 0x0400, 0x0200, 0x0100), start=6))):
+            return "batch decoded STATUS fields contradict their raw snapshot"
+        statuses.append(raw_status)
+    unread_masks = [sum(1 << channel for channel in range(4) if status & (8 >> channel))
+                    for status in statuses]
+    if fresh != (unread_masks[0] & selected) or overrun != (unread_masks[1] & selected):
+        return "batch freshness/overrun masks disagree with raw STATUS unread evidence"
+    rows = list(re.finditer(
+        r"^sample channel=(\d+) msb=0x([0-9a-f]{4}) lsb=0x([0-9a-f]{4}) "
+        r"raw=0x([0-9a-f]{7}) raw28=0x([0-9a-f]{7}) quality=0x([0-9a-f]{4}) "
+        r"quality_names=\S+ frequency_hz=([0-9.]+) bounds=(PASS|OUT_OF_RANGE)\s*$",
+        output, re.IGNORECASE | re.MULTILINE))
+    if (len(re.findall(r"^sample\b", output, re.MULTILINE)) != len(rows) or
+            [int(row.group(1)) for row in rows] != [channel for channel in range(4) if selected & (1 << channel)]):
+        return "batch omitted, duplicated, or reordered selected channel samples"
+    for row in rows:
+        channel = int(row.group(1))
+        msb, lsb, raw, raw28, quality = (int(row.group(i), 16) for i in range(2, 7))
+        bit = 1 << channel
+        if raw != raw28 or raw28 != ((msb & 0x0FFF) << 16 | lsb):
+            return "sample raw count does not reconcile with DATA MSB/LSB"
+        expected_quality = 1 if fresh & bit else 2
+        for flag, data_mask in ((4, 0x8000), (8, 0x4000), (16, 0x2000), (32, 0x1000)):
+            if msb & data_mask:
+                expected_quality |= flag
+        if fresh & bit:
+            if raw28 == 0:
+                expected_quality |= 4
+            if raw28 == 0x0FFFFFFF:
+                expected_quality |= 8
+        if ((statuses[0] >> 14) & 3) == channel:
+            for flag, status_mask in ((4, 0x2000), (8, 0x1000), (16, 0x0800),
+                                      (32, 0x0600), (64, 0x0100)):
+                if statuses[0] & status_mask:
+                    expected_quality |= flag
+        if overrun & bit:
+            expected_quality |= 0x80
+        if quality != expected_quality:
+            return "sample quality contradicts DATA flags/count or attributed pre-read STATUS"
+        if (quality & ~0xFF or bool(quality & 1) == bool(quality & 2) or
+                bool(quality & 1) != bool(fresh & bit) or
+                bool(quality & 0x7C) != bool(error & bit) or
+                bool(quality & 0x80) != bool(overrun & bit) or
+                (quality & 0x7E == 0) != bool(valid & bit)):
+            return "sample quality does not reconcile with batch masks"
+        try:
+            frequency = float(row.group(7))
+        except ValueError:
+            return "sample frequency is malformed"
+        if not math.isfinite(frequency) or frequency < 0:
+            return "sample frequency is not finite and nonnegative"
+        if fixture != "no-sensor" and (quality != 1 or row.group(8).upper() != "PASS" or
+                                        not 1000 <= frequency <= 10000000):
+            return "sensor sample is stale, faulted, overrun, or outside configured bounds"
+    return None
+
+
 def command_semantic_failure(
-    command: str, output: str, profile: str = "arduino",
+    command: str, output: str, profile: str = "arduino", fixture: str = "default",
 ) -> Optional[str]:
     """Reject internally inconsistent success summaries.
 
@@ -987,6 +1135,19 @@ def command_semantic_failure(
     """
     canonical = canonical_command_name(command)
     tokens = normalized_command(command).split()
+
+    if canonical in ("read", "last"):
+        return batch_evidence_failure(command, output, fixture)
+
+    if canonical == "probe":
+        match, failure = unique_match(re.compile(
+            r"^manufacturer_id=0x5449 device_id=0x3055 match=YES code=0\s*$",
+            re.IGNORECASE | re.MULTILINE), output, "exact TI identity record")
+        if failure is not None:
+            return failure
+        if len(re.findall(r"\bmanufacturer_id=", output, re.IGNORECASE)) != 1:
+            return "probe contains contradictory or duplicated identity records"
+        return None
 
     if canonical in ("color", "verbose"):
         match, failure = unique_match(
@@ -1801,10 +1962,46 @@ def command_semantic_failure(
         if canonical == "samplerate":
             if match.group(6) is None or match.group(7) is None:
                 return "samplerate readiness evidence is missing"
-            ready_checks = int(match.group(6))
-            ready_status = int(match.group(7), 16)
-            if ready_checks < reported or (ready_status & 0x0040) == 0:
-                return "samplerate readiness evidence does not reconcile"
+            samples = list(re.finditer(
+                r"^samplerate_sample=(\d+) selected=1 valid=1 fresh=1 error=0 "
+                r"overrun=0 within_bounds=1 frequency_hz=(\d+(?:\.\d+)?) code=0\s*$",
+                output, re.IGNORECASE | re.MULTILINE))
+            if (len(re.findall(r"^samplerate_sample=", output, re.MULTILINE)) != requested or
+                    [int(sample.group(1)) for sample in samples] != list(range(requested))):
+                return "samplerate omitted or duplicated per-sample quality evidence"
+            if any(not math.isfinite(float(sample.group(2))) or not 1000 <= float(sample.group(2)) <= 10000000
+                   for sample in samples):
+                return "samplerate reported an invalid sensor frequency"
+            readiness = list(re.finditer(
+                r"^samplerate_ready sample=(\d+) check=(\d+) ready=([01]) "
+                r"status_snapshot=1 status_raw=0x([0-9a-f]{4}) code=0 deadline_ms=(\d+)\s*$",
+                output, re.IGNORECASE | re.MULTILINE))
+            if (len(readiness) != int(match.group(6)) or
+                    len(re.findall(r"^samplerate_ready\b", output, re.MULTILINE)) != len(readiness)):
+                return "samplerate readiness records do not reconcile with the summary"
+            channel = command_argument_uint(command, 1)
+            if channel is None or channel > 3:
+                return "samplerate requested channel is invalid"
+            unread_bit = 8 >> channel
+            previous_sample_end = 0
+            for index, sample in enumerate(samples):
+                checks = [item for item in readiness if int(item.group(1)) == index]
+                if (not checks or [int(item.group(2)) for item in checks] != list(range(1, len(checks) + 1)) or
+                        [int(item.group(3)) for item in checks] != [0] * (len(checks) - 1) + [1] or
+                        len({item.group(5) for item in checks}) != 1):
+                    return "samplerate sample readiness/check/deadline records are incomplete or contradictory"
+                if any(item.start() < previous_sample_end or item.end() > sample.start() or
+                       bool(int(item.group(3))) != bool(int(item.group(4), 16) & unread_bit)
+                       for item in checks):
+                    return "samplerate readiness order or selected-channel UNREAD evidence disagrees"
+                for item in checks:
+                    raw_status = int(item.group(4), 16)
+                    if raw_status & 0x3F00 and (item.group(3) == "0" or raw_status >> 14 == channel):
+                        return "samplerate readiness STATUS contradicts fault-free waiting/sample evidence"
+                previous_sample_end = sample.end()
+            if (any(int(item.group(1)) >= requested for item in readiness) or not readiness or
+                    int(readiness[-1].group(4), 16) != int(match.group(7), 16)):
+                return "samplerate final STATUS or sample identity disagrees with its summary"
         return None
 
     if canonical == "soak":
@@ -1898,6 +2095,8 @@ def classify_command(
             return "FAIL", "scheduled/result command does not match the requested command"
         if scheduled.group(2) != terminal.group(2):
             return "FAIL", "scheduled and terminal session IDs differ"
+        if terminal.start() < scheduled.end():
+            return "FAIL", "terminal CLI result preceded its scheduled session"
         if terminal.group(3).upper() != "SUCCESS" or int(terminal.group(4)) != 0:
             if expected_failure_match is not None:
                 return (
@@ -1947,7 +2146,7 @@ def classify_command(
                    if pattern.search(parsed_output) is None]
         if missing:
             return "FAIL", "missing command-specific evidence: " + ", ".join(missing)
-        semantic_failure = command_semantic_failure(command, parsed_output, profile)
+        semantic_failure = command_semantic_failure(command, parsed_output, profile, fixture)
         if semantic_failure is not None:
             return "FAIL", semantic_failure
         if sensor_condition_expected and sensor_condition_observed:
@@ -1988,8 +2187,40 @@ def append_expectation_results(
     if not transcript.strip():
         return
 
+    def fail(name: str, reason: str) -> None:
+        command_results.append({"index": len(command_results) + 1,
+                                "command": name, "status": "FAIL", "reason": reason})
+
+    # A version/config transcript alone proves nothing about an attached chip.
+    # Require a correlated successful probe at the configured address even for
+    # custom reduced gates. Discovery can find a different attached address.
+    if not any(canonical_command_name(str(result.get("command", ""))) == "probe"
+               and classify_command(str(result["command"]), str(result.get("output", "")),
+                                    bool(result.get("timed_out", False)),
+                                    fixture=args.fixture, profile=args.profile)[0] == "PASS"
+               for result in command_results):
+        fail("expect-chip-identity", "no complete successful configured-address probe proved TI chip identity")
+
+    commits = {match.group(1).lower() for match in FIRMWARE_GIT_PATTERN.finditer(transcript)}
+    statuses = {match.group(1).lower() for match in FIRMWARE_STATUS_PATTERN.finditer(transcript)}
+    runtimes = {tuple(value.lower() for value in match.groups()[:6])
+                for match in RUNTIME_VERSION_PATTERN.finditer(transcript)}
+    versions = {match.group(1) for match in FIRMWARE_VERSION_PATTERN.finditer(transcript)}
+    if len(commits) > 1 or statuses - {"clean"} or len(runtimes) > 1 or len(versions) > 1:
+        fail("expect-consistent-firmware", "target emitted contradictory or unclean firmware identity records")
+
     expected_address = parse_int_token(args.address)
     actual_address = first_transcript_int(ADDRESS_PATTERNS, transcript)
+    # Discovery legitimately lists both strap addresses. Only configuration and
+    # owner bus records describe the immutable binding used by probe/jobs.
+    bound_addresses = {
+        int(match.group(1), 16) for match in re.finditer(
+            r"^(?:cfg\s+[^\r\n]*|bus\s+[^\r\n]*|[ \t]*binding\s+)"
+            r"address=0x([0-9a-f]{2})\b", transcript, re.IGNORECASE | re.MULTILINE
+        )
+    }
+    if bound_addresses - {expected_address}:
+        fail("expect-consistent-binding", "target configuration/bus records disagree with expected I2C address")
     if expected_address is not None and actual_address is None:
         command_results.append(
             {
@@ -2014,6 +2245,10 @@ def append_expectation_results(
 
     expected_channel_count = int(args.channel_count)
     actual_channel_count = first_transcript_int(CHANNEL_COUNT_PATTERNS, transcript)
+    reported_counts = {int(match.group(1)) for pattern in CHANNEL_COUNT_PATTERNS
+                       for match in pattern.finditer(transcript)}
+    if reported_counts - {expected_channel_count}:
+        fail("expect-consistent-binding", "target reported contradictory physical variant channel counts")
     if actual_channel_count is None:
         command_results.append(
             {
@@ -2459,13 +2694,6 @@ def summarize_soak(
 ) -> Dict[str, object]:
     if not args.include_long_soak:
         return make_not_run_summary("long soak was not requested")
-    if args.fixture != "no-sensor" or args.profile != "arduino":
-        return {
-            "status": "NOT_RUN",
-            "reason": "automatic soak is defined only for the Arduino no-sensor fixture",
-            "requested_duration_s": args.soak_duration_s,
-            "elapsed_s": 0.0,
-        }
     if args.soak_duration_s <= 0.0:
         return {
             "status": "NOT_RUN",
@@ -2539,6 +2767,7 @@ def enforce_soak_invariant(
 
 def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Iterable[str]) -> Tuple[str, bool]:
     chunks: List[str] = []
+    byte_count = 0
     last_rx = time.monotonic()
     timed_out = False
     prompt_res = [re.compile(pattern) for pattern in prompt_patterns]
@@ -2551,9 +2780,14 @@ def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Ite
 
         waiting = getattr(ser, "in_waiting", 0)
         if waiting:
-            raw = ser.read(waiting)
+            raw = ser.read(min(waiting, MAX_RESPONSE_BYTES - byte_count + 1))
+            byte_count += len(raw)
             text = raw.decode("utf-8", errors="replace")
             chunks.append(text)
+            if byte_count > MAX_RESPONSE_BYTES:
+                chunks.append("\n" + RESPONSE_LIMIT_MARKER + "\n")
+                timed_out = True
+                break
             last_rx = now
             joined = "".join(chunks)
             if any(pattern.search(joined) for pattern in prompt_res):
@@ -2641,6 +2875,8 @@ def run_serial_commands(
         )
         startup_elapsed_s = time.monotonic() - startup_start
         capture("### startup\n" + startup)
+        if RESPONSE_LIMIT_MARKER in startup:
+            raise RuntimeError(RESPONSE_LIMIT_MARKER)
 
         def execute(command: str) -> Dict[str, object]:
             command_start = time.monotonic()
@@ -2736,8 +2972,7 @@ def run_serial_commands(
                 break
 
         soak_requested = (
-            args.include_long_soak and args.soak_duration_s > 0.0 and
-            args.fixture == "no-sensor" and args.profile == "arduino"
+            args.include_long_soak and args.soak_duration_s > 0.0
         )
         gate_failure = base_acceptance_failure(
             args, commands, results, "\n".join(transcript_parts)
@@ -2768,15 +3003,17 @@ def run_serial_commands(
             unknown_count = 0
             reset_count = 0
             worst_latency_s = 0.0
+            incomplete_cycle: Optional[int] = None
+            cycle_commands = soak_commands(args)
             command_counts: Dict[str, Dict[str, int]] = {
                 command: {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}
-                for command in NO_SENSOR_SOAK_COMMANDS
+                for command in cycle_commands
             }
             non_pass_details: List[Dict[str, object]] = []
 
             while cycle_count == 0 or time.monotonic() < soak_deadline:
                 current_cycle = cycle_count + 1
-                for command in NO_SENSOR_SOAK_COMMANDS:
+                for command in cycle_commands:
                     command_count += 1
                     try:
                         result = enforce_soak_invariant(command, execute(command))
@@ -2834,6 +3071,13 @@ def run_serial_commands(
                         f"{command}\n{output}"
                     )
 
+                    if status != "PASS" or reset_count:
+                        incomplete_cycle = current_cycle
+                        break
+
+                if incomplete_cycle is not None:
+                    break
+
                 cycle_count = current_cycle
 
                 if args.verbose:
@@ -2857,7 +3101,7 @@ def run_serial_commands(
                 "requested_duration_s": args.soak_duration_s,
                 "elapsed_s": elapsed_s,
                 "cycle_count": cycle_count,
-                "incomplete_cycle": None,
+                "incomplete_cycle": incomplete_cycle,
                 "command_count": command_count,
                 "command_counts": command_counts,
                 "failure_count": failure_count,
@@ -2906,6 +3150,9 @@ def run_serial_commands(
 def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped: List[Dict[str, str]]) -> None:
     if args.include_config_matrix:
         commands.extend(configuration_matrix_commands(args.channel_count))
+
+    if args.include_mode_matrix:
+        commands.extend(mode_matrix_commands(args.channel_count, args.fixture, args.mode_sample_count))
 
     if args.include_invalid_inputs:
         commands.append("xfer reset")
@@ -2959,7 +3206,7 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
             skipped.append(
                 {
                     "name": "sample_rate_benchmark",
-                    "reason": "no-sensor fixture excludes DRDY-gated sample-rate checks",
+                    "reason": "no-sensor fixture excludes freshness-gated sample-rate checks",
                 }
             )
         elif args.sample_rate_count < 0 or args.sample_rate_count > MAX_SAMPLE_RATE_COUNT:
@@ -3029,7 +3276,7 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
             },
             {
                 "name": "sample_rate_benchmark",
-                "reason": "NOT_RUN: requires DRDY and valid conversions from a sensor fixture",
+                "reason": "NOT_RUN: requires selected-channel UNREAD and valid conversions from a sensor fixture",
             },
             {
                 "name": "cached_last_sample",
@@ -3052,14 +3299,12 @@ def add_optional_commands(args: argparse.Namespace, commands: List[str], skipped
     )
 
     if args.include_long_soak:
-        if (args.soak_duration_s <= 0.0 or args.fixture != "no-sensor" or
-                args.profile != "arduino"):
+        if args.soak_duration_s <= 0.0:
             skipped.append(
                 {
                     "name": "long_soak",
                     "reason": (
-                        "automatic soak requires the Arduino no-sensor fixture "
-                        "and an explicit positive --soak-duration-s"
+                        "automatic soak requires an explicit positive --soak-duration-s"
                     ),
                 }
             )
@@ -3079,6 +3324,8 @@ def overall_status(command_results: List[Dict[str, object]],
     if any(result["status"] == "FAIL" for result in command_results):
         return "FAIL"
     if any(result["status"] in ("UNKNOWN", "REVIEW") for result in command_results):
+        return "UNKNOWN"
+    if any(result["status"] != "PASS" for result in command_results):
         return "UNKNOWN"
     return "PASS"
 
@@ -3195,8 +3442,8 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         evidence_type = "serial_not_run"
 
     host_git_commit = git_value(["rev-parse", "--short", "HEAD"])
-    target_commit_match = FIRMWARE_GIT_PATTERN.search(transcript)
-    target_status_match = FIRMWARE_STATUS_PATTERN.search(transcript)
+    target_commits = {match.group(1).lower() for match in FIRMWARE_GIT_PATTERN.finditer(transcript)}
+    target_statuses = {match.group(1).lower() for match in FIRMWARE_STATUS_PATTERN.finditer(transcript)}
     result: Dict[str, object] = {
         "tool": "ldc1614_hil_runner",
         "timestamp_utc": timestamp_utc(),
@@ -3204,10 +3451,10 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "host_git_status": "dirty" if git_value(["status", "--porcelain"], "") else "clean",
         "library_version": load_library_version(),
         "firmware_version": firmware_version,
-        "firmware_git_commit": (target_commit_match.group(1).lower()
-                                if target_commit_match else "unknown"),
-        "firmware_git_status": (target_status_match.group(1).lower()
-                                if target_status_match else "unknown"),
+        "firmware_git_commit": (next(iter(target_commits)) if len(target_commits) == 1
+                                else "inconsistent" if target_commits else "unknown"),
+        "firmware_git_status": (next(iter(target_statuses)) if len(target_statuses) == 1
+                                else "inconsistent" if target_statuses else "unknown"),
         "expected_firmware_commit": args.expected_firmware_commit or host_git_commit,
         "profile": args.profile,
         "fixture": args.fixture,
@@ -3245,6 +3492,9 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
         "scoped_expected_failures": args.expected_failure,
         "sample_rate_count": args.sample_rate_count,
         "sample_rate_channel": args.sample_rate_channel,
+        "include_mode_matrix": args.include_mode_matrix,
+        "mode_sample_count": args.mode_sample_count,
+        "soak_sample_count": args.soak_sample_count,
         "soak_duration_s": args.soak_duration_s,
         "soak_cycle_delay_s": args.soak_cycle_delay_s,
         "commands": commands,
@@ -3257,6 +3507,10 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     result["stress"] = summarize_stress(args, command_results)
     result["sample_rate"] = summarize_sample_rate(args, command_results)
     result["soak"] = summarize_soak(args, observed_soak)
+    result["soak"]["commands_per_cycle"] = soak_commands(args)
+    result["soak"]["measurement_scope"] = (
+        "protocol_only" if args.fixture == "no-sensor" else "fresh_sensor_samples"
+    )
     result["soak"]["base_matrix_scope"] = result["base_matrix_scope"]
     result["soak"]["default_matrix_included"] = result[
         "default_matrix_included"
@@ -3494,6 +3748,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--include-config-matrix", action="store_true",
         help="Append exhaustive cache-only legal setting/boundary coverage and discard it",
     )
+    parser.add_argument("--include-mode-matrix", action="store_true",
+                        help="Apply all single/sequential modes, then restore the compiled profile; all physical channels must be configured")
+    parser.add_argument("--mode-sample-count", type=int, default=3,
+                        help="Fresh acquisitions per channel per mode for a sensor fixture")
+    parser.add_argument("--soak-sample-count", type=int, default=10,
+                        help="Fresh acquisitions per sensor soak cycle")
     parser.add_argument(
         "--include-invalid-inputs", action="store_true",
         help="Append safe numeric/enum/confirmation rejection coverage",
@@ -3521,7 +3781,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--soak-duration-s",
         type=float,
         default=0.0,
-        help=f"Bounded Arduino no-sensor soak duration, >0..{MAX_SOAK_DURATION_S}",
+        help=f"Bounded sensor or no-sensor soak duration on either profile, >0..{MAX_SOAK_DURATION_S}",
     )
     parser.add_argument(
         "--soak-cycle-delay-s",
@@ -3572,11 +3832,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error(f"--repeat-command-set must be 1..{MAX_COMMAND_SET_REPETITIONS}")
     if args.stress_count < 1 or args.stress_count > MAX_STRESS_COUNT:
         parser.error(f"--stress-count must be 1..{MAX_STRESS_COUNT}")
+    for option in ("mode_sample_count", "soak_sample_count"):
+        if not 1 <= getattr(args, option) <= MAX_SAMPLE_RATE_COUNT:
+            parser.error(f"--{option.replace('_', '-')} must be 1..{MAX_SAMPLE_RATE_COUNT}")
     if args.sample_rate_count < 0 or args.sample_rate_count > MAX_SAMPLE_RATE_COUNT:
         parser.error(f"--sample-rate-count must be 0..{MAX_SAMPLE_RATE_COUNT}")
     if args.sample_rate_channel < 0 or args.sample_rate_channel > 3:
         parser.error("--sample-rate-channel must be 0..3")
-    if (args.sample_rate_count > 0 and
+    if ((args.sample_rate_count > 0 or (args.include_long_soak and args.fixture != "no-sensor")) and
             args.sample_rate_channel >= args.channel_count):
         parser.error(
             "--sample-rate-channel must be less than --channel-count when "
@@ -3636,7 +3899,7 @@ def parser_self_test() -> Tuple[bool, List[str]]:
     status, _ = classify_command(
         "probe",
         "CLI scheduled: command=probe session=7\n"
-        "manufacturer_id=0x5449 device_id=0x3055 match=YES\n"
+        "manufacturer_id=0x5449 device_id=0x3055 match=YES code=0\n"
         "CLI result: command=probe session=7 outcome=SUCCESS code=0\n> ",
         False,
     )

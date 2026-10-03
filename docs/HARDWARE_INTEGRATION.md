@@ -27,11 +27,34 @@ read.
 | Signal | Integration rule |
 | --- | --- |
 | VDD | Supply 2.7 V to 3.6 V and verify tolerance, startup, ripple, and brownout behavior on the target. |
-| SCL/SDA | Size pull-ups for bus capacitance, rise time, speed, and voltage domain. The application owns pins, pull-ups, bus setup, locking, transfer timeout, and recovery. |
+| SCL/SDA | Use 10-400 kHz and external pull-ups sized for capacitance and voltage domain; verify repeated START on a logic analyzer. The application owns bus setup, locking, timeout, and recovery. |
 | ADDR | Low selects `0x2A`; high selects `0x2B`. Do not let it float. |
 | SD | Low is normal operation and high is shutdown. Do not let it float. The application owns this pin and must invalidate the driver's applied-state belief after device power loss or reset. |
-| CLKIN | Tie CLKIN to ground for the internal oscillator. Measure and configure the actual external clock when external CLKIN is used. |
+| CLKIN | Tie to ground for the internal oscillator. An external clock must stay within 2-40 MHz including tolerance, with 40-60% duty cycle. |
 | INTB | This is a configurable push-pull output. The application owns its GPIO setup and may inject a bus-silent asserted-state callback. Do not assume open-drain behavior or an internal driver pull-up. |
+
+Before ordering the PCB, check these additional layout and test-access facts
+against [TI's datasheet](https://www.ti.com/lit/ds/symlink/ldc1614.pdf),
+sections 5, 8.1.5, 8.2.7, 9, and 10:
+
+- Place the recommended 1 uF X7R bypass at VDD/GND with a small return loop;
+  consider local bulk capacitance for a remote supply. Connect the GND pin;
+  the exposed pad is not a replacement for it.
+- Route each INAx/INBx pair together. Put the tank capacitor by its coil;
+  leave copper planes out from under/between coil layers, provide at least
+  20% of the coil diameter as clearance to surrounding planes, and avoid a
+  closed conductive ring around a coil.
+- Choose a stable tank capacitor and keep resonance below 80% of the coil's
+  self-resonant frequency. Unused sensor pins may remain unconnected; never
+  select an unpopulated channel in the conversion sequence.
+- Provide access to SDA, SCL, INTB, SD, VDD, ground, and sensor waveforms for
+  qualification. Account for probe capacitance when measuring the tank.
+  INTB outputs from multiple devices cannot be tied together as a wired OR.
+- Tune drive across the full target travel for 1.2-1.8 V peak oscillation.
+  The normal-current lookup is not a high-current calibration curve.
+  High-current drive is restricted to single-channel CH0 and ignores IDRIVE;
+  changing the programmed drive code does not tune that mode's current
+  ([SNOA950, section 7](https://www.ti.com/lit/an/snoa950/snoa950.pdf)).
 
 If the product needs device-local recovery without disturbing other I2C
 devices, route SD to an owner-controlled GPIO and give it a defined hardware
@@ -61,6 +84,19 @@ full initialization, is the simple isolated design pattern to qualify.
   drive-current code from the actual LC tank, Q/Rp, target amplitude, clock,
   resolution, and cadence requirements. Library validation catches known
   register and clock-plan contradictions; it cannot qualify a physical coil.
+- For every selected channel, use `RCOUNT >= 9` and `SETTLECOUNT >= 4` in
+  both single and sequential modes (Table 43). Also meet the coil-dependent
+  lower bound `SETTLECOUNT >= ceil(Q * fREF / (16 * fSENSOR))` with margin.
+  Register encodings below those operating limits remain available through
+  raw diagnostics; the existence of an encoding does not qualify its use.
+  The conversion window must also span at least one divided sensor-input
+  period at the minimum declared frequency; otherwise the profile can produce
+  zero-count errors before any transport problem occurs.
+- `estimateFrameTiming()` rounds programmed timing upward using clock bounds,
+  but TI supplies only a typical channel-switch delay. Automatic current
+  calibration/correction and fault recovery have additional timing uncertainty.
+  Measure cadence and use bounded readiness/deadline handling; do not use the
+  estimate alone as a guaranteed sample-ready deadline.
 - In sequential mode, selected channels convert at different times. A returned
   batch is transactionally committed as one result, but it is not a
   simultaneous sensor frame. Budget channel settling/conversion, switch time,
@@ -71,6 +107,12 @@ full initialization, is the simple isolated design pattern to qualify.
   treating a decoded 28-bit value as automatically usable.
 - Frequency conversion is a chip-level calculation, not calibration to
   inductance, displacement, level, coating thickness, or material identity.
+- Startup drive calibration and ongoing amplitude correction are supported
+  through `rpOverrideEnabled` and `autoAmplitudeCorrectionEnabled`.
+  Automatic changes can shift conversion codes; fixed drive is preferable
+  when precision requires a stable current. For manual normal-drive tuning,
+  the first-order relation is `Vpeak = 4 * Rp * Idrive / pi`, using ohms and
+  amperes. Verify amplitude physically rather than treating it as calibrated.
 
 ## Firmware ownership and side effects
 
@@ -85,11 +127,13 @@ full initialization, is the simple isolated design pattern to qualify.
 - After owner-observed removal, reset, brownout, shutdown, or shared-bus
   recovery, call `invalidateAppliedState(reason)` with the owner-observed
   cause, which is retained as configuration-fault provenance, and complete
-  initialization or configuration replay before acquiring another trusted
-  sample.
+  initialization before acquiring another trusted sample. Invalidation sets
+  `UNKNOWN`; `startApplyConfig()` alone cannot restore the identity trust lost
+  at that boundary.
 - Reading `DATAx_MSB` latches its corresponding LSB, consumes
   `UNREADCONVx`, and can clear the channel's latched error/INTB evidence.
-  Reading STATUS captures then clears sticky status/INTB evidence. Production
+  Reading STATUS captures then clears sticky status/INTB evidence and all
+  unread-conversion flags, including unselected channels. Production
   acquisition therefore preserves a STATUS snapshot before any DATA read and
   reports a later STATUS comparison for data-loss detection.
 - Entering sleep clears DATA, unread/error status, and INTB evidence. Treat it
@@ -98,9 +142,11 @@ full initialization, is the simple isolated design pattern to qualify.
 - A failed or cancelled write sequence can leave hardware partially changed or
   indeterminate. Inspect the terminal operation result and configuration fault;
   do not publish cached configuration as verified hardware state.
-- Raw register access is advanced diagnostics. It must either be reconciled by
-  an explicit readback procedure or followed by applied-state invalidation and
-  full replay.
+- Raw register writes are advanced diagnostics and invalidate applied trust.
+  Readback does not promote the core's applied state. Complete a full apply
+  when identity remains known, or initialize after reset/unknown state, before
+  normal acquisition. DATA/STATUS reads consume evidence but do not themselves
+  invalidate configuration.
 
 ## Diagnostic CLI safety boundary
 

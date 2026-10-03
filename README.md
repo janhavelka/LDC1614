@@ -5,6 +5,11 @@ converter driver for externally owned I2C buses. The v3 API is cooperative:
 multi-register procedures execute only when the application calls `poll()` and
 never exceed its transfer budget.
 
+The core is a general-purpose C++17 library. Any platform can supply the bounded
+I2C callbacks and monotonic time; no particular application, RTOS, or board is
+required. The maintained Arduino and native ESP-IDF examples target ESP32-S2/S3
+and keep their framework dependencies outside the library.
+
 This tree is version **3.2.0**. Deployment still requires evidence for the exact
 board, address strap, reference clock, LC sensors, channel mapping, INTB/SD
 wiring, fault policy, calibration, cadence, and soak conditions. See the
@@ -47,11 +52,25 @@ For PlatformIO:
 ```ini
 lib_deps =
   LDC1614
+build_unflags = -std=gnu++11 -std=gnu++14
+build_flags = -std=gnu++17
 ```
 
 The repository root is also an ESP-IDF component. Add it through
 `EXTRA_COMPONENT_DIRS` or component-manager metadata. The native diagnostic
 example is under `examples/esp_idf/basic`.
+
+For another C++17 build system, compile `src/LDC1614.cpp`, add `include/` to
+the public include path, and implement the callbacks in `Config`. For example,
+from a checkout or extracted library package:
+
+```sh
+c++ -std=c++17 -Iinclude -c src/LDC1614.cpp -o LDC1614.o
+```
+
+Link that object with your application. The core requires no framework SDK,
+PlatformIO runtime, exceptions, or RTTI. The repository's root CMake file is
+the ESP-IDF component entry point, not a requirement for other build systems.
 
 As an ESP-IDF component the library requires ESP-IDF 6.0 or newer;
 `idf_component.yml` declares `idf: ">=6.0.0"`. The driver core compiles no
@@ -135,6 +154,10 @@ checks always use the guaranteed 35 MHz to 55 MHz oscillator range; its nominal
 value is used only for sensor-frequency conversion. OFFSET must remain below
 the selected channel's worst-case minimum-sensor-frequency ratio so it cannot
 mask changing result bits.
+Every selected channel requires `RCOUNT >= 9` and `SETTLECOUNT >= 4` in both
+operating modes. Its conversion interval must also cover at least one divided
+sensor-input period at the declared minimum sensor frequency; meeting these
+minimums alone does not establish settling, resolution, or coil suitability.
 
 ## Owner loop
 
@@ -226,7 +249,8 @@ The device has destructive read behavior:
 
 - reading `DATAx_MSB` latches that channel's LSB shadow, consumes
   `UNREADCONVx`, and may clear the channel's latched STATUS/error/INTB evidence;
-- reading STATUS captures then clears sticky status and can deassert INTB; and
+- reading STATUS captures then clears sticky status and all unread-conversion
+  flags, and can deassert INTB; and
 - a new conversion can overwrite unread data while a chunked read is active.
 
 For that reason acquisition always reads STATUS before DATA, preserves both
@@ -323,7 +347,10 @@ required. Advanced raw writes invalidate the high-level applied-state contract.
   auto-scan sequence even when the requested readout mask is a subset;
   acquisition transfer count follows the requested mask. Application queueing,
   lock wait, I2C callback duration, and processing time remain outside this
-  chip estimate.
+  chip estimate. Clock/count rounding is conservative, but channel-switch
+  delay is specified only typically; automatic current calibration/correction
+  and fault recovery are not bounded by this estimate. Observe readiness and
+  qualify actual cadence before setting production deadlines.
 - `encodeErrorReporting()`, `nominalDriveCurrentMicroamps()`,
   `decodeDeviceStatus()`, and `decodeChannelSample()` are bus-silent pure
   helpers.
@@ -332,7 +359,9 @@ required. Advanced raw writes invalidate the high-level applied-state contract.
   invalidation plus replay.
 - `readIntb()` reports the application-observed INTB level through the optional
   bus-silent `Config::intbAsserted` callback. It performs no I2C and returns
-  `INVALID_CONFIG` when no INTB observer is enabled.
+  `INVALID_CONFIG` when no INTB observer is enabled. Enabling the chip's INTB
+  output does not require that callback: the application may own its interrupt
+  handling and schedule acquisition from the serialized foreground owner.
 - `TransportStats` records attempts, successes, failures, and the last status
   for diagnostics only; it does not own health or admission policy.
 

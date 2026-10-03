@@ -231,10 +231,12 @@ static constexpr uint16_t RR_SEQ_CH0_CH1_CH2_CH3  = 0x4000;  ///< Ch0, Ch1, Ch2,
 // Limits and Constraints
 // ============================================================================
 
-static constexpr uint16_t RCOUNT_MIN          = 0x0005;  ///< Minimum usable RCOUNT value
+static constexpr uint16_t RCOUNT_MIN          = 0x0005;  ///< Minimum register encoding; selected channels require CONVERSION_RCOUNT_MIN.
 static constexpr uint16_t RCOUNT_MAX          = 0xFFFF;  ///< Maximum RCOUNT for full 28-bit resolution
-static constexpr uint16_t MULTI_RCOUNT_MIN    = 0x0009;  ///< Table 43: multi-channel RCOUNTx must be > 8
-static constexpr uint16_t MULTI_SETTLE_MIN    = 0x0004;  ///< Table 43: multi-channel SETTLECOUNTx must be > 3
+static constexpr uint16_t CONVERSION_RCOUNT_MIN = 0x0009; ///< Table 43: RCOUNTx must be > 8 in either conversion mode.
+static constexpr uint16_t CONVERSION_SETTLE_MIN = 0x0004; ///< Table 43: SETTLECOUNTx must be > 3 in either conversion mode.
+static constexpr uint16_t MULTI_RCOUNT_MIN    = CONVERSION_RCOUNT_MIN; ///< Compatibility alias; the limit also applies to single-channel mode.
+static constexpr uint16_t MULTI_SETTLE_MIN    = CONVERSION_SETTLE_MIN; ///< Compatibility alias; the limit also applies to single-channel mode.
 static constexpr uint8_t  FIN_DIVIDER_MIN     = 1;       ///< Minimum sensor frequency divider
 static constexpr uint8_t  FIN_DIVIDER_MAX     = 15;      ///< Maximum sensor frequency divider
 static constexpr uint16_t FREF_DIVIDER_MIN    = 1;       ///< Minimum reference clock divider

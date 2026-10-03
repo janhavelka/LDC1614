@@ -6,7 +6,7 @@
 ## Key Takeaways
 - The IDRIVE register controls sensor oscillation amplitude and must be tuned per-sensor based on the parallel resistance RP.
 - Target oscillation amplitude: **1.2 Vp ≤ VOSC ≤ 1.8 Vp** — set IDRIVE to the highest value that keeps VOSC below 1.8 Vp.
-- For normal operation, always use manual drive: set **RP_OVERRIDE_EN=1** and **AUTO_AMP_DIS=1** to disable automatic amplitude control.
+- For stable fixed-drive operation, set **RP_OVERRIDE_EN=1** and **AUTO_AMP_DIS=1**. Automatic adjustment remains a supported choice with a measurement-offset tradeoff.
 - Channel 0 has a HIGH_CURRENT_DRV mode for very low RP sensors, but requires AUTOSCAN_EN=0. SNOA950 states 3 mA (2x the 1.5 mA normal maximum); the LDC1612/LDC1614 datasheet specifies IHDSENSORMAX = 6 mA with a typical drive current above 3.5 mA and RP_HD_MIN = 250 Ω (pp. 6, 45). Use the datasheet values.
 - When using identical sensors across channels, use the same IDRIVE for all — take the lowest acceptable setting.
 
@@ -15,7 +15,14 @@ The LDC1612/LDC1614 feature adjustable sensor current-drive (IDRIVE) to set the 
 
 The correct amplitude is critical for measurement accuracy. If VOSC exceeds 1.8 Vp, accuracy degrades over temperature. If VOSC drops below 1.2 Vp, SNR suffers. Below ~0.5 Vp, oscillation may collapse entirely. Since RP decreases as a target approaches (lowering amplitude), IDRIVE must be set with the target at its **maximum operating distance** to avoid exceeding 1.8 Vp.
 
-Automatic amplitude control should only be used for prototyping — never in production. It can introduce offset steps during measurements. For normal operation, set RP_OVERRIDE_EN=1 and AUTO_AMP_DIS=1 to force the LDC to use the fixed IDRIVE setting.
+TI recommends automatic features for one-time configuration and fixed drive
+for normal operation because adjustment can introduce measurement-offset steps.
+The chip and library still expose automatic operation; the application must
+account for those changes. Use RP_OVERRIDE_EN=1 and AUTO_AMP_DIS=1 for a fixed
+normal-drive IDRIVE setting.
+
+In HIGH_CURRENT_DRV mode, IDRIVE is ignored (SNOA950 section 7). The normal-drive
+lookup and manual IDRIVE amplitude-adjustment procedure below do not apply.
 
 ## Technical Details
 
@@ -58,7 +65,7 @@ Automatic amplitude control should only be used for prototyping — never in pro
 
 ### Key Formulas
 - **RP from RS:** `RP = L / (RS × C)` where L = inductance, C = sensor capacitor, RS = series resistance at resonant frequency
-- **Oscillation amplitude:** `VOSC = 4 × RP × IDRIVE` (peak voltage)
+- **Oscillation amplitude:** `VOSC = 4 × RP × IDRIVE / π` (peak volts, RP in ohms and IDRIVE in amperes; SNOA950 equation 2)
 - **Sensor frequency:** `fSENSOR = 1 / (2π × √(L × C))`
 
 ### Register Configuration for Normal Operation

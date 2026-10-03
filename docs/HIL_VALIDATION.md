@@ -4,6 +4,12 @@ This document defines the HIL procedure and evidence expected before release or
 field-readiness claims. Reviewed repository evidence is indexed under
 [`docs/reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md).
 
+The PCB currently being prepared has **not been HIL tested**. Historical
+no-sensor transcripts below describe a different fixture/revision; they do not
+qualify this PCB, its LC sensors, or the current library revision. Host parser
+tests and dry runs exercise tooling only. No new physical evidence was collected
+while adding the runners described here.
+
 Use:
 
 ```sh
@@ -154,6 +160,11 @@ evidence.
 
 The runner is configurable. Use `--command` for board-specific commands and
 `--skip-default-commands` when validating custom firmware.
+Every custom gate must include `version`, `cfg`, and a successful `probe`:
+firmware/profile text and discovery at another address cannot prove the configured
+chip is present. Contradictory target firmware revision, cleanliness, version,
+or runtime records fail acceptance. Contradictory revision/status metadata is
+reported as `inconsistent`, instead of silently selecting the first record.
 Use `--expect-token`, `--failure-token`, and `--expected-failure-token` only for
 documented fixture-specific cases. An expected-failure token can accept only a
 structurally correlated failed asynchronous or immediate CLI result; it cannot
@@ -182,6 +193,7 @@ the LDC1614 ownership contract:
 | --- | --- | --- |
 | Base | Ordered lifecycle, identity, profile/readback, destructive-status, helper, self-test, and final-state matrix | No sensor-physics claim |
 | Configuration matrix | `--include-config-matrix`; staged legal values and numeric boundaries, then reset/validate/discard | No profile commit or live tuning |
+| Applied channel modes | `--include-mode-matrix`; each physical single channel and every supported sequential length, apply/readback, acquisition, sleep/wake, then compiled-profile restoration | Requires suitable compiled settings for every channel; sensor mode requires populated, characterized coils |
 | Invalid input | `--include-invalid-inputs`; exact usage rejection and no job admission | Does not substitute for core API invalid-parameter tests |
 | Benchmark/stress | `--include-stress` for bounded protocol stress | Sample rate and physical quality require a sensor fixture |
 | Cooperative job API | Scheduled/terminal command-session correlation, progress/result snapshots, and idle cancel | Active cancellation timing remains `NOT_RUN` without an interactive fixture |
@@ -234,21 +246,70 @@ Run these only when hardware and operator setup explicitly support them:
   legal enum values and per-physical-channel numeric boundaries. It never
   commits the staged profile; it finishes with profile reset, validation,
   discard, and a live-driver state snapshot.
+- `--include-mode-matrix` applies each single channel and every sequential mode
+  (0/1 for LDC1612; 0/1, 0/1/2, 0/1/2/3 for LDC1614), verifies register readback,
+  acquires each selected channel, and checks sleep/wake. It starts each mode
+  from `profile reset` and restores the **compiled profile** at the end; existing
+  manual CLI edits are discarded. Every physical channel therefore needs safe
+  clock/count/drive/sensor bounds in the build, even if the default profile
+  selects only channel 0. With a sensor fixture, `--mode-sample-count` (default 3)
+  requires that many fresh, valid, in-range conversions per channel per mode.
+  Without sensors it checks complete protocol batches and preserves fault flags;
+  it makes no measurement-quality claim. A failed step stops the matrix at that
+  step, so the restoration is not claimed unless its final replay/readback passes.
 - `--include-invalid-inputs` verifies bounded numeric, enum, argument-count,
   and confirmation rejection without admitting an asynchronous job or changing
   the staged/live profile.
-- `--sample-rate-count` appends a counted DRDY/acquisition session only for a
+- `--sample-rate-count` appends a counted freshness-gated acquisition session only for a
   sensor-equipped fixture. Every requested sample must be fresh, valid,
   in-range, non-error, and non-overrun; otherwise acceptance fails.
 - SD shutdown/wake if SD is wired and controlled.
 - INTB observation if INTB is wired to a host GPIO or analyzer.
 - Unplug/replug or induced NACK.
 - Stuck-bus fixture tests.
-- A bounded automated no-sensor soak may use `--include-long-soak` with
-  `--soak-duration-s <seconds>`. Sensor-equipped production-cadence soak still
-  requires an application fixture that correlates operation results.
+- A bounded automated soak on either Arduino or native ESP-IDF uses
+  `--include-long-soak --soak-duration-s <seconds>`. The no-sensor cycle remains
+  the protocol/recovery cycle above. A sensor cycle runs `version`, `probe`,
+  `verify`, counted freshness-gated `samplerate`, and `drv`. `--soak-sample-count`
+  (default 10) controls acquisitions per cycle; `--sample-rate-channel` selects
+  the channel. This validates that channel in the configured mode, not every
+  channel or the production scheduler's cadence. Use the applied mode matrix
+  for all physical channels and the actual application fixture for scheduler,
+  shared-bus, and production-cadence qualification. The first failed/ambiguous
+  command or firmware restart stops the soak, records an incomplete cycle,
+  and fails acceptance; no partial cycle counts as complete.
 - Drive-current/coil tuning with oscilloscope or an application-specific
   amplitude procedure.
+
+Example sensor-equipped native ESP-IDF run after configuring all populated
+channels in the firmware build:
+
+```sh
+python tools/ldc1614_hil_runner.py --profile idf --port "<port>" --operator "<name>" --board "<board and coils>" --expected-target esp32s3 --expected-idf-version "<exact IDF version>" --expected-firmware-commit "<flashed clean Git SHA>" --include-mode-matrix --mode-sample-count 10 --include-reset-stress --stress-count 100 --include-long-soak --soak-duration-s 3600 --soak-sample-count 20 --sample-rate-channel 0 --json-out sensor-hil.json --raw-transcript-out sensor-hil.serial.txt
+```
+
+The existing runner was extended using the sibling ADS1115/TCA9548A bounded
+soak and partial-cycle checks, SCD41 explicit lifecycle/requalification steps,
+and INA228/OPT4001 command-specific evidence gates as reference. It remains one
+runner backed by the shared Arduino/native-IDF CLI contract.
+
+Each sensor `read`/`last` must contain exactly the selected channel rows, coherent
+DATA MSB/LSB/raw counts, consistent quality/masks and destructive STATUS evidence,
+and in-range sensor frequency. Sample-rate acceptance requires every numbered
+per-sample quality and readiness row, not just a positive summary. The selected
+channel's UNREAD bit comes from the acquisition's own STATUS-before snapshot;
+an additional readiness STATUS read would destructively erase that evidence.
+Global DRDY need not be asserted when a selected channel has fresh data partway
+through a sequential scan. Each clean not-ready acquisition may be repeated
+within the same immutable per-sample deadline. The host checks raw UNREAD,
+readiness/quality consistency, check numbering, deadline stability, and the final
+summary. Raw `read` does not wait for freshness, so a stale raw read fails sensor
+acceptance; use `samplerate` to wait for a fresh selected-channel conversion.
+
+Host capture is bounded to 1 MiB per response and 128 MiB per session. Exceeding
+either limit fails the run and preserves an explicitly incomplete transcript;
+it never silently truncates a passing report. Split long/high-volume campaigns
+into separate retained runs before these limits are reached.
 
 ## Validation Matrix
 

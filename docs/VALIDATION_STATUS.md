@@ -24,6 +24,10 @@ the exact release firmware before making a current hardware claim.
 
 ## Required software checks
 
+The 2026-10-03 working-tree audit and its corrections are recorded in
+[Code audit resolution](https://github.com/janhavelka/LDC1614/blob/main/docs/CODE_AUDIT_RESOLUTION.md#datasheet-and-portability-review-2026-10-03).
+They are unreleased changes on top of `3.2.0`, not new physical evidence.
+
 Run these from a clean checkout of the proposed release commit:
 
 ```powershell

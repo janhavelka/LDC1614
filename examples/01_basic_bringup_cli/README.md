@@ -87,11 +87,15 @@ results are correlated by operation ID and consumed once, and fixed session
 limits prevent unbounded loops. `watch`, `samplerate`, `stress`, `stress_mix`,
 `stress_id`, `stress_reset`, `stress_busfreq`, and `soak` report
 requested/completed/failure counts and terminal outcomes.
-`samplerate` first performs at most one destructive STATUS readiness read per
-pass and waits only until a fixed per-sample deadline. It accepts a sample only
+`samplerate` takes readiness from the acquisition's initial STATUS snapshot:
+an extra STATUS read would consume the unread-conversion flags. It waits for
+the selected channel's unread flag, since global DRDY only marks the end of
+a sequential scan. Complete acquisitions with no new conversion may repeat
+within one fixed per-sample deadline, with at most one transfer per service
+pass. Transport errors terminate the session. It accepts a sample only
 when the requested channel is selected, valid, fresh, fault-free, not overrun,
 and within the configured sensor-frequency bounds; its output retains readiness
-snapshot and check-count evidence. It never busy-waits for DRDY.
+snapshot and check-count evidence. It never busy-waits.
 Acquisition output explicitly says `SEQUENTIAL_READOUT`, includes both STATUS
 snapshots and all masks, and never claims simultaneous samples.
 

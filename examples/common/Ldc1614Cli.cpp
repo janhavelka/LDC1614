@@ -1916,8 +1916,11 @@ LDC1614::Status Cli::scheduleSessionAcquire() {
   }
   const LDC1614::OperationId operation = nextOperationId();
   const uint64_t started = nowMs();
+  const uint64_t deadline = _session.kind == SessionKind::SAMPLE_RATE
+                                ? _session.readyDeadlineMs
+                                : started + JOB_DEADLINE_MS;
   const LDC1614::Status status = _device.startAcquire(
-      _session.channels, operation, started + JOB_DEADLINE_MS);
+      _session.channels, operation, deadline);
   if (status.inProgress()) {
     _pending.owner = OperationOwner::SESSION;
     _pending.id = operation;
@@ -2373,29 +2376,8 @@ void Cli::advanceSamplingSession(uint64_t now) {
       finishSession(timeout, "FAILED");
       return;
     }
-    bool ready = false;
-    LDC1614::DeviceStatus observed;
-    const LDC1614::Status readyStatus = _device.readDataReady(ready, observed);
-    ++_session.readyChecks;
-    ++_session.sampleReadyChecks;
-    if (readyStatus.ok()) {
-      _session.lastReadyStatus = observed;
-      _session.hasReadyStatus = true;
-    }
-    printf("samplerate_ready sample=%lu check=%lu ready=%u status_snapshot=%u "
-           "status_raw=0x%04X code=%u deadline_ms=%" PRIu64 "\n",
-           static_cast<unsigned long>(_session.index),
-           static_cast<unsigned long>(_session.sampleReadyChecks), ready ? 1U : 0U,
-           readyStatus.ok() ? 1U : 0U, observed.raw,
-           static_cast<unsigned>(readyStatus.code), _session.readyDeadlineMs);
-    if (!readyStatus.ok()) {
-      ++_session.stats.completed;
-      ++_session.stats.failed;
-      recordSessionFailure(readyStatus);
-      finishSession(readyStatus, "FAILED");
-      return;
-    }
-    if (!ready) return;
+    // STATUS consumes UNREADCONV too. The acquisition must own the first
+    // STATUS snapshot; a separate readiness read would erase freshness.
     const LDC1614::Status acquireStatus = scheduleSessionAcquire();
     if (!acquireStatus.inProgress()) {
       ++_session.stats.completed;
@@ -3091,7 +3073,9 @@ void Cli::handleSessionOperationResult(
   } else if (result.hasSampleBatch) {
     _lastBatch = result.sampleBatch;
     _hasLastBatch = true;
-    recordBatchStats(result.sampleBatch);
+    if (_session.kind != SessionKind::SAMPLE_RATE) {
+      recordBatchStats(result.sampleBatch);
+    }
   }
 
   if (_session.stopRequested ||
@@ -3204,6 +3188,28 @@ void Cli::handleSessionOperationResult(
       fresh = (batch.freshChannels.bits & bit) != 0U;
       error = (batch.errorChannels.bits & bit) != 0U;
       overrun = (batch.overrunChannels.bits & bit) != 0U;
+      const LDC1614::DeviceStatus& observed = batch.statusBefore;
+      ++_session.readyChecks;
+      ++_session.sampleReadyChecks;
+      _session.lastReadyStatus = observed;
+      _session.hasReadyStatus = observed.observed;
+      printf("samplerate_ready sample=%lu check=%lu ready=%u status_snapshot=%u "
+             "status_raw=0x%04X code=%u deadline_ms=%" PRIu64 "\n",
+             static_cast<unsigned long>(_session.index),
+             static_cast<unsigned long>(_session.sampleReadyChecks),
+             (observed.unreadChannels.bits & bit) != 0U ? 1U : 0U,
+             observed.observed ? 1U : 0U,
+             observed.raw, static_cast<unsigned>(effectiveStatus.code),
+             _session.readyDeadlineMs);
+      if (!fresh && !error &&
+          !observed.hasError() && !batch.statusAfter.hasError()) {
+        // No new conversion yet. The diagnostic owner may try another
+        // complete acquisition within this sample's unchanged deadline.
+        _pending = PendingOperation{};
+        _session.phase = SessionPhase::SAMPLE_READY;
+        return;
+      }
+      recordBatchStats(batch);
       const LDC1614::Status frequencyStatus =
           LDC1614::LDC1614::calculateSensorFrequencyHz(
               _device.config(), static_cast<LDC1614::Channel>(_session.channel),
@@ -3816,6 +3822,7 @@ PromptAction Cli::handleCommand(CommandId id, const ParsedLine& line) {
            static_cast<unsigned long>(value), static_cast<unsigned>(code),
            currentStatus.ok() ? "" : "unavailable:", static_cast<unsigned>(microamps),
            static_cast<unsigned>(status.code));
+    println("microamps is a nominal normal-drive lookup; CH0 high-current ignores IDRIVE.");
     printStatus(status);
     return promptActionForCurrentState();
   }
@@ -4013,6 +4020,7 @@ PromptAction Cli::handleCommand(CommandId id, const ParsedLine& line) {
         LDC1614::DriveCurrentCode(static_cast<uint8_t>(value)), microamps);
     printf("code=%lu microamps=%u\n", static_cast<unsigned long>(value),
            static_cast<unsigned>(microamps));
+    println("Nominal normal-drive lookup only; CH0 high-current ignores IDRIVE.");
     printStatus(status);
     return promptActionForCurrentState();
   }

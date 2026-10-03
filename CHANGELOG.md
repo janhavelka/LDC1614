@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- General C++17 integration instructions and portable owner-deadline,
+  raw-count storage, and ambiguous-NACK requirements.
+- HIL live mode matrix and sensor/no-sensor soaks for Arduino and native
+  ESP-IDF, with strict per-channel/per-sample evidence validation.
+
 ### Fixed
+
+- Allow application-owned INTB handling without a driver GPIO observer, and
+  compare FIN/FREF and OFFSET limits as exact divider ratios instead of
+  rejecting valid profiles after whole-hertz rounding.
+- Correct the normal-drive amplitude formula and document that CH0 high-current
+  mode ignores IDRIVE. Clarify automatic-amplitude precision tradeoffs,
+  ISR ownership, and nominal timing limits.
+- Enforce Table 43's selected-channel RCOUNT and SETTLECOUNT minimums in
+  single-channel mode too, and reject conversion windows shorter than one
+  divided sensor-input period within the declared frequency/clock bounds.
+- Correct the native device model's scan-complete data-ready and sticky
+  first-error behavior; add focused timing/readiness regressions.
+- Model STATUS clearing unread-conversion flags and remove the diagnostic
+  sample-rate command's destructive pre-read in both frameworks. Readiness
+  now uses per-channel freshness from the acquisition itself, including
+  fresh channels before the end of a sequential scan.
+- Reject incomplete or contradictory HIL batch, chip identity, and firmware
+  provenance evidence, and bound host receive/transcript memory with visible
+  failure when exhausted.
+- Use the mandated Windows PlatformIO wrapper in the clean-consumer checker;
+  execute the packaged consumer and compile with strict warnings, exceptions
+  and RTTI disabled.
+- Clarify typical versus guaranteed timing, normal versus high-current lookup
+  values, PCB layout/test access, and the datasheet feature coverage.
 
 - Corrected post-release documentation state: added the missing `[3.2.0]`
   changelog link definition, moved the `[Unreleased]` comparison base to
@@ -136,7 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and 20260804 evidence removed at release; the generated Markdown report
   copies were removed earlier in this cycle and remain at `0fef0f9^`
   (`117c4f8`).
-- Removed the consumer-specific TunnelMonitor work ledger and the obsolete
+- Removed the consumer-specific work ledger and the obsolete
   `prompts/**` package exclusion from this generic library repository.
 - Removed the duplicate legacy prose `stress` summary and its host-parser
   fallback; the structured counted/rate record remains the command contract.

@@ -4,14 +4,26 @@
 > **Naming note.** Register and field names below are quoted as SSZTCQ7 writes them, which predates datasheet revision A. See the [pre-Revision-A name map](../extracted-md/05_register_map.md#pre-revision-a-name-map) for the current identifiers; addresses and bit positions are unchanged.
 
 ## Key Takeaways
-- LDC multichannel timing is fully deterministic — sample readiness can be calculated without polling DRDY
+The timing claims summarized from this older guide below are nominal planning
+statements. For the maintained driver, use SNOSCY9A equation 7's four extra
+reference cycles and Table 43's selected-channel `RCOUNT >= 9` and
+`SETTLECOUNT >= 4`. Channel-switch delay is typical; clock tolerance and
+automatic amplitude adjustment prevent these formulas from guaranteeing
+readiness at an exact owner timestamp. Retain unread/STATUS evidence and an
+owner deadline. The guide's `RCOUNT = 8` worked example is not an accepted
+selected-channel profile under those limits.
+
+- Programmed counts provide nominal scheduling estimates; retain observed freshness and bounded owner deadlines.
 - Total dwell time per channel = sensor-activation time + conversion time + channel-switch delay
 - Sensor-activation time depends on sensor Q-factor and oscillation frequency; configured per-channel via SETTLECOUNT_CHn
 - Conversion time is set per-channel via RCOUNT_CHn (range: 80 to 1,048,560 FREF cycles)
 - In multichannel mode, sensors are automatically powered off when not in use, requiring re-activation each cycle
 
 ## Summary
-The multichannel LDC1312/LDC1314/LDC1612/LDC1614 devices have fully deterministic conversion timing. Each conversion cycle consists of three phases: sensor activation (settling), frequency measurement (conversion), and channel switching. The DRDY signal indicates new data availability, but because timing is deterministic, polling can be replaced by calculation.
+Each conversion cycle has sensor activation, frequency measurement, and channel
+switching phases. Programmed timing supports scheduling, but typical switching
+delay and automatic adjustment do not give an exact interrupt deadline.
+Use INTB notification or acquisition-owned unread evidence to establish readiness.
 
 In single-channel mode, sensor activation occurs only once when exiting sleep mode. In multichannel mode, each channel's sensor is powered down between uses, so the activation phase recurs every time the LDC switches to that channel. Conversion time controls the trade-off between sample rate and measurement precision — shorter conversions yield faster rates but noisier data.
 
@@ -97,4 +109,8 @@ Configuration: CHn_RCOUNT = 0x08 (128 FREF cycles)
 | MUX_CONFIG | 0x1B [14:13] | RR_SEQUENCE: channel count |
 
 ## Relevance to LDC1614 Implementation
-When implementing an LDC1614 driver, the RCOUNT and SETTLECOUNT registers are the primary knobs for tuning the sample-rate vs. precision trade-off. For a 4-channel system, total cycle time is 4× the per-channel dwell time — plan data readout accordingly. If using interrupt-driven reads (DRDY pin), the deterministic timing allows you to calculate exact interrupt intervals. If polling, use the timing formula to set appropriate polling intervals and avoid reading stale data. Different channels can have different RCOUNT/SETTLECOUNT values to match heterogeneous sensor designs.
+RCOUNT and SETTLECOUNT set the sample-rate/precision tradeoff. Sum the individual
+channel dwell times; multiplication by channel count applies only when those
+times are equal. Use the estimate to schedule readout, then check freshness and
+quality from the acquisition. The estimate does not guarantee exact interrupt
+intervals or replace the application's deadline.

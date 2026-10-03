@@ -1,5 +1,10 @@
 # Code audit resolution report
 
+The earlier F01-F34 dispositions below are historical. The 2026-10-03 review
+at the end of this document supersedes the interpretation of F11: encodings
+0/1 exist, but Table 43 requires SETTLECOUNT greater than 3 for any selected
+operating channel, including single-channel mode.
+
 ## Scope and method
 
 This report dispositions every F01-F34 candidate from the one-time audit of
@@ -124,3 +129,140 @@ input remains available only through Git history.
   installed in this shell; the repository's native ESP-IDF contract checker
   passed, and the maintained CI ESP32-S2/S3 IDF build matrix remains the native
   firmware-build authority.
+
+## Datasheet and portability review, 2026-10-03
+
+This review started from clean, fetched, fast-forwarded `main` at `d6b3eb4`.
+It covers the driver, native regression model, both diagnostic CLIs, HIL
+acceptance, packaging checks, and framework-neutral application integration.
+It does not establish sensor-equipped hardware acceptance.
+
+The current [TI datasheet SNOSCY9A](https://www.ti.com/lit/ds/symlink/ldc1614.pdf)
+was retrieved again. Text on technical pages 1-56 matches the retained PDF;
+only pages 57, 58, and 67 differ in the current packaging/addendum material.
+Merged table cells were checked visually, not inferred from extracted text.
+The [sensor-status application note SNOA959](https://www.ti.com/lit/an/snoa959/snoa959.pdf)
+was also used for zero-count, data-ready, and sticky-error behavior.
+
+### Chip feature coverage
+
+Every documented configurable register field already has a typed profile or
+lifecycle operation. The changes close correctness and test gaps without
+adding duplicate register setters or framework ownership to the core.
+
+| Device function | Maintained API and boundary |
+| --- | --- |
+| Two/four-channel devices and both addresses | Explicit `DeviceVariant`, `I2cAddress`, variant-aware raw access; shared identity registers are not variant detection. |
+| Identity and configuration replay | `startInitialize`, `startApplyConfig`, `expectedConfigurationRegister`; complete physical-channel replay with mandatory register constants. |
+| Single channel and all documented round-robin sequences | `OperatingMode`, `activeChannel`, `RRSequence`, exact selected masks. Hardware has no arbitrary scan list. |
+| Conversion, settling, input/reference division and offsets | Per-channel `ChannelConfig`; validated clock/sensor facts, frequency and frame-time helpers. |
+| Internal/external reference and input filtering | `ReferenceClock`, tolerance validation, all four `Deglitch` choices. |
+| Fixed current and full/low-power activation | `DriveCurrentCode`, `sensorActivation`, normal-current nominal lookup. Physical amplitude still needs measurement. |
+| Startup current calibration and ongoing amplitude correction | `rpOverrideEnabled`, `autoAmplitudeCorrectionEnabled`, `readInitDriveCurrent`; deliberate application-controlled profile changes around sleep/replay/wake. |
+| Higher CH0 drive | `highCurrentDriveEnabled`, restricted to single-channel CH0; normal-current lookup is not a calibrated high-current model. |
+| All ERROR_CONFIG routes | `ErrorReporting`, `encodeErrorReporting`, pre/post STATUS and DATA quality. STATUS attributes one latched error channel; zero-count has no DATA error bit. |
+| Readiness and INTB | `readDataReady`, `readIntb`, optional injected GPIO observer. Public calls remain serialized outside the ISR. |
+| Coherent 28-bit acquisition | `startAcquire`, MSB-before-LSB pairs, fixed-size atomic result publication, freshness/error/pending-conversion evidence. No FIFO or simultaneous-sampling capability is implied. |
+| Sleep, wake, reset and shutdown | `sleep`, `wake`, `startResetAndReapply`; SD is application-owned and must invalidate state before reinitialization. |
+| Advanced register diagnostics | Variant-aware `readRegister16` and `writeRegister16`; raw mutation invalidates applied trust. |
+
+### Findings and corrections
+
+- **Selected-channel timing limits:** Table 43's merged count-limit cells
+  cover both operating modes. Validation previously applied `RCOUNT >= 9`
+  and `SETTLECOUNT >= 4` only to sequential mode. Both now apply to selected
+  single-channel profiles too. Smaller encodings remain diagnostic/unselected
+  register facts. This corrects the earlier F11 interpretation.
+- **Zero-count profile gap:** legal dividers and count fields alone can
+  configure a conversion shorter than one divided sensor-input period.
+  Validation now checks the declared minimum sensor frequency against the
+  maximum reference clock and programmed conversion interval. This prevents
+  that known cause of zero-count errors, not all physical oscillation faults.
+- **Timing claims:** the count/clock arithmetic rounds conservatively, but
+  channel switching is specified only typically. Automatic current adjustment
+  and fault recovery do not have a complete worst-case bound in this helper.
+  The estimate is a scheduling input, not proof that data must be ready.
+- **Test model:** readiness must reflect completion of the configured scan,
+  and later errors must not overwrite the first sticky error attribution.
+  Regressions now exercise those distinctions instead of treating any unread
+  channel as a completed scan.
+- **Destructive readiness:** SNOA959 section 2.1 explicitly states that STATUS
+  also clears unread-conversion flags. The fake had preserved them, masking a
+  double-STATUS bug in both sample-rate CLIs. Readiness now comes from the
+  acquisition's own initial snapshot, and a clean attempt without fresh data
+  can repeat only within the original per-sample deadline. It uses the
+  selected channel's unread flag: global DRDY is end-of-scan evidence and can
+  still be false for a fresh earlier channel. Regressions cover all STATUS
+  observer APIs, both GPIO-observer configurations, fixed deadlines, disabled
+  DRDY routing, and partial sequential scans.
+- **HIL evidence:** shape-only batch output, missing identity in custom runs,
+  and contradictory firmware evidence could weaken acceptance. The runner
+  now checks complete per-channel evidence and consistent target provenance;
+  expanded scenarios remain separately attributable to the fixture used.
+- **Consumer validation:** the package checker now uses the required Windows
+  PlatformIO wrapper and executes the compiled consumer. Compilation also
+  checks strict warnings with exceptions and RTTI disabled.
+- **Portability:** core/public code uses standard C++17 and injected callbacks;
+  framework handles, bus ownership, pin choices, and application scheduling
+  stay outside it. Raw counts require integer storage, and an undifferentiated
+  NACK must not be promoted to a confirmed address NACK. The
+  [owner integration contract](I2C_INTEGRATION.md) documents these requirements
+  without depending on another repository.
+- **Application-owned INTB:** enabling the chip output previously required an
+  injected observer, unnecessarily forbidding external interrupt handling.
+  The observer is now optional independently of interrupt routing;
+  `readDataReady()` falls back to STATUS and `readIntb()` still reports a
+  missing observer. Interrupt handlers only notify the serialized owner.
+- **Exact divider boundaries:** rounding divided FIN/FREF values before
+  validation rejected legal profiles close to strict frequency/offset limits.
+  Bounded 64-bit cross-products retain the exact divider ratios. Tests include
+  just-below, equal, above, and tolerance-crossing cases in both chip variants
+  and conversion modes.
+- **Reference-summary corrections:** the normal-drive amplitude formula needs
+  division by pi; high-current CH0 ignores IDRIVE. Automatic amplitude
+  adjustment is supported with a precision/offset tradeoff. Maintained notes
+  no longer prescribe driver calls from an ISR, a destructive readiness
+  pre-read, or exact interrupt intervals derived from typical switching delay.
+  See [SNOA950](https://www.ti.com/lit/an/snoa950/snoa950.pdf) sections 1, 4, and 7.
+
+The datasheet's known internal contradictions remain resolved explicitly:
+use the MUX_CONFIG register definition's `b111` for 33 MHz deglitch, CONFIG's
+`1 = sleep` polarity, equation 7's extra four reference clocks, and the actual
+channel register map instead of the mislabeled Table 37 rows. The new tests
+exercise these choices. See the retained
+[source-conflict notes](reference/extracted-md/08_variant_differences_and_open_questions.md).
+
+Remaining physical gates are the actual coil profile, reference clock,
+amplitude/current tuning, fresh conversion cadence, INTB/SD waveforms,
+fault/recovery behavior, RESET_DEV, address/variant fixtures, and a soak using
+the eventual application adapter. Existing older no-sensor logs do not satisfy
+those gates. The [hardware guide](HARDWARE_INTEGRATION.md) includes the PCB
+layout and test-access checklist; [HIL validation](HIL_VALIDATION.md) defines
+the runnable evidence procedures.
+
+### Final software checks for this working tree
+
+- Native unit/CLI tests: **61/61 passed** (42 core and 19 CLI cases).
+- HIL host/parser tests: **76/76 passed**, plus the built-in parser self-test.
+  A temporary host harness also passed actual C++ CLI output through the
+  Python classifier for immediate and retried fresh conversions.
+- Maintained Arduino firmware builds: **ESP32-S2 and ESP32-S3 passed** using
+  `scripts/pio.cmd` and the pinned platform. The inherited `C:\pio` package
+  cache was missing compiler executables; successful builds used a per-process
+  `PLATFORMIO_CORE_DIR=$env:USERPROFILE\.platformio` override for the existing
+  user cache. The same VS Code-managed Core was used; no global configuration
+  or platform version was changed.
+- Core framework/timing, both 71-command CLI contracts, readiness claims,
+  repository hygiene, generated versions, strict packaged-consumer
+  compilation/execution, Doxygen, and whitespace checks passed.
+- Native-IDF CLI source also passed a host C++17 syntax check with strict
+  warnings, exceptions and RTTI disabled. A complete native ESP-IDF firmware
+  build was **not run locally** because this shell has no `idf.py`; CI's
+  ESP-IDF 6.0.2 target builds remain required.
+- Arduino sensor and native-IDF no-sensor mode-matrix/long-soak dry runs
+  correctly reported **NOT_RUN**. No serial device was opened or flashed,
+  and no new physical HIL evidence was produced.
+
+The final independent review found no remaining concrete defect in the
+reviewed changes. This is software evidence for the working tree, not green
+CI on a release commit or a hardware qualification claim.

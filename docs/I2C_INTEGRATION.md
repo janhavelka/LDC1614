@@ -4,6 +4,11 @@ The driver owns the LDC1612/LDC1614 register protocol, fixed job scratch, and
 result provenance. The application owns the shared bus and every scheduling or
 recovery decision.
 
+These contracts apply to bare-metal loops, RTOS tasks, and other serialized
+owners. The core needs C++17, bounded transport callbacks, and an extended
+monotonic clock. It does not require a particular manager, scheduler, framework,
+application repository, or result queue implementation.
+
 ## Transport boundary
 
 - Inject non-owning `Config::i2cWrite` and `Config::i2cWriteRead` callbacks.
@@ -97,6 +102,15 @@ worst-case timeout sum cannot exceed the remaining time observed at the poll
 boundary. The driver never sleeps, yields,
 retries, or advances its own clock.
 
+Direct one-transfer methods such as `wake()` and `sleep()` take the configured
+callback timeout but no absolute deadline. When a larger application request
+covers them, check its original deadline before admission, clip the physical
+timeout to the remaining time, and check actual completion time in the
+application transport callback. A write that finishes too late must retain
+its possible hardware effects even though the request reports a timeout.
+The core's result timestamp is the supplied terminal poll boundary; take
+another application timestamp when actual callback completion time is needed.
+
 ## Operation classes
 
 | Class | Bound |
@@ -126,6 +140,12 @@ decision to the owner. It does not repeat the write. A
 confirmed `I2C_NACK_ADDR` is different: the addressed device did not accept the
 transaction, so that attempt alone is not reported as an indeterminate device
 mutation. Earlier successful writes in the same job remain partial effects.
+
+Return success only for a complete transfer. If a backend reports byte counts,
+check both the requested write and read lengths. A zero byte count after a
+failed transaction does not prove address NACK: some backends populate counts
+only on complete success. Use `I2C_ERROR` with the original backend detail when
+the failing phase is unknown, preserving possible write effects.
 
 Cancellation is idempotent and issues no callback. Cancelling acquisition
 discards private scratch and leaves the previous complete batch untouched.
@@ -158,8 +178,8 @@ LDC reads are not observationally neutral:
 
 - `DATAx_MSB` latches its LSB shadow, clears `UNREADCONVx`, and can clear the
   channel error that asserted STATUS/INTB;
-- STATUS returns a snapshot, clears sticky status evidence, and can deassert
-  INTB; and
+- STATUS returns a snapshot, clears sticky status evidence and all unread
+  flags (including unselected channels), and can deassert INTB; and
 - another conversion can overwrite an unread result during a chunked batch.
 
 Entering sleep also destroys conversion evidence: DATA values, unread/error
@@ -170,12 +190,26 @@ boundary rather than a reversible pause of the last sample.
 MSB then LSB for each channel, and STATUS after DATA. Its fixed `SampleBatch`
 preserves both snapshots and selected/valid/fresh/error/overrun masks. Do not
 split STATUS reads into an application adapter and DATA reads into the library.
+In particular, `readDataReady()` is a destructive diagnostic snapshot, not a
+preflight for acquiring the same conversion: that extra STATUS read consumes
+freshness. Use the acquisition's initial snapshot for per-channel readiness,
+or observe the optional INTB GPIO without reading STATUS.
 
 Sequential autoscan channels are measured at different times. Complete-batch
 commit prevents partial publication but does not create simultaneous sampling
 or guarantee that a slow host read saw one same-instant sensor frame. Use the
 timing estimate, masks, clock tolerance, and application cadence to decide
 whether mixed-age sequential results meet the product contract.
+
+Keep raw 28-bit codes in `uint32_t` storage: a 32-bit floating-point value
+cannot preserve every raw count. Publish derived engineering values separately,
+with units and calibration, while retaining the masks, STATUS snapshots,
+quality, configuration revision, and original fault/effect provenance.
+
+INTB routing and the optional `Config::intbAsserted` callback are independent.
+An application may own the GPIO interrupt entirely; its ISR should only notify
+the serialized owner. Without the observer callback, `readDataReady()` reads
+STATUS directly, while `readIntb()` reports that no observer is available.
 
 ## Package checks
 
