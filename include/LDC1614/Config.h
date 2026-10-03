@@ -12,7 +12,11 @@ namespace LDC1614 {
 /// @brief Caller-owned identifier used to correlate jobs and terminal results.
 using OperationId = uint64_t;
 
-/// One bounded I2C write attempt. The callback must return within timeoutMs.
+/// One bounded I2C write attempt. The callback must return within timeoutMs,
+/// including any lock wait, and return OK only when every byte was accepted.
+/// It must not retry, retain the data buffer, or re-enter this driver instance.
+/// Report an address NACK only when the backend identifies that exact phase;
+/// an ambiguous failure must preserve possible write effects.
 using I2cWriteFn = Status (*)(uint8_t address, const uint8_t* data, size_t length,
                               uint32_t timeoutMs, void* user);
 
@@ -20,14 +24,17 @@ using I2cWriteFn = Status (*)(uint8_t address, const uint8_t* data, size_t lengt
 /// write and the two-byte read are joined by a repeated START with no STOP
 /// between them (datasheet 7.5.1, Figure 12). A STOP-separated write and read
 /// is unsupported and does not guarantee coherent register data. The callback
-/// must return within timeoutMs.
+/// must return within timeoutMs, including any lock wait, and return OK only
+/// when the complete write and read succeeded. Short reads are errors. The
+/// callback must not retry, retain either buffer, or re-enter this instance.
 using I2cWriteReadFn = Status (*)(uint8_t address,
                                   const uint8_t* txData, size_t txLength,
                                   uint8_t* rxData, size_t rxLength,
                                   uint32_t timeoutMs, void* user);
 
 /// Optional application-owned, bus-silent INTB observation. The callback must
-/// be non-blocking; no pin identity is retained by the driver.
+/// be non-blocking and must not re-enter this instance. Return asserted=true
+/// for the active-low pin level; no pin identity is retained by the driver.
 using IntbAssertedFn = Status (*)(bool& asserted, void* user);
 
 /// @brief Supported 7-bit LDC1612/LDC1614 I2C addresses.
@@ -199,6 +206,8 @@ struct ChannelConfig {
 /// mask; supply every per-channel register field for each physical channel of
 /// the selected variant; and supply expected sensor-frequency bounds only for
 /// channels selected in the channel mask before bind().
+/// bind() copies this value, but does not own the callback contexts. Contexts
+/// must remain valid until end() or an allowed profile update replaces them.
 struct Config {
   I2cWriteFn i2cWrite = nullptr;         ///< Non-owning single-write callback.
   I2cWriteReadFn i2cWriteRead = nullptr; ///< Non-owning combined write/read callback.

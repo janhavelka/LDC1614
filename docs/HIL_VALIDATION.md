@@ -4,24 +4,33 @@ This document defines the HIL procedure and evidence expected before release or
 field-readiness claims. Reviewed repository evidence is indexed under
 [`docs/reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md).
 
-The PCB currently being prepared has **not been HIL tested**. Historical
-no-sensor transcripts below describe a different fixture/revision; they do not
-qualify this PCB, its LC sensors, or the current library revision. Host parser
-tests and dry runs exercise tooling only. No new physical evidence was collected
-while adding the runners described here.
+The current library revision has **not been HIL tested** on a sensor-equipped
+board. Historical no-sensor transcripts below cover only their named fixture
+and firmware revision. They do not qualify another PCB, its LC sensors, or
+later code changes. Host parser tests and dry runs exercise tooling only.
+
+Use Python 3.11 with the `pyserial` version pinned in `requirements-dev.txt`.
+On Windows, install that serial dependency into the runner's Python environment
+without installing another PlatformIO Core:
+
+```powershell
+python -m pip install pyserial==3.5
+```
+
+The existing `scripts\pio.cmd` wrapper owns PlatformIO selection on Windows.
+Linux CI installs the complete `requirements-dev.txt` tool set.
 
 Use:
 
 ```sh
-python -m pip install --requirement requirements-dev.txt
-python tools/ldc1614_hil_runner.py --profile arduino --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil.json --raw-transcript-out hil.serial.txt
+python tools/ldc1614_hil_runner.py --profile arduino --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --require-run --json-out hil.json --raw-transcript-out hil.serial.txt
 ```
 
 For a board with the LDC1614 chip present but no LC sensor/coil attached, use
 the no-sensor fixture matrix:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-firmware-commit "<flashed Git SHA>" --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
+python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --require-run --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
 ```
 
 The no-sensor mode exercises target/device identity, owner bus, bus-frequency,
@@ -117,10 +126,26 @@ identity, timeout, or nonzero-status failure.
 If no serial port and real LDC1614/LDC1612 hardware are supplied, the runner
 reports `NOT_RUN`. It must not be interpreted as a pass.
 
+For automated acceptance, use `--require-run`, check the process exit code, and
+require `overall_status=PASS` in the JSON. Without `--require-run`, a no-port
+`NOT_RUN` exits successfully so tooling can inspect a planned run. `FAIL` and
+`UNKNOWN` always exit nonzero. A passing automatic matrix covers only its
+executed commands; listed manual or unpopulated-fixture checks remain untested.
+Set `--expected-target`, `--address`, and `--channel-count` to the actual build
+and hardware; defaults are `esp32s2`, `0x2A`, and four channels. Use
+`--channel-count 2` for LDC1612. An opt-in coverage flag does not change wiring,
+address, or silicon variant.
+
 Supplying `--port` only proves that a serial port was requested. The runner
 marks `hardware_attached=true` only when it captures real command/startup
 payload from the target firmware. A port open with no firmware payload is
-reported as `evidence_type=serial_not_run`.
+reported as `evidence_type=serial_not_run` unless a serial exception occurred;
+exceptions produce `evidence_type=serial_failure` and fail the run.
+Host exception text is not target payload. A serial disconnect after target
+output or a Ctrl+C interruption retains the received bytes and fails the run.
+An unexpected firmware
+startup banner during any command also fails, even if a later response looks
+successful.
 
 For a real run, `--operator` and `--board` are mandatory evidence. The runner
 requires the target `version` response to report a clean firmware Git revision,
@@ -198,12 +223,17 @@ the LDC1614 ownership contract:
 | Benchmark/stress | `--include-stress` for bounded protocol stress | Sample rate and physical quality require a sensor fixture |
 | Cooperative job API | Scheduled/terminal command-session correlation, progress/result snapshots, and idle cancel | Active cancellation timing remains `NOT_RUN` without an interactive fixture |
 | Destructive paths | Confirmed all-register dump and known CONFIG write followed immediately by full replay | Arbitrary raw writes are not automatic |
-| Manual fixtures | Explicit `NOT_RUN` rows in every artifact | INTB, SD, 0x2B/LDC1612, coil/drive, unplug, and stuck-bus evidence must be collected on the named fixture |
+| Manual fixtures | Unrequested checks are listed as `NOT_RUN`; SD/INTB/drive opt-ins send their diagnostic commands | Physical behavior still needs independent observation; address/variant, unplug, stuck-bus, and active-cancel setup is external |
 
 ## Safe Default Procedure
 
 1. Record operator, board, firmware, Git commit, serial port, baud, expected I2C
    address, channel count, and timestamp.
+   Build from a clean commit with reviewed pins, clock, counts, error routing,
+   drive settings, and populated sensors. Close other serial monitors. Check
+   `--serial-dtr` and `--serial-rts` against the board's reset wiring; opening
+   the port can reset some boards. Establish the intended cold-start condition
+   and capture it rather than silently discarding repeated restarts.
 2. Open the serial port and capture startup output.
 3. Run the selected profile's safe commands.
 4. Classify each command from the transcript. Ambiguous command output is
@@ -219,6 +249,14 @@ the LDC1614 ownership contract:
    detail remain available. `--markdown-out` is an optional review rendering;
    do not commit it beside the canonical JSON when it only duplicates the same
    transcript and results.
+
+Preview the exact matrix with the same options plus `--dry-run` before opening
+serial. `--command-timeout-s` is the host wait for a complete command response,
+not an I2C timeout or core deadline. Set it to cover the requested count, CLI
+session duration, and serial output. A too-short timeout is a failed run; do not
+resume that artifact after changing it. After a failure, retain the JSON/raw
+pair, correct the cause, restore the documented starting profile, and start a
+new run. A failed mode matrix may leave the last applied profile in place.
 
 ## Optional Opt-in Procedure
 
@@ -310,6 +348,32 @@ Host capture is bounded to 1 MiB per response and 128 MiB per session. Exceeding
 either limit fails the run and preserves an explicitly incomplete transcript;
 it never silently truncates a passing report. Split long/high-volume campaigns
 into separate retained runs before these limits are reached.
+
+## Manual fixture procedures
+
+The automatic runner cannot create the following physical conditions. Record
+the fixture setup, stimulus, expected limit, raw observation, and outcome in a
+separate test record. Link the command transcript and analyzer or oscilloscope
+capture to that record. A CLI `code=0` proves only the reported operation;
+it does not prove a pin voltage, waveform, current, or sensor response.
+
+| Procedure | Setup and bounded action | Pass condition |
+| --- | --- | --- |
+| Sensor and channel mapping | Populate the selected channels with characterized coils. Run each legal mode with `--include-mode-matrix`, then move one target at a time over the documented range. Record raw counts, computed frequency, reference clock, and an independent frequency/amplitude measurement. | Each intended channel responds; all accepted samples are fresh, valid, within the declared bounds, and free of error/overrun evidence. Measured amplitude and accuracy meet the fixture's recorded limits. |
+| Destructive reads and INTB | Enable the intended error/DRDY routes and observe active-low INTB independently. After a new conversion, compare one STATUS read with an immediate second read while no additional conversion can complete. Repeat with acquisition at the production cadence and with a deliberate bounded read delay. | The first snapshot retains the event and unread bits; the second reflects their consumption unless a new conversion occurred. Pin transitions and DATA/STATUS evidence agree. Sequential DRDY marks the last channel; it is not per-channel freshness. |
+| SD and power loss | With controlled SD or device power, first retain a good batch. Assert shutdown, invalidate applied state in the owner, then release SD and wait at least 2 ms before full initialization. Read back the profile, wake, and collect fresh data. | No trusted acquisition is admitted while state is unknown. Identity/replay/readback and fresh acquisition succeed after recovery. Observe SD, rail voltage, and current independently. |
+| MCU-only restart | Keep the LDC rail energized while restarting the MCU. Capture SDA, SCL, SD, ADDR, and the rail across restart, then attempt full identity and replay. Repeat the documented product startup sequence a fixed number of times. | Every admitted startup establishes identity and complete configuration before acquisition; no retained DATA is treated as fresh. Any failed combined read or unexplained reset fails this test. |
+| Address and variant | Power down, set the address strap, and build for the actual LDC1612 or LDC1614. Run the matrix with matching `--address` and `--channel-count`; repeat for each supported fixture. | Exact identity and profile checks pass. LDC1612 permits channels 0/1 and rejects 2/3. Identity values alone must not be used to infer the variant. |
+| Fault and shared-bus recovery | Use a controlled disconnect or fault fixture to inject one address NACK, transaction timeout, or held-low line. Record callback duration and status. Clear the physical fault, perform the owner's bounded recovery, invalidate, and initialize. Read another shared-bus device before, during, and after the test as its policy permits. | No callback exceeds its stated timeout, no hidden retries occur, partial/ambiguous effects remain visible, and recovery ends in verified admission or an explicit unavailable state. The other device meets its documented service limit. |
+| Active cancellation and deadlines | Use a test owner that pauses between `poll(now, 1)` calls. Cancel after selected transfer boundaries, including after a write. Separately poll at the absolute deadline with zero and nonzero budgets. Drain the result, submit a new operation ID, and repeat with a pending cancelled result. | SDA/SCL show no callback after cancellation or deadline expiry. Exactly one matching terminal result is delivered, partial acquisition is absent, write effects are retained, and replacement work obeys the two-result capacity. |
+| Error routes and drive limits | With a safe electrical fixture, exercise each enabled under/over-range, amplitude, zero-count, and continuous-mode watchdog condition. Record STATUS-before, DATA, STATUS-after, routing, and independent amplitude/frequency. Test normal and CH0 high-current drive separately if used. | The reported channel and quality agree with observable evidence. Disabled routes are recorded as unavailable evidence. No faulted sample is accepted as a valid measurement; current and amplitude stay within the fixture's limits. |
+
+Record a fixed repeat count and timeout for each procedure before starting.
+Stop on the first unexpected result and preserve the failing capture. Conditions
+that the available fixture cannot safely create remain `NOT_RUN`; host tests
+do not fill that physical-evidence gap. Use the application's actual owner and
+timing for cancellation and fault tests; the stock unattended CLI matrix does
+not exercise those timing boundaries.
 
 ## Validation Matrix
 

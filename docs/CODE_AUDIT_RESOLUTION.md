@@ -240,7 +240,7 @@ those gates. The [hardware guide](HARDWARE_INTEGRATION.md) includes the PCB
 layout and test-access checklist; [HIL validation](HIL_VALIDATION.md) defines
 the runnable evidence procedures.
 
-### Final software checks for this working tree
+### Software checks for the datasheet review
 
 - Native unit/CLI tests: **61/61 passed** (42 core and 19 CLI cases).
 - HIL host/parser tests: **76/76 passed**, plus the built-in parser self-test.
@@ -266,3 +266,37 @@ the runnable evidence procedures.
 The final independent review found no remaining concrete defect in the
 reviewed changes. This is software evidence for the working tree, not green
 CI on a release commit or a hardware qualification claim.
+
+### Testing and documentation follow-up, 2026-10-03
+
+The datasheet review was committed and pushed as `f110097`. All seven jobs in
+[its CI run](https://github.com/janhavelka/LDC1614/actions/runs/37146174385)
+passed, including complete Arduino and native ESP-IDF builds for ESP32-S2 and
+ESP32-S3. This is build and software-test evidence only.
+
+The follow-up review fixed four HIL runner gaps:
+
+- Reject an unexpected firmware startup banner during every command, even
+  when the remaining response appears successful.
+- Preserve partial target output when serial reads fail or the operator
+  interrupts a receive with Ctrl+C. The run still fails.
+- Apply the 1 MiB response limit across both parts of an asynchronous reply.
+- Exclude host exception text from evidence of received target output. A
+  failure before any target bytes keeps `hardware_attached=false`.
+
+Six added regression cases cover restart detection, partial startup/command/
+soak replies, asynchronous continuation, combined response limits, zero-byte
+disconnects, and receive interruption. The host suite now passes **82/82**
+tests. Native core/CLI tests remain **61/61 passed**.
+
+The package check now compiles every public header independently, checks the
+packaged version and ESP-IDF build inputs, and bounds its package/compiler/run
+waits. The real package passes; temporary damaged-package checks rejected
+missing component files, stale version metadata, and a missing header include.
+
+README, example guides, HIL procedures, and public API comments now distinguish
+replay from readback, callback success from valid sensor data, and unreleased
+changes from the published release. Manual fixture procedures include explicit
+setup and pass criteria. Doxygen, version checks, framework/CLI contracts,
+readiness wording, repository hygiene, and whitespace checks pass. No hardware
+was opened or flashed, and no new physical HIL evidence was produced.

@@ -21,7 +21,7 @@ import time
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, TextIO, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, TextIO, Tuple
 
 from ldc1614_cli_contract import (
     COMMAND_BY_NAME,
@@ -2051,6 +2051,8 @@ def classify_command(
     parsed_output = strip_ansi(output)
     if PROMPT_BOUNDARY_PATTERN.search(parsed_output) is None:
         return "FAIL", "command response did not end at a complete CLI prompt boundary"
+    if has_firmware_startup_banner(parsed_output):
+        return "FAIL", "unexpected firmware restart banner occurred during the command"
 
     for pattern in failure_patterns or []:
         if pattern.search(output):
@@ -2515,10 +2517,13 @@ def strip_ansi(text: str) -> str:
 
 
 def transcript_payload(transcript: str) -> str:
-    lines = [
-        line for line in transcript.splitlines()
-        if not line.startswith("### ")
-    ]
+    lines = []
+    host_section = False
+    for line in transcript.splitlines():
+        if line.startswith("### "):
+            host_section = line.startswith("### runner ")
+        elif not host_section:
+            lines.append(line)
     return "\n".join(lines).strip()
 
 
@@ -2765,38 +2770,48 @@ def enforce_soak_invariant(
     return failed
 
 
-def read_available(ser, deadline: float, idle_gap_s: float, prompt_patterns: Iterable[str]) -> Tuple[str, bool]:
+def read_available(
+    ser, deadline: float, idle_gap_s: float, prompt_patterns: Iterable[str],
+    on_error: Optional[Callable[[str], None]] = None,
+    max_bytes: Optional[int] = None,
+) -> Tuple[str, bool]:
     chunks: List[str] = []
     byte_count = 0
     last_rx = time.monotonic()
     timed_out = False
     prompt_res = [re.compile(pattern) for pattern in prompt_patterns]
+    byte_limit = MAX_RESPONSE_BYTES if max_bytes is None else max_bytes
 
-    while True:
-        now = time.monotonic()
-        if now >= deadline:
-            timed_out = True
-            break
-
-        waiting = getattr(ser, "in_waiting", 0)
-        if waiting:
-            raw = ser.read(min(waiting, MAX_RESPONSE_BYTES - byte_count + 1))
-            byte_count += len(raw)
-            text = raw.decode("utf-8", errors="replace")
-            chunks.append(text)
-            if byte_count > MAX_RESPONSE_BYTES:
-                chunks.append("\n" + RESPONSE_LIMIT_MARKER + "\n")
+    try:
+        while True:
+            now = time.monotonic()
+            if now >= deadline:
                 timed_out = True
                 break
-            last_rx = now
-            joined = "".join(chunks)
-            if any(pattern.search(joined) for pattern in prompt_res):
-                break
-            continue
 
-        if chunks and (now - last_rx) >= idle_gap_s:
-            break
-        time.sleep(0.02)
+            waiting = getattr(ser, "in_waiting", 0)
+            raw = ser.read(min(waiting, byte_limit - byte_count + 1)) if waiting else b""
+            if waiting:
+                byte_count += len(raw)
+                text = raw.decode("utf-8", errors="replace")
+                chunks.append(text)
+                if byte_count > byte_limit:
+                    chunks.append("\n" + RESPONSE_LIMIT_MARKER + "\n")
+                    timed_out = True
+                    break
+                last_rx = now
+                joined = "".join(chunks)
+                if any(pattern.search(joined) for pattern in prompt_res):
+                    break
+                continue
+
+            if chunks and (now - last_rx) >= idle_gap_s:
+                break
+            time.sleep(0.02)
+    except BaseException:
+        if on_error is not None:
+            on_error("".join(chunks))
+        raise
 
     return "".join(chunks), timed_out
 
@@ -2872,6 +2887,7 @@ def run_serial_commands(
             time.monotonic() + args.command_timeout_s,
             args.idle_gap_s,
             prompt_patterns,
+            lambda partial: capture("### incomplete startup\n" + partial),
         )
         startup_elapsed_s = time.monotonic() - startup_start
         capture("### startup\n" + startup)
@@ -2883,21 +2899,29 @@ def run_serial_commands(
             command_deadline = command_start + args.command_timeout_s
             ser.write((command + "\n").encode("utf-8"))
             ser.flush()
+            output = ""
+
+            def capture_incomplete(partial: str) -> None:
+                capture(f"### incomplete command: {command}\n{output}{partial}")
+
             output, timed_out = read_available(
                 ser,
                 command_deadline,
                 args.idle_gap_s,
                 prompt_patterns,
+                capture_incomplete,
             )
             name = command_name(command)
             scheduled = SCHEDULED_OPERATION_PATTERN.search(output)
-            if (command_is_async(command) and scheduled is not None and
+            if (not timed_out and command_is_async(command) and scheduled is not None and
                     PROMPT_BOUNDARY_PATTERN.search(strip_ansi(output)) is None):
                 completion, completion_timed_out = read_available(
                     ser,
                     command_deadline,
                     args.idle_gap_s,
                     prompt_patterns,
+                    capture_incomplete,
+                    max_bytes=max(0, MAX_RESPONSE_BYTES - len(output.encode("utf-8"))),
                 )
                 output += completion
                 timed_out = timed_out or completion_timed_out

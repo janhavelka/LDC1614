@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile a clean consumer translation unit against the public headers."""
+"""Check a packed library's public headers, metadata, and plain C++ consumer."""
 
 from __future__ import annotations
 
@@ -15,6 +15,10 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION_HEADER = ROOT / "include" / "LDC1614" / "Version.h"
+CPP_FLAGS = (
+    "-std=c++17", "-Wall", "-Wextra", "-Werror", "-pedantic",
+    "-fno-exceptions", "-fno-rtti",
+)
 
 
 def fail(message: str) -> int:
@@ -53,8 +57,10 @@ def ensure_version_header_tracked() -> int:
     return 0
 
 
-def run_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
+def run_command(command: list[str], cwd: Path,
+                timeout_seconds: int = 60) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, cwd=cwd, capture_output=True, text=True,
+                          check=False, timeout=timeout_seconds)
 
 
 def pack_library(temp: Path) -> Optional[Path]:
@@ -67,6 +73,7 @@ def pack_library(temp: Path) -> Optional[Path]:
     result = run_command(
         [*platformio, "pkg", "pack", str(ROOT), "-o", str(output_dir)],
         ROOT,
+        timeout_seconds=180,
     )
     if result.returncode != 0:
         print(result.stdout, end="")
@@ -101,6 +108,12 @@ def compile_consumer(compiler: str, package_root: Path, temp: Path) -> int:
     source_file = package_root / "src" / "LDC1614.cpp"
     version_header = include_dir / "LDC1614" / "Version.h"
     library_json = package_root / "library.json"
+    version_script = package_root / "scripts" / "generate_version.py"
+    component_files = (
+        package_root / "CMakeLists.txt",
+        package_root / "idf_component.yml",
+        version_script,
+    )
     documentation = (
         package_root / "CONTRIBUTING.md",
         package_root / "Doxyfile",
@@ -112,9 +125,37 @@ def compile_consumer(compiler: str, package_root: Path, temp: Path) -> int:
         package_root / "docs" / "VALIDATION_STATUS.md",
         package_root / "docs" / "reference" / "LDC1614_datasheet.pdf",
     )
-    for required in (include_dir, source_file, version_header, library_json, *documentation):
+    for required in (include_dir, source_file, version_header, library_json,
+                     *component_files, *documentation):
         if not required.exists():
             return fail(f"packed package is missing {required.relative_to(package_root)}")
+
+    result = run_command([sys.executable, str(version_script), "check"], package_root)
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        return fail("packed package version metadata check failed")
+
+    # An umbrella include can hide missing includes in the other public headers.
+    # Compile each header first, without pre-including any standard or framework
+    # header, as a consumer is allowed to include any public header directly.
+    header_consumer = temp / "header_consumer.cpp"
+    public_headers = sorted(
+        path for path in (include_dir / "LDC1614").rglob("*")
+        if path.is_file() and path.suffix in (".h", ".hpp")
+    )
+    for header in public_headers:
+        relative = header.relative_to(include_dir).as_posix()
+        header_consumer.write_text(f'#include "{relative}"\n',
+                                   encoding="utf-8", newline="\n")
+        result = run_command(
+            [compiler, *CPP_FLAGS, "-I", str(include_dir), "-fsyntax-only",
+             str(header_consumer)], temp,
+        )
+        if result.returncode != 0:
+            print(result.stdout, end="")
+            print(result.stderr, end="", file=sys.stderr)
+            return fail(f"packed public header cannot compile alone: {relative}")
 
     consumer = temp / "consumer.cpp"
     consumer.write_text(
@@ -143,13 +184,7 @@ int main() {
 
     command = [
         compiler,
-        "-std=c++17",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-pedantic",
-        "-fno-exceptions",
-        "-fno-rtti",
+        *CPP_FLAGS,
         "-I",
         str(include_dir),
         str(consumer),
@@ -162,7 +197,7 @@ int main() {
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
         return fail("packed package consumer compile failed")
-    result = run_command([str(output)], temp)
+    result = run_command([str(output)], temp, timeout_seconds=10)
     if result.returncode != 0:
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
@@ -179,15 +214,18 @@ def main() -> int:
     if compiler is None:
         return fail("no C++ compiler found; set CXX or install c++/g++/clang++")
 
-    with tempfile.TemporaryDirectory(prefix="ldc1614_consumer_") as temp_root:
-        temp = Path(temp_root)
-        archive = pack_library(temp)
-        if archive is None:
-            return 1
-        package_root = extract_archive(archive, temp)
-        status = compile_consumer(compiler, package_root, temp)
-        if status != 0:
-            return status
+    try:
+        with tempfile.TemporaryDirectory(prefix="ldc1614_consumer_") as temp_root:
+            temp = Path(temp_root)
+            archive = pack_library(temp)
+            if archive is None:
+                return 1
+            package_root = extract_archive(archive, temp)
+            status = compile_consumer(compiler, package_root, temp)
+            if status != 0:
+                return status
+    except (OSError, subprocess.TimeoutExpired, tarfile.TarError) as exc:
+        return fail(str(exc))
 
     print("Clean package consumer compile guard PASSED")
     return 0

@@ -278,7 +278,8 @@ class LDC1614 {
   /// Verify both identity registers, then replay the complete profile into
   /// sleeping hardware. An identity-read failure makes applied configuration
   /// unknown and records ConfigFault provenance. Maximum: 15 LDC1612 or 25
-  /// LDC1614 transfers.
+  /// LDC1614 transfers. Register writes are checked through callback status;
+  /// this job does not read back configuration. Call wake() before acquisition.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
   /// deadline horizon must be less than 2^63 ms; natural uint64_t wrap is safe.
@@ -287,6 +288,8 @@ class LDC1614 {
 
   /// Replay the complete profile without identity reads. Requires established
   /// identity/config state. Maximum: 13 LDC1612 or 23 LDC1614 transfers.
+  /// Success leaves hardware sleeping. This job does not read back registers;
+  /// an external diagnostic can compare expectedConfigurationRegister() values.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
   /// deadline horizon must be less than 2^63 ms; natural uint64_t wrap is safe.
@@ -295,6 +298,7 @@ class LDC1614 {
 
   /// Issue software reset, verify identity, and replay the complete profile.
   /// Maximum: 16 LDC1612 or 26 LDC1614 transfers; no write is retried.
+  /// Success leaves hardware sleeping. No configuration readback is performed.
   /// @param operationId Nonzero caller correlation identity.
   /// @param deadlineMs Immutable absolute deadline on the owner timeline. The
   /// deadline horizon must be less than 2^63 ms; natural uint64_t wrap is safe.
@@ -303,6 +307,9 @@ class LDC1614 {
 
   /// Acquire one atomic software batch for a nonempty subset of configured
   /// channels. Requires APPLIED_ACTIVE. Maximum: 2 + 2N transfers.
+  /// Success means the read protocol completed; inspect the returned quality
+  /// and channel masks before accepting measurements. This job does not wait
+  /// for a conversion, so a successful batch may contain stale or faulty data.
   /// STATUS snapshots consume UNREADCONV for all physical channels, including
   /// channels outside the requested subset. Retain the returned snapshots if
   /// that evidence matters; later acquisitions need new conversion evidence.
@@ -380,9 +387,13 @@ class LDC1614 {
   /// @details Sleep entry clears DATA registers, unread and latched error
   /// evidence, and de-asserts INTB. Drain required evidence before sleeping;
   /// after wake, wait for a fresh conversion before treating DATA as current.
+  /// Direct calls use Config::i2cTimeoutMs and have no job deadline. The owner
+  /// must enforce any whole-request deadline in its transport callback.
   /// @return Precise precondition or transport status.
   Status sleep();
   /// @brief Leave sleep mode with one bounded CONFIG write.
+  /// @details Uses Config::i2cTimeoutMs; no job deadline or conversion wait is
+  /// applied. Use acquisition quality to establish fresh data after wake.
   /// @return Precise precondition or transport status.
   Status wake();
   /// @brief Read the silicon-selected initial IDRIVE code.

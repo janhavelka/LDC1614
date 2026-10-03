@@ -4,6 +4,31 @@ This PlatformIO/Arduino example demonstrates the v3 cooperative owner contract.
 It is diagnostic firmware, not a production bus manager or hardware-validation
 claim.
 
+## Build and first checks
+
+Edit the board pins and `makeDefaultConfig()` for the installed chip, reference
+clock, and sensors before flashing. From the repository root on Windows:
+
+```powershell
+.\scripts\pio.cmd run -e esp32s3dev
+.\scripts\pio.cmd run -e esp32s2dev
+```
+
+Build the environment for the board being used; the two commands above check
+both maintained targets. On Linux or macOS, use `pio` in place of the wrapper.
+Building alone does not flash hardware. For a prepared fixture, add
+`--target upload --upload-port "<port>"` to the selected build command, then
+open its serial monitor at 115200 baud.
+
+Capture `version`, `cfg`, `probe`, `init`, `verify`, and `wake` before collecting
+sensor results. All must complete successfully. `init` leaves the chip asleep;
+`verify` reads back the persistent configuration. Use `samplerate 0 10` for a
+configured channel 0 sensor, or the no-sensor HIL matrix when no coil is fitted.
+The [HIL guide](../../docs/HIL_VALIDATION.md) defines fixture setup, clean firmware
+identity, and acceptance. A terminal prompt alone is not a passing result.
+
+## Ownership and diagnostics
+
 The application owns the ESP-IDF new-master bus/device handles, pins,
 serialization, the 64-bit monotonic time extension, absolute job deadlines,
 transfer budget, and recovery policy. It first calls bus-silent `bind()`,
@@ -62,7 +87,8 @@ The surface covers:
 Profile setters only change a fixed-size staged copy and perform no I2C. Use
 `profile validate`, put verified hardware to sleep, then run
 `profile commit confirm`; the commit changes desired state but still performs
-no I2C. `apply` is the explicit full replay and verification step. `addr` and
+no I2C. `apply` writes the complete profile and leaves the chip asleep; use
+`verify` for register readback and `wake` before acquisition. `addr` and
 `variant` are intentional build-profile facts: change `makeDefaultConfig()` in
 `main.cpp` and the `board::` constants in `examples/common/BoardConfig.h`, end,
 rebuild, and bind instead of changing the live transport identity from the CLI.
@@ -77,8 +103,8 @@ perform broad/raw destructive reads require the literal `confirm` token as
 shown in `help`. The explicit semantic `status`, `status_raw`, `ready`, and
 acquisition commands do not require confirmation; they retain and print their
 destructive STATUS evidence. Raw register writes make the applied configuration
-unknown and must be followed by `init` or a verified replay before trusted
-acquisition.
+unknown and must be followed by complete `init` before trusted acquisition.
+The diagnostic `verify` command does not restore applied-state trust.
 
 Every multi-transfer core job and CLI diagnostic session is cooperative.
 `service()` performs at most one physical I2C attempt per Arduino `loop()` pass;

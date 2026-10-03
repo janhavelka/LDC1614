@@ -6,6 +6,31 @@ APIs, a fixed input buffer, and a fixed-state command engine. It does not
 include or compile Arduino or `examples/common/Ldc1614Cli.*`; repository
 contract checks keep both implementations aligned.
 
+## Build and first checks
+
+Use an ESP-IDF 6.0 or newer development shell; CI pins the exact maintained
+version in `.github/workflows/ci.yml`. Set the pins and `makeDefaultConfig()` in
+`main/main.cpp` for the board and sensors. From this example directory:
+
+```sh
+idf.py set-target esp32s3
+idf.py build
+```
+
+Use `esp32s2` for an ESP32-S2 fixture. `set-target` resets the local build and
+configuration for that target, so retain reviewed settings before switching.
+Building alone does not flash hardware. With a prepared fixture, run
+`idf.py -p "<port>" flash monitor`; the example console uses 115200 baud.
+
+Capture `version`, `cfg`, `probe`, `init`, `verify`, and `wake`, and require a
+successful result from each. Initialization and apply leave the chip asleep;
+`verify` performs register readback and `wake` starts conversion. Use
+`samplerate 0 10` only with a characterized channel 0 sensor. The
+[HIL guide](../../../docs/HIL_VALIDATION.md) covers the no-sensor procedure and
+requires the exact firmware-reported IDF version for the `idf` runner profile.
+
+## Command surface
+
 The table-driven command surface covers the full public driver API:
 
 - identity, color, verbosity, owner bus/pin/level snapshot, and complete

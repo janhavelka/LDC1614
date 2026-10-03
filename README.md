@@ -10,9 +10,12 @@ I2C callbacks and monotonic time; no particular application, RTOS, or board is
 required. The maintained Arduino and native ESP-IDF examples target ESP32-S2/S3
 and keep their framework dependencies outside the library.
 
-This tree is version **3.2.0**. Deployment still requires evidence for the exact
-board, address strap, reference clock, LC sensors, channel mapping, INTB/SD
-wiring, fault policy, calibration, cadence, and soak conditions. See the
+The latest published release is **3.2.0**. The current branch also contains
+the changes listed under **Unreleased** in [CHANGELOG.md](CHANGELOG.md);
+version metadata stays at 3.2.0 until the next release. Deployment requires
+evidence for the exact board, address strap, reference clock, LC sensors,
+channel mapping, INTB/SD wiring, fault policy, calibration, cadence, and soak
+conditions. See the
 maintained validation status and HIL guide before selecting a release.
 
 ## Core contract
@@ -195,6 +198,12 @@ is also capped by `Config::i2cTimeoutMs`, so their worst-case timeout sum cannot
 exceed the remaining time observed at that poll boundary. Time does not
 advance inside the library and there are no sleeps or yields.
 
+Single-transfer methods such as `wake()` and `readDeviceStatus()` have no job
+deadline. Their callbacks receive `Config::i2cTimeoutMs`. When the application
+also has a whole-request deadline, its transport must check the remaining time,
+cap the callback timeout, and report a late completion. Include any bus-lock
+wait in that limit.
+
 ## Operation classes and bounds
 
 One instruction is one physical transport callback.
@@ -219,6 +228,13 @@ The LDC1612/LDC1614 has no library-managed NVM programming or calibration
 storage procedure. Commissioning/calibration remains application work. Raw
 diagnostic writes are single-transfer advanced operations, not a maintenance
 framework and never receive blind retries.
+
+Initialization, apply, and reset/reapply finish in sleep mode. Their successful
+writes establish the applied profile; they do not read configuration registers
+back. Use the example `verify` command or an external diagnostic with
+`expectedConfigurationRegister()` when readback is required, then call `wake()`
+before acquiring samples. A successful acquisition reports protocol completion;
+check its masks and quality before using the measurements.
 
 ## Acquisition integrity
 

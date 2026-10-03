@@ -6,9 +6,11 @@ hardware validation.
 
 ## Release state
 
-`library.json` is the version source of truth. This tree is release `3.2.0`,
-matching the dated `3.2.0` entry in `CHANGELOG.md` and published as the annotated
-tag `v3.2.0` on commit `eacd0ae`. The historical annotated tag `v3.1.0` remains at
+`library.json` is the version source of truth. The latest published release is
+`3.2.0`, the annotated tag `v3.2.0` on commit `eacd0ae`. Current `main` also
+contains the fixes listed under `Unreleased` in `CHANGELOG.md`; it is not the
+tagged release, even though version metadata still reports `3.2.0`.
+The historical annotated tag `v3.1.0` remains at
 the pre-audit commit `9a86034`. The next publication requires a version bump via
 `scripts/generate_version.py` plus a new annotated tag on a reviewed commit that
 passes the required software checks and CI; `docs/RELEASING.md` holds the
@@ -24,7 +26,7 @@ the exact release firmware before making a current hardware claim.
 
 ## Required software checks
 
-The 2026-10-03 working-tree audit and its corrections are recorded in
+The 2026-10-03 audit and its corrections are recorded in
 [Code audit resolution](https://github.com/janhavelka/LDC1614/blob/main/docs/CODE_AUDIT_RESOLUTION.md#datasheet-and-portability-review-2026-10-03).
 They are unreleased changes on top of `3.2.0`, not new physical evidence.
 
@@ -50,6 +52,19 @@ CI additionally builds the native ESP-IDF diagnostic for ESP32-S2 and ESP32-S3
 with ESP-IDF 6.0.2 and verifies Doxygen with warnings treated as errors. The HIL
 runner host suite tests parsing, fail-fast behavior, and no-port classification;
 it does not operate hardware unless an explicit serial fixture is supplied.
+The clean-consumer check creates and extracts the library package, compiles each
+public header on its own under strict C++17 flags, builds and runs a plain C++
+consumer, and checks the packaged version and ESP-IDF component inputs. It does
+not link Arduino or ESP-IDF into the core.
+
+Use Python 3.11. CI installs the pinned tools in `requirements-dev.txt`. On
+Windows, use the existing VS Code-managed PlatformIO installation through
+`scripts\pio.cmd`; do not install a second PlatformIO Core. Install only the
+pinned `pyserial` dependency into the Python environment used for serial HIL.
+Run Doxygen from the repository root; `Doxyfile` treats documentation warnings
+as errors. On Linux or macOS, use `pio` in place of the Windows wrapper. Native ESP-IDF
+builds require the SDK used by CI; the source-contract checker alone does not
+prove that the native example compiles.
 
 ## Retained hardware evidence
 

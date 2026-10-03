@@ -493,6 +493,22 @@ class CliManifestTests(unittest.TestCase):
 
 
 class ClassifierTests(unittest.TestCase):
+    def test_restart_during_any_command_cannot_pass(self) -> None:
+        for framework in ("Arduino", "Native ESP-IDF"):
+            banner = f"=== LDC1614 {framework} Diagnostic Bring-up Example ===\n"
+            for command, output in (
+                ("version", version_output()),
+                ("init", async_output("init", 42)),
+                ("wake", sync_output("wake")),
+            ):
+                with self.subTest(framework=framework, command=command):
+                    status, reason = runner.classify_command(
+                        command, banner + output, False,
+                        expected_failure_patterns=runner.compile_token_patterns(["Diagnostic"]),
+                    )
+                    self.assertEqual("FAIL", status)
+                    self.assertIn("restart", reason)
+
     def test_informational_commands_do_not_require_fake_result_envelopes(self) -> None:
         status, reason = runner.classify_command("ver", version_output(), False)
         self.assertEqual("PASS", status, reason)
@@ -1903,6 +1919,193 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
         )
         self.assertIn("### command 1: version", raw_text)
         self.assertIn("simulated mid-run disconnect", raw_text)
+
+    def test_disconnect_keeps_partial_startup_command_and_soak_responses(self) -> None:
+        for stage in ("startup", "command", "soak"):
+            for failure_point in ("in_waiting", "read"):
+                with self.subTest(stage=stage, failure_point=failure_point):
+                    partial = f"partial {stage} response before disconnect\n"
+
+                    class DisconnectSerial(FakeSerialBase):
+                        def __init__(self, *args, **kwargs):
+                            super().__init__(*args, **kwargs)
+                            self.disconnect = stage == "startup"
+                            self.version_count = 0
+                            if self.disconnect:
+                                self.buffer = bytearray(partial.encode())
+
+                        @property
+                        def in_waiting(self) -> int:
+                            if self.disconnect and not self.buffer:
+                                if failure_point == "in_waiting":
+                                    raise OSError("simulated response disconnect")
+                                return 1
+                            return len(self.buffer)
+
+                        def read(self, length: int) -> bytes:
+                            if self.disconnect and not self.buffer:
+                                raise OSError("simulated response disconnect")
+                            return super().read(length)
+
+                        def write(self, payload: bytes) -> int:
+                            command = payload.decode().strip()
+                            self.version_count += command == "version"
+                            self.disconnect = stage == "command" or self.version_count == 2
+                            output = partial if self.disconnect else {
+                                "version": version_output(), "cfg": cfg_output(),
+                                "probe": probe_output(), "drv": drv_output(),
+                                "wake": sync_output("wake"),
+                            }[command]
+                            self.buffer.extend(output.encode())
+                            return len(payload)
+
+                    self.install_serial(DisconnectSerial)
+                    arguments = [
+                        "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+                        "--skip-default-commands", "--command", "version", "--command", "cfg",
+                        "--command", "probe", "--command", "drv", "--quiet",
+                        "--expected-firmware-commit", "abcdef1", "--operator", "test", "--board", "fake",
+                    ]
+                    if stage == "soak":
+                        arguments.extend([
+                            "--fixture", "no-sensor", "--include-long-soak", "--soak-duration-s", "1",
+                            "--allow-reduced-soak-gate",
+                        ])
+                    with tempfile.TemporaryDirectory() as temp:
+                        raw = Path(temp) / "raw.txt"
+                        result = runner.make_result(runner.parse_args(
+                            [*arguments, "--raw-transcript-out", str(raw)]
+                        ))
+                        raw_text = raw.read_text(encoding="utf-8")
+                    self.assertEqual("FAIL", result["overall_status"])
+                    self.assertEqual("OSError", result["serial_failure"]["type"])
+                    self.assertTrue(result["hardware_attached"])
+                    self.assertIn(partial, raw_text)
+                    self.assertIn(partial, result["transcript"])
+                    self.assertEqual(1, raw_text.count(partial))
+                    if stage == "soak":
+                        self.assertTrue(result["soak"]["started"])
+                        self.assertEqual(0, result["soak"]["cycle_count"])
+                        self.assertEqual(1, result["soak"]["incomplete_cycle"])
+
+    def test_async_continuation_disconnect_keeps_both_response_parts(self) -> None:
+        class DisconnectSerial(FakeSerialBase):
+            release_at = None
+            disconnect = False
+
+            @property
+            def in_waiting(self) -> int:
+                if not self.buffer:
+                    if self.disconnect:
+                        raise OSError("simulated continuation disconnect")
+                    if self.release_at is not None and time.monotonic() >= self.release_at:
+                        self.buffer.extend(b"partial asynchronous result\n")
+                        self.disconnect = True
+                return len(self.buffer)
+
+            def write(self, payload: bytes) -> int:
+                self.buffer.extend(b"CLI scheduled: command=init session=42\n")
+                self.release_at = time.monotonic() + 0.03
+                return len(payload)
+
+        self.install_serial(DisconnectSerial)
+        result = runner.make_result(runner.parse_args([
+            "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            "--skip-default-commands", "--command", "init",
+        ]))
+        self.assertEqual("FAIL", result["overall_status"])
+        self.assertIn("CLI scheduled: command=init session=42\npartial asynchronous result\n",
+                      result["transcript"])
+        self.assertEqual("OSError", result["serial_failure"]["type"])
+
+    def test_interrupted_receive_preserves_partial_bytes_and_reraises(self) -> None:
+        partial = "partial target output before Ctrl+C\n"
+        for failure_point in ("in_waiting", "read", "sleep"):
+            with self.subTest(failure_point=failure_point):
+                class InterruptedSerial(FakeSerialBase):
+                    def __init__(self, *args, **kwargs):
+                        super().__init__(*args, **kwargs)
+                        self.buffer = bytearray(partial.encode())
+
+                    @property
+                    def in_waiting(self) -> int:
+                        if not self.buffer:
+                            if failure_point == "in_waiting":
+                                raise KeyboardInterrupt("simulated Ctrl+C")
+                            return 1 if failure_point == "read" else 0
+                        return len(self.buffer)
+
+                    def read(self, length: int) -> bytes:
+                        if not self.buffer:
+                            raise KeyboardInterrupt("simulated Ctrl+C")
+                        return super().read(length)
+
+                def interrupted_sleep(duration: float) -> None:
+                    if duration > 0:
+                        raise KeyboardInterrupt("simulated Ctrl+C")
+
+                captured = []
+                with patch.object(runner.time, "sleep", side_effect=interrupted_sleep):
+                    with self.assertRaises(KeyboardInterrupt):
+                        runner.read_available(
+                            InterruptedSerial(), time.monotonic() + 1, 1, [r">\s*$"],
+                            on_error=captured.append,
+                        )
+                    self.install_serial(InterruptedSerial)
+                    result = runner.make_result(runner.parse_args([
+                        "--port", "FAKE", "--startup-delay-s", "0", "--skip-default-commands",
+                    ]))
+                self.assertEqual([partial], captured)
+                self.assertEqual("FAIL", result["overall_status"])
+                self.assertEqual("KeyboardInterrupt", result["serial_failure"]["type"])
+                self.assertTrue(result["hardware_attached"])
+                self.assertIn(partial, result["transcript"])
+
+    def test_async_response_capture_limit_covers_both_reads(self) -> None:
+        scheduled = b"CLI scheduled: command=init session=42\n"
+        terminal = (b"CLI result: command=init session=42 outcome=SUCCESS "
+                    b"code=0 detail=0 msg=OK\n> ")
+
+        class SplitSerial(FakeSerialBase):
+            release_at = None
+
+            @property
+            def in_waiting(self) -> int:
+                if (not self.buffer and self.release_at is not None and
+                        time.monotonic() >= self.release_at):
+                    self.buffer.extend(terminal)
+                    self.release_at = None
+                return len(self.buffer)
+
+            def write(self, payload: bytes) -> int:
+                self.buffer.extend(scheduled)
+                self.release_at = time.monotonic() + 0.03
+                return len(payload)
+
+        self.install_serial(SplitSerial)
+        with patch.object(runner, "MAX_RESPONSE_BYTES", len(terminal)):
+            results, transcript, _, _, _ = runner.run_serial_commands(runner.parse_args([
+                "--port", "FAKE", "--startup-delay-s", "0", "--idle-gap-s", "0.01",
+            ]), ["init"])
+        self.assertEqual("FAIL", results[0]["status"])
+        self.assertTrue(results[0]["timed_out"])
+        self.assertIn(runner.RESPONSE_LIMIT_MARKER, transcript)
+
+    def test_disconnect_before_received_bytes_does_not_claim_hardware_evidence(self) -> None:
+        class DisconnectSerial(FakeSerialBase):
+            @property
+            def in_waiting(self) -> int:
+                raise OSError("simulated disconnect before any received bytes")
+
+        self.install_serial(DisconnectSerial)
+        result = runner.make_result(runner.parse_args([
+            "--port", "FAKE", "--startup-delay-s", "0", "--skip-default-commands",
+        ]))
+        self.assertEqual("FAIL", result["overall_status"])
+        self.assertEqual("serial_failure", result["evidence_type"])
+        self.assertFalse(result["hardware_attached"])
+        self.assertEqual("", runner.transcript_payload(result["transcript"]))
+        self.assertIn("simulated disconnect before any received bytes", result["transcript"])
 
     def test_serial_context_exit_after_soak_keeps_complete_evidence_and_fails(self) -> None:
         commit = runner.git_value(["rev-parse", "--short", "HEAD"])

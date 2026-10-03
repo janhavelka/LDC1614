@@ -1,5 +1,15 @@
 # AGENTS.md - LDC1614 Production Embedded Guidelines
 
+## Work completion
+
+After each requested change or logical block, run the relevant checks, commit
+the related changes, and push the working branch to its upstream. Preserve
+unrelated work and never force-push to make a sync succeed. Check CI on the
+exact pushed commit and fix failures before reporting completion.
+
+Use plain engineering language in code comments, documentation, and commit
+messages. Keep software test results separate from hardware evidence.
+
 ## PlatformIO
 
 Before editing, fetch remotes and fast-forward the newest intended working

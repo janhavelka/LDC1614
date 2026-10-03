@@ -8,27 +8,27 @@ namespace LDC1614 {
 
 /// @brief Error codes returned by fallible public operations.
 enum class Err : uint8_t {
-  OK = 0,
-  NOT_BOUND,
-  INVALID_CONFIG,
-  INVALID_PARAM,
-  BUSY,
-  IN_PROGRESS,
-  RESULT_NOT_READY,
-  RESULT_QUEUE_FULL,
-  DUPLICATE_OPERATION_ID,
-  DEVICE_NOT_FOUND,
+  OK = 0,                ///< The requested action completed successfully.
+  NOT_BOUND,             ///< bind() must succeed before this action.
+  INVALID_CONFIG,        ///< Profile facts or a configuration requirement are invalid.
+  INVALID_PARAM,         ///< An argument is outside the API's allowed values.
+  BUSY,                  ///< Active work or the current state prevents this action.
+  IN_PROGRESS,           ///< Work was admitted and needs more poll() calls.
+  RESULT_NOT_READY,      ///< No terminal result is available to take.
+  RESULT_QUEUE_FULL,     ///< No terminal-result slot can be reserved for new work.
+  DUPLICATE_OPERATION_ID, ///< The ID belongs to active work or a queued result.
+  DEVICE_NOT_FOUND,       ///< A completed identity read returned an unexpected value.
   /// Reserved for v3.0 numeric/source compatibility; current readiness APIs
   /// return a successful false snapshot or a precise precondition/I2C status.
   CONVERSION_NOT_READY,
-  TIMEOUT,
-  CANCELLED,
-  CONFIG_DIRTY,
-  I2C_ERROR,
-  I2C_NACK_ADDR,
-  I2C_NACK_DATA,
-  I2C_TIMEOUT,
-  I2C_BUS,
+  TIMEOUT,       ///< The owner operation deadline expired before another transfer.
+  CANCELLED,     ///< The owner cancelled an admitted job.
+  CONFIG_DIRTY,  ///< Required identity or applied-configuration trust is missing.
+  I2C_ERROR,     ///< A transport attempt failed without a more precise classification.
+  I2C_NACK_ADDR,  ///< Backend-confirmed address NACK; no device data was accepted.
+  I2C_NACK_DATA,  ///< Backend-confirmed data NACK; a partial write remains possible.
+  I2C_TIMEOUT,   ///< One transport attempt timed out; not an operation-deadline verdict.
+  I2C_BUS,       ///< Backend-reported bus failure; recovery remains application policy.
 };
 
 /// @brief Status returned by all fallible operations.

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   raw-count storage, and ambiguous-NACK requirements.
 - HIL live mode matrix and sensor/no-sensor soaks for Arduino and native
   ESP-IDF, with strict per-channel/per-sample evidence validation.
+- Bounded manual HIL procedures with pass criteria for sensor mapping, INTB,
+  SD, power/restart, address/variant, cancellation, and shared-bus faults.
+- Standalone compilation of every packaged public header, packaged version
+  and ESP-IDF input checks, and time limits for package-consumer checks.
 
 ### Fixed
 
@@ -34,11 +38,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reject incomplete or contradictory HIL batch, chip identity, and firmware
   provenance evidence, and bound host receive/transcript memory with visible
   failure when exhausted.
+- Reject unexpected firmware restarts during every HIL command, retain partial
+  output after serial failures or interruption, and apply the receive limit to
+  the complete asynchronous response. Host exception text alone no longer
+  counts as evidence of attached hardware.
 - Use the mandated Windows PlatformIO wrapper in the clean-consumer checker;
   execute the packaged consumer and compile with strict warnings, exceptions
   and RTTI disabled.
 - Clarify typical versus guaranteed timing, normal versus high-current lookup
   values, PCB layout/test access, and the datasheet feature coverage.
+- Distinguish configuration replay from register readback, acquisition success
+  from measurement quality, and current branch changes from the published
+  release. Expand callback contracts, example build instructions, and HIL
+  setup and failure handling.
 
 - Corrected post-release documentation state: added the missing `[3.2.0]`
   changelog link definition, moved the `[Unreleased]` comparison base to
