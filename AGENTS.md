@@ -1,5 +1,7 @@
 # AGENTS.md - LDC1614 Production Embedded Guidelines
 
+Always synchronize Git with the intended upstream branch before starting work by fetching and fast-forwarding safely, preserving existing local changes and reporting any divergence, conflict, or synchronization failure.
+
 ## Work completion
 
 After each requested change or logical block, run the relevant checks, commit
