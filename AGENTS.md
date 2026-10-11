@@ -1,22 +1,28 @@
 # AGENTS.md - LDC1614 Production Embedded Guidelines
 
-Always synchronize Git with the intended upstream branch before starting work by fetching and fast-forwarding safely, preserving existing local changes and reporting any divergence, conflict, or synchronization failure.
+## Git workflow
+
+- Before editing, fetch and inspect the current branch and upstream; fast-forward
+  only when safe.
+- Keep the whole promptset on its existing branch. Do not create a branch or
+  worktree per prompt or agent unless the user asks.
+- Assume concurrent agents. Preserve unrelated changes; never stash, discard,
+  overwrite, or commit them. A dirty worktree alone is not a blocker.
+- After relevant checks pass, stage only your own files or hunks, then commit
+  and push each meaningful completed chunk, including multiple times within
+  one prompt and before finishing. No further permission is needed.
+- When using subagents, the lead owns Git mutations for their shared work.
+- Confirm upstream synchronization and check applicable CI for the pushed commit.
+  Report conflicts or sync failures; never force-push to resolve them.
 
 ## Work completion
 
-After each requested change or logical block, run the relevant checks, commit
-the related changes, and push the working branch to its upstream. Preserve
-unrelated work and never force-push to make a sync succeed. Check CI on the
-exact pushed commit and fix failures before reporting completion.
+Check CI on the exact pushed commit and fix failures before reporting completion.
 
 Use plain engineering language in code comments, documentation, and commit
 messages. Keep software test results separate from hardware evidence.
 
 ## PlatformIO
-
-Before editing, fetch remotes and fast-forward the newest intended working
-branch to its upstream. Stop and report dirty, divergent, or conflicted state;
-never overwrite work to force a sync.
 
 On Windows, use `.\scripts\pio.cmd <arguments>`; it selects the current user's
 VS Code-managed installation. Never install another PlatformIO Core; if the
