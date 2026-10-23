@@ -457,6 +457,8 @@ v3 is a deliberate breaking release.
   validation, commit, annotated-tag, and GitHub publication sequence.
 - [Documentation index](https://github.com/janhavelka/LDC1614/blob/main/docs/README.md): maintained guides, references, and
   archive boundaries.
+- [Retained branch review](https://github.com/janhavelka/LDC1614/blob/main/docs/RETAINED_BRANCH_AUDIT.md): historical audit/port
+  dispositions, remaining work, and retain/retire procedure.
 
 Clean firmware `e4d0436` passed the retained 187-command no-reset matrix and a
 one-hour ESP32-S2/LDC1614 no-sensor soak (2,926 cycles and 32,186 commands with

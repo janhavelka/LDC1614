@@ -17,6 +17,8 @@ cited hardware evidence and vendor references. Start with the repository
 - [Code audit resolution](https://github.com/janhavelka/LDC1614/blob/main/docs/CODE_AUDIT_RESOLUTION.md) - disposition of every
   F01-F34 audit candidate, the 2026-10-03 datasheet feature matrix, and the
   resulting implementation changes.
+- [Retained branch review](https://github.com/janhavelka/LDC1614/blob/main/docs/RETAINED_BRANCH_AUDIT.md) - historical audit/port
+  dispositions, remaining qualification work, and retain/retire procedure.
 - [Release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md) - maintainer preflight, commit, annotated
   tag, push, and GitHub release steps. This repository-only guide is excluded
   from the generic library package.
