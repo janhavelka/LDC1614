@@ -4,6 +4,7 @@ license: "MIT"
 maintainers:
   - "Jan Havelka (THYMOS Solution s.r.o.) <info@thymos.cz>"
 url: "https://github.com/janhavelka/LDC1614"
+repository: "https://github.com/janhavelka/LDC1614.git"
 dependencies:
   idf: ">=6.0.0"
 
