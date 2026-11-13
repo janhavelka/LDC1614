@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v3.2.0`, and restated the release/HIL prose so it describes `3.2.0` as
   published rather than pending publication.
 
+### Changed
+
+- Unified author, copyright and contact metadata: THYMOS Solution s.r.o., Jan Havelka, info@thymos.cz.
+
 ## [3.2.0] - 2026-09-09
 
 ### Fixed
