@@ -52,3 +52,12 @@ dist/
 # Auto-generated files
 # Version.h is generated from library.json but tracked because public headers
 # include it and source/package consumers need it in clean checkouts.
+
+# ESP-IDF build output that idf.py writes next to any example or project.
+# sdkconfig.defaults* and any committed sdkconfig.ci stay tracked.
+build*/
+managed_components/
+dependencies.lock
+sdkconfig
+sdkconfig.old
+sdkconfig.esp32*
