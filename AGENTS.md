@@ -227,3 +227,9 @@ condensed copy of it here.
 - Members: `_camelCase`
 - Methods/functions/locals/parameters/config fields: `camelCase`
 - Constants and enum values: `CAPS_CASE`
+
+## Commit and pull request attribution
+
+Credit human contributors for their work. Omit AI co-author trailers, AI-generated
+signatures or sign-offs, generated-by footers, session links, and other AI
+attribution from commit messages and pull request titles and descriptions.
