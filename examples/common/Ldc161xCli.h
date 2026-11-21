@@ -3,9 +3,9 @@
 #include <cstdarg>
 #include <cstdint>
 
-#include "LDC1614/LDC1614.h"
+#include "LDC161x/LDC161x.h"
 
-namespace ldc1614_cli {
+namespace ldc161x_cli {
 
 struct I2cBusInfo {
   bool open = false;
@@ -23,7 +23,7 @@ struct I2cTransferStats {
   uint32_t writeReads = 0;
   uint32_t discoveries = 0;
   uint32_t failures = 0;
-  LDC1614::Status lastStatus = LDC1614::Status::Ok();
+  LDC161x::Status lastStatus = LDC161x::Status::Ok();
 };
 
 /// Tells the platform loop whether one prompt is due after a command/service
@@ -169,20 +169,20 @@ enum class OperationOwner : uint8_t {
 class Cli {
  public:
   using VPrintfFn = void (*)(void* user, const char* fmt, va_list args);
-  using MakeConfigFn = LDC1614::Config (*)(void* user);
+  using MakeConfigFn = LDC161x::Config (*)(void* user);
   using NowMsFn = uint64_t (*)(void* user);
   using I2cBusInfoFn = I2cBusInfo (*)(void* user);
-  using I2cSetFrequencyFn = LDC1614::Status (*)(uint32_t frequencyHz,
+  using I2cSetFrequencyFn = LDC161x::Status (*)(uint32_t frequencyHz,
                                                 void* user);
-  using I2cReadRegisterFn = LDC1614::Status (*)(uint8_t address,
+  using I2cReadRegisterFn = LDC161x::Status (*)(uint8_t address,
                                                 uint8_t registerAddress,
                                                 uint16_t& value,
                                                 uint32_t timeoutMs,
                                                 void* user);
   using I2cTransferStatsFn = I2cTransferStats (*)(void* user);
-  using I2cRecoverFn = LDC1614::Status (*)(void* user);
-  using SdReadFn = LDC1614::Status (*)(bool& asserted, void* user);
-  using SdWriteFn = LDC1614::Status (*)(bool asserted, void* user);
+  using I2cRecoverFn = LDC161x::Status (*)(void* user);
+  using SdReadFn = LDC161x::Status (*)(bool& asserted, void* user);
+  using SdWriteFn = LDC161x::Status (*)(bool asserted, void* user);
 
   struct Platform {
     void* user = nullptr;
@@ -205,18 +205,18 @@ class Cli {
     uint32_t discoveryTimeoutMs = 50;
   };
 
-  Cli(LDC1614::LDC1614& device, Platform platform);
+  Cli(LDC161x::LDC161x& device, Platform platform);
   Cli(const Cli&) = delete;
   Cli& operator=(const Cli&) = delete;
   Cli(Cli&&) = delete;
   Cli& operator=(Cli&&) = delete;
 
-  LDC1614::Config makeDefaultConfig() const;
+  LDC161x::Config makeDefaultConfig() const;
   PromptAction processCommand(const char* commandLine);
   PromptAction service();
   bool asynchronousWorkActive() const;
   void printPrompt() const;
-  void printStatus(const LDC1614::Status& status) const;
+  void printStatus(const LDC161x::Status& status) const;
   void printHelp() const;
   void logError(const char* fmt, ...) const;
   void logInfo(const char* fmt, ...) const;
@@ -237,8 +237,8 @@ class Cli {
 
   struct PendingOperation {
     OperationOwner owner = OperationOwner::NONE;
-    LDC1614::OperationId id = 0;
-    LDC1614::JobKind kind = LDC1614::JobKind::NONE;
+    LDC161x::OperationId id = 0;
+    LDC161x::JobKind kind = LDC161x::JobKind::NONE;
     CommandId command = CommandId::UNKNOWN;
     uint64_t startedMs = 0;
   };
@@ -267,8 +267,8 @@ class Cli {
     uint32_t minimumLatencyMs = UINT32_MAX;
     uint32_t maximumLatencyMs = 0;
     bool hasFailure = false;
-    LDC1614::Status firstFailure = LDC1614::Status::Ok();
-    LDC1614::Status lastFailure = LDC1614::Status::Ok();
+    LDC161x::Status firstFailure = LDC161x::Status::Ok();
+    LDC161x::Status lastFailure = LDC161x::Status::Ok();
     ChannelStats channel[4]{};
   };
 
@@ -277,7 +277,7 @@ class Cli {
     SessionPhase phase = SessionPhase::NONE;
     CommandId command = CommandId::UNKNOWN;
     uint32_t id = 0;
-    LDC1614::ChannelMask channels{};
+    LDC161x::ChannelMask channels{};
     uint32_t count = 0;
     uint32_t index = 0;
     uint32_t periodMs = 0;
@@ -300,8 +300,8 @@ class Cli {
     uint32_t initialFrequencyHz = 0;
     uint32_t activeFrequencyHz = 0;
     uint32_t firstFailureIteration = UINT32_MAX;
-    LDC1614::Status restoreStatus = LDC1614::Status::Ok();
-    LDC1614::DeviceStatus lastReadyStatus{};
+    LDC161x::Status restoreStatus = LDC161x::Status::Ok();
+    LDC161x::DeviceStatus lastReadyStatus{};
     bool hasReadyStatus = false;
     SessionStats stats{};
   };
@@ -320,19 +320,19 @@ class Cli {
   PromptAction handleDecode(const ParsedLine& line);
   PromptAction handleSd(const ParsedLine& line);
 
-  LDC1614::Status scheduleCommandJob(CommandId command,
-                                     LDC1614::JobKind kind,
-                                     LDC1614::ChannelMask channels,
+  LDC161x::Status scheduleCommandJob(CommandId command,
+                                     LDC161x::JobKind kind,
+                                     LDC161x::ChannelMask channels,
                                      uint32_t deadlineMs);
-  LDC1614::Status scheduleSessionJob(LDC1614::JobKind kind);
-  LDC1614::Status scheduleSessionAcquire();
+  LDC161x::Status scheduleSessionJob(LDC161x::JobKind kind);
+  LDC161x::Status scheduleSessionAcquire();
   void drainResults();
-  void handleOperationResult(const LDC1614::OperationResult& result);
-  void handleSessionOperationResult(const LDC1614::OperationResult& result);
+  void handleOperationResult(const LDC161x::OperationResult& result);
+  void handleSessionOperationResult(const LDC161x::OperationResult& result);
 
-  LDC1614::Status startSession(SessionKind kind, CommandId command,
+  LDC161x::Status startSession(SessionKind kind, CommandId command,
                                uint32_t count = 0,
-                               LDC1614::ChannelMask channels = {},
+                               LDC161x::ChannelMask channels = {},
                                uint32_t periodMs = 0,
                                uint8_t channel = 0);
   void advanceSession(uint64_t nowMs);
@@ -347,49 +347,49 @@ class Cli {
   void advanceVerifySession(bool selfTest);
   void advanceSelfTestSession();
   void stopActiveWork();
-  void finishSession(const LDC1614::Status& status, const char* outcome);
+  void finishSession(const LDC161x::Status& status, const char* outcome);
   void printSessionSummary() const;
-  void recordSessionFailure(const LDC1614::Status& status);
-  void recordBatchStats(const LDC1614::SampleBatch& batch);
+  void recordSessionFailure(const LDC161x::Status& status);
+  void recordBatchStats(const LDC161x::SampleBatch& batch);
   void recordLatency(uint64_t startedMs, uint64_t completedMs);
   void selfTestPass(const char* name);
-  void selfTestFail(const char* name, const LDC1614::Status& status);
+  void selfTestFail(const char* name, const LDC161x::Status& status);
   void selfTestSkip(const char* name, const char* reason);
 
   void ensureStagedProfile();
   void resetStagedProfile();
   void discardStagedProfile();
   void markStagedChanged(const char* field);
-  void printConfig(const LDC1614::Config& config, const char* label) const;
+  void printConfig(const LDC161x::Config& config, const char* label) const;
   void printDriver() const;
   void printBus() const;
   void printDiagnostics() const;
   I2cTransferStats transferStatsSinceBaseline() const;
   void printState() const;
   void printProgress() const;
-  void printResult(const LDC1614::OperationResult& result) const;
-  void printBatch(const LDC1614::SampleBatch& batch) const;
-  void printDeviceStatus(const LDC1614::DeviceStatus& status,
+  void printResult(const LDC161x::OperationResult& result) const;
+  void printBatch(const LDC161x::SampleBatch& batch) const;
+  void printDeviceStatus(const LDC161x::DeviceStatus& status,
                          const char* label = "STATUS") const;
-  void printConfigFault(const LDC1614::ConfigFault& fault) const;
-  void printQuality(LDC1614::SampleQualityFlags quality) const;
+  void printConfigFault(const LDC161x::ConfigFault& fault) const;
+  void printQuality(LDC161x::SampleQualityFlags quality) const;
   void printRegisterValue(uint8_t registerAddress, uint16_t value,
                           const char* scope) const;
 
-  LDC1614::OperationId nextOperationId();
+  LDC161x::OperationId nextOperationId();
   uint32_t nextSessionId();
 
-  LDC1614::LDC1614& _device;
+  LDC161x::LDC161x& _device;
   Platform _platform;
-  LDC1614::OperationId _nextOperationId = 1;
+  LDC161x::OperationId _nextOperationId = 1;
   uint32_t _nextSessionId = 1;
   PendingOperation _pending{};
   DiagnosticSession _session{};
-  LDC1614::OperationResult _lastResult{};
-  LDC1614::SampleBatch _lastBatch{};
+  LDC161x::OperationResult _lastResult{};
+  LDC161x::SampleBatch _lastBatch{};
   bool _hasLastResult = false;
   bool _hasLastBatch = false;
-  LDC1614::Config _stagedConfig{};
+  LDC161x::Config _stagedConfig{};
   bool _stagedInitialized = false;
   bool _stagedDirty = false;
   bool _colorEnabled = true;
@@ -399,4 +399,4 @@ class Cli {
   I2cTransferStats _transferBaseline{};
 };
 
-}  // namespace ldc1614_cli
+}  // namespace ldc161x_cli

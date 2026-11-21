@@ -1,12 +1,12 @@
-/// @file LDC1614.cpp
+/// @file LDC161x.cpp
 /// @brief Cooperative LDC1612/LDC1614 driver implementation.
 
-#include "LDC1614/LDC1614.h"
+#include "LDC161x/LDC161x.h"
 
 #include <cmath>
 #include <cstdint>
 
-namespace LDC1614 {
+namespace LDC161x {
 
 namespace {
 
@@ -304,7 +304,7 @@ ConfigWrite configWriteAt(const Config& config, uint8_t channelCount,
       static_cast<uint8_t>(perChannelStep - perChannelCount);
   if (globalStep == 0U) {
     write.reg = cmd::REG_ERROR_CONFIG;
-    write.value = LDC1614::encodeErrorReporting(config.errorReporting);
+    write.value = LDC161x::encodeErrorReporting(config.errorReporting);
     write.phase = JobPhase::WRITE_ERROR_CONFIG;
   } else {
     write.reg = cmd::REG_MUX_CONFIG;
@@ -367,7 +367,7 @@ TerminalOutcome outcomeForFailure(const Status& status) {
 
 }  // namespace
 
-Status LDC1614::bind(const Config& config) {
+Status LDC161x::bind(const Config& config) {
   if (_bound) {
     return Status::Error(Err::BUSY, "Driver already bound; call end first");
   }
@@ -391,7 +391,7 @@ Status LDC1614::bind(const Config& config) {
   return Status::Ok();
 }
 
-void LDC1614::end() {
+void LDC161x::end() {
   _bound = false;
   _config = Config{};
   _appliedState = AppliedConfigState::UNKNOWN;
@@ -406,7 +406,7 @@ void LDC1614::end() {
   }
 }
 
-Status LDC1614::updateDesiredConfig(const Config& config) {
+Status LDC161x::updateDesiredConfig(const Config& config) {
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
   }
@@ -442,7 +442,7 @@ Status LDC1614::updateDesiredConfig(const Config& config) {
   return Status::Ok();
 }
 
-Status LDC1614::startInitialize(OperationId operationId,
+Status LDC161x::startInitialize(OperationId operationId,
                                 uint64_t deadlineMs) {
   return _startJob(JobKind::INITIALIZE, ChannelMask{}, operationId, deadlineMs,
                    static_cast<uint8_t>(2U +
@@ -450,7 +450,7 @@ Status LDC1614::startInitialize(OperationId operationId,
                                             _configuredChannelCount())));
 }
 
-Status LDC1614::startApplyConfig(OperationId operationId,
+Status LDC161x::startApplyConfig(OperationId operationId,
                                  uint64_t deadlineMs) {
   if (_bound && _appliedState == AppliedConfigState::UNKNOWN) {
     return Status::Error(Err::CONFIG_DIRTY,
@@ -461,7 +461,7 @@ Status LDC1614::startApplyConfig(OperationId operationId,
                    configurationTransferCount(_configuredChannelCount()));
 }
 
-Status LDC1614::startResetAndReapply(OperationId operationId,
+Status LDC161x::startResetAndReapply(OperationId operationId,
                                      uint64_t deadlineMs) {
   return _startJob(JobKind::RESET_AND_REAPPLY, ChannelMask{}, operationId,
                    deadlineMs,
@@ -470,7 +470,7 @@ Status LDC1614::startResetAndReapply(OperationId operationId,
                                             _configuredChannelCount())));
 }
 
-Status LDC1614::startAcquire(ChannelMask channels, OperationId operationId,
+Status LDC161x::startAcquire(ChannelMask channels, OperationId operationId,
                              uint64_t deadlineMs) {
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
@@ -490,7 +490,7 @@ Status LDC1614::startAcquire(ChannelMask channels, OperationId operationId,
                    maximum);
 }
 
-Status LDC1614::_startJob(JobKind kind, ChannelMask channels,
+Status LDC161x::_startJob(JobKind kind, ChannelMask channels,
                           OperationId operationId, uint64_t deadlineMs,
                           uint8_t maximumTransfers) {
   if (!_bound) {
@@ -544,7 +544,7 @@ Status LDC1614::_startJob(JobKind kind, ChannelMask channels,
   return Status::Error(Err::IN_PROGRESS, "Operation scheduled");
 }
 
-Status LDC1614::poll(uint64_t nowMs, uint8_t maxTransfers) {
+Status LDC161x::poll(uint64_t nowMs, uint8_t maxTransfers) {
   if (!_progress.active) {
     return Status::Ok();
   }
@@ -594,7 +594,7 @@ Status LDC1614::poll(uint64_t nowMs, uint8_t maxTransfers) {
              : Status::Ok();
 }
 
-Status LDC1614::cancelJob() {
+Status LDC161x::cancelJob() {
   if (!_progress.active) {
     return Status::Ok();
   }
@@ -612,7 +612,7 @@ Status LDC1614::cancelJob() {
   return Status::Ok();
 }
 
-Status LDC1614::takeResult(OperationResult& out) {
+Status LDC161x::takeResult(OperationResult& out) {
   out = OperationResult{};
   if (_resultCount == 0U) {
     return Status::Error(Err::RESULT_NOT_READY, "No terminal result available");
@@ -624,7 +624,7 @@ Status LDC1614::takeResult(OperationResult& out) {
   return Status::Ok();
 }
 
-void LDC1614::invalidateAppliedState(const Status& reason) {
+void LDC161x::invalidateAppliedState(const Status& reason) {
   if (_progress.active) {
     (void)cancelJob();
   }
@@ -637,7 +637,7 @@ void LDC1614::invalidateAppliedState(const Status& reason) {
                   : reason;
 }
 
-Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
+Status LDC161x::_pollInitializeOrApply(uint64_t nowMs,
                                        uint8_t& remainingTransfers,
                                        uint32_t transferTimeoutMs,
                                        bool resetFirst) {
@@ -783,7 +783,7 @@ Status LDC1614::_pollInitializeOrApply(uint64_t nowMs,
   return Status::Error(Err::IN_PROGRESS, "Operation in progress");
 }
 
-Status LDC1614::_pollAcquire(uint64_t nowMs,
+Status LDC161x::_pollAcquire(uint64_t nowMs,
                              uint8_t& remainingTransfers,
                              uint32_t transferTimeoutMs) {
   while (_progress.active && remainingTransfers > 0U) {
@@ -871,7 +871,7 @@ Status LDC1614::_pollAcquire(uint64_t nowMs,
   return Status::Error(Err::IN_PROGRESS, "Operation in progress");
 }
 
-Status LDC1614::_finishJob(TerminalOutcome outcome, const Status& status,
+Status LDC161x::_finishJob(TerminalOutcome outcome, const Status& status,
                            uint64_t completedUptimeMs) {
   const JobKind kind = _progress.kind;
   OperationResult result{};
@@ -900,7 +900,7 @@ Status LDC1614::_finishJob(TerminalOutcome outcome, const Status& status,
   return outcome == TerminalOutcome::SUCCESS ? Status::Ok() : status;
 }
 
-SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
+SampleBatch LDC161x::_buildAcquisition(uint64_t completedUptimeMs) const {
   SampleBatch batch{};
   batch.selectedChannels = _progress.requestedChannels;
   batch.statusBefore = _scratchStatusBefore;
@@ -983,7 +983,7 @@ SampleBatch LDC1614::_buildAcquisition(uint64_t completedUptimeMs) const {
   return batch;
 }
 
-void LDC1614::_clearActiveJob() {
+void LDC161x::_clearActiveJob() {
   _progress = JobProgress{};
   _jobStep = 0;
   _jobChannel = Channel::NONE;
@@ -999,7 +999,7 @@ void LDC1614::_clearActiveJob() {
   }
 }
 
-bool LDC1614::_operationIdInUse(OperationId operationId) const {
+bool LDC161x::_operationIdInUse(OperationId operationId) const {
   if (_progress.active && _progress.operationId == operationId) {
     return true;
   }
@@ -1013,15 +1013,15 @@ bool LDC1614::_operationIdInUse(OperationId operationId) const {
   return false;
 }
 
-bool LDC1614::_reserveResultSlot() const {
+bool LDC161x::_reserveResultSlot() const {
   return _resultCount < RESULT_CAPACITY;
 }
 
-uint8_t LDC1614::_configuredChannelCount() const {
+uint8_t LDC161x::_configuredChannelCount() const {
   return channelCountFor(_config.variant);
 }
 
-Status LDC1614::_readRegister(uint8_t reg, uint16_t& value,
+Status LDC161x::_readRegister(uint8_t reg, uint16_t& value,
                               uint32_t timeoutMs) {
   value = 0;
   uint8_t rx[2] = {0, 0};
@@ -1036,7 +1036,7 @@ Status LDC1614::_readRegister(uint8_t reg, uint16_t& value,
   return status;
 }
 
-Status LDC1614::_writeRegister(uint8_t reg, uint16_t value,
+Status LDC161x::_writeRegister(uint8_t reg, uint16_t value,
                                uint32_t timeoutMs) {
   const uint8_t tx[3] = {
       reg, static_cast<uint8_t>((value >> 8U) & 0xFFU),
@@ -1046,7 +1046,7 @@ Status LDC1614::_writeRegister(uint8_t reg, uint16_t value,
                                    _config.i2cUser));
 }
 
-Status LDC1614::_tracked(const Status& status) {
+Status LDC161x::_tracked(const Status& status) {
   if (_transportStats.totalAttempts < UINT32_MAX) {
     ++_transportStats.totalAttempts;
   }
@@ -1061,7 +1061,7 @@ Status LDC1614::_tracked(const Status& status) {
   return status;
 }
 
-void LDC1614::_recordConfigFault(const Status& cause, JobPhase phase,
+void LDC161x::_recordConfigFault(const Status& cause, JobPhase phase,
                                  uint8_t reg, Channel channel,
                                  EffectFlags effects) {
   _configFault.valid = true;
@@ -1073,7 +1073,7 @@ void LDC1614::_recordConfigFault(const Status& cause, JobPhase phase,
   _configFault.effects = effects;
 }
 
-Status LDC1614::readDeviceStatus(DeviceStatus& out) {
+Status LDC161x::readDeviceStatus(DeviceStatus& out) {
   out = DeviceStatus{};
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
@@ -1089,7 +1089,7 @@ Status LDC1614::readDeviceStatus(DeviceStatus& out) {
   return status;
 }
 
-Status LDC1614::readDataReady(bool& ready, DeviceStatus& observedStatus) {
+Status LDC161x::readDataReady(bool& ready, DeviceStatus& observedStatus) {
   ready = false;
   observedStatus = DeviceStatus{};
   if (!_bound) {
@@ -1123,7 +1123,7 @@ Status LDC1614::readDataReady(bool& ready, DeviceStatus& observedStatus) {
   return result;
 }
 
-Status LDC1614::sleep() {
+Status LDC161x::sleep() {
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
   }
@@ -1153,7 +1153,7 @@ Status LDC1614::sleep() {
   return Status::Ok();
 }
 
-Status LDC1614::wake() {
+Status LDC161x::wake() {
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
   }
@@ -1183,7 +1183,7 @@ Status LDC1614::wake() {
   return Status::Ok();
 }
 
-Status LDC1614::readInitDriveCurrent(Channel channel, uint8_t& code) {
+Status LDC161x::readInitDriveCurrent(Channel channel, uint8_t& code) {
   code = 0;
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
@@ -1202,7 +1202,7 @@ Status LDC1614::readInitDriveCurrent(Channel channel, uint8_t& code) {
   return status;
 }
 
-Status LDC1614::readRegister16(uint8_t reg, uint16_t& value) {
+Status LDC161x::readRegister16(uint8_t reg, uint16_t& value) {
   value = 0;
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
@@ -1221,7 +1221,7 @@ Status LDC1614::readRegister16(uint8_t reg, uint16_t& value) {
   return _readRegister(reg, value, _config.i2cTimeoutMs);
 }
 
-Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
+Status LDC161x::writeRegister16(uint8_t reg, uint16_t value) {
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
   }
@@ -1263,7 +1263,7 @@ Status LDC1614::writeRegister16(uint8_t reg, uint16_t value) {
   return status;
 }
 
-Status LDC1614::readIntb(bool& asserted) const {
+Status LDC161x::readIntb(bool& asserted) const {
   asserted = false;
   if (!_bound) {
     return Status::Error(Err::NOT_BOUND, "Driver not bound");
@@ -1274,7 +1274,7 @@ Status LDC1614::readIntb(bool& asserted) const {
   return _config.intbAsserted(asserted, _config.intbUser);
 }
 
-Status LDC1614::expectedConfigurationRegister(
+Status LDC161x::expectedConfigurationRegister(
     const Config& config, uint8_t reg, uint16_t& expectedValue,
     uint16_t& comparisonMask) {
   expectedValue = 0U;
@@ -1299,7 +1299,7 @@ Status LDC1614::expectedConfigurationRegister(
       "Register is not part of selected configuration profile", reg);
 }
 
-Status LDC1614::validateConfig(const Config& config) {
+Status LDC161x::validateConfig(const Config& config) {
   if (config.i2cWrite == nullptr || config.i2cWriteRead == nullptr) {
     return Status::Error(Err::INVALID_CONFIG, "I2C callbacks required");
   }
@@ -1466,7 +1466,7 @@ Status LDC1614::validateConfig(const Config& config) {
   return Status::Ok();
 }
 
-uint16_t LDC1614::encodeErrorReporting(
+uint16_t LDC161x::encodeErrorReporting(
     const ErrorReporting& reporting) {
   uint16_t value = 0;
   if (reporting.dataUnderRange) value |= cmd::MASK_ERRCFG_UR_ERR2OUT;
@@ -1484,7 +1484,7 @@ uint16_t LDC1614::encodeErrorReporting(
   return value;
 }
 
-Status LDC1614::nominalDriveCurrentMicroamps(DriveCurrentCode code,
+Status LDC161x::nominalDriveCurrentMicroamps(DriveCurrentCode code,
                                              uint16_t& microamps) {
   static constexpr uint16_t NOMINAL_MICROAMPS[32] = {
       16, 18, 20, 23, 28, 32, 40, 46, 52, 59, 72, 82, 95, 110, 127, 146,
@@ -1498,7 +1498,7 @@ Status LDC1614::nominalDriveCurrentMicroamps(DriveCurrentCode code,
   return Status::Ok();
 }
 
-DeviceStatus LDC1614::decodeDeviceStatus(uint16_t raw) {
+DeviceStatus LDC161x::decodeDeviceStatus(uint16_t raw) {
   DeviceStatus status{};
   status.observed = true;
   status.raw = raw;
@@ -1528,7 +1528,7 @@ DeviceStatus LDC1614::decodeDeviceStatus(uint16_t raw) {
   return status;
 }
 
-ChannelSample LDC1614::decodeChannelSample(uint16_t msb,
+ChannelSample LDC161x::decodeChannelSample(uint16_t msb,
                                            uint16_t lsb) {
   ChannelSample sample{};
   sample.rawDataMsb = msb;
@@ -1554,7 +1554,7 @@ ChannelSample LDC1614::decodeChannelSample(uint16_t msb,
   return sample;
 }
 
-Status LDC1614::calculateSensorFrequencyHz(const Config& config,
+Status LDC161x::calculateSensorFrequencyHz(const Config& config,
                                            Channel channel,
                                            uint32_t rawCount28,
                                            double& frequencyHz) {
@@ -1586,7 +1586,7 @@ Status LDC1614::calculateSensorFrequencyHz(const Config& config,
   return Status::Ok();
 }
 
-Status LDC1614::estimateFrameTiming(const Config& config,
+Status LDC161x::estimateFrameTiming(const Config& config,
                                     ChannelMask channels,
                                     FrameTiming& timing) {
   timing = FrameTiming{};
@@ -1650,4 +1650,4 @@ Status LDC1614::estimateFrameTiming(const Config& config,
   return Status::Ok();
 }
 
-}  // namespace LDC1614
+}  // namespace LDC161x

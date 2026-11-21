@@ -1,4 +1,4 @@
-# AGENTS.md - LDC1614 Production Embedded Guidelines
+# AGENTS.md - LDC161x Production Embedded Guidelines
 
 ## CI and local verification
 
@@ -58,11 +58,11 @@ You are a professional embedded software engineer building a production-oriented
 ## Repository Model (Single Library)
 
 ```
-include/LDC1614/         - Public API headers only (Doxygen)
+include/LDC161x/         - Public API headers only (Doxygen)
   CommandTable.h         - Register addresses and bit masks
   Status.h
   Config.h
-  LDC1614.h
+  LDC161x.h
   Version.h              - Auto-generated (do not edit)
 src/                     - Implementation (.cpp)
 examples/
@@ -91,7 +91,7 @@ AGENTS.md
 - `examples/esp32/` is also example-only application glue. It owns native
   ESP-IDF bus/device handles for the maintained ESP32 diagnostics.
 - No board-specific pins or bus objects in library code; inject non-owning callbacks through `Config`.
-- Public headers live only in `include/LDC1614/`.
+- Public headers live only in `include/LDC161x/`.
 - Keep the layout boring and predictable.
 
 Framework boundaries:
@@ -198,7 +198,7 @@ struct Status {
 
 ## Versioning and Releases
 
-`library.json` is the version source of truth. `include/LDC1614/Version.h` is
+`library.json` is the version source of truth. `include/LDC161x/Version.h` is
 generated and must not be edited; `python scripts/generate_version.py sync`
 regenerates it and re-stamps the same version into `idf_component.yml` and
 `Doxyfile`. CI and the ESP-IDF component build both fail on

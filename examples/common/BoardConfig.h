@@ -30,29 +30,29 @@ static constexpr int I2C_SDA = 8;
 /// @brief I2C SCL pin (clock line). Example default for ESP32-S2/S3.
 static constexpr int I2C_SCL = 9;
 
-#ifndef LDC1614_EXAMPLE_I2C_FREQUENCY_HZ
-#define LDC1614_EXAMPLE_I2C_FREQUENCY_HZ 400000
+#ifndef LDC161X_EXAMPLE_I2C_FREQUENCY_HZ
+#define LDC161X_EXAMPLE_I2C_FREQUENCY_HZ 400000
 #endif
 
 /// @brief Example I2C clock frequency in Hz. Override for HIL A/B tests.
-static constexpr uint32_t I2C_FREQ_HZ = LDC1614_EXAMPLE_I2C_FREQUENCY_HZ;
+static constexpr uint32_t I2C_FREQ_HZ = LDC161X_EXAMPLE_I2C_FREQUENCY_HZ;
 
 /// @brief I2C timeout in milliseconds for example transactions.
 static constexpr uint16_t I2C_TIMEOUT_MS = 50;
 
-#ifndef LDC1614_EXAMPLE_I2C_ADDRESS
-#define LDC1614_EXAMPLE_I2C_ADDRESS 0x2A
+#ifndef LDC161X_EXAMPLE_I2C_ADDRESS
+#define LDC161X_EXAMPLE_I2C_ADDRESS 0x2A
 #endif
 
-#ifndef LDC1614_EXAMPLE_CHANNEL_COUNT
-#define LDC1614_EXAMPLE_CHANNEL_COUNT 4
+#ifndef LDC161X_EXAMPLE_CHANNEL_COUNT
+#define LDC161X_EXAMPLE_CHANNEL_COUNT 4
 #endif
 
 /// @brief Example default LDC I2C address. Override with build flags for HIL.
-static constexpr uint8_t LDC_I2C_ADDRESS = LDC1614_EXAMPLE_I2C_ADDRESS;
+static constexpr uint8_t LDC_I2C_ADDRESS = LDC161X_EXAMPLE_I2C_ADDRESS;
 
 /// @brief Example default LDC channel count. Override with build flags for LDC1612.
-static constexpr uint8_t LDC_CHANNEL_COUNT = LDC1614_EXAMPLE_CHANNEL_COUNT;
+static constexpr uint8_t LDC_CHANNEL_COUNT = LDC161X_EXAMPLE_CHANNEL_COUNT;
 
 static_assert(LDC_I2C_ADDRESS == 0x2A || LDC_I2C_ADDRESS == 0x2B,
               "LDC example address must be 0x2A or 0x2B");

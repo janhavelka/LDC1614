@@ -7,11 +7,11 @@
 #include <limits>
 #include <type_traits>
 
-#include "LDC1614/LDC1614.h"
-#include "support/FakeLdc1614Device.h"
+#include "LDC161x/LDC161x.h"
+#include "support/FakeLdc161xDevice.h"
 
-using namespace LDC1614;
-using ldc1614_test::FakeLdc1614Device;
+using namespace LDC161x;
+using ldc161x_test::FakeLdc161xDevice;
 
 namespace {
 
@@ -88,12 +88,12 @@ void assertCorrelated(const OwnerSlot& slot,
   TEST_ASSERT_FALSE(result.finalProgress.active);
 }
 
-Config makeConfig(FakeLdc1614Device& fake,
+Config makeConfig(FakeLdc161xDevice& fake,
                   DeviceVariant variant = DeviceVariant::LDC1612,
                   bool multiChannel = false) {
   Config config;
-  config.i2cWrite = FakeLdc1614Device::write;
-  config.i2cWriteRead = FakeLdc1614Device::writeRead;
+  config.i2cWrite = FakeLdc161xDevice::write;
+  config.i2cWriteRead = FakeLdc161xDevice::writeRead;
   config.i2cUser = &fake;
   config.i2cTimeoutMs = 5;
   config.i2cAddress = I2cAddress::ADDR_GND;
@@ -250,7 +250,7 @@ void assertFaultStage(const ExpectedStage& expected,
                           static_cast<uint8_t>(actual.channel));
 }
 
-Status pollToTerminal(LDC1614::LDC1614& driver, uint64_t nowMs = NOW_MS,
+Status pollToTerminal(LDC161x::LDC161x& driver, uint64_t nowMs = NOW_MS,
                       uint8_t budget = 255) {
   Status status = Status::Error(Err::IN_PROGRESS, "not polled");
   for (uint8_t call = 0; call < 64U; ++call) {
@@ -264,8 +264,8 @@ Status pollToTerminal(LDC1614::LDC1614& driver, uint64_t nowMs = NOW_MS,
   return status;
 }
 
-Status pollOneToTerminal(LDC1614::LDC1614& driver,
-                         FakeLdc1614Device& fake, uint64_t& nowMs,
+Status pollOneToTerminal(LDC161x::LDC161x& driver,
+                         FakeLdc161xDevice& fake, uint64_t& nowMs,
                          uint64_t expectedDeadlineMs) {
   Status status = Status::Error(Err::IN_PROGRESS, "not polled");
   for (uint8_t call = 0; call < 64U; ++call) {
@@ -287,14 +287,14 @@ Status pollOneToTerminal(LDC1614::LDC1614& driver,
   return status;
 }
 
-OperationResult takeResult(LDC1614::LDC1614& driver) {
+OperationResult takeResult(LDC161x::LDC161x& driver) {
   OperationResult result;
   TEST_ASSERT_TRUE(driver.resultAvailable());
   TEST_ASSERT_TRUE(driver.takeResult(result).ok());
   return result;
 }
 
-void initialize(LDC1614::LDC1614& driver, FakeLdc1614Device& fake,
+void initialize(LDC161x::LDC161x& driver, FakeLdc161xDevice& fake,
                 const Config& config, OperationId operationId = 1) {
   TEST_ASSERT_TRUE(driver.bind(config).ok());
   TEST_ASSERT_TRUE(driver.startInitialize(operationId, DEADLINE_MS).inProgress());
@@ -308,7 +308,7 @@ void initialize(LDC1614::LDC1614& driver, FakeLdc1614Device& fake,
   (void)fake;
 }
 
-void initializeAndWake(LDC1614::LDC1614& driver, FakeLdc1614Device& fake,
+void initializeAndWake(LDC161x::LDC161x& driver, FakeLdc161xDevice& fake,
                        const Config& config, OperationId operationId = 1) {
   initialize(driver, fake, config, operationId);
   TEST_ASSERT_TRUE(driver.wake().ok());
@@ -316,23 +316,23 @@ void initializeAndWake(LDC1614::LDC1614& driver, FakeLdc1614Device& fake,
                           static_cast<uint8_t>(driver.appliedConfigState()));
 }
 
-uint16_t directRead(FakeLdc1614Device& fake, uint8_t reg) {
+uint16_t directRead(FakeLdc161xDevice& fake, uint8_t reg) {
   uint8_t rx[2] = {};
-  TEST_ASSERT_TRUE(FakeLdc1614Device::writeRead(
+  TEST_ASSERT_TRUE(FakeLdc161xDevice::writeRead(
       fake.acceptedAddress, &reg, 1, rx, sizeof(rx), 5, &fake).ok());
   return static_cast<uint16_t>((static_cast<uint16_t>(rx[0]) << 8U) | rx[1]);
 }
 
 void test_status_and_public_type_contracts() {
   static_assert(sizeof(OperationId) == sizeof(uint64_t), "operation IDs are fixed width");
-  static_assert(LDC1614::LDC1614::RESULT_CAPACITY == 2, "terminal capacity is contractual");
-  static_assert(!std::is_copy_constructible<LDC1614::LDC1614>::value,
+  static_assert(LDC161x::LDC161x::RESULT_CAPACITY == 2, "terminal capacity is contractual");
+  static_assert(!std::is_copy_constructible<LDC161x::LDC161x>::value,
                 "driver must not copy non-owning transport state");
-  static_assert(!std::is_copy_assignable<LDC1614::LDC1614>::value,
+  static_assert(!std::is_copy_assignable<LDC161x::LDC161x>::value,
                 "driver must not copy non-owning transport state");
-  static_assert(!std::is_move_constructible<LDC1614::LDC1614>::value,
+  static_assert(!std::is_move_constructible<LDC161x::LDC161x>::value,
                 "driver address and state must remain stable");
-  static_assert(!std::is_move_assignable<LDC1614::LDC1614>::value,
+  static_assert(!std::is_move_assignable<LDC161x::LDC161x>::value,
                 "driver address and state must remain stable");
   static_assert(std::is_trivially_copyable<Config>::value, "Config stays value-like");
   static_assert(std::is_trivially_copyable<JobProgress>::value,
@@ -342,7 +342,7 @@ void test_status_and_public_type_contracts() {
   static_assert(std::is_standard_layout<SampleBatch>::value,
                 "batch stays a portable aggregate");
   static_assert(sizeof(OperationResult) <= 384U, "terminal result size is bounded");
-  static_assert(sizeof(LDC1614::LDC1614) <= 1024U, "driver instance size is bounded");
+  static_assert(sizeof(LDC161x::LDC161x) <= 1024U, "driver instance size is bounded");
 
   TEST_ASSERT_TRUE(Status::Ok().ok());
   TEST_ASSERT_TRUE(Status::Error(Err::IN_PROGRESS, "working").inProgress());
@@ -355,7 +355,7 @@ void test_status_and_public_type_contracts() {
 }
 
 void test_behavioral_fake_models_shadow_status_unread_and_intb() {
-  FakeLdc1614Device fake;
+  FakeLdc161xDevice fake;
   fake.reg[cmd::REG_ERROR_CONFIG] = ErrorReporting::all().dataReady
                                              ? cmd::MASK_ERRCFG_DRDY_2INT |
                                                    cmd::MASK_ERRCFG_OR_ERR2INT
@@ -384,11 +384,11 @@ void test_behavioral_fake_models_shadow_status_unread_and_intb() {
 }
 
 void test_readiness_latches_scan_completion_and_status_keeps_first_error() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
   config.intbDisabled = false;
-  config.intbAsserted = FakeLdc1614Device::readIntb;
+  config.intbAsserted = FakeLdc161xDevice::readIntb;
   config.intbUser = &fake;
   initializeAndWake(driver, fake, config);
   fake.clearIo();
@@ -446,8 +446,8 @@ void test_readiness_latches_scan_completion_and_status_keeps_first_error() {
 
 void test_status_observers_consume_acquisition_freshness_but_not_data() {
   for (uint8_t observer = 0U; observer < 3U; ++observer) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     const Config config = makeConfig(fake);
     initializeAndWake(driver, fake, config);
     fake.injectConversion(0U, 0x00123456U);
@@ -461,7 +461,7 @@ void test_status_observers_consume_acquisition_freshness_but_not_data() {
     } else {
       uint16_t raw = 0U;
       TEST_ASSERT_TRUE(driver.readRegister16(cmd::REG_STATUS, raw).ok());
-      snapshot = LDC1614::LDC1614::decodeDeviceStatus(raw);
+      snapshot = LDC161x::LDC161x::decodeDeviceStatus(raw);
     }
     TEST_ASSERT_EQUAL_HEX8(1U, snapshot.unreadChannels.bits);
     TEST_ASSERT_TRUE(driver.startAcquire(config.channels, 112U,
@@ -488,29 +488,29 @@ void test_status_observers_consume_acquisition_freshness_but_not_data() {
 }
 
 void test_public_config_validation_is_pure_and_matches_bind_contract() {
-  FakeLdc1614Device fake;
+  FakeLdc161xDevice fake;
   Config ldc1612 = makeConfig(fake, DeviceVariant::LDC1612);
   ldc1612.intbDisabled = false;
-  ldc1612.intbAsserted = FakeLdc1614Device::readIntb;
+  ldc1612.intbAsserted = FakeLdc161xDevice::readIntb;
   ldc1612.intbUser = &fake;
   Config ldc1614 = makeConfig(fake, DeviceVariant::LDC1614, true);
   ldc1614.intbDisabled = false;
-  ldc1614.intbAsserted = FakeLdc1614Device::readIntb;
+  ldc1614.intbAsserted = FakeLdc161xDevice::readIntb;
   ldc1614.intbUser = &fake;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(ldc1612).ok());
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(ldc1614).ok());
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(ldc1612).ok());
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(ldc1614).ok());
   TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
   TEST_ASSERT_EQUAL_UINT16(0U, fake.intbCalls);
 
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::validateConfig(Config{}));
+             LDC161x::LDC161x::validateConfig(Config{}));
   TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
   TEST_ASSERT_EQUAL_UINT16(0U, fake.intbCalls);
 
   Config indexedFailure = ldc1612;
   indexedFailure.channel[1].finDivider = 0U;
   const Status indexed =
-      LDC1614::LDC1614::validateConfig(indexedFailure);
+      LDC161x::LDC161x::validateConfig(indexedFailure);
   assertCode(Err::INVALID_CONFIG, indexed);
   TEST_ASSERT_EQUAL_INT32(1, indexed.detail);
   TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
@@ -518,8 +518,8 @@ void test_public_config_validation_is_pure_and_matches_bind_contract() {
 }
 
 void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config valid = makeConfig(fake);
   TEST_ASSERT_TRUE(driver.bind(valid).ok());
   TEST_ASSERT_EQUAL_UINT16(0, fake.transferCalls);
@@ -570,14 +570,14 @@ void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
 
   for (uint8_t index = 0; index < 24U; ++index) {
     const Status publicValidation =
-        LDC1614::LDC1614::validateConfig(cases[index]);
+        LDC161x::LDC161x::validateConfig(cases[index]);
     TEST_ASSERT_EQUAL_UINT8_MESSAGE(
         static_cast<uint8_t>(Err::INVALID_CONFIG),
         static_cast<uint8_t>(publicValidation.code),
         "public invalid config case index");
     TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, fake.transferCalls,
                                      "public validation touched I2C");
-    LDC1614::LDC1614 invalidDriver;
+    LDC161x::LDC161x invalidDriver;
     const Status invalidStatus = invalidDriver.bind(cases[index]);
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(publicValidation.code),
                             static_cast<uint8_t>(invalidStatus.code));
@@ -594,7 +594,7 @@ void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
   toleranceLimit.referenceClock.frequencyHz = 35000000U;
   toleranceLimit.referenceClock.tolerancePpm = 1U;
   toleranceLimit.channel[0].frefDivider = 1;
-  LDC1614::LDC1614 toleranceLimitDriver;
+  LDC161x::LDC161x toleranceLimitDriver;
   assertCode(Err::INVALID_CONFIG, toleranceLimitDriver.bind(toleranceLimit));
 
   Config internalRatio = valid;
@@ -604,14 +604,14 @@ void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
   internalRatio.channel[0].expectedSensorMinHz = 8900000U;
   internalRatio.channel[0].expectedSensorMaxHz = 9000000U;
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::validateConfig(internalRatio));
+             LDC161x::LDC161x::validateConfig(internalRatio));
 
   Config internalReferenceLimit = valid;
   internalReferenceLimit.referenceClock =
       {RefClkSrc::INTERNAL, 35000000U, 0U};
   internalReferenceLimit.channel[0].frefDivider = 1U;
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::validateConfig(internalReferenceLimit));
+             LDC161x::LDC161x::validateConfig(internalReferenceLimit));
 
   Config internalOffset = valid;
   internalOffset.referenceClock = {RefClkSrc::INTERNAL, 35000000U, 0U};
@@ -622,17 +622,17 @@ void test_bind_is_zero_i2c_and_validates_complete_explicit_profile() {
   internalOffset.channel[0].expectedSensorMaxHz = 1000000U;
   internalOffset.deglitch = Deglitch::BW_10MHZ;
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::validateConfig(internalOffset));
+             LDC161x::LDC161x::validateConfig(internalOffset));
 
   Config worstCaseRatio = valid;
   worstCaseRatio.deglitch = Deglitch::BW_10MHZ;
   worstCaseRatio.channel[0].expectedSensorMaxHz = 4375000U;
-  LDC1614::LDC1614 worstCaseRatioDriver;
+  LDC161x::LDC161x worstCaseRatioDriver;
   assertCode(Err::INVALID_CONFIG, worstCaseRatioDriver.bind(worstCaseRatio));
 
   Config deglitchEquality = valid;
   deglitchEquality.channel[0].expectedSensorMaxHz = 1000000U;
-  LDC1614::LDC1614 deglitchEqualityDriver;
+  LDC161x::LDC161x deglitchEqualityDriver;
   assertCode(Err::INVALID_CONFIG,
              deglitchEqualityDriver.bind(deglitchEquality));
   TEST_ASSERT_EQUAL_UINT16(0, fake.transferCalls);
@@ -645,7 +645,7 @@ void test_selected_channel_count_limits_apply_to_both_variants_and_modes() {
     const uint8_t count = variant == DeviceVariant::LDC1612 ? 2U : 4U;
     for (uint8_t multi = 0U; multi < 2U; ++multi) {
       for (uint8_t index = 0U; index < count; ++index) {
-        FakeLdc1614Device fake;
+        FakeLdc161xDevice fake;
         Config config = makeConfig(fake, variant, multi != 0U);
         config.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000000U, 0U};
         if (multi == 0U) {
@@ -654,18 +654,18 @@ void test_selected_channel_count_limits_apply_to_both_variants_and_modes() {
         }
         config.channel[index].rcount = 9U;
         config.channel[index].settleCount = 4U;
-        TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(config).ok());
+        TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(config).ok());
 
         for (uint16_t rcount = 5U; rcount < 9U; ++rcount) {
           config.channel[index].rcount = rcount;
-          const Status invalid = LDC1614::LDC1614::validateConfig(config);
+          const Status invalid = LDC161x::LDC161x::validateConfig(config);
           assertCode(Err::INVALID_CONFIG, invalid);
           TEST_ASSERT_EQUAL_INT32(index, invalid.detail);
         }
         config.channel[index].rcount = 9U;
         for (uint16_t settle = 0U; settle < 4U; ++settle) {
           config.channel[index].settleCount = settle;
-          const Status invalid = LDC1614::LDC1614::validateConfig(config);
+          const Status invalid = LDC161x::LDC161x::validateConfig(config);
           assertCode(Err::INVALID_CONFIG, invalid);
           TEST_ASSERT_EQUAL_INT32(index, invalid.detail);
         }
@@ -676,7 +676,7 @@ void test_selected_channel_count_limits_apply_to_both_variants_and_modes() {
           const uint8_t unused = static_cast<uint8_t>((index + 1U) % count);
           config.channel[unused].rcount = 5U;
           config.channel[unused].settleCount = 0U;
-          TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(config).ok());
+          TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(config).ok());
         }
         TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
       }
@@ -685,7 +685,7 @@ void test_selected_channel_count_limits_apply_to_both_variants_and_modes() {
 }
 
 void test_conversion_window_covers_slowest_divided_sensor_period() {
-  FakeLdc1614Device fake;
+  FakeLdc161xDevice fake;
   const DeviceVariant variants[] = {DeviceVariant::LDC1612,
                                     DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
@@ -699,17 +699,17 @@ void test_conversion_window_covers_slowest_divided_sensor_period() {
       channel.expectedSensorMinHz = 200000U;
       channel.expectedSensorMaxHz = 500000U;
       // Equality is one full period at 50 kHz divided sensor input.
-      TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(config).ok());
+      TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(config).ok());
       channel.expectedSensorMinHz = 199999U;
-      const Status tooShort = LDC1614::LDC1614::validateConfig(config);
+      const Status tooShort = LDC161x::LDC161x::validateConfig(config);
       assertCode(Err::INVALID_CONFIG, tooShort);
       TEST_ASSERT_EQUAL_INT32(0, tooShort.detail);
       channel.expectedSensorMinHz = 200000U;
       config.referenceClock.tolerancePpm = 1U;
       assertCode(Err::INVALID_CONFIG,
-                 LDC1614::LDC1614::validateConfig(config));
+                 LDC161x::LDC161x::validateConfig(config));
       channel.rcount = 10U;
-      TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(config).ok());
+      TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(config).ok());
     }
   }
 
@@ -721,11 +721,11 @@ void test_conversion_window_covers_slowest_divided_sensor_period() {
   slow.referenceClock = {RefClkSrc::INTERNAL, 35000000U, 0U};
   slow.channel[0].rcount = 1718U;
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::validateConfig(slow));
+             LDC161x::LDC161x::validateConfig(slow));
   slow.channel[0].rcount = 1719U;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(slow).ok());
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(slow).ok());
 
-  LDC1614::LDC1614 driver;
+  LDC161x::LDC161x driver;
   TEST_ASSERT_TRUE(driver.bind(slow).ok());
   const uint32_t revision = driver.configRevision();
   slow.channel[0].rcount = 1718U;
@@ -735,7 +735,7 @@ void test_conversion_window_covers_slowest_divided_sensor_period() {
   FrameTiming timing{};
   timing.sequentialFrameUs = 123U;
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::estimateFrameTiming(slow, slow.channels, timing));
+             LDC161x::LDC161x::estimateFrameTiming(slow, slow.channels, timing));
   TEST_ASSERT_EQUAL_UINT64(0U, timing.sequentialFrameUs);
   TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
 }
@@ -743,8 +743,8 @@ void test_conversion_window_covers_slowest_divided_sensor_period() {
 void test_initialize_exact_transfer_counts_and_zero_one_large_budgets() {
   const DeviceVariant variants[] = {DeviceVariant::LDC1612, DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, variant);
     TEST_ASSERT_TRUE(driver.bind(config).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(10, DEADLINE_MS).inProgress());
@@ -788,13 +788,13 @@ struct ExpectedConfigurationRegister {
 };
 
 void assertExpectedConfigurationRegisters(
-    const Config& config, const FakeLdc1614Device& fake,
+    const Config& config, const FakeLdc161xDevice& fake,
     const ExpectedConfigurationRegister* expected, uint8_t count) {
   const uint16_t transfersBefore = fake.transferCalls;
   for (uint8_t index = 0U; index < count; ++index) {
     uint16_t value = 0xAAAAU;
     uint16_t mask = 0x5555U;
-    TEST_ASSERT_TRUE(LDC1614::LDC1614::expectedConfigurationRegister(
+    TEST_ASSERT_TRUE(LDC161x::LDC161x::expectedConfigurationRegister(
                          config, expected[index].reg, value, mask)
                          .ok());
     TEST_ASSERT_EQUAL_HEX16(expected[index].value, value);
@@ -804,13 +804,13 @@ void assertExpectedConfigurationRegisters(
   TEST_ASSERT_EQUAL_UINT16(0U, fake.intbCalls);
 }
 
-void assertConfigWrites(const FakeLdc1614Device& fake, uint8_t offset,
+void assertConfigWrites(const FakeLdc161xDevice& fake, uint8_t offset,
                         const ExpectedWrite* expected, uint8_t count) {
   for (uint8_t index = 0; index < count; ++index) {
-    const FakeLdc1614Device::Transfer& actual =
+    const FakeLdc161xDevice::Transfer& actual =
         fake.transferLog[static_cast<uint8_t>(offset + index)];
     TEST_ASSERT_EQUAL_UINT8(
-        static_cast<uint8_t>(FakeLdc1614Device::TransferKind::WRITE),
+        static_cast<uint8_t>(FakeLdc161xDevice::TransferKind::WRITE),
         static_cast<uint8_t>(actual.kind));
     TEST_ASSERT_EQUAL_HEX8(expected[index].reg, actual.reg);
     TEST_ASSERT_EQUAL_HEX16(expected[index].value, actual.value);
@@ -842,15 +842,15 @@ void test_expected_configuration_register_maps_every_variant_register_and_mask()
       {cmd::REG_CONFIG, 0x3C81U, CONFIG_MASK},
   };
 
-  FakeLdc1614Device ldc1612Fake;
+  FakeLdc161xDevice ldc1612Fake;
   const Config ldc1612 = makeConfig(ldc1612Fake, DeviceVariant::LDC1612);
   Config observableCallbacks = ldc1612;
   observableCallbacks.intbDisabled = false;
-  observableCallbacks.intbAsserted = FakeLdc1614Device::readIntb;
+  observableCallbacks.intbAsserted = FakeLdc161xDevice::readIntb;
   observableCallbacks.intbUser = &ldc1612Fake;
   uint16_t observableValue = 0U;
   uint16_t observableMask = 0U;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::expectedConfigurationRegister(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::expectedConfigurationRegister(
                        observableCallbacks, cmd::REG_CONFIG, observableValue,
                        observableMask)
                        .ok());
@@ -860,7 +860,7 @@ void test_expected_configuration_register_maps_every_variant_register_and_mask()
       ldc1612, ldc1612Fake, LDC1612_REGISTERS,
       static_cast<uint8_t>(sizeof(LDC1612_REGISTERS) /
                            sizeof(LDC1612_REGISTERS[0])));
-  LDC1614::LDC1614 ldc1612Driver;
+  LDC161x::LDC161x ldc1612Driver;
   initialize(ldc1612Driver, ldc1612Fake, ldc1612, 12010U);
   for (const ExpectedConfigurationRegister& expected : LDC1612_REGISTERS) {
     TEST_ASSERT_EQUAL_HEX16(
@@ -898,7 +898,7 @@ void test_expected_configuration_register_maps_every_variant_register_and_mask()
       {cmd::REG_CONFIG, 0x2281U, CONFIG_MASK},
   };
 
-  FakeLdc1614Device ldc1614Fake;
+  FakeLdc161xDevice ldc1614Fake;
   Config ldc1614 = makeConfig(ldc1614Fake, DeviceVariant::LDC1614, true);
   ldc1614.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000000U, 0U};
   ldc1614.deglitch = Deglitch::BW_33MHZ;
@@ -924,7 +924,7 @@ void test_expected_configuration_register_maps_every_variant_register_and_mask()
       ldc1614, ldc1614Fake, LDC1614_REGISTERS,
       static_cast<uint8_t>(sizeof(LDC1614_REGISTERS) /
                            sizeof(LDC1614_REGISTERS[0])));
-  LDC1614::LDC1614 ldc1614Driver;
+  LDC161x::LDC161x ldc1614Driver;
   initialize(ldc1614Driver, ldc1614Fake, ldc1614, 12011U);
   for (const ExpectedConfigurationRegister& expected : LDC1614_REGISTERS) {
     TEST_ASSERT_EQUAL_HEX16(
@@ -953,7 +953,7 @@ void test_expected_configuration_register_maps_every_variant_register_and_mask()
 }
 
 void test_expected_configuration_register_rejects_nonprofile_and_variant_registers() {
-  FakeLdc1614Device fake;
+  FakeLdc161xDevice fake;
   const Config config = makeConfig(fake, DeviceVariant::LDC1612);
   const uint8_t ldc1614Only[] = {
       cmd::REG_RCOUNT2,         cmd::REG_RCOUNT3,
@@ -970,7 +970,7 @@ void test_expected_configuration_register_rejects_nonprofile_and_variant_registe
   for (uint8_t reg : ldc1614Only) {
     uint16_t value = 0xAAAAU;
     uint16_t mask = 0x5555U;
-    const Status status = LDC1614::LDC1614::expectedConfigurationRegister(
+    const Status status = LDC161x::LDC161x::expectedConfigurationRegister(
         config, reg, value, mask);
     assertCode(Err::INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_INT32(reg, status.detail);
@@ -980,7 +980,7 @@ void test_expected_configuration_register_rejects_nonprofile_and_variant_registe
   for (uint8_t reg : nonprofile) {
     uint16_t value = 0xAAAAU;
     uint16_t mask = 0x5555U;
-    const Status status = LDC1614::LDC1614::expectedConfigurationRegister(
+    const Status status = LDC161x::LDC161x::expectedConfigurationRegister(
         config, reg, value, mask);
     assertCode(Err::INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_INT32(reg, status.detail);
@@ -991,7 +991,7 @@ void test_expected_configuration_register_rejects_nonprofile_and_variant_registe
   uint16_t value = 0xAAAAU;
   uint16_t mask = 0x5555U;
   const Status invalidConfig =
-      LDC1614::LDC1614::expectedConfigurationRegister(
+      LDC161x::LDC161x::expectedConfigurationRegister(
           Config{}, cmd::REG_CONFIG, value, mask);
   assertCode(Err::INVALID_CONFIG, invalidConfig);
   TEST_ASSERT_EQUAL_HEX16(0U, value);
@@ -1011,15 +1011,15 @@ void test_exact_register_replay_for_both_variants_and_all_replay_jobs() {
       {cmd::REG_ERROR_CONFIG, 0xF8FD}, {cmd::REG_MUX_CONFIG, 0x0209},
   };
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1612);
     TEST_ASSERT_TRUE(driver.bind(config).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(12001, DEADLINE_MS).inProgress());
     TEST_ASSERT_TRUE(pollToTerminal(driver).ok());
     (void)takeResult(driver);
     TEST_ASSERT_EQUAL_UINT8(
-        static_cast<uint8_t>(FakeLdc1614Device::TransferKind::READ),
+        static_cast<uint8_t>(FakeLdc161xDevice::TransferKind::READ),
         static_cast<uint8_t>(fake.transferLog[0].kind));
     TEST_ASSERT_EQUAL_HEX8(cmd::REG_MANUFACTURER_ID,
                            fake.transferLog[0].reg);
@@ -1046,8 +1046,8 @@ void test_exact_register_replay_for_both_variants_and_all_replay_jobs() {
       {cmd::REG_DRIVE_CURRENT3, 0x6800},
       {cmd::REG_ERROR_CONFIG, 0xF8FD}, {cmd::REG_MUX_CONFIG, 0xC20F},
   };
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
   config.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000000U, 0U};
   config.deglitch = Deglitch::BW_33MHZ;
@@ -1092,8 +1092,8 @@ void test_large_poll_budget_uses_actual_remaining_transfer_count() {
   const DeviceVariant variants[] = {DeviceVariant::LDC1612,
                                     DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, variant);
     config.i2cTimeoutMs = 20U;
     TEST_ASSERT_TRUE(driver.bind(config).ok());
@@ -1107,8 +1107,8 @@ void test_large_poll_budget_uses_actual_remaining_transfer_count() {
     (void)takeResult(driver);
   }
 
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   config.i2cTimeoutMs = 20U;
   TEST_ASSERT_TRUE(driver.bind(config).ok());
@@ -1124,8 +1124,8 @@ void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
   for (DeviceVariant variant : variants) {
     const uint8_t maximum = initTransfers(variant);
     for (uint8_t failed = 1; failed <= maximum; ++failed) {
-      FakeLdc1614Device fake;
-      LDC1614::LDC1614 driver;
+      FakeLdc161xDevice fake;
+      LDC161x::LDC161x driver;
       Config config = makeConfig(fake, variant);
       TEST_ASSERT_TRUE(driver.bind(config).ok());
       fake.failOnTransfer(failed, failed <= 2U ? FORCED_READ : FORCED_WRITE);
@@ -1167,9 +1167,9 @@ void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
   const uint8_t identityRegs[] = {cmd::REG_MANUFACTURER_ID, cmd::REG_DEVICE_ID};
   const uint16_t expectedCalls[] = {1, 2};
   for (uint8_t index = 0; index < 2U; ++index) {
-    FakeLdc1614Device fake;
+    FakeLdc161xDevice fake;
     fake.reg[identityRegs[index]] ^= 0x0001U;
-    LDC1614::LDC1614 driver;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(1900U + index, DEADLINE_MS).inProgress());
     assertCode(Err::DEVICE_NOT_FOUND, pollToTerminal(driver));
@@ -1186,8 +1186,8 @@ void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
     TEST_ASSERT_EQUAL_UINT32(driver.configRevision(), result.configRevision);
   }
 
-  FakeLdc1614Device replaced;
-  LDC1614::LDC1614 repeated;
+  FakeLdc161xDevice replaced;
+  LDC161x::LDC161x repeated;
   Config repeatedConfig = makeConfig(replaced);
   initializeAndWake(repeated, replaced, repeatedConfig);
   replaced.clearIo();
@@ -1205,8 +1205,8 @@ void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
                                    DEADLINE_MS));
 
   for (uint8_t failed = 1U; failed <= 2U; ++failed) {
-    FakeLdc1614Device unavailable;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice unavailable;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(unavailable);
     initializeAndWake(driver, unavailable, config);
     unavailable.clearIo();
@@ -1231,8 +1231,8 @@ void test_initialize_fails_once_at_every_transfer_with_full_provenance() {
 void test_initialize_cancel_is_bus_silent_at_every_phase() {
   const uint8_t maximum = initTransfers(DeviceVariant::LDC1614);
   for (uint8_t completed = 0; completed < maximum; ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614);
     TEST_ASSERT_TRUE(driver.bind(config).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(2000U + completed, DEADLINE_MS).inProgress());
@@ -1260,8 +1260,8 @@ void test_initialize_cancel_is_bus_silent_at_every_phase() {
 
 void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(3001, 500).inProgress());
     assertCode(Err::TIMEOUT, driver.poll(500, 0));
@@ -1270,8 +1270,8 @@ void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
     assertOutcome(TerminalOutcome::TIMED_OUT, result);
   }
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake);
     config.i2cTimeoutMs = 50;
     TEST_ASSERT_TRUE(driver.bind(config).ok());
@@ -1285,8 +1285,8 @@ void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
     assertOutcome(TerminalOutcome::TIMED_OUT, takeResult(driver));
   }
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     const uint64_t deadline = std::numeric_limits<uint64_t>::max();
     TEST_ASSERT_TRUE(driver.startInitialize(3003, deadline).inProgress());
@@ -1294,8 +1294,8 @@ void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
     TEST_ASSERT_EQUAL_UINT32(1, fake.transferLog[0].timeoutMs);
   }
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake);
     config.i2cTimeoutMs = 50;
     TEST_ASSERT_TRUE(driver.bind(config).ok());
@@ -1312,8 +1312,8 @@ void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
     assertOutcome(TerminalOutcome::TIMED_OUT, takeResult(driver));
   }
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake);
     config.i2cTimeoutMs = 50;
     TEST_ASSERT_TRUE(driver.bind(config).ok());
@@ -1328,8 +1328,8 @@ void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
     assertOutcome(TerminalOutcome::TIMED_OUT, takeResult(driver));
   }
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake);
     config.i2cTimeoutMs = 50;
     TEST_ASSERT_TRUE(driver.bind(config).ok());
@@ -1345,8 +1345,8 @@ void test_deadline_timeout_is_bus_silent_wrap_safe_and_caps_callback_timeout() {
 void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
   for (uint8_t completed = 0; completed < initTransfers(DeviceVariant::LDC1614);
        ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake, DeviceVariant::LDC1614)).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(3100U + completed, 200).inProgress());
     for (uint8_t step = 0; step < completed; ++step) {
@@ -1375,8 +1375,8 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
 
   for (uint8_t completed = 0; completed < applyTransfers(DeviceVariant::LDC1614);
        ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614);
     initialize(driver, fake, config);
     fake.clearIo();
@@ -1403,8 +1403,8 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
 
   for (uint8_t completed = 0; completed < resetTransfers(DeviceVariant::LDC1614);
        ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614);
     initialize(driver, fake, config);
     fake.clearIo();
@@ -1444,8 +1444,8 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
   }
 
   for (uint8_t completed = 0; completed < 6U; ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1612, true);
     initializeAndWake(driver, fake, config);
     fake.clearIo();
@@ -1474,8 +1474,8 @@ void test_deadline_expiry_is_silent_at_every_multistep_operation_phase() {
 }
 
 void test_result_ids_fifo_backpressure_exactly_once_and_stale_clear() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   TEST_ASSERT_TRUE(driver.bind(config).ok());
   assertCode(Err::INVALID_PARAM, driver.startInitialize(0, DEADLINE_MS));
@@ -1511,8 +1511,8 @@ void test_result_ids_fifo_backpressure_exactly_once_and_stale_clear() {
 }
 
 void test_cancelled_result_survives_immediate_replacement_and_cancel_is_idempotent() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
   TEST_ASSERT_TRUE(driver.startInitialize(51, DEADLINE_MS).inProgress());
   TEST_ASSERT_TRUE(driver.poll(NOW_MS, 1).inProgress());
@@ -1533,8 +1533,8 @@ void test_cancelled_result_survives_immediate_replacement_and_cancel_is_idempote
 }
 
 void test_external_owner_one_transfer_service_contract_and_recovery() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   const Config config = makeConfig(fake, DeviceVariant::LDC1612);
   uint64_t nowMs = 100U;
 
@@ -1685,8 +1685,8 @@ void test_external_owner_one_transfer_service_contract_and_recovery() {
 }
 
 void test_progress_is_cache_only_and_reports_exact_phase_and_budget() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   TEST_ASSERT_TRUE(driver.bind(makeConfig(fake, DeviceVariant::LDC1614)).ok());
   TEST_ASSERT_TRUE(driver.startInitialize(61, DEADLINE_MS).inProgress());
   const JobProgress initial = driver.jobProgress();
@@ -1712,8 +1712,8 @@ void test_apply_exact_counts_failure_cancel_and_ambiguous_write_provenance() {
   const DeviceVariant variants[] = {DeviceVariant::LDC1612, DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
     {
-      FakeLdc1614Device fake;
-      LDC1614::LDC1614 driver;
+      FakeLdc161xDevice fake;
+      LDC161x::LDC161x driver;
       Config config = makeConfig(fake, variant);
       initialize(driver, fake, config);
       fake.clearIo();
@@ -1731,8 +1731,8 @@ void test_apply_exact_counts_failure_cancel_and_ambiguous_write_provenance() {
 
     const uint8_t maximum = applyTransfers(variant);
     for (uint8_t failed = 1; failed <= maximum; ++failed) {
-      FakeLdc1614Device fake;
-      LDC1614::LDC1614 driver;
+      FakeLdc161xDevice fake;
+      LDC161x::LDC161x driver;
       Config config = makeConfig(fake, variant);
       initialize(driver, fake, config);
       fake.clearIo();
@@ -1756,8 +1756,8 @@ void test_apply_exact_counts_failure_cancel_and_ambiguous_write_provenance() {
 
   for (uint8_t completed = 0; completed < applyTransfers(DeviceVariant::LDC1614);
        ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614);
     initialize(driver, fake, config);
     fake.clearIo();
@@ -1781,8 +1781,8 @@ void test_apply_exact_counts_failure_cancel_and_ambiguous_write_provenance() {
 }
 
 void test_config_fault_retains_exact_register_channel_phase_status_and_effect() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   initialize(driver, fake, config);
   fake.clearIo();
@@ -1830,8 +1830,8 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
   const DeviceVariant variants[] = {DeviceVariant::LDC1612, DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
     {
-      FakeLdc1614Device fake;
-      LDC1614::LDC1614 driver;
+      FakeLdc161xDevice fake;
+      LDC161x::LDC161x driver;
       Config config = makeConfig(fake, variant);
       initialize(driver, fake, config);
       fake.clearIo();
@@ -1846,8 +1846,8 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
     }
 
     for (uint8_t failed = 1; failed <= resetTransfers(variant); ++failed) {
-      FakeLdc1614Device fake;
-      LDC1614::LDC1614 driver;
+      FakeLdc161xDevice fake;
+      LDC161x::LDC161x driver;
       Config config = makeConfig(fake, variant);
       initialize(driver, fake, config);
       fake.clearIo();
@@ -1874,8 +1874,8 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
 
   for (uint8_t completed = 0; completed < resetTransfers(DeviceVariant::LDC1614);
        ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614);
     initialize(driver, fake, config);
     fake.clearIo();
@@ -1907,8 +1907,8 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
     }
   }
 
-  FakeLdc1614Device mismatched;
-  LDC1614::LDC1614 mismatchDriver;
+  FakeLdc161xDevice mismatched;
+  LDC161x::LDC161x mismatchDriver;
   Config mismatchConfig = makeConfig(mismatched);
   initialize(mismatchDriver, mismatched, mismatchConfig);
   mismatched.clearIo();
@@ -1929,7 +1929,7 @@ void test_reset_reapply_exact_counts_all_failures_cancellation_and_no_retry() {
   TEST_ASSERT_EQUAL_UINT16(beforeApply, mismatched.transferCalls);
 }
 
-OperationResult acquire(LDC1614::LDC1614& driver, ChannelMask mask,
+OperationResult acquire(LDC161x::LDC161x& driver, ChannelMask mask,
                         OperationId operationId, uint64_t nowMs = NOW_MS,
                         uint8_t budget = 255) {
   TEST_ASSERT_TRUE(driver.startAcquire(mask, operationId, DEADLINE_MS).inProgress());
@@ -1938,11 +1938,11 @@ OperationResult acquire(LDC1614::LDC1614& driver, ChannelMask mask,
 }
 
 void test_acquire_exact_budget_order_status_evidence_and_each_error_channel() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
   config.intbDisabled = false;
-  config.intbAsserted = FakeLdc1614Device::readIntb;
+  config.intbAsserted = FakeLdc161xDevice::readIntb;
   config.intbUser = &fake;
   initializeAndWake(driver, fake, config);
 
@@ -1998,8 +1998,8 @@ void test_acquire_exact_budget_order_status_evidence_and_each_error_channel() {
 
 void test_acquire_failure_at_every_phase_preserves_prior_complete_publication() {
   for (uint8_t failed = 1; failed <= 6U; ++failed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1612, true);
     initializeAndWake(driver, fake, config);
 
@@ -2038,8 +2038,8 @@ void test_acquire_failure_at_every_phase_preserves_prior_complete_publication() 
         hasEffect(failure.effects, EffectFlag::READ_SIDE_EFFECTS));
   }
 
-  FakeLdc1614Device nackFake;
-  LDC1614::LDC1614 nackDriver;
+  FakeLdc161xDevice nackFake;
+  LDC161x::LDC161x nackDriver;
   Config nackConfig = makeConfig(nackFake);
   initializeAndWake(nackDriver, nackFake, nackConfig);
   nackFake.clearIo();
@@ -2054,8 +2054,8 @@ void test_acquire_failure_at_every_phase_preserves_prior_complete_publication() 
 
 void test_acquire_cancel_every_phase_is_silent_atomic_and_restartable() {
   for (uint8_t completed = 0; completed < 6U; ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1612, true);
     initializeAndWake(driver, fake, config);
     fake.clearIo();
@@ -2084,8 +2084,8 @@ void test_acquire_cancel_every_phase_is_silent_atomic_and_restartable() {
 
 void test_ldc1614_acquire_failure_cancel_deadline_and_fresh_stale_paths() {
   for (uint8_t failed = 1U; failed <= 10U; ++failed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
     initializeAndWake(driver, fake, config);
     fake.clearIo();
@@ -2104,8 +2104,8 @@ void test_ldc1614_acquire_failure_cancel_deadline_and_fresh_stale_paths() {
   }
 
   for (uint8_t completed = 0U; completed < 10U; ++completed) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake, DeviceVariant::LDC1614, true);
     initializeAndWake(driver, fake, config);
     fake.clearIo();
@@ -2138,8 +2138,8 @@ void test_ldc1614_acquire_failure_cancel_deadline_and_fresh_stale_paths() {
     }
   }
 
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   initializeAndWake(driver, fake, config);
   fake.injectConversion(0, 0x00555555U);
@@ -2157,8 +2157,8 @@ void test_ldc1614_acquire_failure_cancel_deadline_and_fresh_stale_paths() {
 }
 
 void test_acquire_reports_overrun_without_invalidating_coherent_sample() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   initializeAndWake(driver, fake, config);
   fake.clearIo();
@@ -2176,14 +2176,14 @@ void test_acquire_reports_overrun_without_invalidating_coherent_sample() {
 }
 
 void test_sample_quality_endpoints_watchdog_amplitude_and_status_zero_count() {
-  ChannelSample under = LDC1614::LDC1614::decodeChannelSample(0x0000, 0x0000);
+  ChannelSample under = LDC161x::LDC161x::decodeChannelSample(0x0000, 0x0000);
   TEST_ASSERT_TRUE(hasSampleQuality(under.quality, SampleQualityFlag::UNDER_RANGE));
-  ChannelSample over = LDC1614::LDC1614::decodeChannelSample(0x0FFF, 0xFFFF);
+  ChannelSample over = LDC161x::LDC161x::decodeChannelSample(0x0FFF, 0xFFFF);
   TEST_ASSERT_TRUE(hasSampleQuality(over.quality, SampleQualityFlag::OVER_RANGE));
-  ChannelSample watchdog = LDC1614::LDC1614::decodeChannelSample(
+  ChannelSample watchdog = LDC161x::LDC161x::decodeChannelSample(
       static_cast<uint16_t>(cmd::MASK_DATA_ERR_WD | 0x0001U), 0x0002);
   TEST_ASSERT_TRUE(hasSampleQuality(watchdog.quality, SampleQualityFlag::WATCHDOG));
-  ChannelSample amplitude = LDC1614::LDC1614::decodeChannelSample(
+  ChannelSample amplitude = LDC161x::LDC161x::decodeChannelSample(
       static_cast<uint16_t>(cmd::MASK_DATA_ERR_AE | 0x0001U), 0x0002);
   TEST_ASSERT_TRUE(hasSampleQuality(amplitude.quality,
                                     SampleQualityFlag::AMPLITUDE_SUSPECT));
@@ -2208,8 +2208,8 @@ void test_sample_quality_endpoints_watchdog_amplitude_and_status_zero_count() {
        SampleQualityFlag::ZERO_COUNT, false},
   };
   for (uint8_t index = 0; index < sizeof(cases) / sizeof(cases[0]); ++index) {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     Config config = makeConfig(fake);
     initializeAndWake(driver, fake, config);
     fake.injectConversion(0, cases[index].raw, cases[index].dataErrors,
@@ -2225,11 +2225,11 @@ void test_sample_quality_endpoints_watchdog_amplitude_and_status_zero_count() {
 }
 
 void test_sleep_clears_conversion_evidence_and_stale_zero_is_not_range_fault() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   config.intbDisabled = false;
-  config.intbAsserted = FakeLdc1614Device::readIntb;
+  config.intbAsserted = FakeLdc161xDevice::readIntb;
   config.intbUser = &fake;
   initializeAndWake(driver, fake, config);
   fake.injectConversion(0U, 0x01234567U, cmd::MASK_DATA_ERR_WD,
@@ -2272,8 +2272,8 @@ void test_sleep_clears_conversion_evidence_and_stale_zero_is_not_range_fault() {
   for (uint8_t index = 0U;
        index < sizeof(CROSSED_RANGE_CASES) / sizeof(CROSSED_RANGE_CASES[0]);
        ++index) {
-    FakeLdc1614Device crossedFake;
-    LDC1614::LDC1614 crossedDriver;
+    FakeLdc161xDevice crossedFake;
+    LDC161x::LDC161x crossedDriver;
     Config crossedConfig = makeConfig(crossedFake);
     initializeAndWake(crossedDriver, crossedFake, crossedConfig);
     crossedFake.liveMsb[0] = CROSSED_RANGE_CASES[index].msb;
@@ -2292,8 +2292,8 @@ void test_sleep_clears_conversion_evidence_and_stale_zero_is_not_range_fault() {
 
 void test_identity_fence_survives_raw_writes_reset_failures_and_cancellation() {
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     TEST_ASSERT_TRUE(
         driver.writeRegister16(cmd::REG_RCOUNT0, 0x0123U).ok());
@@ -2306,8 +2306,8 @@ void test_identity_fence_survives_raw_writes_reset_failures_and_cancellation() {
   }
 
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     fake.failOnTransfer(2U, FORCED_READ);
     TEST_ASSERT_TRUE(
@@ -2321,8 +2321,8 @@ void test_identity_fence_survives_raw_writes_reset_failures_and_cancellation() {
   }
 
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     TEST_ASSERT_TRUE(
         driver.startResetAndReapply(14013U, DEADLINE_MS).inProgress());
@@ -2336,8 +2336,8 @@ void test_identity_fence_survives_raw_writes_reset_failures_and_cancellation() {
   }
 
   {
-    FakeLdc1614Device fake;
-    LDC1614::LDC1614 driver;
+    FakeLdc161xDevice fake;
+    LDC161x::LDC161x driver;
     TEST_ASSERT_TRUE(driver.bind(makeConfig(fake)).ok());
     TEST_ASSERT_TRUE(driver.startInitialize(14015U, DEADLINE_MS).inProgress());
     TEST_ASSERT_TRUE(driver.poll(NOW_MS, 2U).inProgress());
@@ -2352,8 +2352,8 @@ void test_identity_fence_survives_raw_writes_reset_failures_and_cancellation() {
 }
 
 void test_ldc1612_binding_rejects_ldc1614_only_registers_and_masks() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake, DeviceVariant::LDC1612, true);
   initializeAndWake(driver, fake, config);
   fake.clearIo();
@@ -2389,8 +2389,8 @@ void test_ldc1612_binding_rejects_ldc1614_only_registers_and_masks() {
 }
 
 void test_dirty_unknown_invalidation_rejects_acquire_and_matching_return_replays_all() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake, DeviceVariant::LDC1614);
   initializeAndWake(driver, fake, config);
   fake.clearIo();
@@ -2415,9 +2415,9 @@ void test_dirty_unknown_invalidation_rejects_acquire_and_matching_return_replays
 }
 
 void test_update_rebind_end_and_repeated_lifecycle_are_zero_i2c_and_revisioned() {
-  FakeLdc1614Device first;
-  FakeLdc1614Device second;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice first;
+  FakeLdc161xDevice second;
+  LDC161x::LDC161x driver;
   Config firstConfig = makeConfig(first);
   initialize(driver, first, firstConfig);
   TEST_ASSERT_TRUE(driver.wake().ok());
@@ -2490,8 +2490,8 @@ void test_update_rebind_end_and_repeated_lifecycle_are_zero_i2c_and_revisioned()
 }
 
 void test_owner_safe_single_transfer_and_diagnostic_dirty_contracts() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   initialize(driver, fake, config);
   fake.clearIo();
@@ -2535,8 +2535,8 @@ void test_owner_safe_single_transfer_and_diagnostic_dirty_contracts() {
   TEST_ASSERT_EQUAL_INT32(FORCED_WRITE.detail,
                           diagnosticFailure.cause.detail);
 
-  FakeLdc1614Device noDrdyFake;
-  LDC1614::LDC1614 noDrdy;
+  FakeLdc161xDevice noDrdyFake;
+  LDC161x::LDC161x noDrdy;
   Config noDrdyConfig = makeConfig(noDrdyFake);
   noDrdyConfig.errorReporting.dataReady = false;
   initializeAndWake(noDrdy, noDrdyFake, noDrdyConfig);
@@ -2547,11 +2547,11 @@ void test_owner_safe_single_transfer_and_diagnostic_dirty_contracts() {
   TEST_ASSERT_FALSE(ready);
   TEST_ASSERT_EQUAL_UINT16(0, noDrdyFake.transferCalls);
 
-  FakeLdc1614Device intbFake;
-  LDC1614::LDC1614 intbDriver;
+  FakeLdc161xDevice intbFake;
+  LDC161x::LDC161x intbDriver;
   Config intbConfig = makeConfig(intbFake);
   intbConfig.intbDisabled = false;
-  intbConfig.intbAsserted = FakeLdc1614Device::readIntb;
+  intbConfig.intbAsserted = FakeLdc161xDevice::readIntb;
   intbConfig.intbUser = &intbFake;
   initializeAndWake(intbDriver, intbFake, intbConfig);
   intbFake.clearIo();
@@ -2577,8 +2577,8 @@ void test_owner_safe_single_transfer_and_diagnostic_dirty_contracts() {
 }
 
 void test_single_transfer_boundaries_confirmed_nack_and_lifecycle_cleanup() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   TEST_ASSERT_TRUE(driver.bind(config).ok());
 
@@ -2692,8 +2692,8 @@ void test_single_transfer_boundaries_confirmed_nack_and_lifecycle_cleanup() {
   TEST_ASSERT_TRUE(hasEffect(driver.configFault().effects,
                              EffectFlag::INDETERMINATE_WRITE));
 
-  FakeLdc1614Device partialNackFake;
-  LDC1614::LDC1614 partialNackDriver;
+  FakeLdc161xDevice partialNackFake;
+  LDC161x::LDC161x partialNackDriver;
   Config partialNackConfig = makeConfig(partialNackFake);
   initialize(partialNackDriver, partialNackFake, partialNackConfig);
   partialNackFake.clearIo();
@@ -2712,8 +2712,8 @@ void test_single_transfer_boundaries_confirmed_nack_and_lifecycle_cleanup() {
                           static_cast<uint8_t>(
                               partialNackDriver.appliedConfigState()));
 
-  FakeLdc1614Device gpioFake;
-  LDC1614::LDC1614 gpioDriver;
+  FakeLdc161xDevice gpioFake;
+  LDC161x::LDC161x gpioDriver;
   Config gpioConfig = makeConfig(gpioFake);
   gpioConfig.intbDisabled = false;
   gpioConfig.intbAsserted = failingIntb;
@@ -2729,8 +2729,8 @@ void test_single_transfer_boundaries_confirmed_nack_and_lifecycle_cleanup() {
 }
 
 void test_transport_stats_are_diagnostic_only_and_failures_never_suppress_requests() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   initializeAndWake(driver, fake, config);
   fake.clearIo();
@@ -2750,7 +2750,7 @@ void test_transport_stats_are_diagnostic_only_and_failures_never_suppress_reques
 }
 
 void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
-  const uint16_t allMask = LDC1614::LDC1614::encodeErrorReporting(ErrorReporting::all());
+  const uint16_t allMask = LDC161x::LDC161x::encodeErrorReporting(ErrorReporting::all());
   TEST_ASSERT_EQUAL_HEX16(cmd::MASK_ERRCFG_ALLOWED, allMask);
   const uint16_t individualMasks[] = {
       cmd::MASK_ERRCFG_UR_ERR2OUT, cmd::MASK_ERRCFG_OR_ERR2OUT,
@@ -2777,21 +2777,21 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
     }
     TEST_ASSERT_EQUAL_HEX16(
         individualMasks[index],
-        LDC1614::LDC1614::encodeErrorReporting(reporting));
+        LDC161x::LDC161x::encodeErrorReporting(reporting));
   }
 
   uint16_t nominalMicroamps = 0;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::nominalDriveCurrentMicroamps(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::nominalDriveCurrentMicroamps(
                        DriveCurrentCode{0}, nominalMicroamps)
                        .ok());
   TEST_ASSERT_EQUAL_UINT16(16, nominalMicroamps);
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::nominalDriveCurrentMicroamps(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::nominalDriveCurrentMicroamps(
                        DriveCurrentCode{cmd::IDRIVE_MAX}, nominalMicroamps)
                        .ok());
   TEST_ASSERT_EQUAL_UINT16(1563, nominalMicroamps);
   nominalMicroamps = 0xFFFFU;
   assertCode(Err::INVALID_PARAM,
-             LDC1614::LDC1614::nominalDriveCurrentMicroamps(
+             LDC161x::LDC161x::nominalDriveCurrentMicroamps(
                  DriveCurrentCode{static_cast<uint8_t>(cmd::IDRIVE_MAX + 1U)},
                  nominalMicroamps));
   TEST_ASSERT_EQUAL_UINT16(0, nominalMicroamps);
@@ -2800,7 +2800,7 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
       (2U << cmd::BIT_STATUS_ERR_CHAN) | cmd::MASK_STATUS_ERR_UR |
       cmd::MASK_STATUS_ERR_ZC | cmd::MASK_STATUS_DRDY |
       cmd::MASK_STATUS_UNREADCONV2);
-  const DeviceStatus decoded = LDC1614::LDC1614::decodeDeviceStatus(rawStatus);
+  const DeviceStatus decoded = LDC161x::LDC161x::decodeDeviceStatus(rawStatus);
   TEST_ASSERT_TRUE(decoded.observed);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Channel::CH2),
                           static_cast<uint8_t>(decoded.errorChannel));
@@ -2809,35 +2809,35 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   TEST_ASSERT_TRUE(decoded.dataReady);
   TEST_ASSERT_TRUE(decoded.unreadChannels.contains(Channel::CH2));
 
-  FakeLdc1614Device fake;
+  FakeLdc161xDevice fake;
   Config config = makeConfig(fake, DeviceVariant::LDC1612, true);
   double frequency = -1.0;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::calculateSensorFrequencyHz(
       config, Channel::CH0, 0x08000000U, frequency).ok());
   TEST_ASSERT_TRUE(frequency >= 10749999.999 && frequency <= 10750000.001);
   double nextFrequency = 0.0;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::calculateSensorFrequencyHz(
       config, Channel::CH0, 0x08000001U, nextFrequency).ok());
   TEST_ASSERT_TRUE(nextFrequency > frequency);
 
   double endpointFrequency = -1.0;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::calculateSensorFrequencyHz(
       config, Channel::CH0, 0U, endpointFrequency).ok());
   TEST_ASSERT_TRUE(endpointFrequency == 0.0);
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::calculateSensorFrequencyHz(
       config, Channel::CH0, 0x0FFFFFFFU, endpointFrequency).ok());
   TEST_ASSERT_TRUE(endpointFrequency > 21499999.0 &&
                    endpointFrequency < 21500001.0);
   endpointFrequency = 123.0;
   assertCode(Err::INVALID_PARAM,
-             LDC1614::LDC1614::calculateSensorFrequencyHz(
+             LDC161x::LDC161x::calculateSensorFrequencyHz(
                  config, Channel::CH0, 0x10000000U, endpointFrequency));
   TEST_ASSERT_TRUE(endpointFrequency == 0.0);
 
   Config finDividerConfig = config;
   finDividerConfig.channel[0].finDivider = 2U;
   double dividedInputFrequency = 0.0;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::calculateSensorFrequencyHz(
       finDividerConfig, Channel::CH0, 0x04000000U,
       dividedInputFrequency).ok());
   TEST_ASSERT_TRUE(dividedInputFrequency >= 10749999.999 &&
@@ -2846,7 +2846,7 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   Config offsetConfig = config;
   offsetConfig.channel[0].offset = 1;
   double offsetFrequency = 0.0;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::calculateSensorFrequencyHz(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::calculateSensorFrequencyHz(
       offsetConfig, Channel::CH0, 0x08000000U, offsetFrequency).ok());
   TEST_ASSERT_TRUE(offsetFrequency > frequency);
 
@@ -2854,15 +2854,15 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   invalidClock.referenceClock.frequencyHz = 0;
   frequency = 123.0;
   assertCode(Err::INVALID_CONFIG,
-             LDC1614::LDC1614::calculateSensorFrequencyHz(
+             LDC161x::LDC161x::calculateSensorFrequencyHz(
                  invalidClock, Channel::CH0, 1, frequency));
   TEST_ASSERT_TRUE(frequency == 0.0);
   assertCode(Err::INVALID_PARAM,
-             LDC1614::LDC1614::calculateSensorFrequencyHz(
+             LDC161x::LDC161x::calculateSensorFrequencyHz(
                  config, Channel::CH3, 1, frequency));
 
   FrameTiming one;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::estimateFrameTiming(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::estimateFrameTiming(
       config, channelBit(Channel::CH0), one).ok());
   TEST_ASSERT_EQUAL_UINT8(4, one.acquisitionTransfers);
   TEST_ASSERT_TRUE(one.wakeAndSettleUs > 0);
@@ -2870,7 +2870,7 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   TEST_ASSERT_TRUE(one.sequentialFrameUs >= one.conversionUs);
 
   FrameTiming two;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::estimateFrameTiming(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::estimateFrameTiming(
       config, ChannelMask{0x03}, two).ok());
   TEST_ASSERT_EQUAL_UINT8(6, two.acquisitionTransfers);
   TEST_ASSERT_EQUAL_UINT64(two.sequentialFrameUs, one.sequentialFrameUs);
@@ -2879,7 +2879,7 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   externalTiming.referenceClock =
       {RefClkSrc::EXTERNAL_CLOCK, 40000000U, 0U};
   FrameTiming external;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::estimateFrameTiming(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::estimateFrameTiming(
       externalTiming, channelBit(Channel::CH0), external).ok());
   // Wake uses the 35 MHz fINT lower bound, while settle/conversion/switch use
   // the configured 20 MHz channel reference after FREF_DIVIDER=2.
@@ -2888,16 +2888,16 @@ void test_pure_error_status_frequency_and_timing_helpers_cover_boundaries() {
   TEST_ASSERT_EQUAL_UINT64(577, external.sequentialFrameUs);
 
   FrameTiming invalidTiming;
-  assertCode(Err::INVALID_PARAM, LDC1614::LDC1614::estimateFrameTiming(
+  assertCode(Err::INVALID_PARAM, LDC161x::LDC161x::estimateFrameTiming(
                                      config, ChannelMask{}, invalidTiming));
-  assertCode(Err::INVALID_PARAM, LDC1614::LDC1614::estimateFrameTiming(
+  assertCode(Err::INVALID_PARAM, LDC161x::LDC161x::estimateFrameTiming(
                                      config, ChannelMask{0x80}, invalidTiming));
 
   Config internalTypical = makeConfig(fake);
   internalTypical.referenceClock =
       {RefClkSrc::INTERNAL, 43400000U, 0U};
   FrameTiming conservative;
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::estimateFrameTiming(
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::estimateFrameTiming(
       internalTypical, channelBit(Channel::CH0), conservative).ok());
   TEST_ASSERT_EQUAL_UINT64(473, conservative.wakeAndSettleUs);
   TEST_ASSERT_EQUAL_UINT64(118, conservative.conversionUs);
@@ -2909,7 +2909,7 @@ void test_exact_divider_ratios_preserve_strict_clock_and_offset_boundaries() {
                                     DeviceVariant::LDC1614};
   for (DeviceVariant variant : variants) {
     for (uint8_t multi = 0U; multi < 2U; ++multi) {
-      FakeLdc1614Device fake;
+      FakeLdc161xDevice fake;
       Config ratio = makeConfig(fake, variant, multi != 0U);
       ratio.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000001U, 0U};
       ratio.deglitch = Deglitch::BW_10MHZ;
@@ -2919,16 +2919,16 @@ void test_exact_divider_ratios_preserve_strict_clock_and_offset_boundaries() {
       ratio.channel[0].expectedSensorMaxHz = 5000000U;
       // 4 * (5 MHz / 3) < 20,000,001 Hz / 3. Rounding fIN up to
       // whole hertz before comparison incorrectly rejects this profile.
-      TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(ratio).ok());
+      TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(ratio).ok());
       ratio.referenceClock.frequencyHz = 20000000U;
       assertCode(Err::INVALID_CONFIG,
-                 LDC1614::LDC1614::validateConfig(ratio)); // Exact equality.
+                 LDC161x::LDC161x::validateConfig(ratio)); // Exact equality.
       ratio.referenceClock.frequencyHz = 19999999U;
       assertCode(Err::INVALID_CONFIG,
-                 LDC1614::LDC1614::validateConfig(ratio)); // Above limit.
+                 LDC161x::LDC161x::validateConfig(ratio)); // Above limit.
       ratio.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000001U, 1U};
       assertCode(Err::INVALID_CONFIG,
-                 LDC1614::LDC1614::validateConfig(ratio)); // Tolerance crosses.
+                 LDC161x::LDC161x::validateConfig(ratio)); // Tolerance crosses.
 
       Config offset = makeConfig(fake, variant, multi != 0U);
       offset.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000003U, 0U};
@@ -2938,26 +2938,26 @@ void test_exact_divider_ratios_preserve_strict_clock_and_offset_boundaries() {
       offset.channel[0].expectedSensorMinHz = 35444U;
       // The equivalent sensor offset is 35,443.99248 Hz. Rounding fREF
       // upward first gives 35,444.00134 Hz and loses this valid profile.
-      TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(offset).ok());
+      TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(offset).ok());
       offset.channel[0].expectedSensorMinHz = 35443U;
       assertCode(Err::INVALID_CONFIG,
-                 LDC1614::LDC1614::validateConfig(offset));
+                 LDC161x::LDC161x::validateConfig(offset));
       offset.channel[0].expectedSensorMinHz = 35444U;
       offset.referenceClock.tolerancePpm = 1U;
       assertCode(Err::INVALID_CONFIG,
-                 LDC1614::LDC1614::validateConfig(offset));
+                 LDC161x::LDC161x::validateConfig(offset));
       TEST_ASSERT_EQUAL_UINT16(0U, fake.transferCalls);
     }
   }
 }
 
 void test_application_owned_intb_requires_no_driver_gpio_callback() {
-  FakeLdc1614Device fake;
-  LDC1614::LDC1614 driver;
+  FakeLdc161xDevice fake;
+  LDC161x::LDC161x driver;
   Config config = makeConfig(fake);
   config.intbDisabled = false;
   TEST_ASSERT_NULL(config.intbAsserted);
-  TEST_ASSERT_TRUE(LDC1614::LDC1614::validateConfig(config).ok());
+  TEST_ASSERT_TRUE(LDC161x::LDC161x::validateConfig(config).ok());
   initializeAndWake(driver, fake, config);
   TEST_ASSERT_EQUAL_HEX16(0U, fake.reg[cmd::REG_CONFIG] &
                                  cmd::MASK_CFG_INTB_DIS);
@@ -2996,39 +2996,39 @@ void test_application_owned_intb_requires_no_driver_gpio_callback() {
 }
 
 void test_clock_offset_mode_and_config_encoding_boundaries() {
-  FakeLdc1614Device fake;
+  FakeLdc161xDevice fake;
   Config external = makeConfig(fake);
   external.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 40000000U, 1U};
-  LDC1614::LDC1614 externalHigh;
+  LDC161x::LDC161x externalHigh;
   assertCode(Err::INVALID_CONFIG, externalHigh.bind(external));
   external.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 2000000U, 1U};
-  LDC1614::LDC1614 externalLow;
+  LDC161x::LDC161x externalLow;
   assertCode(Err::INVALID_CONFIG, externalLow.bind(external));
 
   Config offset = makeConfig(fake);
   offset.referenceClock = {RefClkSrc::EXTERNAL_CLOCK, 20000000U, 0U};
   offset.channel[0].expectedSensorMinHz = 156250U;
   offset.channel[0].offset = 1023U;
-  LDC1614::LDC1614 below;
+  LDC161x::LDC161x below;
   TEST_ASSERT_TRUE(below.bind(offset).ok());
   offset.channel[0].offset = 1024U;
-  LDC1614::LDC1614 equal;
+  LDC161x::LDC161x equal;
   assertCode(Err::INVALID_CONFIG, equal.bind(offset));
   offset.channel[0].offset = 1025U;
-  LDC1614::LDC1614 above;
+  LDC161x::LDC161x above;
   assertCode(Err::INVALID_CONFIG, above.bind(offset));
 
   offset.channel[0].finDivider = 2U;
   offset.channel[0].offset = 511U;
-  LDC1614::LDC1614 dividedBelow;
+  LDC161x::LDC161x dividedBelow;
   TEST_ASSERT_TRUE(dividedBelow.bind(offset).ok());
   offset.channel[0].offset = 512U;
-  LDC1614::LDC1614 dividedEqual;
+  LDC161x::LDC161x dividedEqual;
   assertCode(Err::INVALID_CONFIG, dividedEqual.bind(offset));
 
   for (uint8_t active = 0U; active < 4U; ++active) {
-    FakeLdc1614Device modeFake;
-    LDC1614::LDC1614 modeDriver;
+    FakeLdc161xDevice modeFake;
+    LDC161x::LDC161x modeDriver;
     Config mode = makeConfig(modeFake, DeviceVariant::LDC1614);
     mode.channels = channelBit(static_cast<Channel>(active));
     mode.activeChannel = static_cast<Channel>(active);
@@ -3043,8 +3043,8 @@ void test_clock_offset_mode_and_config_encoding_boundaries() {
     TEST_ASSERT_EQUAL_HEX16(expected, modeFake.reg[cmd::REG_CONFIG]);
   }
 
-  FakeLdc1614Device highCurrentFake;
-  LDC1614::LDC1614 highCurrentDriver;
+  FakeLdc161xDevice highCurrentFake;
+  LDC161x::LDC161x highCurrentDriver;
   Config highCurrent = makeConfig(highCurrentFake, DeviceVariant::LDC1614);
   highCurrent.highCurrentDriveEnabled = true;
   TEST_ASSERT_TRUE(highCurrentDriver.bind(highCurrent).ok());
@@ -3055,8 +3055,8 @@ void test_clock_offset_mode_and_config_encoding_boundaries() {
   TEST_ASSERT_TRUE((highCurrentFake.reg[cmd::REG_CONFIG] &
                     cmd::MASK_CFG_HIGH_CURRENT_DRV) != 0U);
 
-  FakeLdc1614Device threeFake;
-  LDC1614::LDC1614 threeDriver;
+  FakeLdc161xDevice threeFake;
+  LDC161x::LDC161x threeDriver;
   Config three = makeConfig(threeFake, DeviceVariant::LDC1614, true);
   three.channels = ChannelMask{0x07};
   three.rrSequence = RRSequence::CH0_CH1_CH2;
@@ -3070,8 +3070,8 @@ void test_clock_offset_mode_and_config_encoding_boundaries() {
                                  Deglitch::BW_10MHZ, Deglitch::BW_33MHZ};
   const uint16_t encodings[] = {0x0209U, 0x020CU, 0x020DU, 0x020FU};
   for (uint8_t index = 0; index < 4U; ++index) {
-    FakeLdc1614Device deglitchFake;
-    LDC1614::LDC1614 deglitchDriver;
+    FakeLdc161xDevice deglitchFake;
+    LDC161x::LDC161x deglitchDriver;
     Config deglitch = makeConfig(deglitchFake);
     deglitch.deglitch = deglitches[index];
     TEST_ASSERT_TRUE(deglitchDriver.bind(deglitch).ok());
@@ -3089,7 +3089,7 @@ void test_clock_offset_mode_and_config_encoding_boundaries() {
 void setUp() {}
 void tearDown() {}
 
-void registerLdc1614CliTests();
+void registerLdc161xCliTests();
 
 int main() {
   UNITY_BEGIN();
@@ -3135,6 +3135,6 @@ int main() {
   RUN_TEST(test_clock_offset_mode_and_config_encoding_boundaries);
   RUN_TEST(test_exact_divider_ratios_preserve_strict_clock_and_offset_boundaries);
   RUN_TEST(test_application_owned_intb_requires_no_driver_gpio_callback);
-  registerLdc1614CliTests();
+  registerLdc161xCliTests();
   return UNITY_END();
 }

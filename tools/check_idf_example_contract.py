@@ -5,7 +5,7 @@ import pathlib
 import re
 import sys
 
-from ldc1614_cli_contract import (
+from ldc161x_cli_contract import (
     ANSI,
     COMMAND_SPECS,
     STALE_COMMANDS,
@@ -21,7 +21,7 @@ REQUIRED_IDF_TOKENS = (
     "i2c_master_bus_add_device", "i2c_master_transmit_receive",
     "i2c_master_bus_rm_device", "i2c_del_master_bus",
     "esp32_i2c::recover(*context)",
-    "Ldc1614IdfCli", "esp32_i2c::write", "esp32_i2c::writeRead",
+    "Ldc161xIdfCli", "esp32_i2c::write", "esp32_i2c::writeRead",
     "esp32_i2c::readRegisterAt", "esp32_i2c::setFrequency",
     "esp32_i2c::intbAsserted", "esp32_i2c::uptimeMs", ".bind(",
     ".startInitialize(", ".poll(", ".takeResult(", "select(",
@@ -256,7 +256,7 @@ def main() -> int:
     main_dir = (ROOT / "examples" / "esp_idf" / "basic" / "main").resolve()
     idf_main = main_dir / "main.cpp"
     idf_cmake = main_dir / "CMakeLists.txt"
-    idf_cli = main_dir / "Ldc1614IdfCli.cpp"
+    idf_cli = main_dir / "Ldc161xIdfCli.cpp"
     common = (ROOT / "examples" / "common").resolve()
     arduino = (ROOT / "examples" / "01_basic_bringup_cli").resolve()
     transport_dir = (ROOT / "examples" / "esp32").resolve()
@@ -302,29 +302,29 @@ def main() -> int:
         fail("native CMake missing COMPONENT_LIB private compile definitions")
     definition_body = definitions.group("body")
     for macro in (
-        "LDC1614_GIT_COMMIT", "LDC1614_GIT_STATUS",
-        "LDC1614_BUILD_DATE", "LDC1614_BUILD_TIME",
+        "LDC161X_GIT_COMMIT", "LDC161X_GIT_STATUS",
+        "LDC161X_BUILD_DATE", "LDC161X_BUILD_TIME",
     ):
         if re.search(rf'"{macro}=\\"\$\{{[^}}]+\}}\\""', definition_body) is None:
             fail(f"native CMake missing provenance definition {macro}")
     for timestamp_call in (
-        'string(TIMESTAMP LDC1614_EXAMPLE_BUILD_TIMESTAMP '
+        'string(TIMESTAMP LDC161X_EXAMPLE_BUILD_TIMESTAMP '
         '"%Y-%m-%dT%H:%M:%S" UTC)',
-        'string(SUBSTRING "${LDC1614_EXAMPLE_BUILD_TIMESTAMP}" 0 10',
-        'string(SUBSTRING "${LDC1614_EXAMPLE_BUILD_TIMESTAMP}" 11 8',
+        'string(SUBSTRING "${LDC161X_EXAMPLE_BUILD_TIMESTAMP}" 0 10',
+        'string(SUBSTRING "${LDC161X_EXAMPLE_BUILD_TIMESTAMP}" 11 8',
     ):
         if timestamp_call not in cmake_code:
             fail(f"native CMake missing atomic UTC timestamp step: {timestamp_call}")
     for token in REQUIRED_IDF_TOKENS:
         if token not in all_native:
             fail(f"required native token missing: {token}")
-    if "../../../common/Ldc1614Cli.cpp" in cmake_text or "Ldc1614Cli.h" in all_native:
+    if "../../../common/Ldc161xCli.cpp" in cmake_text or "Ldc161xCli.h" in all_native:
         fail("native example must not compile/include the Arduino/common CLI")
 
     expected = {
         "examples/esp_idf/basic/main/main.cpp",
         "examples/esp32/I2cMasterTransport.cpp",
-        "examples/esp_idf/basic/main/Ldc1614IdfCli.cpp",
+        "examples/esp_idf/basic/main/Ldc161xIdfCli.cpp",
     }
     missing = sorted(expected - {rel(path) for path in compiled})
     if missing:
@@ -334,7 +334,7 @@ def main() -> int:
             fail(f"stale compatibility file remains: {stale}")
 
     check_native_cli(all_native)
-    arduino_cli_text = read(common / "Ldc1614Cli.cpp")
+    arduino_cli_text = read(common / "Ldc161xCli.cpp")
     native_cli_text = read(idf_cli)
     arduino_specs = parse_cpp_command_specs(arduino_cli_text)
     native_specs = parse_cpp_command_specs(native_cli_text)
@@ -350,9 +350,9 @@ def main() -> int:
                         "advanceSamplingSession", "scheduleSessionAcquire"):
         arduino_method = method_body(
             arduino_cli_text, "Cli", method_name
-        ).replace("Cli::", "Ldc1614IdfCli::")
+        ).replace("Cli::", "Ldc161xIdfCli::")
         native_method = method_body(
-            native_cli_text, "Ldc1614IdfCli", method_name
+            native_cli_text, "Ldc161xIdfCli", method_name
         )
         if arduino_method != native_method:
             fail(

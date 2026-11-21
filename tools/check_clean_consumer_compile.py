@@ -14,7 +14,7 @@ from typing import Optional
 
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION_HEADER = ROOT / "include" / "LDC1614" / "Version.h"
+VERSION_HEADER = ROOT / "include" / "LDC161x" / "Version.h"
 CPP_FLAGS = (
     "-std=c++17", "-Wall", "-Wextra", "-Werror", "-pedantic",
     "-fno-exceptions", "-fno-rtti",
@@ -46,14 +46,14 @@ def ensure_version_header_tracked() -> int:
         return 0
 
     result = subprocess.run(
-        ["git", "ls-files", "--error-unmatch", "include/LDC1614/Version.h"],
+        ["git", "ls-files", "--error-unmatch", "include/LDC161x/Version.h"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
-        return fail("include/LDC1614/Version.h exists but is not tracked by git")
+        return fail("include/LDC161x/Version.h exists but is not tracked by git")
     return 0
 
 
@@ -105,8 +105,8 @@ def extract_archive(archive: Path, temp: Path) -> Path:
 
 def compile_consumer(compiler: str, package_root: Path, temp: Path) -> int:
     include_dir = package_root / "include"
-    source_file = package_root / "src" / "LDC1614.cpp"
-    version_header = include_dir / "LDC1614" / "Version.h"
+    source_file = package_root / "src" / "LDC161x.cpp"
+    version_header = include_dir / "LDC161x" / "Version.h"
     library_json = package_root / "library.json"
     version_script = package_root / "scripts" / "generate_version.py"
     component_files = (
@@ -141,7 +141,7 @@ def compile_consumer(compiler: str, package_root: Path, temp: Path) -> int:
     # header, as a consumer is allowed to include any public header directly.
     header_consumer = temp / "header_consumer.cpp"
     public_headers = sorted(
-        path for path in (include_dir / "LDC1614").rglob("*")
+        path for path in (include_dir / "LDC161x").rglob("*")
         if path.is_file() and path.suffix in (".h", ".hpp")
     )
     for header in public_headers:
@@ -160,19 +160,19 @@ def compile_consumer(compiler: str, package_root: Path, temp: Path) -> int:
     consumer = temp / "consumer.cpp"
     consumer.write_text(
         """#include <type_traits>
-#include "LDC1614/LDC1614.h"
+#include "LDC161x/LDC161x.h"
 
-static_assert(!std::is_copy_constructible<LDC1614::LDC1614>::value,
+static_assert(!std::is_copy_constructible<LDC161x::LDC161x>::value,
               "driver instances are intentionally non-copyable");
-static_assert(LDC1614::VERSION_CODE >= 10000U,
+static_assert(LDC161x::VERSION_CODE >= 10000U,
               "Version.h must be available to public consumers");
 
 int main() {
-  LDC1614::Config cfg;
-  cfg.i2cAddress = LDC1614::I2cAddress::ADDR_GND;
-  LDC1614::LDC1614 device;
-  LDC1614::Status st = device.bind(cfg);
-  return st.is(LDC1614::Err::INVALID_CONFIG) ? 0 : 1;
+  LDC161x::Config cfg;
+  cfg.i2cAddress = LDC161x::I2cAddress::ADDR_GND;
+  LDC161x::LDC161x device;
+  LDC161x::Status st = device.bind(cfg);
+  return st.is(LDC161x::Err::INVALID_CONFIG) ? 0 : 1;
 }
 """,
         encoding="utf-8",
@@ -215,7 +215,7 @@ def main() -> int:
         return fail("no C++ compiler found; set CXX or install c++/g++/clang++")
 
     try:
-        with tempfile.TemporaryDirectory(prefix="ldc1614_consumer_") as temp_root:
+        with tempfile.TemporaryDirectory(prefix="ldc161x_consumer_") as temp_root:
             temp = Path(temp_root)
             archive = pack_library(temp)
             if archive is None:

@@ -270,7 +270,7 @@ CI on a release commit or a hardware qualification claim.
 ### Testing and documentation follow-up, 2026-10-03
 
 The datasheet review was committed and pushed as `f110097`. All seven jobs in
-[its CI run](https://github.com/janhavelka/LDC1614/actions/runs/37146174385)
+[its CI run](https://github.com/janhavelka/LDC161x/actions/runs/37146174385)
 passed, including complete Arduino and native ESP-IDF builds for ESP32-S2 and
 ESP32-S3. This is build and software-test evidence only.
 

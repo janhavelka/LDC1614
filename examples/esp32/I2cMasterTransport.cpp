@@ -17,35 +17,35 @@ int clampTimeoutMs(uint32_t timeoutMs) {
   return static_cast<int>(timeoutMs > maximum ? maximum : timeoutMs);
 }
 
-LDC1614::Status mapEspErr(esp_err_t error, const char* context) {
+LDC161x::Status mapEspErr(esp_err_t error, const char* context) {
   if (error == ESP_OK) {
-    return LDC1614::Status::Ok();
+    return LDC161x::Status::Ok();
   }
   if (error == ESP_ERR_TIMEOUT) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT, context,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_TIMEOUT, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_INVALID_RESPONSE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_ERROR, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_INVALID_ARG) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM, context,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_INVALID_STATE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, context,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS, context,
                                   static_cast<int32_t>(error));
   }
   if (error == ESP_ERR_NO_MEM || error == ESP_ERR_NOT_FOUND) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS, context,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS, context,
                                   static_cast<int32_t>(error));
   }
-  return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context,
+  return LDC161x::Status::Error(LDC161x::Err::I2C_ERROR, context,
                                 static_cast<int32_t>(error));
 }
 
-LDC1614::Status mapTransactionErr(esp_err_t error, const char* context) {
+LDC161x::Status mapTransactionErr(esp_err_t error, const char* context) {
   // ESP-IDF 5.5.x returns ESP_ERR_INVALID_STATE for every synchronous
   // transaction that does not finish in I2C_STATUS_DONE, including a normal
   // slave NACK. It does not expose enough phase information to distinguish an
@@ -53,25 +53,25 @@ LDC1614::Status mapTransactionErr(esp_err_t error, const char* context) {
   // the raw detail but do not mislabel this ambiguous device transaction as a
   // failed shared bus; that would invite destructive owner-wide recovery.
   if (error == ESP_ERR_INVALID_STATE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_ERROR, context,
                                   static_cast<int32_t>(error));
   }
   return mapEspErr(error, context);
 }
 
-LDC1614::Status validateContext(uint8_t address, void* user,
+LDC161x::Status validateContext(uint8_t address, void* user,
                                 Context*& context) {
   context = static_cast<Context*>(user);
   if (context == nullptr || context->device == nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                   "I2C device is not configured");
   }
   if (address != context->address) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "Unexpected I2C address",
                                   static_cast<int32_t>(address));
   }
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
 i2c_device_config_t makeDeviceConfig(uint8_t address, uint32_t frequencyHz) {
@@ -90,7 +90,7 @@ bool validFrequency(uint32_t frequencyHz) {
 enum class TransferKind : uint8_t { WRITE, WRITE_READ, DISCOVERY };
 
 void recordTransfer(Context& context, TransferKind kind,
-                    const LDC1614::Status& status) {
+                    const LDC161x::Status& status) {
   uint32_t* counter = kind == TransferKind::WRITE
                           ? &context.transferStats.writes
                           : (kind == TransferKind::WRITE_READ
@@ -105,16 +105,16 @@ void recordTransfer(Context& context, TransferKind kind,
 
 }  // namespace
 
-LDC1614::Status open(Context& context, const BusConfig& config) {
+LDC161x::Status open(Context& context, const BusConfig& config) {
   if (context.bus != nullptr || context.device != nullptr ||
       context.discoveryDevice != nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                   "I2C context is already open");
   }
   if (config.sda == GPIO_NUM_NC || config.scl == GPIO_NUM_NC ||
       !validFrequency(config.frequencyHz) || context.address < 0x08U ||
       context.address > 0x77U) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                   "I2C bus configuration is invalid");
   }
   context.busConfig = config;
@@ -128,7 +128,7 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
   nativeBusConfig.glitch_ignore_cnt = 7;
   nativeBusConfig.flags.enable_internal_pullup = config.enableInternalPullups;
   i2c_master_bus_handle_t bus = nullptr;
-  LDC1614::Status status = mapEspErr(
+  LDC161x::Status status = mapEspErr(
       i2c_new_master_bus(&nativeBusConfig, &bus), "I2C bus init failed");
   if (!status.ok()) {
     return status;
@@ -151,12 +151,12 @@ LDC1614::Status open(Context& context, const BusConfig& config) {
 
   context.bus = bus;
   context.device = device;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Status close(Context& context) {
+LDC161x::Status close(Context& context) {
   if (context.discoveryDevice != nullptr) {
-    LDC1614::Status status = mapEspErr(
+    LDC161x::Status status = mapEspErr(
         i2c_master_bus_rm_device(context.discoveryDevice),
         "I2C discovery device removal failed");
     if (!status.ok()) {
@@ -166,7 +166,7 @@ LDC1614::Status close(Context& context) {
     context.discoveryAddress = 0U;
   }
   if (context.device != nullptr) {
-    LDC1614::Status status = mapEspErr(
+    LDC161x::Status status = mapEspErr(
         i2c_master_bus_rm_device(context.device),
         "I2C device removal failed");
     if (!status.ok()) {
@@ -175,41 +175,41 @@ LDC1614::Status close(Context& context) {
     context.device = nullptr;
   }
   if (context.bus != nullptr) {
-    LDC1614::Status status = mapEspErr(
+    LDC161x::Status status = mapEspErr(
         i2c_del_master_bus(context.bus), "I2C bus deletion failed");
     if (!status.ok()) {
       return status;
     }
     context.bus = nullptr;
   }
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Status reopen(Context& context) {
+LDC161x::Status reopen(Context& context) {
   if (context.bus != nullptr || context.device != nullptr ||
       context.discoveryDevice != nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                   "I2C context is still open");
   }
   if (!context.hasBusConfig) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                   "I2C bus configuration unavailable");
   }
   const BusConfig config = context.busConfig;
   return open(context, config);
 }
 
-LDC1614::Status recover(Context& context) {
+LDC161x::Status recover(Context& context) {
   if (!context.hasBusConfig) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                   "I2C bus configuration unavailable");
   }
   if ((context.device != nullptr || context.discoveryDevice != nullptr) &&
       context.bus == nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                   "I2C context handles are inconsistent");
   }
-  LDC1614::Status status = close(context);
+  LDC161x::Status status = close(context);
   if (!status.ok()) {
     return status;
   }
@@ -224,29 +224,29 @@ LDC1614::Status recover(Context& context) {
   // transaction, and an address-only probe does not qualify its required
   // combined register-read protocol. The owner must invalidate every affected
   // device and use full device-specific initialization/replay for admission.
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
 uint32_t frequencyHz(const Context& context) {
   return context.hasBusConfig ? context.busConfig.frequencyHz : 0U;
 }
 
-LDC1614::Status setFrequency(Context& context, uint32_t requestedHz) {
+LDC161x::Status setFrequency(Context& context, uint32_t requestedHz) {
   if (context.bus == nullptr || context.device == nullptr ||
       !context.hasBusConfig) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                   "I2C context is not open");
   }
   if (!validFrequency(requestedHz)) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "I2C frequency must be 10 kHz to 400 kHz",
                                   static_cast<int32_t>(requestedHz));
   }
   const uint32_t previousHz = context.busConfig.frequencyHz;
-  if (requestedHz == previousHz) return LDC1614::Status::Ok();
+  if (requestedHz == previousHz) return LDC161x::Status::Ok();
 
   if (context.discoveryDevice != nullptr) {
-    LDC1614::Status status = mapEspErr(
+    LDC161x::Status status = mapEspErr(
         i2c_master_bus_rm_device(context.discoveryDevice),
         "I2C discovery device removal for frequency change failed");
     if (!status.ok()) return status;
@@ -254,7 +254,7 @@ LDC1614::Status setFrequency(Context& context, uint32_t requestedHz) {
     context.discoveryAddress = 0U;
   }
 
-  LDC1614::Status status = mapEspErr(
+  LDC161x::Status status = mapEspErr(
       i2c_master_bus_rm_device(context.device),
       "I2C device removal for frequency change failed");
   if (!status.ok()) return status;
@@ -276,7 +276,7 @@ LDC1614::Status setFrequency(Context& context, uint32_t requestedHz) {
   const i2c_device_config_t rollbackConfig =
       makeDeviceConfig(context.address, previousHz);
   i2c_master_dev_handle_t rollbackDevice = nullptr;
-  const LDC1614::Status rollback = mapEspErr(
+  const LDC161x::Status rollback = mapEspErr(
       i2c_master_bus_add_device(context.bus, &rollbackConfig, &rollbackDevice),
       "I2C frequency rollback failed");
   if (!rollback.ok()) return rollback;
@@ -284,15 +284,15 @@ LDC1614::Status setFrequency(Context& context, uint32_t requestedHz) {
   return status;
 }
 
-LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,
+LDC161x::Status write(uint8_t address, const uint8_t* data, size_t length,
                       uint32_t timeoutMs, void* user) {
   Context* context = nullptr;
-  LDC1614::Status status = validateContext(address, user, context);
+  LDC161x::Status status = validateContext(address, user, context);
   if (!status.ok()) {
     return status;
   }
   if (data == nullptr || length == 0U) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "Invalid I2C write buffer");
   }
 
@@ -303,17 +303,17 @@ LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,
   return status;
 }
 
-LDC1614::Status writeRead(uint8_t address, const uint8_t* txData,
+LDC161x::Status writeRead(uint8_t address, const uint8_t* txData,
                           size_t txLength, uint8_t* rxData, size_t rxLength,
                           uint32_t timeoutMs, void* user) {
   Context* context = nullptr;
-  LDC1614::Status status = validateContext(address, user, context);
+  LDC161x::Status status = validateContext(address, user, context);
   if (!status.ok()) {
     return status;
   }
   if (txData == nullptr || txLength == 0U || rxData == nullptr ||
       rxLength == 0U) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "Invalid I2C write-read buffer");
   }
 
@@ -325,24 +325,24 @@ LDC1614::Status writeRead(uint8_t address, const uint8_t* txData,
   return status;
 }
 
-LDC1614::Status intbAsserted(bool& asserted, void* user) {
+LDC161x::Status intbAsserted(bool& asserted, void* user) {
   auto* context = static_cast<Context*>(user);
   if (context == nullptr || context->intb == GPIO_NUM_NC) {
     asserted = false;
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                   "INTB pin not configured");
   }
   asserted = gpio_get_level(context->intb) == 0;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Status readRegisterAt(Context& context, uint8_t address,
+LDC161x::Status readRegisterAt(Context& context, uint8_t address,
                                uint8_t registerAddress, uint16_t& value,
                                uint32_t timeoutMs) {
   value = 0U;
   if (context.bus == nullptr || context.device == nullptr ||
       !context.hasBusConfig || address < 0x08U || address > 0x77U) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                   "I2C discovery context is invalid");
   }
 
@@ -350,7 +350,7 @@ LDC1614::Status readRegisterAt(Context& context, uint8_t address,
   if (address != context.address) {
     if (context.discoveryDevice != nullptr &&
         context.discoveryAddress != address) {
-      const LDC1614::Status removed = mapEspErr(
+      const LDC161x::Status removed = mapEspErr(
           i2c_master_bus_rm_device(context.discoveryDevice),
           "I2C stale discovery device removal failed");
       if (!removed.ok()) return removed;
@@ -361,7 +361,7 @@ LDC1614::Status readRegisterAt(Context& context, uint8_t address,
       const i2c_device_config_t config =
           makeDeviceConfig(address, context.busConfig.frequencyHz);
       i2c_master_dev_handle_t discoveryDevice = nullptr;
-      const LDC1614::Status added = mapEspErr(
+      const LDC161x::Status added = mapEspErr(
           i2c_master_bus_add_device(context.bus, &config, &discoveryDevice),
           "I2C discovery device add failed");
       if (!added.ok()) return added;
@@ -375,14 +375,14 @@ LDC1614::Status readRegisterAt(Context& context, uint8_t address,
   const esp_err_t transaction = i2c_master_transmit_receive(
       handle, &registerAddress, 1U, bytes, sizeof(bytes),
       clampTimeoutMs(timeoutMs));
-  const LDC1614::Status status =
+  const LDC161x::Status status =
       mapTransactionErr(transaction, "I2C discovery register read failed");
   recordTransfer(context, TransferKind::DISCOVERY, status);
 
   if (!status.ok()) return status;
   value = static_cast<uint16_t>((static_cast<uint16_t>(bytes[0]) << 8U) |
                                 static_cast<uint16_t>(bytes[1]));
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
 uint64_t uptimeMs() {

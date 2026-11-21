@@ -5,9 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "LDC1614/Status.h"
+#include "LDC161x/Status.h"
 
-namespace LDC1614 {
+namespace LDC161x {
 
 /// @brief Caller-owned identifier used to correlate jobs and terminal results.
 using OperationId = uint64_t;
@@ -235,4 +235,4 @@ struct Config {
   ErrorReporting errorReporting{};                  ///< Typed ERROR_CONFIG policy.
 };
 
-}  // namespace LDC1614
+}  // namespace LDC161x

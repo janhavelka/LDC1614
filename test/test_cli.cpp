@@ -4,15 +4,15 @@
 #include <cstdio>
 #include <cstring>
 
-#include "examples/common/Ldc1614Cli.h"
-#include "test/support/FakeLdc1614Device.h"
+#include "examples/common/Ldc161xCli.h"
+#include "test/support/FakeLdc161xDevice.h"
 
 namespace {
 
-using ldc1614_test::FakeLdc1614Device;
+using ldc161x_test::FakeLdc161xDevice;
 
 struct CliFixture {
-  FakeLdc1614Device fake{};
+  FakeLdc161xDevice fake{};
   uint64_t nowMs = 1000;
   uint16_t discoveryCalls = 0;
   uint16_t recoveryCalls = 0;
@@ -49,53 +49,53 @@ uint64_t fixtureNow(void* user) {
   return static_cast<CliFixture*>(user)->nowMs;
 }
 
-LDC1614::Status fixtureIntb(bool& asserted, void* user) {
+LDC161x::Status fixtureIntb(bool& asserted, void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
   asserted = fixture->fake.intbAsserted;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Config fixtureConfig(void* user) {
+LDC161x::Config fixtureConfig(void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
-  LDC1614::Config config;
-  config.i2cWrite = FakeLdc1614Device::write;
-  config.i2cWriteRead = FakeLdc1614Device::writeRead;
+  LDC161x::Config config;
+  config.i2cWrite = FakeLdc161xDevice::write;
+  config.i2cWriteRead = FakeLdc161xDevice::writeRead;
   config.i2cUser = &fixture->fake;
   config.i2cTimeoutMs = 25;
-  config.i2cAddress = LDC1614::I2cAddress::ADDR_GND;
+  config.i2cAddress = LDC161x::I2cAddress::ADDR_GND;
   config.intbAsserted = fixtureIntb;
   config.intbUser = fixture;
-  config.variant = fixture->useLdc1612 ? LDC1614::DeviceVariant::LDC1612
-                                      : LDC1614::DeviceVariant::LDC1614;
-  config.channels = LDC1614::channelBit(LDC1614::Channel::CH0);
+  config.variant = fixture->useLdc1612 ? LDC161x::DeviceVariant::LDC1612
+                                      : LDC161x::DeviceVariant::LDC1614;
+  config.channels = LDC161x::channelBit(LDC161x::Channel::CH0);
   config.referenceClock =
-      LDC1614::ReferenceClock{LDC1614::RefClkSrc::INTERNAL, 43000000U, 200000U};
-  config.mode = LDC1614::OperatingMode::SINGLE_CHANNEL;
-  config.activeChannel = LDC1614::Channel::CH0;
-  config.rrSequence = LDC1614::RRSequence::UNSPECIFIED;
-  config.deglitch = LDC1614::Deglitch::BW_10MHZ;
-  config.sensorActivation = LDC1614::SensorActivation::FULL_CURRENT;
+      LDC161x::ReferenceClock{LDC161x::RefClkSrc::INTERNAL, 43000000U, 200000U};
+  config.mode = LDC161x::OperatingMode::SINGLE_CHANNEL;
+  config.activeChannel = LDC161x::Channel::CH0;
+  config.rrSequence = LDC161x::RRSequence::UNSPECIFIED;
+  config.deglitch = LDC161x::Deglitch::BW_10MHZ;
+  config.sensorActivation = LDC161x::SensorActivation::FULL_CURRENT;
   config.rpOverrideEnabled = true;
   config.autoAmplitudeCorrectionEnabled = false;
   config.highCurrentDriveEnabled = false;
   config.intbDisabled = false;
-  config.errorReporting = LDC1614::ErrorReporting::all();
+  config.errorReporting = LDC161x::ErrorReporting::all();
   for (uint8_t channel = 0; channel < 4U; ++channel) {
     config.channel[channel].rcount = 0x04D6;
     config.channel[channel].settleCount = 0x000A;
     config.channel[channel].finDivider = 2;
     config.channel[channel].frefDivider = 2;
     config.channel[channel].offset = 0;
-    config.channel[channel].driveCurrentCode = LDC1614::DriveCurrentCode(10);
+    config.channel[channel].driveCurrentCode = LDC161x::DriveCurrentCode(10);
   }
   config.channel[0].expectedSensorMinHz = 100000;
   config.channel[0].expectedSensorMaxHz = 5000000;
   return config;
 }
 
-ldc1614_cli::I2cBusInfo fixtureBusInfo(void* user) {
+ldc161x_cli::I2cBusInfo fixtureBusInfo(void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
-  ldc1614_cli::I2cBusInfo info{};
+  ldc161x_cli::I2cBusInfo info{};
   info.open = true;
   info.port = 0;
   info.sda = 8;
@@ -107,64 +107,64 @@ ldc1614_cli::I2cBusInfo fixtureBusInfo(void* user) {
   return info;
 }
 
-LDC1614::Status fixtureSetFrequency(uint32_t frequencyHz, void* user) {
+LDC161x::Status fixtureSetFrequency(uint32_t frequencyHz, void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
   if (frequencyHz < 10000U || frequencyHz > 400000U) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "invalid fixture I2C frequency");
   }
   fixture->busFrequencyHz = frequencyHz;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Status fixtureReadRegister(uint8_t address, uint8_t registerAddress,
+LDC161x::Status fixtureReadRegister(uint8_t address, uint8_t registerAddress,
                                     uint16_t& value, uint32_t, void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
   ++fixture->discoveryCalls;
   value = 0U;
   if (address != fixture->fake.acceptedAddress) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR,
+    return LDC161x::Status::Error(LDC161x::Err::I2C_ERROR,
                                   "fixture discovery NACK", 259);
   }
-  if (registerAddress != LDC1614::cmd::REG_MANUFACTURER_ID &&
-      registerAddress != LDC1614::cmd::REG_DEVICE_ID) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+  if (registerAddress != LDC161x::cmd::REG_MANUFACTURER_ID &&
+      registerAddress != LDC161x::cmd::REG_DEVICE_ID) {
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "unsupported fixture discovery register");
   }
   value = fixture->fake.reg[registerAddress];
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-ldc1614_cli::I2cTransferStats fixtureTransferStats(void* user) {
+ldc161x_cli::I2cTransferStats fixtureTransferStats(void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
-  ldc1614_cli::I2cTransferStats stats{};
+  ldc161x_cli::I2cTransferStats stats{};
   stats.writes = fixture->fake.writeCalls;
   stats.writeReads = fixture->fake.readCalls;
   stats.discoveries = fixture->discoveryCalls;
   return stats;
 }
 
-LDC1614::Status fixtureRecoverObserved(void* user) {
+LDC161x::Status fixtureRecoverObserved(void* user) {
   ++static_cast<CliFixture*>(user)->recoveryCalls;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Status fixtureSdRead(bool& asserted, void* user) {
+LDC161x::Status fixtureSdRead(bool& asserted, void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
   ++fixture->sdReadCalls;
   asserted = fixture->sdAsserted;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-LDC1614::Status fixtureSdWrite(bool asserted, void* user) {
+LDC161x::Status fixtureSdWrite(bool asserted, void* user) {
   auto* fixture = static_cast<CliFixture*>(user);
   ++fixture->sdWriteCalls;
   fixture->sdAsserted = asserted;
-  return LDC1614::Status::Ok();
+  return LDC161x::Status::Ok();
 }
 
-ldc1614_cli::Cli::Platform fixturePlatform(CliFixture& fixture) {
-  ldc1614_cli::Cli::Platform platform;
+ldc161x_cli::Cli::Platform fixturePlatform(CliFixture& fixture) {
+  ldc161x_cli::Cli::Platform platform;
   platform.user = &fixture;
   platform.vprintf = capturePrintf;
   platform.makeConfig = fixtureConfig;
@@ -184,11 +184,11 @@ bool contains(const CliFixture& fixture, const char* text) {
   return std::strstr(fixture.output, text) != nullptr;
 }
 
-ldc1614_cli::PromptAction serviceToIdle(ldc1614_cli::Cli& cli,
+ldc161x_cli::PromptAction serviceToIdle(ldc161x_cli::Cli& cli,
                                         CliFixture& fixture,
                                         uint16_t maximumPasses = 512,
                                         uint32_t stepMs = 1U) {
-  ldc1614_cli::PromptAction finalAction = ldc1614_cli::PromptAction::NONE;
+  ldc161x_cli::PromptAction finalAction = ldc161x_cli::PromptAction::NONE;
   for (uint16_t pass = 0; pass < maximumPasses && cli.asynchronousWorkActive(); ++pass) {
     const uint16_t before = fixture.fake.transferCalls;
     fixture.nowMs += stepMs;
@@ -200,39 +200,39 @@ ldc1614_cli::PromptAction serviceToIdle(ldc1614_cli::Cli& cli,
   return finalAction;
 }
 
-void initializeToSleeping(ldc1614_cli::Cli& cli, LDC1614::LDC1614& device,
+void initializeToSleeping(ldc161x_cli::Cli& cli, LDC161x::LDC161x& device,
                           CliFixture& fixture) {
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("init")));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(serviceToIdle(cli, fixture)));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(LDC1614::AppliedConfigState::APPLIED_SLEEPING),
+      static_cast<uint8_t>(LDC161x::AppliedConfigState::APPLIED_SLEEPING),
       static_cast<uint8_t>(device.appliedConfigState()));
 }
 
-void initializeAndWake(ldc1614_cli::Cli& cli, LDC1614::LDC1614& device,
+void initializeAndWake(ldc161x_cli::Cli& cli, LDC161x::LDC161x& device,
                        CliFixture& fixture) {
   initializeToSleeping(cli, device, fixture);
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(cli.processCommand("wake")));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(LDC1614::AppliedConfigState::APPLIED_ACTIVE),
+      static_cast<uint8_t>(LDC161x::AppliedConfigState::APPLIED_ACTIVE),
       static_cast<uint8_t>(device.appliedConfigState()));
 }
 
 void test_cli_fixed_memory_and_complete_colored_help() {
-  TEST_ASSERT_LESS_OR_EQUAL_UINT32(2048U, sizeof(ldc1614_cli::Cli));
+  TEST_ASSERT_LESS_OR_EQUAL_UINT32(2048U, sizeof(ldc161x_cli::Cli));
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(cli.processCommand("help")));
-  TEST_ASSERT_TRUE(contains(fixture, "\033[36m=== LDC1614 CLI ==="));
+  TEST_ASSERT_TRUE(contains(fixture, "\033[36m=== LDC161x CLI ==="));
   TEST_ASSERT_TRUE(contains(fixture, "profile commit confirm"));
   TEST_ASSERT_TRUE(contains(fixture, "stress_mix <n> [mask] confirm"));
   TEST_ASSERT_TRUE(contains(fixture, "command_count=71"));
@@ -269,8 +269,8 @@ void test_cli_fixed_memory_and_complete_colored_help() {
 
 void test_cli_strict_arguments_confirmation_and_zero_i2c_rejection() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   fixture.fake.clearIo();
 
@@ -295,8 +295,8 @@ void test_cli_strict_arguments_confirmation_and_zero_i2c_rejection() {
 
 void test_cli_staging_is_bus_silent_transactional_and_commit_is_explicit() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   fixture.fake.clearIo();
 
@@ -313,13 +313,13 @@ void test_cli_staging_is_bus_silent_transactional_and_commit_is_explicit() {
 
   fixture.clearOutput();
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("init")));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(serviceToIdle(cli, fixture)));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(LDC1614::AppliedConfigState::APPLIED_SLEEPING),
+      static_cast<uint8_t>(LDC161x::AppliedConfigState::APPLIED_SLEEPING),
       static_cast<uint8_t>(device.appliedConfigState()));
 
   fixture.clearOutput();
@@ -330,16 +330,16 @@ void test_cli_staging_is_bus_silent_transactional_and_commit_is_explicit() {
 
 void test_cli_async_prompt_correlation_and_one_transfer_service_budget() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
 
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("init 5000")));
   TEST_ASSERT_TRUE(contains(fixture, "CLI scheduled: command=init session=0"));
-  const ldc1614_cli::PromptAction terminal = serviceToIdle(cli, fixture);
-  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+  const ldc161x_cli::PromptAction terminal = serviceToIdle(cli, fixture);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
                           static_cast<uint8_t>(terminal));
   TEST_ASSERT_TRUE(contains(fixture, "CLI result: command=init session=0 outcome=SUCCESS code=0"));
   TEST_ASSERT_TRUE(contains(fixture, "maximum="));
@@ -347,8 +347,8 @@ void test_cli_async_prompt_correlation_and_one_transfer_service_budget() {
 
 void test_cli_cooperative_probe_scan_watch_and_machine_evidence() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
 
   cli.processCommand("probe");
@@ -463,15 +463,15 @@ void test_cli_all_canonical_commands_reject_surplus_arguments_without_i2c() {
                 "Canonical surplus-argument matrix must cover all commands");
 
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   fixture.fake.clearIo();
   for (const char* command : commands) {
     fixture.clearOutput();
     const uint16_t before = fixture.fake.transferCalls;
     TEST_ASSERT_EQUAL_UINT8(
-        static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+        static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
         static_cast<uint8_t>(cli.processCommand(command)));
     TEST_ASSERT_EQUAL_UINT16(before, fixture.fake.transferCalls);
     TEST_ASSERT_TRUE_MESSAGE(contains(fixture, "usage:"), command);
@@ -502,20 +502,20 @@ void test_cli_all_aliases_dispatch_to_their_canonical_families() {
       {"scan", "command=discover", true},
   };
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   for (const AliasCase& alias : aliases) {
     fixture.clearOutput();
-    const ldc1614_cli::PromptAction action = cli.processCommand(alias.command);
+    const ldc161x_cli::PromptAction action = cli.processCommand(alias.command);
     if (alias.asynchronous) {
       TEST_ASSERT_EQUAL_UINT8(
-          static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+          static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
           static_cast<uint8_t>(action));
       serviceToIdle(cli, fixture);
     } else {
       TEST_ASSERT_EQUAL_UINT8(
-          static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+          static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
           static_cast<uint8_t>(action));
     }
     TEST_ASSERT_TRUE_MESSAGE(contains(fixture, alias.evidence), alias.command);
@@ -555,8 +555,8 @@ void test_cli_complete_staged_profile_surface_is_silent_and_transactional() {
   };
 
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   initializeToSleeping(cli, device, fixture);
   fixture.fake.clearIo();
@@ -579,7 +579,7 @@ void test_cli_complete_staged_profile_surface_is_silent_and_transactional() {
   for (const SettingCase& setting : settings) {
     fixture.clearOutput();
     TEST_ASSERT_EQUAL_UINT8(
-        static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+        static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
         static_cast<uint8_t>(cli.processCommand(setting.command)));
     TEST_ASSERT_TRUE_MESSAGE(contains(fixture, setting.evidence), setting.command);
     TEST_ASSERT_TRUE(contains(fixture, "outcome=STAGED"));
@@ -632,8 +632,8 @@ void test_cli_complete_staged_profile_surface_is_silent_and_transactional() {
 
 void test_cli_selected_timing_minima_reject_invalid_staged_single_channel() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   fixture.fake.clearIo();
   cli.processCommand("mode single 0");
@@ -668,8 +668,8 @@ void test_cli_ldc1612_rejects_every_channel_2_3_staged_path_atomically() {
   };
   CliFixture fixture;
   fixture.useLdc1612 = true;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   fixture.fake.clearIo();
   for (const char* command : invalidCommands) {
@@ -687,13 +687,13 @@ void test_cli_ldc1612_rejects_every_channel_2_3_staged_path_atomically() {
 
 void test_cli_reading_register_and_pure_helpers_emit_complete_evidence() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   fixture.fake.clearIo();
   fixture.fake.injectConversion(
-      0U, 0x01234567U, LDC1614::cmd::MASK_DATA_ERR_AE,
-      LDC1614::cmd::MASK_STATUS_ERR_AHE);
+      0U, 0x01234567U, LDC161x::cmd::MASK_DATA_ERR_AE,
+      LDC161x::cmd::MASK_STATUS_ERR_AHE);
 
   cli.processCommand("status");
   cli.processCommand("status_raw");
@@ -740,15 +740,15 @@ void test_cli_reading_register_and_pure_helpers_emit_complete_evidence() {
 
 void test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
 
   cli.processCommand("bind");
   TEST_ASSERT_TRUE(device.isBound());
   initializeToSleeping(cli, device, fixture);
   fixture.clearOutput();
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("apply")));
   cli.processCommand("job");
   TEST_ASSERT_TRUE_MESSAGE(contains(fixture, "job active=1"), fixture.output);
@@ -778,17 +778,17 @@ void test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths() 
   fixture.clearOutput();
   cli.processCommand("init");
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("cancel")));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(serviceToIdle(cli, fixture)));
   TEST_ASSERT_TRUE(contains(fixture, "command=init session=0 outcome=CANCELLED"));
 
   fixture.clearOutput();
   cli.processCommand("scan");
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(cli.processCommand("cancel")));
   TEST_ASSERT_TRUE(contains(fixture, "command=discover"));
   TEST_ASSERT_TRUE(contains(fixture, "outcome=CANCELLED"));
@@ -796,7 +796,7 @@ void test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths() 
   fixture.clearOutput();
   fixture.fake.clearIo();
   fixture.fake.failOnTransfer(
-      1U, LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT,
+      1U, LDC161x::Status::Error(LDC161x::Err::I2C_TIMEOUT,
                                  "CLI forced init failure", -9100));
   cli.processCommand("init");
   serviceToIdle(cli, fixture);
@@ -806,8 +806,8 @@ void test_cli_lifecycle_recovery_cancellation_failure_and_cached_result_paths() 
 
 void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   initializeAndWake(cli, device, fixture);
 
@@ -836,7 +836,7 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
   fixture.clearOutput();
   fixture.fake.clearIo();
   fixture.fake.failOnTransfer(
-      1U, LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT,
+      1U, LDC161x::Status::Error(LDC161x::Err::I2C_TIMEOUT,
                                  "CLI forced verify read failure", -9190));
   cli.processCommand("verify");
   serviceToIdle(cli, fixture);
@@ -884,7 +884,7 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
   fixture.clearOutput();
   fixture.fake.clearIo();
   fixture.fake.failOnTransfer(
-      1U, LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+      1U, LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                  "CLI forced probe failure", -9200));
   cli.processCommand("probe");
   serviceToIdle(cli, fixture);
@@ -893,7 +893,7 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
 
   fixture.clearOutput();
   fixture.fake.clearIo();
-  fixture.fake.reg[LDC1614::cmd::REG_RCOUNT0] ^= 1U;
+  fixture.fake.reg[LDC161x::cmd::REG_RCOUNT0] ^= 1U;
   cli.processCommand("verify");
   serviceToIdle(cli, fixture);
   TEST_ASSERT_TRUE(contains(fixture, "mismatched=1"));
@@ -902,8 +902,8 @@ void test_cli_dump_verify_selftest_sampling_stress_soak_and_failures() {
 
 void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   initializeAndWake(cli, device, fixture);
 
@@ -936,7 +936,7 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   cli.processCommand("samplerate 0 1");
   ++fixture.nowMs;
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.service()));
   fixture.fake.unreadMask = 0U;
   serviceToIdle(cli, fixture, 64U, 100U);
@@ -947,7 +947,7 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   fixture.clearOutput();
   fixture.fake.clearIo();
   fixture.fake.injectConversion(0U, 0x01234567U,
-                                LDC1614::cmd::MASK_DATA_ERR_AE);
+                                LDC161x::cmd::MASK_DATA_ERR_AE);
   cli.processCommand("samplerate 0 1");
   serviceToIdle(cli, fixture);
   TEST_ASSERT_TRUE(contains(fixture, "error=1"));
@@ -975,7 +975,7 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
   fixture.fake.clearIo();
   fixture.fake.injectConversion(0U, 0x01234567U);
   fixture.fake.failOnTransfer(
-      2U, LDC1614::Status::Error(LDC1614::Err::I2C_TIMEOUT,
+      2U, LDC161x::Status::Error(LDC161x::Err::I2C_TIMEOUT,
                                  "CLI forced sample failure", -9300));
   cli.processCommand("samplerate 0 1");
   serviceToIdle(cli, fixture);
@@ -992,9 +992,9 @@ void test_cli_samplerate_requires_ready_fresh_valid_fault_free_in_bounds_samples
 void test_cli_samplerate_owns_readiness_and_preserves_one_deadline() {
   for (uint8_t useIntb = 0U; useIntb < 2U; ++useIntb) {
     CliFixture fixture;
-    LDC1614::LDC1614 device;
-    ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
-    LDC1614::Config config = fixtureConfig(&fixture);
+    LDC161x::LDC161x device;
+    ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
+    LDC161x::Config config = fixtureConfig(&fixture);
     if (useIntb == 0U) {
       config.intbAsserted = nullptr;
       config.intbDisabled = true;
@@ -1044,9 +1044,9 @@ void test_cli_samplerate_owns_readiness_and_preserves_one_deadline() {
   }
 
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
-  LDC1614::Config config = fixtureConfig(&fixture);
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::Config config = fixtureConfig(&fixture);
   config.errorReporting.dataReady = false;
   TEST_ASSERT_TRUE(device.bind(config).ok());
   initializeAndWake(cli, device, fixture);
@@ -1062,13 +1062,13 @@ void test_cli_samplerate_owns_readiness_and_preserves_one_deadline() {
 
 void test_cli_samplerate_accepts_fresh_channel_before_scan_drdy() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
-  LDC1614::Config config = fixtureConfig(&fixture);
-  config.mode = LDC1614::OperatingMode::MULTI_CHANNEL_SEQUENTIAL;
-  config.activeChannel = LDC1614::Channel::NONE;
-  config.rrSequence = LDC1614::RRSequence::CH0_CH1;
-  config.channels = LDC1614::ChannelMask{0x03U};
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::Config config = fixtureConfig(&fixture);
+  config.mode = LDC161x::OperatingMode::MULTI_CHANNEL_SEQUENTIAL;
+  config.activeChannel = LDC161x::Channel::NONE;
+  config.rrSequence = LDC161x::RRSequence::CH0_CH1;
+  config.channels = LDC161x::ChannelMask{0x03U};
   config.channel[1].expectedSensorMinHz = config.channel[0].expectedSensorMinHz;
   config.channel[1].expectedSensorMaxHz = config.channel[0].expectedSensorMaxHz;
   TEST_ASSERT_TRUE(device.bind(config).ok());
@@ -1088,8 +1088,8 @@ void test_cli_samplerate_accepts_fresh_channel_before_scan_drdy() {
 
 void test_cli_session_cancel_and_deadline_keep_terminal_outcome() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   initializeAndWake(cli, device, fixture);
 
@@ -1123,8 +1123,8 @@ void test_cli_session_cancel_and_deadline_keep_terminal_outcome() {
 
 void test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
   initializeAndWake(cli, device, fixture);
 
@@ -1161,43 +1161,43 @@ void test_cli_nonacquisition_stress_preserves_last_batch_without_false_failure()
 
 void test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent() {
   CliFixture fixture;
-  LDC1614::LDC1614 device;
-  ldc1614_cli::Cli cli(device, fixturePlatform(fixture));
+  LDC161x::LDC161x device;
+  ldc161x_cli::Cli cli(device, fixturePlatform(fixture));
   TEST_ASSERT_TRUE(device.bind(fixtureConfig(&fixture)).ok());
 
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(cli.processCommand("help")));
   fixture.clearOutput();
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("init")));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("job")));
   uint16_t promptCount = 0U;
   for (uint16_t pass = 0U; pass < 128U && cli.asynchronousWorkActive(); ++pass) {
     ++fixture.nowMs;
-    if (cli.service() == ldc1614_cli::PromptAction::PRINT) ++promptCount;
+    if (cli.service() == ldc161x_cli::PromptAction::PRINT) ++promptCount;
   }
   TEST_ASSERT_FALSE(cli.asynchronousWorkActive());
   TEST_ASSERT_EQUAL_UINT16(1U, promptCount);
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.service()));
 
   fixture.clearOutput();
   fixture.fake.clearIo();
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.processCommand("scan")));
   TEST_ASSERT_TRUE(cli.asynchronousWorkActive());
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(cli.processCommand("cancel")));
   TEST_ASSERT_FALSE(cli.asynchronousWorkActive());
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::NONE),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::NONE),
       static_cast<uint8_t>(cli.service()));
   TEST_ASSERT_TRUE(contains(fixture, "command=cancel outcome=SUCCESS"));
 
@@ -1221,18 +1221,18 @@ void test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent() {
   TEST_ASSERT_TRUE(contains(fixture, "non-printable"));
 
   CliFixture missingClockFixture;
-  LDC1614::LDC1614 missingClockDevice;
-  ldc1614_cli::Cli::Platform missingClockPlatform =
+  LDC161x::LDC161x missingClockDevice;
+  ldc161x_cli::Cli::Platform missingClockPlatform =
       fixturePlatform(missingClockFixture);
   missingClockPlatform.nowMs = nullptr;
-  ldc1614_cli::Cli missingClockCli(missingClockDevice, missingClockPlatform);
+  ldc161x_cli::Cli missingClockCli(missingClockDevice, missingClockPlatform);
   TEST_ASSERT_TRUE(
       missingClockDevice.bind(fixtureConfig(&missingClockFixture)).ok());
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(missingClockCli.processCommand("init")));
   TEST_ASSERT_EQUAL_UINT8(
-      static_cast<uint8_t>(ldc1614_cli::PromptAction::PRINT),
+      static_cast<uint8_t>(ldc161x_cli::PromptAction::PRINT),
       static_cast<uint8_t>(missingClockCli.processCommand("scan")));
   TEST_ASSERT_FALSE(missingClockCli.asynchronousWorkActive());
   TEST_ASSERT_EQUAL_UINT16(0U, missingClockFixture.fake.transferCalls);
@@ -1243,7 +1243,7 @@ void test_cli_prompt_actions_and_parser_boundaries_are_exact_and_bus_silent() {
 
 /// Registration hook intentionally kept separate from test_basic.cpp so the
 /// root test owner can place it in the single Unity main without a second main.
-void registerLdc1614CliTests() {
+void registerLdc161xCliTests() {
   RUN_TEST(test_cli_fixed_memory_and_complete_colored_help);
   RUN_TEST(test_cli_strict_arguments_confirmation_and_zero_i2c_rejection);
   RUN_TEST(test_cli_staging_is_bus_silent_transactional_and_commit_is_explicit);

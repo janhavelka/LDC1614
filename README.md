@@ -1,4 +1,4 @@
-# LDC1614 driver library
+# LDC161x driver library
 
 Framework-neutral, fixed-memory LDC1612/LDC1614 28-bit inductance-to-digital
 converter driver for externally owned I2C buses. The v3 API is cooperative:
@@ -10,9 +10,8 @@ I2C callbacks and monotonic time; no particular application, RTOS, or board is
 required. The maintained Arduino and native ESP-IDF examples target ESP32-S2/S3
 and keep their framework dependencies outside the library.
 
-The latest published release is **3.2.0**. The current branch also contains
-the changes listed under **Unreleased** in [CHANGELOG.md](CHANGELOG.md);
-version metadata stays at 3.2.0 until the next release. Deployment requires
+The latest published release is **3.2.0**. This branch stages **4.0.0** for
+the family API rename. See [Unreleased changes](CHANGELOG.md#unreleased). Deployment requires
 evidence for the exact board, address strap, reference clock, LC sensors,
 channel mapping, INTB/SD wiring, fault policy, calibration, cadence, and soak
 conditions. See the
@@ -50,11 +49,15 @@ maintained validation status and HIL guide before selecting a release.
 
 ## Installation
 
+On this branch, use the package and include path `LDC161x` and
+`<LDC161x/LDC161x.h>`, and declare the driver as `LDC161x::LDC161x`.
+Published v3.2.0 uses `LDC1614/LDC1614.h` and `LDC1614::LDC1614`.
+
 For PlatformIO:
 
 ```ini
 lib_deps =
-  LDC1614
+  https://github.com/janhavelka/LDC161x.git#main
 build_unflags = -std=gnu++11 -std=gnu++14
 build_flags = -std=gnu++17
 ```
@@ -63,12 +66,12 @@ The repository root is also an ESP-IDF component. Add it through
 `EXTRA_COMPONENT_DIRS` or component-manager metadata. The native diagnostic
 example is under `examples/esp_idf/basic`.
 
-For another C++17 build system, compile `src/LDC1614.cpp`, add `include/` to
+For another C++17 build system, compile `src/LDC161x.cpp`, add `include/` to
 the public include path, and implement the callbacks in `Config`. For example,
 from a checkout or extracted library package:
 
 ```sh
-c++ -std=c++17 -Iinclude -c src/LDC1614.cpp -o LDC1614.o
+c++ -std=c++17 -Iinclude -c src/LDC161x.cpp -o LDC161x.o
 ```
 
 Link that object with your application. The core requires no framework SDK,
@@ -106,26 +109,26 @@ bounds, timing counts, dividers, deglitch bandwidth, and drive current from the
 actual target.
 
 ```cpp
-LDC1614::Config makeProfile(void* busContext) {
-  LDC1614::Config cfg{};
+LDC161x::Config makeProfile(void* busContext) {
+  LDC161x::Config cfg{};
   cfg.i2cWrite = appI2cWrite;
   cfg.i2cWriteRead = appI2cWriteRead;
   cfg.i2cUser = busContext;
   cfg.i2cTimeoutMs = 20;
-  cfg.i2cAddress = LDC1614::I2cAddress::ADDR_GND;
+  cfg.i2cAddress = LDC161x::I2cAddress::ADDR_GND;
 
-  cfg.variant = LDC1614::DeviceVariant::LDC1614;
-  cfg.channels = LDC1614::channelBit(LDC1614::Channel::CH0);
+  cfg.variant = LDC161x::DeviceVariant::LDC1614;
+  cfg.channels = LDC161x::channelBit(LDC161x::Channel::CH0);
   cfg.referenceClock = {
-      LDC1614::RefClkSrc::INTERNAL, 43000000U, 200000U};
-  cfg.mode = LDC1614::OperatingMode::SINGLE_CHANNEL;
-  cfg.activeChannel = LDC1614::Channel::CH0;
-  cfg.deglitch = LDC1614::Deglitch::BW_10MHZ;
-  cfg.sensorActivation = LDC1614::SensorActivation::FULL_CURRENT;
+      LDC161x::RefClkSrc::INTERNAL, 43000000U, 200000U};
+  cfg.mode = LDC161x::OperatingMode::SINGLE_CHANNEL;
+  cfg.activeChannel = LDC161x::Channel::CH0;
+  cfg.deglitch = LDC161x::Deglitch::BW_10MHZ;
+  cfg.sensorActivation = LDC161x::SensorActivation::FULL_CURRENT;
   cfg.rpOverrideEnabled = true;
   cfg.autoAmplitudeCorrectionEnabled = false;
   cfg.intbDisabled = true;
-  cfg.errorReporting = LDC1614::ErrorReporting::all();
+  cfg.errorReporting = LDC161x::ErrorReporting::all();
 
   // Initialization writes every physical variant channel to a known value.
   for (uint8_t channel = 0; channel < 4; ++channel) {
@@ -165,10 +168,10 @@ minimums alone does not establish settling, resolution, or coil suitability.
 ## Owner loop
 
 ```cpp
-LDC1614::LDC1614 device;
+LDC161x::LDC161x device;
 
 // Startup in the application's I2C-owner context.
-LDC1614::Status st = device.bind(makeProfile(&bus));    // zero I2C
+LDC161x::Status st = device.bind(makeProfile(&bus));    // zero I2C
 if (st.ok()) {
   st = device.startInitialize(1001, nowMs + 2000);      // schedules only
 }
@@ -178,7 +181,7 @@ if (device.jobProgress().active) {
   st = device.poll(nowMs, 1);                           // at most one transfer
 }
 
-LDC1614::OperationResult result;
+LDC161x::OperationResult result;
 while (device.resultAvailable()) {
   if (!device.takeResult(result).ok()) {
     break;
@@ -303,13 +306,13 @@ loss, or shared-bus recovery, call:
 ```cpp
 device.invalidateAppliedState(reason);                 // zero I2C
 while (device.resultAvailable()) {
-  LDC1614::OperationResult abandoned;
+  LDC161x::OperationResult abandoned;
   if (!device.takeResult(abandoned).ok()) {
     break;
   }
   publishToMatchingRequest(abandoned.operationId, abandoned);
 }
-LDC1614::Status st =
+LDC161x::Status st =
     device.startInitialize(newId, absoluteDeadlineMs);  // full identity + replay
 if (!st.ok()) {
   reportAdmissionFailure(st);
@@ -441,10 +444,10 @@ v3 is a deliberate breaking release.
 
 ## Examples and validation
 
-- [Arduino diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/01_basic_bringup_cli/README.md): cooperative
+- [Arduino diagnostic CLI](https://github.com/janhavelka/LDC161x/blob/main/examples/01_basic_bringup_cli/README.md): cooperative
   bring-up firmware with colored comprehensive help and a one-transfer owner
   service budget.
-- [Native ESP-IDF diagnostic CLI](https://github.com/janhavelka/LDC1614/blob/main/examples/esp_idf/basic/README.md): fixed-buffer
+- [Native ESP-IDF diagnostic CLI](https://github.com/janhavelka/LDC161x/blob/main/examples/esp_idf/basic/README.md): fixed-buffer
   parity-checked example using the native I2C master driver.
 - [I2C owner integration](docs/I2C_INTEGRATION.md): ownership, deadlines,
   results, side effects, and recovery.
@@ -453,11 +456,11 @@ v3 is a deliberate breaking release.
 - [HIL validation](docs/HIL_VALIDATION.md): target procedure and evidence rules.
 - [Validation status](docs/VALIDATION_STATUS.md): repeatable release checks,
   retained evidence boundaries, and remaining physical gates.
-- [Release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md): exact maintainer
+- [Release procedure](https://github.com/janhavelka/LDC161x/blob/main/docs/RELEASING.md): exact maintainer
   validation, commit, annotated-tag, and GitHub publication sequence.
-- [Documentation index](https://github.com/janhavelka/LDC1614/blob/main/docs/README.md): maintained guides, references, and
+- [Documentation index](https://github.com/janhavelka/LDC161x/blob/main/docs/README.md): maintained guides, references, and
   archive boundaries.
-- [Retained branch review](https://github.com/janhavelka/LDC1614/blob/main/docs/RETAINED_BRANCH_AUDIT.md): historical audit/port
+- [Retained branch review](https://github.com/janhavelka/LDC161x/blob/main/docs/RETAINED_BRANCH_AUDIT.md): historical audit/port
   dispositions, remaining work, and retain/retire procedure.
 
 Clean firmware `e4d0436` passed the retained 187-command no-reset matrix and a

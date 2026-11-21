@@ -1,8 +1,8 @@
-# LDC1614 Hardware-in-the-Loop Validation
+# LDC161x Hardware-in-the-Loop Validation
 
 This document defines the HIL procedure and evidence expected before release or
 field-readiness claims. Reviewed repository evidence is indexed under
-[`docs/reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md).
+[`docs/reports/`](https://github.com/janhavelka/LDC161x/blob/main/docs/reports/README.md).
 
 The current library revision has **not been HIL tested** on a sensor-equipped
 board. Historical no-sensor transcripts below cover only their named fixture
@@ -23,14 +23,14 @@ Linux CI installs the complete `requirements-dev.txt` tool set.
 Use:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --require-run --json-out hil.json --raw-transcript-out hil.serial.txt
+python tools/ldc161x_hil_runner.py --profile arduino --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --require-run --json-out hil.json --raw-transcript-out hil.serial.txt
 ```
 
 For a board with the LDC1614 chip present but no LC sensor/coil attached, use
 the no-sensor fixture matrix:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --require-run --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
+python tools/ldc161x_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --baud 115200 --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --require-run --json-out hil-no-sensor.json --raw-transcript-out hil-no-sensor.serial.txt
 ```
 
 The no-sensor mode exercises target/device identity, owner bus, bus-frequency,
@@ -90,7 +90,7 @@ For a time-bounded no-sensor soak, request the duration explicitly. The soak
 keeps the port open, executes only complete cycles, and ends every cycle awake:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
+python tools/ldc161x_hil_runner.py --profile arduino --fixture no-sensor --port "<port>" --operator "<name>" --board "<exact board/fixture>" --expected-target esp32s2 --expected-firmware-commit "<flashed Git SHA>" --include-long-soak --soak-duration-s 3600 --soak-cycle-delay-s 1 --json-out hil-soak.json --raw-transcript-out hil-soak.serial.txt
 ```
 
 That complete default gate includes confirmed `resetreapply`. When investigating
@@ -167,8 +167,8 @@ against an arbitrary serial port. Check the host tooling without creating
 repository evidence:
 
 ```sh
-python tools/ldc1614_hil_runner.py --parser-self-test
-python tools/ldc1614_hil_runner.py --profile arduino --dry-run --quiet
+python tools/ldc161x_hil_runner.py --parser-self-test
+python tools/ldc161x_hil_runner.py --profile arduino --dry-run --quiet
 ```
 
 If review needs generated no-hardware output, write it to a temporary directory.
@@ -212,9 +212,9 @@ scheduler. Sample-rate acceptance is enabled only for a sensor-equipped fixture
 and counts fresh, valid, in-range samples with no error/overrun evidence.
 
 The runner groups evidence into the following coverage categories, mapped to
-the LDC1614 ownership contract:
+the LDC161x ownership contract:
 
-| Category | Automatic LDC1614 evidence | Deliberate boundary |
+| Category | Automatic LDC161x evidence | Deliberate boundary |
 | --- | --- | --- |
 | Base | Ordered lifecycle, identity, profile/readback, destructive-status, helper, self-test, and final-state matrix | No sensor-physics claim |
 | Configuration matrix | `--include-config-matrix`; staged legal values and numeric boundaries, then reset/validate/discard | No profile commit or live tuning |
@@ -323,7 +323,7 @@ Example sensor-equipped native ESP-IDF run after configuring all populated
 channels in the firmware build:
 
 ```sh
-python tools/ldc1614_hil_runner.py --profile idf --port "<port>" --operator "<name>" --board "<board and coils>" --expected-target esp32s3 --expected-idf-version "<exact IDF version>" --expected-firmware-commit "<flashed clean Git SHA>" --include-mode-matrix --mode-sample-count 10 --include-reset-stress --stress-count 100 --include-long-soak --soak-duration-s 3600 --soak-sample-count 20 --sample-rate-channel 0 --json-out sensor-hil.json --raw-transcript-out sensor-hil.serial.txt
+python tools/ldc161x_hil_runner.py --profile idf --port "<port>" --operator "<name>" --board "<board and coils>" --expected-target esp32s3 --expected-idf-version "<exact IDF version>" --expected-firmware-commit "<flashed clean Git SHA>" --include-mode-matrix --mode-sample-count 10 --include-reset-stress --stress-count 100 --include-long-soak --soak-duration-s 3600 --soak-sample-count 20 --sample-rate-channel 0 --json-out sensor-hil.json --raw-transcript-out sensor-hil.serial.txt
 ```
 
 The existing runner was extended using the sibling ADS1115/TCA9548A bounded

@@ -1,16 +1,16 @@
-/// @file LDC1614.h
+/// @file LDC161x.h
 /// @brief Cooperative, externally scheduled LDC1612/LDC1614 driver.
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 
-#include "LDC1614/CommandTable.h"
-#include "LDC1614/Config.h"
-#include "LDC1614/Status.h"
-#include "LDC1614/Version.h"
+#include "LDC161x/CommandTable.h"
+#include "LDC161x/Config.h"
+#include "LDC161x/Status.h"
+#include "LDC161x/Version.h"
 
-namespace LDC1614 {
+namespace LDC161x {
 
 /// @brief Trust state of the desired configuration relative to hardware.
 enum class AppliedConfigState : uint8_t {
@@ -237,17 +237,17 @@ struct FrameTiming {
 /// Instances are neither thread-safe nor ISR-safe; the application must
 /// serialize access and retain ownership of bus scheduling and recovery.
 /// Injected transport and INTB callbacks must not re-enter the same instance.
-class LDC1614 {
+class LDC161x {
  public:
   /// @brief Number of fixed terminal-result slots.
   static constexpr uint8_t RESULT_CAPACITY = 2;
 
   /// @brief Construct an unbound driver with no owned resources.
-  LDC1614() = default;
-  LDC1614(const LDC1614&) = delete;
-  LDC1614& operator=(const LDC1614&) = delete;
-  LDC1614(LDC1614&&) = delete;
-  LDC1614& operator=(LDC1614&&) = delete;
+  LDC161x() = default;
+  LDC161x(const LDC161x&) = delete;
+  LDC161x& operator=(const LDC161x&) = delete;
+  LDC161x(LDC161x&&) = delete;
+  LDC161x& operator=(LDC161x&&) = delete;
 
   /// Validate and retain the explicit desired profile. Performs zero I2C.
   /// Returns BUSY if already bound; call end() before rebinding.
@@ -536,4 +536,4 @@ class LDC1614 {
   uint8_t _resultCount = 0;
 };
 
-}  // namespace LDC1614
+}  // namespace LDC161x

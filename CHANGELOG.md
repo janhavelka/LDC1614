@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Renamed the package, include directory, namespace and driver class from
+  `LDC1614` to `LDC161x`. Example build macros now use the `LDC161X_` prefix.
+  Select the exact chip with `DeviceVariant::LDC1612` or `DeviceVariant::LDC1614`.
+
 ### Added
 
 - General C++17 integration instructions and portable owner-deadline,
@@ -565,9 +571,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and bringup example documentation now describe `resetAndReapply()`, raw `readRegister16()` / `writeRegister16()` access, and the full `examples/common/` helper set.
 - CLI help now marks raw register writes as diagnostic/service operations that can desynchronize cached config until reinitialization.
 
-[Unreleased]: https://github.com/janhavelka/LDC1614/compare/v3.2.0...HEAD
-[3.2.0]: https://github.com/janhavelka/LDC1614/compare/v3.1.0...v3.2.0
-[3.1.0]: https://github.com/janhavelka/LDC1614/compare/v3.0.0...v3.1.0
-[3.0.0]: https://github.com/janhavelka/LDC1614/compare/v2.0.0...v3.0.0
-[2.0.0]: https://github.com/janhavelka/LDC1614/compare/v1.0.0...v2.0.0
-[1.0.0]: https://github.com/janhavelka/LDC1614/releases/tag/v1.0.0
+[Unreleased]: https://github.com/janhavelka/LDC161x/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/janhavelka/LDC161x/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/janhavelka/LDC161x/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/janhavelka/LDC161x/compare/v2.0.0...v3.0.0
+[2.0.0]: https://github.com/janhavelka/LDC161x/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/janhavelka/LDC161x/releases/tag/v1.0.0

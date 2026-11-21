@@ -1,4 +1,4 @@
-# LDC1614 validation status
+# LDC161x validation status
 
 This page separates repeatable software checks from retained physical evidence.
 It is not a release certificate, and a build or host test is never presented as
@@ -7,11 +7,10 @@ hardware validation.
 ## Release state
 
 `library.json` is the version source of truth. The latest published release is
-`3.2.0`, the annotated tag `v3.2.0` on commit `eacd0ae`. Current `main` also
-contains the fixes listed under `Unreleased` in `CHANGELOG.md`; it is not the
-tagged release, even though version metadata still reports `3.2.0`.
+`3.2.0`, the annotated tag `v3.2.0` on commit `eacd0ae`. Current `main` stages version `4.0.0` for the family API rename
+and includes the fixes listed under `Unreleased` in `CHANGELOG.md`.
 The historical annotated tag `v3.1.0` remains at
-the pre-audit commit `9a86034`. The next publication requires a version bump via
+the pre-audit commit `9a86034`. For the next publication, confirm the staged version via
 `scripts/generate_version.py` plus a new annotated tag on a reviewed commit that
 passes the required software checks and CI; `docs/RELEASING.md` holds the
 procedure. Never move or reinterpret an existing tag.
@@ -27,7 +26,7 @@ the exact release firmware before making a current hardware claim.
 ## Required software checks
 
 The 2026-10-03 audit and its corrections are recorded in
-[Code audit resolution](https://github.com/janhavelka/LDC1614/blob/main/docs/CODE_AUDIT_RESOLUTION.md#datasheet-and-portability-review-2026-10-03).
+[Code audit resolution](https://github.com/janhavelka/LDC161x/blob/main/docs/CODE_AUDIT_RESOLUTION.md#datasheet-and-portability-review-2026-10-03).
 They are unreleased changes on top of `3.2.0`, not new physical evidence.
 
 Run these from a clean checkout of the proposed release commit:
@@ -38,7 +37,7 @@ python tools/check_cli_contract.py
 python tools/check_idf_example_contract.py
 python tools/check_readiness_claims.py
 python tools/check_repository_hygiene.py
-python tools/test_ldc1614_hil_runner.py
+python tools/test_ldc161x_hil_runner.py
 python scripts/generate_version.py check
 python tools/check_clean_consumer_compile.py
 .\scripts\pio.cmd test -e native
@@ -69,7 +68,7 @@ prove that the native example compiles.
 ## Retained hardware evidence
 
 The canonical JSON/transcript pairs are indexed in the repository-only
-[Retained HIL evidence](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md).
+[Retained HIL evidence](https://github.com/janhavelka/LDC161x/blob/main/docs/reports/README.md).
 
 | Boundary | Retained result | Meaning |
 | --- | --- | --- |

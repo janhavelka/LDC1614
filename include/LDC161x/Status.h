@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace LDC1614 {
+namespace LDC161x {
 
 /// @brief Error codes returned by fallible public operations.
 enum class Err : uint8_t {
@@ -71,4 +71,4 @@ struct Status {
   }
 };
 
-}  // namespace LDC1614
+}  // namespace LDC161x

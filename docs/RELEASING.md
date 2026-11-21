@@ -20,7 +20,7 @@ git diff --check
 Choose the version under `AGENTS.md` and use
 `python scripts/generate_version.py bump patch`, `bump minor`, or `bump major`
 as appropriate. Confirm `library.json`, `idf_component.yml`, `Doxyfile`, and
-`include/LDC1614/Version.h` all report the new version. Update the current
+`include/LDC161x/Version.h` all report the new version. Update the current
 version prose in `README.md` and `docs/VALIDATION_STATUS.md`, and promote the
 completed `CHANGELOG.md` entries to a dated version section. Keep historical
 version/tag references intact and this procedure parameterised.
@@ -118,7 +118,7 @@ In GitHub:
 1. Open **Releases** and select **Draft a new release**.
 2. Choose the tag you just pushed (`$tag`); do not create a second tag in
    the UI.
-3. Keep `main` as the target and use title `LDC1614 $tag`.
+3. Keep `main` as the target and use title `LDC161x $tag`.
 4. Generate release notes, then reconcile them with the matching `$version`
    section of `CHANGELOG.md`.
 5. Keep the no-sensor HIL limitations visible and publish the release.
@@ -126,15 +126,15 @@ In GitHub:
 With GitHub CLI, generate notes into a temporary file outside the repository:
 
 ```powershell
-$releaseNotes = Join-Path $env:TEMP "LDC1614-$tag-release-notes.md"
-gh api repos/janhavelka/LDC1614/releases/generate-notes -f "tag_name=$tag" -f "target_commitish=$releaseSha" --jq '.body' | Set-Content -Encoding utf8 $releaseNotes
+$releaseNotes = Join-Path $env:TEMP "LDC161x-$tag-release-notes.md"
+gh api repos/janhavelka/LDC161x/releases/generate-notes -f "tag_name=$tag" -f "target_commitish=$releaseSha" --jq '.body' | Set-Content -Encoding utf8 $releaseNotes
 ```
 
 Review and edit that file to include the matching changelog entries and the
 current hardware-evidence limitations, then publish the reconciled notes:
 
 ```powershell
-gh release create $tag --verify-tag --title "LDC1614 $tag" --notes-file $releaseNotes
+gh release create $tag --verify-tag --title "LDC161x $tag" --notes-file $releaseNotes
 ```
 
 Verify the published objects:

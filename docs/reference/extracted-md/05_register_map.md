@@ -75,7 +75,7 @@ The retained vendor application notes and how-to guides predate datasheet
 revision A and use the older `CHx_NAME` / `NAME_CHx` identifiers. Revision A
 renamed them; addresses and bit positions are unchanged. The revision-A names
 are the ones used by the datasheet register tables and by
-`include/LDC1614/CommandTable.h`.
+`include/LDC161x/CommandTable.h`.
 
 | Pre-revision-A name | Revision-A name |
 |---|---|

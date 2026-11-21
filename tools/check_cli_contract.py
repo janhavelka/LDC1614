@@ -5,7 +5,7 @@ import pathlib
 import re
 import sys
 
-from ldc1614_cli_contract import (
+from ldc161x_cli_contract import (
     ANSI,
     COMMAND_SPECS,
     STALE_COMMANDS,
@@ -15,7 +15,7 @@ from ldc1614_cli_contract import (
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-REQUIRED_COMMON = ("BoardConfig.h", "Ldc1614Cli.h", "Ldc1614Cli.cpp")
+REQUIRED_COMMON = ("BoardConfig.h", "Ldc161xCli.h", "Ldc161xCli.cpp")
 
 
 def fail(message: str) -> None:
@@ -62,7 +62,7 @@ def require_bounded_unsigned_parser(source: str) -> None:
 
 def require_ambiguous_transaction_mapping(source: str) -> None:
     mapping = re.search(
-        r"LDC1614::Status\s+mapTransactionErr\s*\([^)]*\)\s*\{"
+        r"LDC161x::Status\s+mapTransactionErr\s*\([^)]*\)\s*\{"
         r"(?P<body>.*?)\n\}",
         source,
         re.DOTALL,
@@ -76,8 +76,8 @@ def require_ambiguous_transaction_mapping(source: str) -> None:
         re.DOTALL,
     )
     if (invalid_state is None or
-            "LDC1614::Err::I2C_ERROR" not in invalid_state.group("body") or
-            "LDC1614::Err::I2C_BUS" in invalid_state.group("body")):
+            "LDC161x::Err::I2C_ERROR" not in invalid_state.group("body") or
+            "LDC161x::Err::I2C_BUS" in invalid_state.group("body")):
         fail("IDF 5.5 ambiguous transaction state must map only to generic I2C_ERROR")
 
 
@@ -211,7 +211,7 @@ def main() -> int:
     bringup_main = ROOT / "examples" / "01_basic_bringup_cli" / "main.cpp"
     idf_main = ROOT / "examples" / "esp_idf" / "basic" / "main" / "main.cpp"
     idf_cmake = ROOT / "examples" / "esp_idf" / "basic" / "main" / "CMakeLists.txt"
-    shared_cli = common_dir / "Ldc1614Cli.cpp"
+    shared_cli = common_dir / "Ldc161xCli.cpp"
     transport = ROOT / "examples" / "esp32" / "I2cMasterTransport.cpp"
     version_script = ROOT / "scripts" / "generate_version.py"
     gitignore = ROOT / ".gitignore"
@@ -222,18 +222,18 @@ def main() -> int:
     idf_text = read(idf_main, "ESP-IDF CLI example")
     idf_cmake_text = read(idf_cmake, "ESP-IDF example build definition")
     cli_text = read(shared_cli, "shared Arduino CLI implementation")
-    cli_header_text = read(common_dir / "Ldc1614Cli.h", "shared Arduino CLI header")
+    cli_header_text = read(common_dir / "Ldc161xCli.h", "shared Arduino CLI header")
     transport_text = read(transport, "shared ESP32 example transport")
     version_text = read(version_script, "version generator")
     gitignore_text = read(gitignore, "Git ignore rules")
 
-    if "Ldc1614Cli.h" not in arduino_text:
-        fail("Arduino example must use shared Ldc1614Cli.h")
+    if "Ldc161xCli.h" not in arduino_text:
+        fail("Arduino example must use shared Ldc161xCli.h")
     if re.search(r"\b(?:Wire|TwoWire)\b", arduino_text):
         fail("Arduino example must use the explicit ESP-IDF new-master owner, not Wire")
     if "esp32_i2c::writeRead" not in arduino_text:
         fail("Arduino example must inject the shared ESP32 new-master transport")
-    if "Ldc1614Cli.h" in idf_text:
+    if "Ldc161xCli.h" in idf_text:
         fail("ESP-IDF example must use its native fixed-buffer CLI")
     if "esp32_i2c::readRegisterAt" not in arduino_text:
         fail("Arduino discovery adapter must use protocol-complete register reads")
@@ -249,10 +249,10 @@ def main() -> int:
     if "i2c_master_transmit_receive" not in transport_text or "clampTimeoutMs(timeoutMs)" not in transport_text:
         fail("combined write-read must use one bounded new-master transaction")
     require_ambiguous_transaction_mapping(transport_text)
-    write_start = transport_text.find("LDC1614::Status write(")
-    write_read_start = transport_text.find("LDC1614::Status writeRead(", write_start)
-    intb_start = transport_text.find("LDC1614::Status intbAsserted(", write_read_start)
-    discovery_start = transport_text.find("LDC1614::Status readRegisterAt(")
+    write_start = transport_text.find("LDC161x::Status write(")
+    write_read_start = transport_text.find("LDC161x::Status writeRead(", write_start)
+    intb_start = transport_text.find("LDC161x::Status intbAsserted(", write_read_start)
+    discovery_start = transport_text.find("LDC161x::Status readRegisterAt(")
     uptime_start = transport_text.find("uint64_t uptimeMs()", discovery_start)
     if (min(write_start, write_read_start, intb_start, discovery_start, uptime_start) < 0 or
             "mapTransactionErr(" not in transport_text[write_start:write_read_start] or
@@ -264,8 +264,8 @@ def main() -> int:
     ):
         if token not in transport_text:
             fail("owner recovery must rebuild the owned bus/device lifecycle")
-    recover_start = transport_text.find("LDC1614::Status recover(Context& context)")
-    recover_end = transport_text.find("LDC1614::Status write(", recover_start)
+    recover_start = transport_text.find("LDC161x::Status recover(Context& context)")
+    recover_end = transport_text.find("LDC161x::Status write(", recover_start)
     recover_text = transport_text[recover_start:recover_end]
     if (recover_start < 0 or recover_end < 0 or
             "i2c_master_bus_reset" in recover_text or
@@ -291,7 +291,7 @@ def main() -> int:
     identity = version_text.find("_append_build_metadata_defines(namespace, project_root)", no_args)
     if no_args < 0 or sync < 0 or identity < 0 or sync > identity:
         fail("generated headers must be synchronized before build identity is captured")
-    if "LDC1614_GIT_STATUS_RESULT" not in idf_cmake_text:
+    if "LDC161X_GIT_STATUS_RESULT" not in idf_cmake_text:
         fail("ESP-IDF firmware must not report clean when git status fails")
     if "examples/esp_idf/basic/build/" not in gitignore_text:
         fail("generated ESP-IDF output must be ignored")

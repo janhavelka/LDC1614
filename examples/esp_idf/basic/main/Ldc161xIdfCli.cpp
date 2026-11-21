@@ -1,4 +1,4 @@
-#include "Ldc1614IdfCli.h"
+#include "Ldc161xIdfCli.h"
 
 #include <cerrno>
 #include <cinttypes>
@@ -7,15 +7,15 @@
 #include <cstdlib>
 #include <cstring>
 
-#ifndef LDC1614_CLI_ENABLE_COLOR
-#define LDC1614_CLI_ENABLE_COLOR 1
+#ifndef LDC161X_CLI_ENABLE_COLOR
+#define LDC161X_CLI_ENABLE_COLOR 1
 #endif
 
-#ifndef LDC1614_CLI_COLOR_DEFAULT
-#define LDC1614_CLI_COLOR_DEFAULT 1
+#ifndef LDC161X_CLI_COLOR_DEFAULT
+#define LDC161X_CLI_COLOR_DEFAULT 1
 #endif
 
-namespace ldc1614_idf_cli {
+namespace ldc161x_idf_cli {
 namespace cli_style {
 
 enum class Color : uint8_t {
@@ -27,7 +27,7 @@ enum class Color : uint8_t {
 };
 
 inline const char* code(bool enabled, Color color) {
-#if LDC1614_CLI_ENABLE_COLOR
+#if LDC161X_CLI_ENABLE_COLOR
   if (!enabled) return "";
   switch (color) {
     case Color::RESET: return "\033[0m";
@@ -403,100 +403,100 @@ const char* commandName(CommandId id) {
 }
 
 static constexpr uint8_t CONFIG_REGISTERS[] = {
-    LDC1614::cmd::REG_RCOUNT0, LDC1614::cmd::REG_RCOUNT1,
-    LDC1614::cmd::REG_RCOUNT2, LDC1614::cmd::REG_RCOUNT3,
-    LDC1614::cmd::REG_SETTLECOUNT0, LDC1614::cmd::REG_SETTLECOUNT1,
-    LDC1614::cmd::REG_SETTLECOUNT2, LDC1614::cmd::REG_SETTLECOUNT3,
-    LDC1614::cmd::REG_CLOCK_DIVIDERS0, LDC1614::cmd::REG_CLOCK_DIVIDERS1,
-    LDC1614::cmd::REG_CLOCK_DIVIDERS2, LDC1614::cmd::REG_CLOCK_DIVIDERS3,
-    LDC1614::cmd::REG_OFFSET0, LDC1614::cmd::REG_OFFSET1,
-    LDC1614::cmd::REG_OFFSET2, LDC1614::cmd::REG_OFFSET3,
-    LDC1614::cmd::REG_DRIVE_CURRENT0, LDC1614::cmd::REG_DRIVE_CURRENT1,
-    LDC1614::cmd::REG_DRIVE_CURRENT2, LDC1614::cmd::REG_DRIVE_CURRENT3,
-    LDC1614::cmd::REG_ERROR_CONFIG, LDC1614::cmd::REG_MUX_CONFIG,
-    LDC1614::cmd::REG_CONFIG,
+    LDC161x::cmd::REG_RCOUNT0, LDC161x::cmd::REG_RCOUNT1,
+    LDC161x::cmd::REG_RCOUNT2, LDC161x::cmd::REG_RCOUNT3,
+    LDC161x::cmd::REG_SETTLECOUNT0, LDC161x::cmd::REG_SETTLECOUNT1,
+    LDC161x::cmd::REG_SETTLECOUNT2, LDC161x::cmd::REG_SETTLECOUNT3,
+    LDC161x::cmd::REG_CLOCK_DIVIDERS0, LDC161x::cmd::REG_CLOCK_DIVIDERS1,
+    LDC161x::cmd::REG_CLOCK_DIVIDERS2, LDC161x::cmd::REG_CLOCK_DIVIDERS3,
+    LDC161x::cmd::REG_OFFSET0, LDC161x::cmd::REG_OFFSET1,
+    LDC161x::cmd::REG_OFFSET2, LDC161x::cmd::REG_OFFSET3,
+    LDC161x::cmd::REG_DRIVE_CURRENT0, LDC161x::cmd::REG_DRIVE_CURRENT1,
+    LDC161x::cmd::REG_DRIVE_CURRENT2, LDC161x::cmd::REG_DRIVE_CURRENT3,
+    LDC161x::cmd::REG_ERROR_CONFIG, LDC161x::cmd::REG_MUX_CONFIG,
+    LDC161x::cmd::REG_CONFIG,
 };
 
 static constexpr uint8_t ALL_REGISTERS[] = {
-    LDC1614::cmd::REG_DATA0_MSB, LDC1614::cmd::REG_DATA0_LSB,
-    LDC1614::cmd::REG_DATA1_MSB, LDC1614::cmd::REG_DATA1_LSB,
-    LDC1614::cmd::REG_DATA2_MSB, LDC1614::cmd::REG_DATA2_LSB,
-    LDC1614::cmd::REG_DATA3_MSB, LDC1614::cmd::REG_DATA3_LSB,
-    LDC1614::cmd::REG_RCOUNT0, LDC1614::cmd::REG_RCOUNT1,
-    LDC1614::cmd::REG_RCOUNT2, LDC1614::cmd::REG_RCOUNT3,
-    LDC1614::cmd::REG_OFFSET0, LDC1614::cmd::REG_OFFSET1,
-    LDC1614::cmd::REG_OFFSET2, LDC1614::cmd::REG_OFFSET3,
-    LDC1614::cmd::REG_SETTLECOUNT0, LDC1614::cmd::REG_SETTLECOUNT1,
-    LDC1614::cmd::REG_SETTLECOUNT2, LDC1614::cmd::REG_SETTLECOUNT3,
-    LDC1614::cmd::REG_CLOCK_DIVIDERS0, LDC1614::cmd::REG_CLOCK_DIVIDERS1,
-    LDC1614::cmd::REG_CLOCK_DIVIDERS2, LDC1614::cmd::REG_CLOCK_DIVIDERS3,
-    LDC1614::cmd::REG_STATUS, LDC1614::cmd::REG_ERROR_CONFIG,
-    LDC1614::cmd::REG_CONFIG, LDC1614::cmd::REG_MUX_CONFIG,
-    LDC1614::cmd::REG_RESET_DEV,
-    LDC1614::cmd::REG_DRIVE_CURRENT0, LDC1614::cmd::REG_DRIVE_CURRENT1,
-    LDC1614::cmd::REG_DRIVE_CURRENT2, LDC1614::cmd::REG_DRIVE_CURRENT3,
-    LDC1614::cmd::REG_MANUFACTURER_ID, LDC1614::cmd::REG_DEVICE_ID,
+    LDC161x::cmd::REG_DATA0_MSB, LDC161x::cmd::REG_DATA0_LSB,
+    LDC161x::cmd::REG_DATA1_MSB, LDC161x::cmd::REG_DATA1_LSB,
+    LDC161x::cmd::REG_DATA2_MSB, LDC161x::cmd::REG_DATA2_LSB,
+    LDC161x::cmd::REG_DATA3_MSB, LDC161x::cmd::REG_DATA3_LSB,
+    LDC161x::cmd::REG_RCOUNT0, LDC161x::cmd::REG_RCOUNT1,
+    LDC161x::cmd::REG_RCOUNT2, LDC161x::cmd::REG_RCOUNT3,
+    LDC161x::cmd::REG_OFFSET0, LDC161x::cmd::REG_OFFSET1,
+    LDC161x::cmd::REG_OFFSET2, LDC161x::cmd::REG_OFFSET3,
+    LDC161x::cmd::REG_SETTLECOUNT0, LDC161x::cmd::REG_SETTLECOUNT1,
+    LDC161x::cmd::REG_SETTLECOUNT2, LDC161x::cmd::REG_SETTLECOUNT3,
+    LDC161x::cmd::REG_CLOCK_DIVIDERS0, LDC161x::cmd::REG_CLOCK_DIVIDERS1,
+    LDC161x::cmd::REG_CLOCK_DIVIDERS2, LDC161x::cmd::REG_CLOCK_DIVIDERS3,
+    LDC161x::cmd::REG_STATUS, LDC161x::cmd::REG_ERROR_CONFIG,
+    LDC161x::cmd::REG_CONFIG, LDC161x::cmd::REG_MUX_CONFIG,
+    LDC161x::cmd::REG_RESET_DEV,
+    LDC161x::cmd::REG_DRIVE_CURRENT0, LDC161x::cmd::REG_DRIVE_CURRENT1,
+    LDC161x::cmd::REG_DRIVE_CURRENT2, LDC161x::cmd::REG_DRIVE_CURRENT3,
+    LDC161x::cmd::REG_MANUFACTURER_ID, LDC161x::cmd::REG_DEVICE_ID,
 };
 
-const char* errName(LDC1614::Err error) {
+const char* errName(LDC161x::Err error) {
   switch (error) {
-    case LDC1614::Err::OK: return "OK";
-    case LDC1614::Err::NOT_BOUND: return "NOT_BOUND";
-    case LDC1614::Err::INVALID_CONFIG: return "INVALID_CONFIG";
-    case LDC1614::Err::INVALID_PARAM: return "INVALID_PARAM";
-    case LDC1614::Err::BUSY: return "BUSY";
-    case LDC1614::Err::IN_PROGRESS: return "IN_PROGRESS";
-    case LDC1614::Err::RESULT_NOT_READY: return "RESULT_NOT_READY";
-    case LDC1614::Err::RESULT_QUEUE_FULL: return "RESULT_QUEUE_FULL";
-    case LDC1614::Err::DUPLICATE_OPERATION_ID: return "DUPLICATE_OPERATION_ID";
-    case LDC1614::Err::DEVICE_NOT_FOUND: return "DEVICE_NOT_FOUND";
-    case LDC1614::Err::CONVERSION_NOT_READY: return "CONVERSION_NOT_READY";
-    case LDC1614::Err::TIMEOUT: return "TIMEOUT";
-    case LDC1614::Err::CANCELLED: return "CANCELLED";
-    case LDC1614::Err::CONFIG_DIRTY: return "CONFIG_DIRTY";
-    case LDC1614::Err::I2C_ERROR: return "I2C_ERROR";
-    case LDC1614::Err::I2C_NACK_ADDR: return "I2C_NACK_ADDR";
-    case LDC1614::Err::I2C_NACK_DATA: return "I2C_NACK_DATA";
-    case LDC1614::Err::I2C_TIMEOUT: return "I2C_TIMEOUT";
-    case LDC1614::Err::I2C_BUS: return "I2C_BUS";
+    case LDC161x::Err::OK: return "OK";
+    case LDC161x::Err::NOT_BOUND: return "NOT_BOUND";
+    case LDC161x::Err::INVALID_CONFIG: return "INVALID_CONFIG";
+    case LDC161x::Err::INVALID_PARAM: return "INVALID_PARAM";
+    case LDC161x::Err::BUSY: return "BUSY";
+    case LDC161x::Err::IN_PROGRESS: return "IN_PROGRESS";
+    case LDC161x::Err::RESULT_NOT_READY: return "RESULT_NOT_READY";
+    case LDC161x::Err::RESULT_QUEUE_FULL: return "RESULT_QUEUE_FULL";
+    case LDC161x::Err::DUPLICATE_OPERATION_ID: return "DUPLICATE_OPERATION_ID";
+    case LDC161x::Err::DEVICE_NOT_FOUND: return "DEVICE_NOT_FOUND";
+    case LDC161x::Err::CONVERSION_NOT_READY: return "CONVERSION_NOT_READY";
+    case LDC161x::Err::TIMEOUT: return "TIMEOUT";
+    case LDC161x::Err::CANCELLED: return "CANCELLED";
+    case LDC161x::Err::CONFIG_DIRTY: return "CONFIG_DIRTY";
+    case LDC161x::Err::I2C_ERROR: return "I2C_ERROR";
+    case LDC161x::Err::I2C_NACK_ADDR: return "I2C_NACK_ADDR";
+    case LDC161x::Err::I2C_NACK_DATA: return "I2C_NACK_DATA";
+    case LDC161x::Err::I2C_TIMEOUT: return "I2C_TIMEOUT";
+    case LDC161x::Err::I2C_BUS: return "I2C_BUS";
   }
   return "UNKNOWN";
 }
 
-const char* appliedName(LDC1614::AppliedConfigState state) {
+const char* appliedName(LDC161x::AppliedConfigState state) {
   switch (state) {
-    case LDC1614::AppliedConfigState::UNKNOWN: return "UNKNOWN";
-    case LDC1614::AppliedConfigState::APPLYING: return "APPLYING";
-    case LDC1614::AppliedConfigState::APPLIED_SLEEPING: return "APPLIED_SLEEPING";
-    case LDC1614::AppliedConfigState::APPLIED_ACTIVE: return "APPLIED_ACTIVE";
-    case LDC1614::AppliedConfigState::DIRTY: return "DIRTY";
+    case LDC161x::AppliedConfigState::UNKNOWN: return "UNKNOWN";
+    case LDC161x::AppliedConfigState::APPLYING: return "APPLYING";
+    case LDC161x::AppliedConfigState::APPLIED_SLEEPING: return "APPLIED_SLEEPING";
+    case LDC161x::AppliedConfigState::APPLIED_ACTIVE: return "APPLIED_ACTIVE";
+    case LDC161x::AppliedConfigState::DIRTY: return "DIRTY";
   }
   return "UNKNOWN";
 }
 
-const char* jobName(LDC1614::JobKind kind) {
+const char* jobName(LDC161x::JobKind kind) {
   switch (kind) {
-    case LDC1614::JobKind::NONE: return "NONE";
-    case LDC1614::JobKind::INITIALIZE: return "INITIALIZE";
-    case LDC1614::JobKind::APPLY_CONFIG: return "APPLY_CONFIG";
-    case LDC1614::JobKind::RESET_AND_REAPPLY: return "RESET_AND_REAPPLY";
-    case LDC1614::JobKind::ACQUIRE: return "ACQUIRE";
+    case LDC161x::JobKind::NONE: return "NONE";
+    case LDC161x::JobKind::INITIALIZE: return "INITIALIZE";
+    case LDC161x::JobKind::APPLY_CONFIG: return "APPLY_CONFIG";
+    case LDC161x::JobKind::RESET_AND_REAPPLY: return "RESET_AND_REAPPLY";
+    case LDC161x::JobKind::ACQUIRE: return "ACQUIRE";
   }
   return "UNKNOWN";
 }
 
-const char* outcomeName(LDC1614::TerminalOutcome outcome) {
+const char* outcomeName(LDC161x::TerminalOutcome outcome) {
   switch (outcome) {
-    case LDC1614::TerminalOutcome::NONE: return "NONE";
-    case LDC1614::TerminalOutcome::SUCCESS: return "SUCCESS";
-    case LDC1614::TerminalOutcome::FAILED: return "FAILED";
-    case LDC1614::TerminalOutcome::CANCELLED: return "CANCELLED";
-    case LDC1614::TerminalOutcome::TIMED_OUT: return "TIMED_OUT";
+    case LDC161x::TerminalOutcome::NONE: return "NONE";
+    case LDC161x::TerminalOutcome::SUCCESS: return "SUCCESS";
+    case LDC161x::TerminalOutcome::FAILED: return "FAILED";
+    case LDC161x::TerminalOutcome::CANCELLED: return "CANCELLED";
+    case LDC161x::TerminalOutcome::TIMED_OUT: return "TIMED_OUT";
   }
   return "UNKNOWN";
 }
 
-const char* effectNames(LDC1614::EffectFlags effects) {
+const char* effectNames(LDC161x::EffectFlags effects) {
   switch (effects & 0x07U) {
     case 0x00U: return "NONE";
     case 0x01U: return "READ_SIDE_EFFECTS";
@@ -511,43 +511,43 @@ const char* effectNames(LDC1614::EffectFlags effects) {
   return "UNKNOWN";
 }
 
-const char* phaseName(LDC1614::JobPhase phase) {
+const char* phaseName(LDC161x::JobPhase phase) {
   switch (phase) {
-    case LDC1614::JobPhase::NONE: return "NONE";
-    case LDC1614::JobPhase::VERIFY_MANUFACTURER: return "VERIFY_MANUFACTURER";
-    case LDC1614::JobPhase::VERIFY_DEVICE: return "VERIFY_DEVICE";
-    case LDC1614::JobPhase::FORCE_SLEEP: return "FORCE_SLEEP";
-    case LDC1614::JobPhase::WRITE_RCOUNT: return "WRITE_RCOUNT";
-    case LDC1614::JobPhase::WRITE_SETTLECOUNT: return "WRITE_SETTLECOUNT";
-    case LDC1614::JobPhase::WRITE_CLOCK_DIVIDERS: return "WRITE_CLOCK_DIVIDERS";
-    case LDC1614::JobPhase::WRITE_OFFSET: return "WRITE_OFFSET";
-    case LDC1614::JobPhase::WRITE_DRIVE_CURRENT: return "WRITE_DRIVE_CURRENT";
-    case LDC1614::JobPhase::WRITE_ERROR_CONFIG: return "WRITE_ERROR_CONFIG";
-    case LDC1614::JobPhase::WRITE_MUX_CONFIG: return "WRITE_MUX_CONFIG";
-    case LDC1614::JobPhase::WRITE_FINAL_CONFIG: return "WRITE_FINAL_CONFIG";
-    case LDC1614::JobPhase::SOFTWARE_RESET: return "SOFTWARE_RESET";
-    case LDC1614::JobPhase::READ_STATUS_BEFORE: return "READ_STATUS_BEFORE";
-    case LDC1614::JobPhase::READ_DATA_MSB: return "READ_DATA_MSB";
-    case LDC1614::JobPhase::READ_DATA_LSB: return "READ_DATA_LSB";
-    case LDC1614::JobPhase::READ_STATUS_AFTER: return "READ_STATUS_AFTER";
+    case LDC161x::JobPhase::NONE: return "NONE";
+    case LDC161x::JobPhase::VERIFY_MANUFACTURER: return "VERIFY_MANUFACTURER";
+    case LDC161x::JobPhase::VERIFY_DEVICE: return "VERIFY_DEVICE";
+    case LDC161x::JobPhase::FORCE_SLEEP: return "FORCE_SLEEP";
+    case LDC161x::JobPhase::WRITE_RCOUNT: return "WRITE_RCOUNT";
+    case LDC161x::JobPhase::WRITE_SETTLECOUNT: return "WRITE_SETTLECOUNT";
+    case LDC161x::JobPhase::WRITE_CLOCK_DIVIDERS: return "WRITE_CLOCK_DIVIDERS";
+    case LDC161x::JobPhase::WRITE_OFFSET: return "WRITE_OFFSET";
+    case LDC161x::JobPhase::WRITE_DRIVE_CURRENT: return "WRITE_DRIVE_CURRENT";
+    case LDC161x::JobPhase::WRITE_ERROR_CONFIG: return "WRITE_ERROR_CONFIG";
+    case LDC161x::JobPhase::WRITE_MUX_CONFIG: return "WRITE_MUX_CONFIG";
+    case LDC161x::JobPhase::WRITE_FINAL_CONFIG: return "WRITE_FINAL_CONFIG";
+    case LDC161x::JobPhase::SOFTWARE_RESET: return "SOFTWARE_RESET";
+    case LDC161x::JobPhase::READ_STATUS_BEFORE: return "READ_STATUS_BEFORE";
+    case LDC161x::JobPhase::READ_DATA_MSB: return "READ_DATA_MSB";
+    case LDC161x::JobPhase::READ_DATA_LSB: return "READ_DATA_LSB";
+    case LDC161x::JobPhase::READ_STATUS_AFTER: return "READ_STATUS_AFTER";
   }
   return "UNKNOWN";
 }
 
-const char* variantName(LDC1614::DeviceVariant variant) {
+const char* variantName(LDC161x::DeviceVariant variant) {
   switch (variant) {
-    case LDC1614::DeviceVariant::LDC1612: return "LDC1612";
-    case LDC1614::DeviceVariant::LDC1614: return "LDC1614";
-    case LDC1614::DeviceVariant::UNSPECIFIED: return "UNSPECIFIED";
+    case LDC161x::DeviceVariant::LDC1612: return "LDC1612";
+    case LDC161x::DeviceVariant::LDC1614: return "LDC1614";
+    case LDC161x::DeviceVariant::UNSPECIFIED: return "UNSPECIFIED";
   }
   return "UNKNOWN";
 }
 
-const char* modeName(LDC1614::OperatingMode mode) {
+const char* modeName(LDC161x::OperatingMode mode) {
   switch (mode) {
-    case LDC1614::OperatingMode::SINGLE_CHANNEL: return "SINGLE_CHANNEL";
-    case LDC1614::OperatingMode::MULTI_CHANNEL_SEQUENTIAL: return "MULTI_CHANNEL_SEQUENTIAL";
-    case LDC1614::OperatingMode::UNSPECIFIED: return "UNSPECIFIED";
+    case LDC161x::OperatingMode::SINGLE_CHANNEL: return "SINGLE_CHANNEL";
+    case LDC161x::OperatingMode::MULTI_CHANNEL_SEQUENTIAL: return "MULTI_CHANNEL_SEQUENTIAL";
+    case LDC161x::OperatingMode::UNSPECIFIED: return "UNSPECIFIED";
   }
   return "UNKNOWN";
 }
@@ -715,7 +715,7 @@ bool aliasMatches(const char* aliases, const char* token) {
 }
 
 bool isDestructiveRegister(uint8_t reg) {
-  return reg <= LDC1614::cmd::REG_DATA3_LSB || reg == LDC1614::cmd::REG_STATUS;
+  return reg <= LDC161x::cmd::REG_DATA3_LSB || reg == LDC161x::cmd::REG_STATUS;
 }
 
 const char* registerName(uint8_t reg) {
@@ -734,64 +734,64 @@ const char* registerName(uint8_t reg) {
   static constexpr const char* DRIVE_NAMES[] = {
       "DRIVE_CURRENT0", "DRIVE_CURRENT1", "DRIVE_CURRENT2",
       "DRIVE_CURRENT3"};
-  if (reg <= LDC1614::cmd::REG_DATA3_LSB) return DATA_NAMES[reg];
-  if (reg >= LDC1614::cmd::REG_RCOUNT0 && reg <= LDC1614::cmd::REG_RCOUNT3) {
-    return RCOUNT_NAMES[reg - LDC1614::cmd::REG_RCOUNT0];
+  if (reg <= LDC161x::cmd::REG_DATA3_LSB) return DATA_NAMES[reg];
+  if (reg >= LDC161x::cmd::REG_RCOUNT0 && reg <= LDC161x::cmd::REG_RCOUNT3) {
+    return RCOUNT_NAMES[reg - LDC161x::cmd::REG_RCOUNT0];
   }
-  if (reg >= LDC1614::cmd::REG_OFFSET0 && reg <= LDC1614::cmd::REG_OFFSET3) {
-    return OFFSET_NAMES[reg - LDC1614::cmd::REG_OFFSET0];
+  if (reg >= LDC161x::cmd::REG_OFFSET0 && reg <= LDC161x::cmd::REG_OFFSET3) {
+    return OFFSET_NAMES[reg - LDC161x::cmd::REG_OFFSET0];
   }
-  if (reg >= LDC1614::cmd::REG_SETTLECOUNT0 &&
-      reg <= LDC1614::cmd::REG_SETTLECOUNT3) {
-    return SETTLE_NAMES[reg - LDC1614::cmd::REG_SETTLECOUNT0];
+  if (reg >= LDC161x::cmd::REG_SETTLECOUNT0 &&
+      reg <= LDC161x::cmd::REG_SETTLECOUNT3) {
+    return SETTLE_NAMES[reg - LDC161x::cmd::REG_SETTLECOUNT0];
   }
-  if (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS0 &&
-      reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) {
-    return DIVIDER_NAMES[reg - LDC1614::cmd::REG_CLOCK_DIVIDERS0];
+  if (reg >= LDC161x::cmd::REG_CLOCK_DIVIDERS0 &&
+      reg <= LDC161x::cmd::REG_CLOCK_DIVIDERS3) {
+    return DIVIDER_NAMES[reg - LDC161x::cmd::REG_CLOCK_DIVIDERS0];
   }
-  if (reg >= LDC1614::cmd::REG_DRIVE_CURRENT0 &&
-      reg <= LDC1614::cmd::REG_DRIVE_CURRENT3) {
-    return DRIVE_NAMES[reg - LDC1614::cmd::REG_DRIVE_CURRENT0];
+  if (reg >= LDC161x::cmd::REG_DRIVE_CURRENT0 &&
+      reg <= LDC161x::cmd::REG_DRIVE_CURRENT3) {
+    return DRIVE_NAMES[reg - LDC161x::cmd::REG_DRIVE_CURRENT0];
   }
   switch (reg) {
-    case LDC1614::cmd::REG_STATUS: return "STATUS";
-    case LDC1614::cmd::REG_ERROR_CONFIG: return "ERROR_CONFIG";
-    case LDC1614::cmd::REG_CONFIG: return "CONFIG";
-    case LDC1614::cmd::REG_MUX_CONFIG: return "MUX_CONFIG";
-    case LDC1614::cmd::REG_RESET_DEV: return "RESET_DEV";
-    case LDC1614::cmd::REG_MANUFACTURER_ID: return "MANUFACTURER_ID";
-    case LDC1614::cmd::REG_DEVICE_ID: return "DEVICE_ID";
+    case LDC161x::cmd::REG_STATUS: return "STATUS";
+    case LDC161x::cmd::REG_ERROR_CONFIG: return "ERROR_CONFIG";
+    case LDC161x::cmd::REG_CONFIG: return "CONFIG";
+    case LDC161x::cmd::REG_MUX_CONFIG: return "MUX_CONFIG";
+    case LDC161x::cmd::REG_RESET_DEV: return "RESET_DEV";
+    case LDC161x::cmd::REG_MANUFACTURER_ID: return "MANUFACTURER_ID";
+    case LDC161x::cmd::REG_DEVICE_ID: return "DEVICE_ID";
     default: return "UNMAPPED";
   }
 }
 
 const char* registerAccess(uint8_t reg) {
-  if (reg <= LDC1614::cmd::REG_DATA3_LSB ||
-      reg == LDC1614::cmd::REG_STATUS ||
-      reg == LDC1614::cmd::REG_MANUFACTURER_ID ||
-      reg == LDC1614::cmd::REG_DEVICE_ID) {
+  if (reg <= LDC161x::cmd::REG_DATA3_LSB ||
+      reg == LDC161x::cmd::REG_STATUS ||
+      reg == LDC161x::cmd::REG_MANUFACTURER_ID ||
+      reg == LDC161x::cmd::REG_DEVICE_ID) {
     return "R";
   }
   return std::strcmp(registerName(reg), "UNMAPPED") == 0 ? "-" : "RW";
 }
 
-bool isChannelRegisterForUnavailableChannel(const LDC1614::Config& config,
+bool isChannelRegisterForUnavailableChannel(const LDC161x::Config& config,
                                              uint8_t reg) {
-  if (config.variant != LDC1614::DeviceVariant::LDC1612) return false;
-  return (reg >= LDC1614::cmd::REG_DATA2_MSB && reg <= LDC1614::cmd::REG_DATA3_LSB) ||
-         (reg >= LDC1614::cmd::REG_RCOUNT2 && reg <= LDC1614::cmd::REG_RCOUNT3) ||
-         (reg >= LDC1614::cmd::REG_OFFSET2 && reg <= LDC1614::cmd::REG_OFFSET3) ||
-         (reg >= LDC1614::cmd::REG_SETTLECOUNT2 && reg <= LDC1614::cmd::REG_SETTLECOUNT3) ||
-         (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS2 &&
-          reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) ||
-         (reg >= LDC1614::cmd::REG_DRIVE_CURRENT2 &&
-          reg <= LDC1614::cmd::REG_DRIVE_CURRENT3);
+  if (config.variant != LDC161x::DeviceVariant::LDC1612) return false;
+  return (reg >= LDC161x::cmd::REG_DATA2_MSB && reg <= LDC161x::cmd::REG_DATA3_LSB) ||
+         (reg >= LDC161x::cmd::REG_RCOUNT2 && reg <= LDC161x::cmd::REG_RCOUNT3) ||
+         (reg >= LDC161x::cmd::REG_OFFSET2 && reg <= LDC161x::cmd::REG_OFFSET3) ||
+         (reg >= LDC161x::cmd::REG_SETTLECOUNT2 && reg <= LDC161x::cmd::REG_SETTLECOUNT3) ||
+         (reg >= LDC161x::cmd::REG_CLOCK_DIVIDERS2 &&
+          reg <= LDC161x::cmd::REG_CLOCK_DIVIDERS3) ||
+         (reg >= LDC161x::cmd::REG_DRIVE_CURRENT2 &&
+          reg <= LDC161x::cmd::REG_DRIVE_CURRENT3);
 }
 
-uint8_t physicalChannelCount(LDC1614::DeviceVariant variant) {
-  return variant == LDC1614::DeviceVariant::LDC1612
+uint8_t physicalChannelCount(LDC161x::DeviceVariant variant) {
+  return variant == LDC161x::DeviceVariant::LDC1612
              ? 2U
-             : (variant == LDC1614::DeviceVariant::LDC1614 ? 4U : 0U);
+             : (variant == LDC161x::DeviceVariant::LDC1614 ? 4U : 0U);
 }
 
 bool deadlineReached(uint64_t now, uint64_t deadline) {
@@ -804,9 +804,9 @@ const char* resetColor(bool enabled) {
 
 }  // namespace
 
-Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device, Platform platform)
+Ldc161xIdfCli::Ldc161xIdfCli(LDC161x::LDC161x& device, Platform platform)
     : _device(device), _platform(platform) {
-#if LDC1614_CLI_ENABLE_COLOR && LDC1614_CLI_COLOR_DEFAULT
+#if LDC161X_CLI_ENABLE_COLOR && LDC161X_CLI_COLOR_DEFAULT
   _colorEnabled = true;
 #else
   _colorEnabled = false;
@@ -816,29 +816,29 @@ Ldc1614IdfCli::Ldc1614IdfCli(LDC1614::LDC1614& device, Platform platform)
   }
 }
 
-LDC1614::Config Ldc1614IdfCli::makeDefaultConfig() const {
+LDC161x::Config Ldc161xIdfCli::makeDefaultConfig() const {
   return _platform.makeConfig != nullptr ? _platform.makeConfig(_platform.user)
-                                         : LDC1614::Config{};
+                                         : LDC161x::Config{};
 }
 
-uint64_t Ldc1614IdfCli::nowMs() const {
+uint64_t Ldc161xIdfCli::nowMs() const {
   return _platform.nowMs != nullptr ? _platform.nowMs(_platform.user) : 0;
 }
 
-void Ldc1614IdfCli::vprintfToOutput(const char* fmt, va_list args) const {
+void Ldc161xIdfCli::vprintfToOutput(const char* fmt, va_list args) const {
   if (_platform.vprintf != nullptr) _platform.vprintf(_platform.user, fmt, args);
 }
 
-void Ldc1614IdfCli::printf(const char* fmt, ...) const {
+void Ldc161xIdfCli::printf(const char* fmt, ...) const {
   va_list args;
   va_start(args, fmt);
   vprintfToOutput(fmt, args);
   va_end(args);
 }
 
-void Ldc1614IdfCli::println(const char* text) const { printf("%s\n", text); }
+void Ldc161xIdfCli::println(const char* text) const { printf("%s\n", text); }
 
-void Ldc1614IdfCli::logError(const char* fmt, ...) const {
+void Ldc161xIdfCli::logError(const char* fmt, ...) const {
   printf("%s[E]%s ", cli_style::code(_colorEnabled, cli_style::Color::RED),
          resetColor(_colorEnabled));
   va_list args;
@@ -848,7 +848,7 @@ void Ldc1614IdfCli::logError(const char* fmt, ...) const {
   println();
 }
 
-void Ldc1614IdfCli::logInfo(const char* fmt, ...) const {
+void Ldc161xIdfCli::logInfo(const char* fmt, ...) const {
   printf("%s[I]%s ", cli_style::code(_colorEnabled, cli_style::Color::CYAN),
          resetColor(_colorEnabled));
   va_list args;
@@ -858,9 +858,9 @@ void Ldc1614IdfCli::logInfo(const char* fmt, ...) const {
   println();
 }
 
-void Ldc1614IdfCli::printPrompt() const { printf("> "); }
+void Ldc161xIdfCli::printPrompt() const { printf("> "); }
 
-void Ldc1614IdfCli::printStatus(const LDC1614::Status& status) const {
+void Ldc161xIdfCli::printStatus(const LDC161x::Status& status) const {
   const cli_style::Color color = status.ok() ? cli_style::Color::GREEN
                                               : cli_style::Color::RED;
   printf("  Status: %s%s%s (code=%u, detail=%ld)\n",
@@ -870,7 +870,7 @@ void Ldc1614IdfCli::printStatus(const LDC1614::Status& status) const {
   printf("  Message: %s\n", status.msg != nullptr ? status.msg : "");
 }
 
-bool Ldc1614IdfCli::parseLine(const char* input, ParsedLine& parsed) const {
+bool Ldc161xIdfCli::parseLine(const char* input, ParsedLine& parsed) const {
   parsed = ParsedLine{};
   if (input == nullptr) return false;
   size_t length = 0U;
@@ -910,7 +910,7 @@ bool Ldc1614IdfCli::parseLine(const char* input, ParsedLine& parsed) const {
   return parsed.argc != 0U;
 }
 
-CommandId Ldc1614IdfCli::resolveCommand(const char* token) const {
+CommandId Ldc161xIdfCli::resolveCommand(const char* token) const {
   for (const CommandSpec& spec : COMMAND_SPECS) {
     if (std::strcmp(spec.name, token) == 0 || aliasMatches(spec.aliases, token)) {
       return spec.id;
@@ -919,12 +919,12 @@ CommandId Ldc1614IdfCli::resolveCommand(const char* token) const {
   return CommandId::UNKNOWN;
 }
 
-bool Ldc1614IdfCli::asynchronousWorkActive() const {
+bool Ldc161xIdfCli::asynchronousWorkActive() const {
   return _pending.owner != OperationOwner::NONE ||
          _session.kind != SessionKind::NONE || _device.jobProgress().active;
 }
 
-bool Ldc1614IdfCli::commandAllowedWhileBusy(CommandId id) const {
+bool Ldc161xIdfCli::commandAllowedWhileBusy(CommandId id) const {
   return id == CommandId::HELP || id == CommandId::VERSION ||
          id == CommandId::COLOR || id == CommandId::VERBOSE ||
          id == CommandId::BUS || id == CommandId::DIAG ||
@@ -933,18 +933,18 @@ bool Ldc1614IdfCli::commandAllowedWhileBusy(CommandId id) const {
          id == CommandId::LAST || id == CommandId::CANCEL;
 }
 
-PromptAction Ldc1614IdfCli::promptActionForCurrentState() const {
+PromptAction Ldc161xIdfCli::promptActionForCurrentState() const {
   return asynchronousWorkActive() || _promptDeferred ? PromptAction::NONE
                                                       : PromptAction::PRINT;
 }
 
-PromptAction Ldc1614IdfCli::usage(const char* synopsis) const {
+PromptAction Ldc161xIdfCli::usage(const char* synopsis) const {
   logError("usage: %s", synopsis);
   return promptActionForCurrentState();
 }
 
-void Ldc1614IdfCli::printHelp() const {
-  printf("%s=== LDC1614 CLI ===%s\n",
+void Ldc161xIdfCli::printHelp() const {
+  printf("%s=== LDC161x CLI ===%s\n",
          cli_style::code(_colorEnabled, cli_style::Color::CYAN),
          resetColor(_colorEnabled));
   HelpSection current = HelpSection::COMMON;
@@ -976,24 +976,24 @@ void Ldc1614IdfCli::printHelp() const {
   println("DATA/STATUS raw reads are destructive; dangerous commands require 'confirm'.");
 }
 
-void Ldc1614IdfCli::ensureStagedProfile() {
+void Ldc161xIdfCli::ensureStagedProfile() {
   if (_stagedInitialized) return;
   _stagedConfig = _device.isBound() ? _device.config() : makeDefaultConfig();
   _stagedInitialized = true;
   _stagedDirty = false;
 }
 
-void Ldc1614IdfCli::discardStagedProfile() {
+void Ldc161xIdfCli::discardStagedProfile() {
   _stagedConfig = _device.isBound() ? _device.config() : makeDefaultConfig();
   _stagedInitialized = true;
   _stagedDirty = false;
 }
 
-void Ldc1614IdfCli::resetStagedProfile() {
-  const LDC1614::Config defaults = makeDefaultConfig();
+void Ldc161xIdfCli::resetStagedProfile() {
+  const LDC161x::Config defaults = makeDefaultConfig();
   _stagedConfig = defaults;
   if (_device.isBound()) {
-    const LDC1614::Config& desired = _device.config();
+    const LDC161x::Config& desired = _device.config();
     // Binding identity is an application/platform fact, never a staged CLI
     // setting. Preserve it even when resetting profile values to defaults.
     _stagedConfig.i2cWrite = desired.i2cWrite;
@@ -1008,7 +1008,7 @@ void Ldc1614IdfCli::resetStagedProfile() {
   _stagedDirty = true;
 }
 
-void Ldc1614IdfCli::markStagedChanged(const char* field) {
+void Ldc161xIdfCli::markStagedChanged(const char* field) {
   _stagedDirty = true;
   printf("CLI preview: field=%s dirty=1 valid=unknown channel=none outcome=STAGED "
          "code=0 i2c_attempts=0\n",
@@ -1018,7 +1018,7 @@ void Ldc1614IdfCli::markStagedChanged(const char* field) {
          resetColor(_colorEnabled));
 }
 
-void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label) const {
+void Ldc161xIdfCli::printConfig(const LDC161x::Config& config, const char* label) const {
   printf("Configuration: %s revision=%lu applied=%s staged_dirty=%u\n", label,
          static_cast<unsigned long>(_device.configRevision()),
          appliedName(_device.appliedConfigState()), _stagedDirty ? 1U : 0U);
@@ -1030,15 +1030,15 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
          label, static_cast<unsigned>(config.i2cAddress), variantName(config.variant),
          static_cast<unsigned>(physicalChannelCount(config.variant)),
          static_cast<unsigned>(config.channels.bits), modeName(config.mode),
-         config.referenceClock.source == LDC1614::RefClkSrc::INTERNAL
+         config.referenceClock.source == LDC161x::RefClkSrc::INTERNAL
              ? "internal"
-             : (config.referenceClock.source == LDC1614::RefClkSrc::EXTERNAL_CLOCK
+             : (config.referenceClock.source == LDC161x::RefClkSrc::EXTERNAL_CLOCK
                     ? "external"
                     : "unspecified"),
          static_cast<unsigned long>(config.referenceClock.frequencyHz),
          static_cast<unsigned long>(config.referenceClock.tolerancePpm),
          static_cast<unsigned>(config.deglitch),
-         config.sensorActivation == LDC1614::SensorActivation::FULL_CURRENT
+         config.sensorActivation == LDC161x::SensorActivation::FULL_CURRENT
              ? "full"
              : "low",
          static_cast<unsigned long>(config.i2cTimeoutMs),
@@ -1046,13 +1046,13 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
          config.autoAmplitudeCorrectionEnabled ? 1U : 0U,
          config.highCurrentDriveEnabled ? 1U : 0U,
          config.intbDisabled ? 0U : 1U,
-         LDC1614::LDC1614::encodeErrorReporting(config.errorReporting),
+         LDC161x::LDC161x::encodeErrorReporting(config.errorReporting),
          static_cast<unsigned long>(_device.configRevision()),
          appliedName(_device.appliedConfigState()));
   printf("  binding address=0x%02X variant=%s physical_mask=0x%02X "
          "write_callback=%u read_callback=%u\n",
          static_cast<unsigned>(config.i2cAddress), variantName(config.variant),
-         static_cast<unsigned>(LDC1614::validChannelMask(config.variant).bits),
+         static_cast<unsigned>(LDC161x::validChannelMask(config.variant).bits),
          config.i2cWrite != nullptr ? 1U : 0U,
          config.i2cWriteRead != nullptr ? 1U : 0U);
   printf("  conversion selected_mask=0x%02X mode=%s active_channel=%u "
@@ -1061,9 +1061,9 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
          static_cast<unsigned>(config.activeChannel),
          static_cast<unsigned>(config.rrSequence));
   printf("  reference_clock source=%s frequency_hz=%lu tolerance_ppm=%lu\n",
-         config.referenceClock.source == LDC1614::RefClkSrc::INTERNAL
+         config.referenceClock.source == LDC161x::RefClkSrc::INTERNAL
              ? "INTERNAL"
-             : (config.referenceClock.source == LDC1614::RefClkSrc::EXTERNAL_CLOCK
+             : (config.referenceClock.source == LDC161x::RefClkSrc::EXTERNAL_CLOCK
                     ? "EXTERNAL"
                     : "UNSPECIFIED"),
          static_cast<unsigned long>(config.referenceClock.frequencyHz),
@@ -1072,7 +1072,7 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
          "auto_amplitude=%u high_current=%u intb_enabled=%u intb_callback=%u\n",
          static_cast<unsigned long>(config.i2cTimeoutMs),
          static_cast<unsigned>(config.deglitch),
-         config.sensorActivation == LDC1614::SensorActivation::FULL_CURRENT
+         config.sensorActivation == LDC161x::SensorActivation::FULL_CURRENT
              ? "FULL"
              : "LOW",
          config.rpOverrideEnabled ? 1U : 0U,
@@ -1082,16 +1082,16 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
          config.intbAsserted != nullptr ? 1U : 0U);
   const uint8_t channels = physicalChannelCount(config.variant);
   for (uint8_t index = 0; index < channels; ++index) {
-    const LDC1614::ChannelConfig& channel = config.channel[index];
+    const LDC161x::ChannelConfig& channel = config.channel[index];
     uint16_t microamps = 0;
-    const LDC1614::Status currentStatus =
-        LDC1614::LDC1614::nominalDriveCurrentMicroamps(
+    const LDC161x::Status currentStatus =
+        LDC161x::LDC161x::nominalDriveCurrentMicroamps(
             channel.driveCurrentCode, microamps);
     printf("  channel=%u selected=%u rcount=%u settle_count=%u fin_divider=%u "
            "fref_divider=%u offset=%u drive_code=%u drive_ua=%s%u "
            "sensor_min_hz=%lu sensor_max_hz=%lu\n",
            static_cast<unsigned>(index),
-           config.channels.contains(static_cast<LDC1614::Channel>(index)) ? 1U : 0U,
+           config.channels.contains(static_cast<LDC161x::Channel>(index)) ? 1U : 0U,
            static_cast<unsigned>(channel.rcount),
            static_cast<unsigned>(channel.settleCount),
            static_cast<unsigned>(channel.finDivider),
@@ -1102,12 +1102,12 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
            static_cast<unsigned long>(channel.expectedSensorMinHz),
            static_cast<unsigned long>(channel.expectedSensorMaxHz));
   }
-  const LDC1614::ErrorReporting& error = config.errorReporting;
+  const LDC161x::ErrorReporting& error = config.errorReporting;
   printf("  error_config=0x%04X data_under=%u data_over=%u data_watchdog=%u "
          "data_amplitude_high=%u data_amplitude_low=%u status_under=%u "
          "status_over=%u status_watchdog=%u status_amplitude_high=%u "
          "status_amplitude_low=%u status_zero_count=%u data_ready=%u\n",
-         LDC1614::LDC1614::encodeErrorReporting(error),
+         LDC161x::LDC161x::encodeErrorReporting(error),
          error.dataUnderRange ? 1U : 0U, error.dataOverRange ? 1U : 0U,
          error.dataWatchdog ? 1U : 0U, error.dataAmplitudeHigh ? 1U : 0U,
          error.dataAmplitudeLow ? 1U : 0U, error.statusUnderRange ? 1U : 0U,
@@ -1117,7 +1117,7 @@ void Ldc1614IdfCli::printConfig(const LDC1614::Config& config, const char* label
          error.statusZeroCount ? 1U : 0U, error.dataReady ? 1U : 0U);
 }
 
-void Ldc1614IdfCli::printConfigFault(const LDC1614::ConfigFault& fault) const {
+void Ldc161xIdfCli::printConfigFault(const LDC161x::ConfigFault& fault) const {
   printf("config_fault valid=%u job=%s phase=%s register=0x%02X channel=%u "
          "effects=0x%02X effects_names=%s\n",
          fault.valid ? 1U : 0U, jobName(fault.job), phaseName(fault.phase),
@@ -1126,8 +1126,8 @@ void Ldc1614IdfCli::printConfigFault(const LDC1614::ConfigFault& fault) const {
   if (fault.valid) printStatus(fault.cause);
 }
 
-void Ldc1614IdfCli::printDriver() const {
-  const LDC1614::TransportStats transport = _device.transportStats();
+void Ldc161xIdfCli::printDriver() const {
+  const LDC161x::TransportStats transport = _device.transportStats();
   printState();
   printf("drv bound=%u applied=%s revision=%lu active=%u result_available=%u "
          "attempts=%lu success=%lu failures=%lu last_code=%u\n",
@@ -1147,7 +1147,7 @@ void Ldc1614IdfCli::printDriver() const {
   printConfigFault(_device.configFault());
 }
 
-void Ldc1614IdfCli::printBus() const {
+void Ldc161xIdfCli::printBus() const {
   const I2cBusInfo info = _platform.i2cBusInfo != nullptr
                               ? _platform.i2cBusInfo(_platform.user)
                               : I2cBusInfo{};
@@ -1164,7 +1164,7 @@ void Ldc1614IdfCli::printBus() const {
          static_cast<unsigned long>(timeoutMs));
 }
 
-I2cTransferStats Ldc1614IdfCli::transferStatsSinceBaseline() const {
+I2cTransferStats Ldc161xIdfCli::transferStatsSinceBaseline() const {
   const I2cTransferStats current =
       _platform.i2cTransferStats != nullptr
           ? _platform.i2cTransferStats(_platform.user)
@@ -1177,16 +1177,16 @@ I2cTransferStats Ldc1614IdfCli::transferStatsSinceBaseline() const {
   const uint64_t total = static_cast<uint64_t>(delta.writes) +
                          static_cast<uint64_t>(delta.writeReads) +
                          static_cast<uint64_t>(delta.discoveries);
-  delta.lastStatus = total == 0U ? LDC1614::Status::Ok()
+  delta.lastStatus = total == 0U ? LDC161x::Status::Ok()
                                  : current.lastStatus;
   return delta;
 }
 
-void Ldc1614IdfCli::printDiagnostics() const {
+void Ldc161xIdfCli::printDiagnostics() const {
   const I2cBusInfo bus = _platform.i2cBusInfo != nullptr
                              ? _platform.i2cBusInfo(_platform.user)
                              : I2cBusInfo{};
-  const LDC1614::TransportStats core = _device.transportStats();
+  const LDC161x::TransportStats core = _device.transportStats();
   printf("diag platform=%s framework=%s framework_version=%s idf_version=%s "
          "target=%s frequency_hz=%lu bound=%u applied=%s revision=%lu "
          "profile_dirty=%u active=%u pending_result=%u attempts=%lu "
@@ -1205,8 +1205,8 @@ void Ldc1614IdfCli::printDiagnostics() const {
          static_cast<unsigned>(core.lastStatus.code));
 }
 
-void Ldc1614IdfCli::printState() const {
-  const LDC1614::JobProgress progress = _device.jobProgress();
+void Ldc161xIdfCli::printState() const {
+  const LDC161x::JobProgress progress = _device.jobProgress();
   printf("bound=%u applied=%s config_revision=%lu job_active=%u "
          "result_available=%u session=%s staged_dirty=%u\n",
          _device.isBound() ? 1U : 0U, appliedName(_device.appliedConfigState()),
@@ -1220,8 +1220,8 @@ void Ldc1614IdfCli::printState() const {
          progress.active ? 1U : 0U, _device.resultAvailable() ? 1U : 0U);
 }
 
-void Ldc1614IdfCli::printProgress() const {
-  const LDC1614::JobProgress progress = _device.jobProgress();
+void Ldc161xIdfCli::printProgress() const {
+  const LDC161x::JobProgress progress = _device.jobProgress();
   printf("job active=%u operation=%" PRIu64 " kind=%s phase=%s transfers=%u "
          "maximum=%u requested=0x%02X completed=0x%02X deadline_ms=%" PRIu64
          " effects=0x%02X effects_names=%s revision=%lu\n",
@@ -1245,7 +1245,7 @@ void Ldc1614IdfCli::printProgress() const {
          static_cast<unsigned long>(_session.stats.skipped));
 }
 
-void Ldc1614IdfCli::printDeviceStatus(const LDC1614::DeviceStatus& status,
+void Ldc161xIdfCli::printDeviceStatus(const LDC161x::DeviceStatus& status,
                             const char* label) const {
   printf("%s=0x%04X observed=%u raw=0x%04X drdy=%u unread=0x%02X err_ch=%u "
          "ur=%u or=%u wd=%u ah=%u al=%u zc=%u\n",
@@ -1261,52 +1261,52 @@ void Ldc1614IdfCli::printDeviceStatus(const LDC1614::DeviceStatus& status,
          status.errorZeroCount ? 1U : 0U);
 }
 
-void Ldc1614IdfCli::printQuality(LDC1614::SampleQualityFlags quality) const {
+void Ldc161xIdfCli::printQuality(LDC161x::SampleQualityFlags quality) const {
   bool first = true;
   const struct {
-    LDC1614::SampleQualityFlag flag;
+    LDC161x::SampleQualityFlag flag;
     const char* name;
   } names[] = {
-      {LDC1614::SampleQualityFlag::FRESH, "FRESH"},
-      {LDC1614::SampleQualityFlag::STALE, "STALE"},
-      {LDC1614::SampleQualityFlag::UNDER_RANGE, "UNDER_RANGE"},
-      {LDC1614::SampleQualityFlag::OVER_RANGE, "OVER_RANGE"},
-      {LDC1614::SampleQualityFlag::WATCHDOG, "WATCHDOG"},
-      {LDC1614::SampleQualityFlag::AMPLITUDE_SUSPECT, "AMPLITUDE_SUSPECT"},
-      {LDC1614::SampleQualityFlag::ZERO_COUNT, "ZERO_COUNT"},
-      {LDC1614::SampleQualityFlag::DATA_LOST, "DATA_LOST"},
-      {LDC1614::SampleQualityFlag::CONFIG_UNKNOWN, "CONFIG_UNKNOWN"},
+      {LDC161x::SampleQualityFlag::FRESH, "FRESH"},
+      {LDC161x::SampleQualityFlag::STALE, "STALE"},
+      {LDC161x::SampleQualityFlag::UNDER_RANGE, "UNDER_RANGE"},
+      {LDC161x::SampleQualityFlag::OVER_RANGE, "OVER_RANGE"},
+      {LDC161x::SampleQualityFlag::WATCHDOG, "WATCHDOG"},
+      {LDC161x::SampleQualityFlag::AMPLITUDE_SUSPECT, "AMPLITUDE_SUSPECT"},
+      {LDC161x::SampleQualityFlag::ZERO_COUNT, "ZERO_COUNT"},
+      {LDC161x::SampleQualityFlag::DATA_LOST, "DATA_LOST"},
+      {LDC161x::SampleQualityFlag::CONFIG_UNKNOWN, "CONFIG_UNKNOWN"},
   };
   for (const auto& item : names) {
-    if (!LDC1614::hasSampleQuality(quality, item.flag)) continue;
+    if (!LDC161x::hasSampleQuality(quality, item.flag)) continue;
     printf("%s%s", first ? "" : "|", item.name);
     first = false;
   }
   if (first) printf("NONE");
 }
 
-void Ldc1614IdfCli::printRegisterValue(uint8_t reg, uint16_t value,
+void Ldc161xIdfCli::printRegisterValue(uint8_t reg, uint16_t value,
                              const char* scope) const {
   bool reservedValid = true;
-  if (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS0 &&
-      reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) {
+  if (reg >= LDC161x::cmd::REG_CLOCK_DIVIDERS0 &&
+      reg <= LDC161x::cmd::REG_CLOCK_DIVIDERS3) {
     reservedValid = (value & 0x0C00U) == 0U;
-  } else if (reg == LDC1614::cmd::REG_STATUS) {
+  } else if (reg == LDC161x::cmd::REG_STATUS) {
     reservedValid = (value & static_cast<uint16_t>(~0xFF4FU)) == 0U;
-  } else if (reg == LDC1614::cmd::REG_ERROR_CONFIG) {
+  } else if (reg == LDC161x::cmd::REG_ERROR_CONFIG) {
     reservedValid =
-        (value & static_cast<uint16_t>(~LDC1614::cmd::MASK_ERRCFG_ALLOWED)) == 0U;
-  } else if (reg == LDC1614::cmd::REG_CONFIG) {
+        (value & static_cast<uint16_t>(~LDC161x::cmd::MASK_ERRCFG_ALLOWED)) == 0U;
+  } else if (reg == LDC161x::cmd::REG_CONFIG) {
     reservedValid = (value & 0x0100U) == 0U &&
-                    (value & LDC1614::cmd::MASK_CFG_RESERVED_LOW) ==
-                        LDC1614::cmd::CONFIG_RESERVED_VALUE;
-  } else if (reg == LDC1614::cmd::REG_MUX_CONFIG) {
-    reservedValid = (value & LDC1614::cmd::MASK_MUX_RESERVED) ==
-                    LDC1614::cmd::MUX_CONFIG_RESERVED_VALUE;
-  } else if (reg == LDC1614::cmd::REG_RESET_DEV) {
-    reservedValid = (value & static_cast<uint16_t>(~LDC1614::cmd::MASK_RESET_DEV)) == 0U;
-  } else if (reg >= LDC1614::cmd::REG_DRIVE_CURRENT0 &&
-             reg <= LDC1614::cmd::REG_DRIVE_CURRENT3) {
+                    (value & LDC161x::cmd::MASK_CFG_RESERVED_LOW) ==
+                        LDC161x::cmd::CONFIG_RESERVED_VALUE;
+  } else if (reg == LDC161x::cmd::REG_MUX_CONFIG) {
+    reservedValid = (value & LDC161x::cmd::MASK_MUX_RESERVED) ==
+                    LDC161x::cmd::MUX_CONFIG_RESERVED_VALUE;
+  } else if (reg == LDC161x::cmd::REG_RESET_DEV) {
+    reservedValid = (value & static_cast<uint16_t>(~LDC161x::cmd::MASK_RESET_DEV)) == 0U;
+  } else if (reg >= LDC161x::cmd::REG_DRIVE_CURRENT0 &&
+             reg <= LDC161x::cmd::REG_DRIVE_CURRENT3) {
     reservedValid = (value & 0x003FU) == 0U;
   }
   printf("%s register=0x%02X name=%s access=%s destructive=%u value=0x%04X "
@@ -1315,84 +1315,84 @@ void Ldc1614IdfCli::printRegisterValue(uint8_t reg, uint16_t value,
          isDestructiveRegister(reg) ? 1U : 0U, value,
          reservedValid ? 1U : 0U);
 
-  if (reg <= LDC1614::cmd::REG_DATA3_LSB) {
+  if (reg <= LDC161x::cmd::REG_DATA3_LSB) {
     if ((reg & 1U) == 0U) {
       printf("register_decode name=%s data_msb=0x%03X ur=%u or=%u wd=%u ae=%u\n",
-             registerName(reg), value & LDC1614::cmd::MASK_DATA_MSB_DATA,
-             (value & LDC1614::cmd::MASK_DATA_ERR_UR) != 0U ? 1U : 0U,
-             (value & LDC1614::cmd::MASK_DATA_ERR_OR) != 0U ? 1U : 0U,
-             (value & LDC1614::cmd::MASK_DATA_ERR_WD) != 0U ? 1U : 0U,
-             (value & LDC1614::cmd::MASK_DATA_ERR_AE) != 0U ? 1U : 0U);
+             registerName(reg), value & LDC161x::cmd::MASK_DATA_MSB_DATA,
+             (value & LDC161x::cmd::MASK_DATA_ERR_UR) != 0U ? 1U : 0U,
+             (value & LDC161x::cmd::MASK_DATA_ERR_OR) != 0U ? 1U : 0U,
+             (value & LDC161x::cmd::MASK_DATA_ERR_WD) != 0U ? 1U : 0U,
+             (value & LDC161x::cmd::MASK_DATA_ERR_AE) != 0U ? 1U : 0U);
     } else {
       printf("register_decode name=%s data_lsb=0x%04X\n", registerName(reg),
              value);
     }
-  } else if (reg >= LDC1614::cmd::REG_CLOCK_DIVIDERS0 &&
-             reg <= LDC1614::cmd::REG_CLOCK_DIVIDERS3) {
+  } else if (reg >= LDC161x::cmd::REG_CLOCK_DIVIDERS0 &&
+             reg <= LDC161x::cmd::REG_CLOCK_DIVIDERS3) {
     printf("register_decode name=%s fin_div=%u fref_div=%u\n", registerName(reg),
-           static_cast<unsigned>((value & LDC1614::cmd::MASK_FIN_DIVIDER) >>
-                                 LDC1614::cmd::BIT_FIN_DIVIDER),
-           static_cast<unsigned>(value & LDC1614::cmd::MASK_FREF_DIVIDER));
-  } else if (reg == LDC1614::cmd::REG_STATUS) {
-    printDeviceStatus(LDC1614::LDC1614::decodeDeviceStatus(value),
+           static_cast<unsigned>((value & LDC161x::cmd::MASK_FIN_DIVIDER) >>
+                                 LDC161x::cmd::BIT_FIN_DIVIDER),
+           static_cast<unsigned>(value & LDC161x::cmd::MASK_FREF_DIVIDER));
+  } else if (reg == LDC161x::cmd::REG_STATUS) {
+    printDeviceStatus(LDC161x::LDC161x::decodeDeviceStatus(value),
                       "register_status");
-  } else if (reg == LDC1614::cmd::REG_ERROR_CONFIG) {
+  } else if (reg == LDC161x::cmd::REG_ERROR_CONFIG) {
     printf("register_decode name=ERROR_CONFIG data_under=%u data_over=%u "
            "data_watchdog=%u data_ah=%u data_al=%u status_under=%u "
            "status_over=%u status_watchdog=%u status_ah=%u status_al=%u "
            "status_zc=%u drdy=%u\n",
-           (value & LDC1614::cmd::MASK_ERRCFG_UR_ERR2OUT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_OR_ERR2OUT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_WD_ERR2OUT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_AH_ERR2OUT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_AL_ERR2OUT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_UR_ERR2INT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_OR_ERR2INT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_WD_ERR2INT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_AH_ERR2INT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_AL_ERR2INT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_ZC_ERR2INT) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_ERRCFG_DRDY_2INT) != 0U ? 1U : 0U);
-  } else if (reg == LDC1614::cmd::REG_CONFIG) {
+           (value & LDC161x::cmd::MASK_ERRCFG_UR_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_OR_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_WD_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_AH_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_AL_ERR2OUT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_UR_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_OR_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_WD_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_AH_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_AL_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_ZC_ERR2INT) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_ERRCFG_DRDY_2INT) != 0U ? 1U : 0U);
+  } else if (reg == LDC161x::cmd::REG_CONFIG) {
     printf("register_decode name=CONFIG active_channel=%u sleep=%u rp_override=%u "
            "low_power_activation=%u auto_amp_disabled=%u external_ref=%u "
            "intb_disabled=%u high_current=%u\n",
-           static_cast<unsigned>((value & LDC1614::cmd::MASK_CFG_ACTIVE_CHAN) >>
-                                 LDC1614::cmd::BIT_CFG_ACTIVE_CHAN),
-           (value & LDC1614::cmd::MASK_CFG_SLEEP_MODE_EN) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_CFG_RP_OVERRIDE_EN) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_CFG_SENSOR_ACTIVATE_SEL) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_CFG_AUTO_AMP_DIS) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_CFG_REF_CLK_SRC) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_CFG_INTB_DIS) != 0U ? 1U : 0U,
-           (value & LDC1614::cmd::MASK_CFG_HIGH_CURRENT_DRV) != 0U ? 1U : 0U);
-  } else if (reg == LDC1614::cmd::REG_MUX_CONFIG) {
+           static_cast<unsigned>((value & LDC161x::cmd::MASK_CFG_ACTIVE_CHAN) >>
+                                 LDC161x::cmd::BIT_CFG_ACTIVE_CHAN),
+           (value & LDC161x::cmd::MASK_CFG_SLEEP_MODE_EN) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_CFG_RP_OVERRIDE_EN) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_CFG_SENSOR_ACTIVATE_SEL) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_CFG_AUTO_AMP_DIS) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_CFG_REF_CLK_SRC) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_CFG_INTB_DIS) != 0U ? 1U : 0U,
+           (value & LDC161x::cmd::MASK_CFG_HIGH_CURRENT_DRV) != 0U ? 1U : 0U);
+  } else if (reg == LDC161x::cmd::REG_MUX_CONFIG) {
     printf("register_decode name=MUX_CONFIG autoscan=%u rr_sequence=%u deglitch=%u\n",
-           (value & LDC1614::cmd::MASK_MUX_AUTOSCAN_EN) != 0U ? 1U : 0U,
-           static_cast<unsigned>((value & LDC1614::cmd::MASK_MUX_RR_SEQUENCE) >>
-                                 LDC1614::cmd::BIT_MUX_RR_SEQUENCE),
-           static_cast<unsigned>(value & LDC1614::cmd::MASK_MUX_DEGLITCH));
-  } else if (reg == LDC1614::cmd::REG_RESET_DEV) {
+           (value & LDC161x::cmd::MASK_MUX_AUTOSCAN_EN) != 0U ? 1U : 0U,
+           static_cast<unsigned>((value & LDC161x::cmd::MASK_MUX_RR_SEQUENCE) >>
+                                 LDC161x::cmd::BIT_MUX_RR_SEQUENCE),
+           static_cast<unsigned>(value & LDC161x::cmd::MASK_MUX_DEGLITCH));
+  } else if (reg == LDC161x::cmd::REG_RESET_DEV) {
     printf("register_decode name=RESET_DEV reset_bit=%u\n",
-           (value & LDC1614::cmd::MASK_RESET_DEV) != 0U ? 1U : 0U);
-  } else if (reg >= LDC1614::cmd::REG_DRIVE_CURRENT0 &&
-             reg <= LDC1614::cmd::REG_DRIVE_CURRENT3) {
+           (value & LDC161x::cmd::MASK_RESET_DEV) != 0U ? 1U : 0U);
+  } else if (reg >= LDC161x::cmd::REG_DRIVE_CURRENT0 &&
+             reg <= LDC161x::cmd::REG_DRIVE_CURRENT3) {
     printf("register_decode name=%s idrive=%u init_idrive=%u\n", registerName(reg),
-           static_cast<unsigned>((value & LDC1614::cmd::MASK_IDRIVE) >>
-                                 LDC1614::cmd::BIT_IDRIVE),
-           static_cast<unsigned>((value & LDC1614::cmd::MASK_INIT_IDRIVE) >>
-                                 LDC1614::cmd::BIT_INIT_IDRIVE));
-  } else if (reg == LDC1614::cmd::REG_MANUFACTURER_ID ||
-             reg == LDC1614::cmd::REG_DEVICE_ID) {
-    const uint16_t expected = reg == LDC1614::cmd::REG_MANUFACTURER_ID
-                                  ? LDC1614::cmd::MANUFACTURER_ID_VALUE
-                                  : LDC1614::cmd::DEVICE_ID_VALUE;
+           static_cast<unsigned>((value & LDC161x::cmd::MASK_IDRIVE) >>
+                                 LDC161x::cmd::BIT_IDRIVE),
+           static_cast<unsigned>((value & LDC161x::cmd::MASK_INIT_IDRIVE) >>
+                                 LDC161x::cmd::BIT_INIT_IDRIVE));
+  } else if (reg == LDC161x::cmd::REG_MANUFACTURER_ID ||
+             reg == LDC161x::cmd::REG_DEVICE_ID) {
+    const uint16_t expected = reg == LDC161x::cmd::REG_MANUFACTURER_ID
+                                  ? LDC161x::cmd::MANUFACTURER_ID_VALUE
+                                  : LDC161x::cmd::DEVICE_ID_VALUE;
     printf("register_decode name=%s expected=0x%04X match=%u variant=UNKNOWN\n",
            registerName(reg), expected, value == expected ? 1U : 0U);
   }
 }
 
-void Ldc1614IdfCli::printBatch(const LDC1614::SampleBatch& batch) const {
+void Ldc161xIdfCli::printBatch(const LDC161x::SampleBatch& batch) const {
   printf("batch type=SEQUENTIAL_READOUT selected=0x%02X valid=0x%02X fresh=0x%02X "
          "error=0x%02X overrun=0x%02X revision=%lu completed_ms=%" PRIu64
          " simultaneous=0\n",
@@ -1408,14 +1408,14 @@ void Ldc1614IdfCli::printBatch(const LDC1614::SampleBatch& batch) const {
   for (uint8_t index = 0; index < 4U; ++index) {
     const uint8_t bit = static_cast<uint8_t>(1U << index);
     if ((batch.selectedChannels.bits & bit) == 0U) continue;
-    const LDC1614::ChannelSample& sample = batch.channel[index];
+    const LDC161x::ChannelSample& sample = batch.channel[index];
     double frequency = 0.0;
-    const LDC1614::Status frequencyStatus =
+    const LDC161x::Status frequencyStatus =
         _device.isBound()
-            ? LDC1614::LDC1614::calculateSensorFrequencyHz(
-                  _device.config(), static_cast<LDC1614::Channel>(index),
+            ? LDC161x::LDC161x::calculateSensorFrequencyHz(
+                  _device.config(), static_cast<LDC161x::Channel>(index),
                   sample.rawCount28, frequency)
-            : LDC1614::Status::Error(LDC1614::Err::NOT_BOUND, "Driver not bound");
+            : LDC161x::Status::Error(LDC161x::Err::NOT_BOUND, "Driver not bound");
     const bool withinBounds =
         frequencyStatus.ok() && _device.isBound() &&
         frequency >= _device.config().channel[index].expectedSensorMinHz &&
@@ -1436,7 +1436,7 @@ void Ldc1614IdfCli::printBatch(const LDC1614::SampleBatch& batch) const {
   }
 }
 
-void Ldc1614IdfCli::printResult(const LDC1614::OperationResult& result) const {
+void Ldc161xIdfCli::printResult(const LDC161x::OperationResult& result) const {
   printf("Operation result: operation=%" PRIu64 " kind=%s outcome=%s effects=0x%02X "
          "effects_names=%s "
          "revision=%lu completed_ms=%" PRIu64 " phase=%s reg=0x%02X "
@@ -1456,7 +1456,7 @@ void Ldc1614IdfCli::printResult(const LDC1614::OperationResult& result) const {
   if (result.hasSampleBatch) printBatch(result.sampleBatch);
 }
 
-PromptAction Ldc1614IdfCli::handleProfile(const ParsedLine& line) {
+PromptAction Ldc161xIdfCli::handleProfile(const ParsedLine& line) {
   if (line.argc != 2U && line.argc != 3U) {
     return usage("profile show|reset|discard\nprofile validate\nprofile commit confirm");
   }
@@ -1479,7 +1479,7 @@ PromptAction Ldc1614IdfCli::handleProfile(const ParsedLine& line) {
     return promptActionForCurrentState();
   }
   if (std::strcmp(action, "validate") == 0 && line.argc == 2U) {
-    const LDC1614::Status status = LDC1614::LDC1614::validateConfig(_stagedConfig);
+    const LDC161x::Status status = LDC161x::LDC161x::validateConfig(_stagedConfig);
     printf("profile field=all channel=all dirty=%u valid=%u outcome=%s code=%u "
            "i2c_attempts=0\n",
            _stagedDirty ? 1U : 0U, status.ok() ? 1U : 0U,
@@ -1490,25 +1490,25 @@ PromptAction Ldc1614IdfCli::handleProfile(const ParsedLine& line) {
   if (std::strcmp(action, "commit") == 0 && line.argc == 3U &&
       requireConfirmation(line.argv[2])) {
     if (!_device.isBound()) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::NOT_BOUND,
                                          "Bind before profile commit"));
       return promptActionForCurrentState();
     }
     if (_device.jobProgress().active || _session.kind != SessionKind::NONE ||
         _pending.owner != OperationOwner::NONE) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::BUSY,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::BUSY,
                                          "CLI work active"));
       return promptActionForCurrentState();
     }
     if (_device.appliedConfigState() !=
-        LDC1614::AppliedConfigState::APPLIED_SLEEPING) {
-      printStatus(LDC1614::Status::Error(
-          LDC1614::Err::BUSY,
+        LDC161x::AppliedConfigState::APPLIED_SLEEPING) {
+      printStatus(LDC161x::Status::Error(
+          LDC161x::Err::BUSY,
           "Profile commit requires verified sleeping hardware; run sleep first"));
       return promptActionForCurrentState();
     }
     const bool wasDirty = _stagedDirty;
-    LDC1614::Status status = LDC1614::LDC1614::validateConfig(_stagedConfig);
+    LDC161x::Status status = LDC161x::LDC161x::validateConfig(_stagedConfig);
     if (status.ok() && wasDirty) {
       status = _device.updateDesiredConfig(_stagedConfig);
       if (status.ok()) _stagedDirty = false;
@@ -1526,7 +1526,7 @@ PromptAction Ldc1614IdfCli::handleProfile(const ParsedLine& line) {
   return usage("profile show|reset|discard\nprofile validate\nprofile commit confirm");
 }
 
-PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) {
+PromptAction Ldc161xIdfCli::handleSetting(CommandId id, const ParsedLine& line) {
   ensureStagedProfile();
   const CommandSpec* settingSpec = commandSpec(id);
   const char* settingUsage = settingSpec != nullptr ? settingSpec->synopsis
@@ -1539,17 +1539,17 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     if (line.argc != 3U) return usage(settingUsage);
     if (std::strcmp(line.argv[1], "single") == 0 &&
         parseUnsigned(line.argv[2], 3U, channelValue)) {
-      if (_stagedConfig.variant == LDC1614::DeviceVariant::LDC1612 &&
+      if (_stagedConfig.variant == LDC161x::DeviceVariant::LDC1612 &&
           channelValue >= 2U) {
         logError("channel %lu is unavailable on LDC1612",
                  static_cast<unsigned long>(channelValue));
         return promptActionForCurrentState();
       }
-      const auto channel = static_cast<LDC1614::Channel>(channelValue);
-      _stagedConfig.mode = LDC1614::OperatingMode::SINGLE_CHANNEL;
-      _stagedConfig.channels = LDC1614::channelBit(channel);
+      const auto channel = static_cast<LDC161x::Channel>(channelValue);
+      _stagedConfig.mode = LDC161x::OperatingMode::SINGLE_CHANNEL;
+      _stagedConfig.channels = LDC161x::channelBit(channel);
       _stagedConfig.activeChannel = channel;
-      _stagedConfig.rrSequence = LDC1614::RRSequence::UNSPECIFIED;
+      _stagedConfig.rrSequence = LDC161x::RRSequence::UNSPECIFIED;
       printf("mode=single channel=%lu count=1\n",
              static_cast<unsigned long>(channelValue));
       markStagedChanged("mode");
@@ -1557,28 +1557,28 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     }
     if (std::strcmp(line.argv[1], "seq") == 0 &&
         parseUnsigned(line.argv[2], 4U, value) && value >= 2U) {
-      if (_stagedConfig.variant == LDC1614::DeviceVariant::LDC1612 && value != 2U) {
+      if (_stagedConfig.variant == LDC161x::DeviceVariant::LDC1612 && value != 2U) {
         logError("LDC1612 sequential mode supports exactly 2 channels");
         return promptActionForCurrentState();
       }
-      LDC1614::ChannelMask channels{};
-      LDC1614::RRSequence sequence = LDC1614::RRSequence::UNSPECIFIED;
+      LDC161x::ChannelMask channels{};
+      LDC161x::RRSequence sequence = LDC161x::RRSequence::UNSPECIFIED;
       if (value == 2U) {
-        channels = LDC1614::ChannelMask{0x03};
-        sequence = LDC1614::RRSequence::CH0_CH1;
+        channels = LDC161x::ChannelMask{0x03};
+        sequence = LDC161x::RRSequence::CH0_CH1;
       } else if (value == 3U) {
-        channels = LDC1614::ChannelMask{0x07};
-        sequence = LDC1614::RRSequence::CH0_CH1_CH2;
+        channels = LDC161x::ChannelMask{0x07};
+        sequence = LDC161x::RRSequence::CH0_CH1_CH2;
       } else if (value == 4U) {
-        channels = LDC1614::ChannelMask{0x0F};
-        sequence = LDC1614::RRSequence::CH0_CH1_CH2_CH3;
+        channels = LDC161x::ChannelMask{0x0F};
+        sequence = LDC161x::RRSequence::CH0_CH1_CH2_CH3;
       } else {
         return usage(settingUsage);
       }
       // Commit the validated tuple together; an invalid token never changes
       // staged state or its dirty flag.
-      _stagedConfig.mode = LDC1614::OperatingMode::MULTI_CHANNEL_SEQUENTIAL;
-      _stagedConfig.activeChannel = LDC1614::Channel::NONE;
+      _stagedConfig.mode = LDC161x::OperatingMode::MULTI_CHANNEL_SEQUENTIAL;
+      _stagedConfig.activeChannel = LDC161x::Channel::NONE;
       _stagedConfig.channels = channels;
       _stagedConfig.rrSequence = sequence;
       printf("mode=seq channel=none count=%lu\n",
@@ -1601,8 +1601,8 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     }
     _stagedConfig.referenceClock.source =
         std::strcmp(line.argv[1], "internal") == 0
-            ? LDC1614::RefClkSrc::INTERNAL
-            : LDC1614::RefClkSrc::EXTERNAL_CLOCK;
+            ? LDC161x::RefClkSrc::INTERNAL
+            : LDC161x::RefClkSrc::EXTERNAL_CLOCK;
     _stagedConfig.referenceClock.frequencyHz = static_cast<uint32_t>(frequency);
     _stagedConfig.referenceClock.tolerancePpm = static_cast<uint32_t>(tolerance);
     printf("source=%s hz=%lu ppm=%lu\n", line.argv[1],
@@ -1615,13 +1615,13 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
   if (id == CommandId::DEGLITCH) {
     if (line.argc != 2U) return usage(settingUsage);
     if (std::strcmp(line.argv[1], "1") == 0) {
-      _stagedConfig.deglitch = LDC1614::Deglitch::BW_1MHZ;
+      _stagedConfig.deglitch = LDC161x::Deglitch::BW_1MHZ;
     } else if (std::strcmp(line.argv[1], "3") == 0) {
-      _stagedConfig.deglitch = LDC1614::Deglitch::BW_3MHZ;
+      _stagedConfig.deglitch = LDC161x::Deglitch::BW_3MHZ;
     } else if (std::strcmp(line.argv[1], "10") == 0) {
-      _stagedConfig.deglitch = LDC1614::Deglitch::BW_10MHZ;
+      _stagedConfig.deglitch = LDC161x::Deglitch::BW_10MHZ;
     } else if (std::strcmp(line.argv[1], "33") == 0) {
-      _stagedConfig.deglitch = LDC1614::Deglitch::BW_33MHZ;
+      _stagedConfig.deglitch = LDC161x::Deglitch::BW_33MHZ;
     } else {
       return usage(settingUsage);
     }
@@ -1638,8 +1638,8 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     }
     _stagedConfig.sensorActivation =
         std::strcmp(line.argv[1], "full") == 0
-            ? LDC1614::SensorActivation::FULL_CURRENT
-            : LDC1614::SensorActivation::LOW_POWER;
+            ? LDC161x::SensorActivation::FULL_CURRENT
+            : LDC161x::SensorActivation::LOW_POWER;
     printf("mode=%s\n", line.argv[1]);
     markStagedChanged("activation");
     return promptActionForCurrentState();
@@ -1678,7 +1678,7 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
   }
 
   if (id == CommandId::ERRORS) {
-    const auto printRoutes = [this](const LDC1614::ErrorReporting& routes) {
+    const auto printRoutes = [this](const LDC161x::ErrorReporting& routes) {
       printf("errors data_under=%u data_over=%u data_watchdog=%u "
              "data_amplitude_high=%u data_amplitude_low=%u status_under=%u "
              "status_over=%u status_watchdog=%u status_amplitude_high=%u "
@@ -1696,7 +1696,7 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
              routes.statusAmplitudeLow ? 1U : 0U,
              routes.statusZeroCount ? 1U : 0U,
              routes.dataReady ? 1U : 0U,
-             LDC1614::LDC1614::encodeErrorReporting(routes));
+             LDC161x::LDC161x::encodeErrorReporting(routes));
     };
     if (line.argc == 1U ||
         (line.argc == 2U && std::strcmp(line.argv[1], "show") == 0)) {
@@ -1710,8 +1710,8 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     }
     _stagedConfig.errorReporting =
         std::strcmp(line.argv[1], "all") == 0
-            ? LDC1614::ErrorReporting::all()
-            : LDC1614::ErrorReporting{};
+            ? LDC161x::ErrorReporting::all()
+            : LDC161x::ErrorReporting{};
     printRoutes(_stagedConfig.errorReporting);
     markStagedChanged("errors");
     return promptActionForCurrentState();
@@ -1724,7 +1724,7 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
       return usage(settingUsage);
     }
     enabled = std::strcmp(line.argv[2], "1") == 0;
-    LDC1614::ErrorReporting& e = _stagedConfig.errorReporting;
+    LDC161x::ErrorReporting& e = _stagedConfig.errorReporting;
     const char* route = line.argv[1];
     bool* target = nullptr;
     if (std::strcmp(route, "data-under") == 0) target = &e.dataUnderRange;
@@ -1757,13 +1757,13 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
         !parseUnsigned(line.argv[1], 3U, channelValue)) {
       return usage(settingUsage);
     }
-    if (_stagedConfig.variant == LDC1614::DeviceVariant::LDC1612 &&
+    if (_stagedConfig.variant == LDC161x::DeviceVariant::LDC1612 &&
         channelValue >= 2U) {
       logError("channel %lu is unavailable on LDC1612",
                static_cast<unsigned long>(channelValue));
       return promptActionForCurrentState();
     }
-    LDC1614::ChannelConfig& channel = _stagedConfig.channel[channelValue];
+    LDC161x::ChannelConfig& channel = _stagedConfig.channel[channelValue];
     if (id == CommandId::SENSOR_BOUNDS) {
       uint64_t minimum = 0;
       uint64_t maximum = 0;
@@ -1786,7 +1786,7 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     if (id == CommandId::DRIVE) maximum = 31U;
     if (line.argc != 3U || !parseUnsigned(line.argv[2], maximum, value) ||
         ((id == CommandId::FIN_DIV || id == CommandId::FREF_DIV) && value == 0U) ||
-        (id == CommandId::RCOUNT && value < LDC1614::cmd::RCOUNT_MIN)) {
+        (id == CommandId::RCOUNT && value < LDC161x::cmd::RCOUNT_MIN)) {
       return usage(settingUsage);
     }
     if (id == CommandId::RCOUNT) channel.rcount = static_cast<uint16_t>(value);
@@ -1795,7 +1795,7 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
     if (id == CommandId::FREF_DIV) channel.frefDivider = static_cast<uint16_t>(value);
     if (id == CommandId::OFFSET) channel.offset = static_cast<uint16_t>(value);
     if (id == CommandId::DRIVE) {
-      channel.driveCurrentCode = LDC1614::DriveCurrentCode(static_cast<uint8_t>(value));
+      channel.driveCurrentCode = LDC161x::DriveCurrentCode(static_cast<uint8_t>(value));
     }
     if (id == CommandId::DRIVE) {
       printf("channel=%lu code=%lu\n", static_cast<unsigned long>(channelValue),
@@ -1811,13 +1811,13 @@ PromptAction Ldc1614IdfCli::handleSetting(CommandId id, const ParsedLine& line) 
   return usage(settingUsage);
 }
 
-PromptAction Ldc1614IdfCli::handleDecode(const ParsedLine& line) {
+PromptAction Ldc161xIdfCli::handleDecode(const ParsedLine& line) {
   uint64_t first = 0;
   uint64_t second = 0;
   if (line.argc == 3U && std::strcmp(line.argv[1], "status") == 0 &&
       parseUnsigned(line.argv[2], UINT16_MAX, first)) {
     printf("decode kind=status ");
-    printDeviceStatus(LDC1614::LDC1614::decodeDeviceStatus(
+    printDeviceStatus(LDC161x::LDC161x::decodeDeviceStatus(
                           static_cast<uint16_t>(first)),
                       "decoded_status");
     return promptActionForCurrentState();
@@ -1825,8 +1825,8 @@ PromptAction Ldc1614IdfCli::handleDecode(const ParsedLine& line) {
   if (line.argc == 4U && std::strcmp(line.argv[1], "data") == 0 &&
       parseUnsigned(line.argv[2], UINT16_MAX, first) &&
       parseUnsigned(line.argv[3], UINT16_MAX, second)) {
-    const LDC1614::ChannelSample sample =
-        LDC1614::LDC1614::decodeChannelSample(static_cast<uint16_t>(first),
+    const LDC161x::ChannelSample sample =
+        LDC161x::LDC161x::decodeChannelSample(static_cast<uint16_t>(first),
                                                static_cast<uint16_t>(second));
     printf("decode kind=data raw=0x%04lX msb=0x%04lX lsb=0x%04lX "
            "count=0x%07lX quality=0x%04X "
@@ -1841,7 +1841,7 @@ PromptAction Ldc1614IdfCli::handleDecode(const ParsedLine& line) {
   return usage("decode status <raw16>\ndecode data <msb> <lsb>");
 }
 
-PromptAction Ldc1614IdfCli::handleSd(const ParsedLine& line) {
+PromptAction Ldc161xIdfCli::handleSd(const ParsedLine& line) {
   if (line.argc == 2U && std::strcmp(line.argv[1], "status") == 0) {
     if (_platform.sdRead == nullptr) {
       printf("%s[SKIP]%s SD callback unavailable; build profile has no wired SD pin\n",
@@ -1851,7 +1851,7 @@ PromptAction Ldc1614IdfCli::handleSd(const ParsedLine& line) {
       return promptActionForCurrentState();
     }
     bool asserted = false;
-    const LDC1614::Status status = _platform.sdRead(asserted, _platform.user);
+    const LDC161x::Status status = _platform.sdRead(asserted, _platform.user);
     printf("sd state=%s outcome=%s code=%u\n",
            status.ok() ? (asserted ? "asserted" : "released") : "unknown",
            status.ok() ? "SUCCESS" : "FAILED", static_cast<unsigned>(status.code));
@@ -1870,11 +1870,11 @@ PromptAction Ldc1614IdfCli::handleSd(const ParsedLine& line) {
       return promptActionForCurrentState();
     }
     const bool asserted = std::strcmp(line.argv[1], "assert") == 0;
-    const LDC1614::Status status =
+    const LDC161x::Status status =
         _platform.sdWrite(asserted, _platform.user);
     if (status.ok() && _device.isBound()) {
-      _device.invalidateAppliedState(LDC1614::Status::Error(
-          LDC1614::Err::CONFIG_DIRTY,
+      _device.invalidateAppliedState(LDC161x::Status::Error(
+          LDC161x::Err::CONFIG_DIRTY,
           asserted ? "Owner asserted SD" : "Owner released SD"));
     }
     printf("sd state=%s outcome=%s code=%u\n",
@@ -1887,44 +1887,44 @@ PromptAction Ldc1614IdfCli::handleSd(const ParsedLine& line) {
   return usage("sd status|assert|release confirm");
 }
 
-LDC1614::OperationId Ldc1614IdfCli::nextOperationId() {
-  const LDC1614::OperationId id = _nextOperationId++;
+LDC161x::OperationId Ldc161xIdfCli::nextOperationId() {
+  const LDC161x::OperationId id = _nextOperationId++;
   if (_nextOperationId == 0U) _nextOperationId = 1U;
   return id;
 }
 
-uint32_t Ldc1614IdfCli::nextSessionId() {
+uint32_t Ldc161xIdfCli::nextSessionId() {
   const uint32_t id = _nextSessionId++;
   if (_nextSessionId == 0U) _nextSessionId = 1U;
   return id;
 }
 
-LDC1614::Status Ldc1614IdfCli::scheduleCommandJob(CommandId command,
-                                         LDC1614::JobKind kind,
-                                         LDC1614::ChannelMask channels,
+LDC161x::Status Ldc161xIdfCli::scheduleCommandJob(CommandId command,
+                                         LDC161x::JobKind kind,
+                                         LDC161x::ChannelMask channels,
                                          uint32_t deadlineMs) {
   if (asynchronousWorkActive()) {
-    return LDC1614::Status::Error(LDC1614::Err::BUSY, "CLI work active");
+    return LDC161x::Status::Error(LDC161x::Err::BUSY, "CLI work active");
   }
   if (_platform.nowMs == nullptr) {
-    return LDC1614::Status::Error(
-        LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(
+        LDC161x::Err::INVALID_CONFIG,
         "CLI monotonic clock callback is required for asynchronous work");
   }
-  const LDC1614::OperationId operation = nextOperationId();
+  const LDC161x::OperationId operation = nextOperationId();
   const uint64_t started = nowMs();
   const uint64_t deadline = started + deadlineMs;
-  LDC1614::Status status;
-  if (kind == LDC1614::JobKind::INITIALIZE) {
+  LDC161x::Status status;
+  if (kind == LDC161x::JobKind::INITIALIZE) {
     status = _device.startInitialize(operation, deadline);
-  } else if (kind == LDC1614::JobKind::APPLY_CONFIG) {
+  } else if (kind == LDC161x::JobKind::APPLY_CONFIG) {
     status = _device.startApplyConfig(operation, deadline);
-  } else if (kind == LDC1614::JobKind::RESET_AND_REAPPLY) {
+  } else if (kind == LDC161x::JobKind::RESET_AND_REAPPLY) {
     status = _device.startResetAndReapply(operation, deadline);
-  } else if (kind == LDC1614::JobKind::ACQUIRE) {
+  } else if (kind == LDC161x::JobKind::ACQUIRE) {
     status = _device.startAcquire(channels, operation, deadline);
   } else {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "Unsupported CLI job kind");
   }
   if (status.inProgress()) {
@@ -1942,23 +1942,23 @@ LDC1614::Status Ldc1614IdfCli::scheduleCommandJob(CommandId command,
   return status;
 }
 
-LDC1614::Status Ldc1614IdfCli::scheduleSessionAcquire() {
+LDC161x::Status Ldc161xIdfCli::scheduleSessionAcquire() {
   if (_session.kind == SessionKind::NONE ||
       _pending.owner != OperationOwner::NONE || _device.jobProgress().active) {
-    return LDC1614::Status::Error(LDC1614::Err::BUSY,
+    return LDC161x::Status::Error(LDC161x::Err::BUSY,
                                   "Cannot admit session acquisition");
   }
-  const LDC1614::OperationId operation = nextOperationId();
+  const LDC161x::OperationId operation = nextOperationId();
   const uint64_t started = nowMs();
   const uint64_t deadline = _session.kind == SessionKind::SAMPLE_RATE
                                 ? _session.readyDeadlineMs
                                 : started + JOB_DEADLINE_MS;
-  const LDC1614::Status status = _device.startAcquire(
+  const LDC161x::Status status = _device.startAcquire(
       _session.channels, operation, deadline);
   if (status.inProgress()) {
     _pending.owner = OperationOwner::SESSION;
     _pending.id = operation;
-    _pending.kind = LDC1614::JobKind::ACQUIRE;
+    _pending.kind = LDC161x::JobKind::ACQUIRE;
     _pending.command = _session.command;
     _pending.startedMs = started;
     _session.phase = SessionPhase::WAIT_ACQUIRE;
@@ -1966,22 +1966,22 @@ LDC1614::Status Ldc1614IdfCli::scheduleSessionAcquire() {
   return status;
 }
 
-LDC1614::Status Ldc1614IdfCli::scheduleSessionJob(LDC1614::JobKind kind) {
+LDC161x::Status Ldc161xIdfCli::scheduleSessionJob(LDC161x::JobKind kind) {
   if (_session.kind == SessionKind::NONE ||
       _pending.owner != OperationOwner::NONE || _device.jobProgress().active) {
-    return LDC1614::Status::Error(LDC1614::Err::BUSY,
+    return LDC161x::Status::Error(LDC161x::Err::BUSY,
                                   "Cannot admit session job");
   }
-  const LDC1614::OperationId operation = nextOperationId();
+  const LDC161x::OperationId operation = nextOperationId();
   const uint64_t started = nowMs();
   const uint64_t deadline = started + JOB_DEADLINE_MS;
-  LDC1614::Status status;
-  if (kind == LDC1614::JobKind::INITIALIZE) {
+  LDC161x::Status status;
+  if (kind == LDC161x::JobKind::INITIALIZE) {
     status = _device.startInitialize(operation, deadline);
-  } else if (kind == LDC1614::JobKind::RESET_AND_REAPPLY) {
+  } else if (kind == LDC161x::JobKind::RESET_AND_REAPPLY) {
     status = _device.startResetAndReapply(operation, deadline);
   } else {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                   "Unsupported session job kind");
   }
   if (status.inProgress()) {
@@ -1994,22 +1994,22 @@ LDC1614::Status Ldc1614IdfCli::scheduleSessionJob(LDC1614::JobKind kind) {
   return status;
 }
 
-LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
+LDC161x::Status Ldc161xIdfCli::startSession(SessionKind kind, CommandId command,
                                    uint32_t count,
-                                   LDC1614::ChannelMask channels,
+                                   LDC161x::ChannelMask channels,
                                    uint32_t periodMs, uint8_t channel) {
   if (asynchronousWorkActive()) {
-    return LDC1614::Status::Error(LDC1614::Err::BUSY, "CLI work active");
+    return LDC161x::Status::Error(LDC161x::Err::BUSY, "CLI work active");
   }
   if (_platform.nowMs == nullptr) {
-    return LDC1614::Status::Error(
-        LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(
+        LDC161x::Err::INVALID_CONFIG,
         "CLI monotonic clock callback is required for asynchronous work");
   }
   const bool needsBoundDevice =
       kind != SessionKind::DISCOVER && kind != SessionKind::SELF_TEST;
   if (needsBoundDevice && !_device.isBound()) {
-    return LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+    return LDC161x::Status::Error(LDC161x::Err::NOT_BOUND,
                                   "Driver not bound");
   }
   const bool sampling = kind == SessionKind::WATCH ||
@@ -2019,14 +2019,14 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
                         kind == SessionKind::SOAK;
   if (sampling) {
     if (_device.appliedConfigState() !=
-        LDC1614::AppliedConfigState::APPLIED_ACTIVE) {
-      return LDC1614::Status::Error(LDC1614::Err::CONFIG_DIRTY,
+        LDC161x::AppliedConfigState::APPLIED_ACTIVE) {
+      return LDC161x::Status::Error(LDC161x::Err::CONFIG_DIRTY,
                                     "Sampling requires APPLIED_ACTIVE");
     }
     if (channels.empty() ||
         (channels.bits & static_cast<uint8_t>(~_device.config().channels.bits)) !=
             0U) {
-      return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+      return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                     "Session mask must be configured");
     }
   }
@@ -2034,15 +2034,15 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
   if (kind == SessionKind::STRESS_BUS_FREQ) {
     if (_platform.i2cBusInfo == nullptr ||
         _platform.i2cSetFrequency == nullptr) {
-      return LDC1614::Status::Error(
-          LDC1614::Err::INVALID_CONFIG,
+      return LDC161x::Status::Error(
+          LDC161x::Err::INVALID_CONFIG,
           "Bus-frequency callbacks unavailable");
     }
     initialBus = _platform.i2cBusInfo(_platform.user);
     if (!initialBus.open ||
         initialBus.frequencyHz < MIN_I2C_FREQUENCY_HZ ||
         initialBus.frequencyHz > MAX_I2C_FREQUENCY_HZ) {
-      return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+      return LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                     "Active I2C frequency unavailable");
     }
   }
@@ -2087,17 +2087,17 @@ LDC1614::Status Ldc1614IdfCli::startSession(SessionKind kind, CommandId command,
     }
     case SessionKind::SELF_TEST: _session.phase = SessionPhase::SELF_PURE; break;
     case SessionKind::NONE:
-      return LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+      return LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                     "Invalid diagnostic session");
   }
   _promptDeferred = true;
   printf("CLI scheduled: command=%s session=%lu\n", commandName(command),
          static_cast<unsigned long>(_session.id));
-  return LDC1614::Status{LDC1614::Err::IN_PROGRESS, 0,
+  return LDC161x::Status{LDC161x::Err::IN_PROGRESS, 0,
                          "CLI diagnostic session scheduled"};
 }
 
-void Ldc1614IdfCli::recordSessionFailure(const LDC1614::Status& status) {
+void Ldc161xIdfCli::recordSessionFailure(const LDC161x::Status& status) {
   if (!_session.stats.hasFailure) {
     _session.stats.hasFailure = true;
     _session.stats.firstFailure = status;
@@ -2105,7 +2105,7 @@ void Ldc1614IdfCli::recordSessionFailure(const LDC1614::Status& status) {
   _session.stats.lastFailure = status;
 }
 
-void Ldc1614IdfCli::recordLatency(uint64_t startedMs, uint64_t completedMs) {
+void Ldc161xIdfCli::recordLatency(uint64_t startedMs, uint64_t completedMs) {
   const uint64_t elapsed64 = completedMs - startedMs;
   const uint32_t elapsed =
       elapsed64 > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(elapsed64);
@@ -2119,7 +2119,7 @@ void Ldc1614IdfCli::recordLatency(uint64_t startedMs, uint64_t completedMs) {
   }
 }
 
-void Ldc1614IdfCli::recordBatchStats(const LDC1614::SampleBatch& batch) {
+void Ldc161xIdfCli::recordBatchStats(const LDC161x::SampleBatch& batch) {
   for (uint8_t index = 0; index < 4U; ++index) {
     const uint8_t bit = static_cast<uint8_t>(1U << index);
     if ((batch.selectedChannels.bits & bit) == 0U) continue;
@@ -2131,8 +2131,8 @@ void Ldc1614IdfCli::recordBatchStats(const LDC1614::SampleBatch& batch) {
     if ((batch.overrunChannels.bits & bit) != 0U) ++stats.overruns;
     if (!_device.isBound()) continue;
     double frequency = 0.0;
-    const LDC1614::Status status = LDC1614::LDC1614::calculateSensorFrequencyHz(
-        _device.config(), static_cast<LDC1614::Channel>(index),
+    const LDC161x::Status status = LDC161x::LDC161x::calculateSensorFrequencyHz(
+        _device.config(), static_cast<LDC161x::Channel>(index),
         batch.channel[index].rawCount28, frequency);
     if (!status.ok()) continue;
     if (!stats.hasFrequency) {
@@ -2143,7 +2143,7 @@ void Ldc1614IdfCli::recordBatchStats(const LDC1614::SampleBatch& batch) {
       if (frequency < stats.minimumHz) stats.minimumHz = frequency;
       if (frequency > stats.maximumHz) stats.maximumHz = frequency;
     }
-    const LDC1614::ChannelConfig& config = _device.config().channel[index];
+    const LDC161x::ChannelConfig& config = _device.config().channel[index];
     if (frequency < config.expectedSensorMinHz ||
         frequency > config.expectedSensorMaxHz) {
       ++stats.boundsFailures;
@@ -2151,14 +2151,14 @@ void Ldc1614IdfCli::recordBatchStats(const LDC1614::SampleBatch& batch) {
   }
 }
 
-void Ldc1614IdfCli::selfTestPass(const char* name) {
+void Ldc161xIdfCli::selfTestPass(const char* name) {
   ++_session.stats.passed;
   printf("%s[PASS]%s %s\n",
          cli_style::code(_colorEnabled, cli_style::Color::GREEN),
          resetColor(_colorEnabled), name);
 }
 
-void Ldc1614IdfCli::selfTestFail(const char* name, const LDC1614::Status& status) {
+void Ldc161xIdfCli::selfTestFail(const char* name, const LDC161x::Status& status) {
   ++_session.stats.failed;
   recordSessionFailure(status);
   printf("%s[FAIL]%s %s code=%u detail=%ld msg=%s\n",
@@ -2167,14 +2167,14 @@ void Ldc1614IdfCli::selfTestFail(const char* name, const LDC1614::Status& status
          static_cast<long>(status.detail), status.msg != nullptr ? status.msg : "");
 }
 
-void Ldc1614IdfCli::selfTestSkip(const char* name, const char* reason) {
+void Ldc161xIdfCli::selfTestSkip(const char* name, const char* reason) {
   ++_session.stats.skipped;
   printf("%s[SKIP]%s %s: %s\n",
          cli_style::code(_colorEnabled, cli_style::Color::YELLOW),
          resetColor(_colorEnabled), name, reason);
 }
 
-void Ldc1614IdfCli::printSessionSummary() const {
+void Ldc161xIdfCli::printSessionSummary() const {
   const uint64_t elapsed = nowMs() - _session.stats.startedMs;
   const double hz = elapsed == 0U
                         ? 0.0
@@ -2186,7 +2186,7 @@ void Ldc1614IdfCli::printSessionSummary() const {
              _session.manufacturerId, _session.deviceId,
              _session.stats.failed == 0U ? "YES" : "NO",
              _session.stats.failed == 0U
-                 ? static_cast<unsigned>(LDC1614::Err::OK)
+                 ? static_cast<unsigned>(LDC161x::Err::OK)
                  : static_cast<unsigned>(_session.stats.lastFailure.code));
       break;
     case SessionKind::DISCOVER:
@@ -2197,8 +2197,8 @@ void Ldc1614IdfCli::printSessionSummary() const {
              static_cast<unsigned>(_session.discoveryMismatched),
              static_cast<unsigned>(_session.discoveryFailed),
              _session.discoveryMatched != 0U
-                 ? static_cast<unsigned>(LDC1614::Err::OK)
-                 : static_cast<unsigned>(LDC1614::Err::DEVICE_NOT_FOUND));
+                 ? static_cast<unsigned>(LDC161x::Err::OK)
+                 : static_cast<unsigned>(LDC161x::Err::DEVICE_NOT_FOUND));
       break;
     case SessionKind::DUMP_CONFIG:
     case SessionKind::DUMP_ALL:
@@ -2339,7 +2339,7 @@ void Ldc1614IdfCli::printSessionSummary() const {
   }
 }
 
-void Ldc1614IdfCli::finishSession(const LDC1614::Status& status, const char* outcome) {
+void Ldc161xIdfCli::finishSession(const LDC161x::Status& status, const char* outcome) {
   const CommandId command = _session.command;
   const uint32_t sessionId = _session.id;
   if (_session.kind == SessionKind::STRESS_BUS_FREQ) {
@@ -2347,7 +2347,7 @@ void Ldc1614IdfCli::finishSession(const LDC1614::Status& status, const char* out
       _session.activeFrequencyHz =
           _platform.i2cBusInfo(_platform.user).frequencyHz;
     }
-    if (status.code == LDC1614::Err::CANCELLED) {
+    if (status.code == LDC161x::Err::CANCELLED) {
       _session.restoreStatus = status;
     }
   }
@@ -2362,15 +2362,15 @@ void Ldc1614IdfCli::finishSession(const LDC1614::Status& status, const char* out
          commandName(command), static_cast<unsigned long>(sessionId), outcome,
          static_cast<unsigned>(status.code));
   if (_session.kind == SessionKind::STRESS_BUS_FREQ &&
-      status.code == LDC1614::Err::CANCELLED) {
+      status.code == LDC161x::Err::CANCELLED) {
     println("Cancellation was bus-silent; restore busfreq and run 'init' explicitly.");
   }
   _session = DiagnosticSession{};
 }
 
-void Ldc1614IdfCli::advanceSamplingSession(uint64_t now) {
+void Ldc161xIdfCli::advanceSamplingSession(uint64_t now) {
   if (_session.stopRequested) {
-    finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
+    finishSession(LDC161x::Status::Error(LDC161x::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
     return;
@@ -2379,14 +2379,14 @@ void Ldc1614IdfCli::advanceSamplingSession(uint64_t now) {
     const uint64_t durationMs = static_cast<uint64_t>(_session.count) * 1000ULL;
     if (now - _session.stats.startedMs >= durationMs) {
       finishSession(_session.stats.failed == 0U
-                        ? LDC1614::Status::Ok()
+                        ? LDC161x::Status::Ok()
                         : _session.stats.lastFailure,
                     _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
       return;
     }
   } else if (_session.stats.completed >= _session.stats.requested) {
     finishSession(_session.stats.failed == 0U
-                      ? LDC1614::Status::Ok()
+                      ? LDC161x::Status::Ok()
                       : _session.stats.lastFailure,
                   _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
     return;
@@ -2401,8 +2401,8 @@ void Ldc1614IdfCli::advanceSamplingSession(uint64_t now) {
   if (_session.kind == SessionKind::SAMPLE_RATE &&
       _session.phase == SessionPhase::SAMPLE_READY) {
     if (deadlineReached(now, _session.readyDeadlineMs)) {
-      const LDC1614::Status timeout = LDC1614::Status::Error(
-          LDC1614::Err::TIMEOUT,
+      const LDC161x::Status timeout = LDC161x::Status::Error(
+          LDC161x::Err::TIMEOUT,
           "Sample-rate readiness deadline expired");
       ++_session.stats.completed;
       ++_session.stats.failed;
@@ -2412,7 +2412,7 @@ void Ldc1614IdfCli::advanceSamplingSession(uint64_t now) {
     }
     // STATUS consumes UNREADCONV too. The acquisition must own the first
     // STATUS snapshot; a separate readiness read would erase freshness.
-    const LDC1614::Status acquireStatus = scheduleSessionAcquire();
+    const LDC161x::Status acquireStatus = scheduleSessionAcquire();
     if (!acquireStatus.inProgress()) {
       ++_session.stats.completed;
       ++_session.stats.failed;
@@ -2425,7 +2425,7 @@ void Ldc1614IdfCli::advanceSamplingSession(uint64_t now) {
       !deadlineReached(now, _session.nextDueMs)) {
     return;
   }
-  const LDC1614::Status status = scheduleSessionAcquire();
+  const LDC161x::Status status = scheduleSessionAcquire();
   if (!status.inProgress()) {
     ++_session.stats.completed;
     ++_session.stats.failed;
@@ -2434,23 +2434,23 @@ void Ldc1614IdfCli::advanceSamplingSession(uint64_t now) {
   }
 }
 
-void Ldc1614IdfCli::advanceMixedSession() {
+void Ldc161xIdfCli::advanceMixedSession() {
   if (_session.stopRequested) {
-    finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
+    finishSession(LDC161x::Status::Error(LDC161x::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
     return;
   }
   if (_session.stats.completed >= _session.stats.requested) {
     finishSession(_session.stats.failed == 0U
-                      ? LDC1614::Status::Ok()
+                      ? LDC161x::Status::Ok()
                       : _session.stats.lastFailure,
                   _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
     return;
   }
-  LDC1614::Status status;
+  LDC161x::Status status;
   if (_session.phase == SessionPhase::MIX_STATUS) {
-    LDC1614::DeviceStatus deviceStatus;
+    LDC161x::DeviceStatus deviceStatus;
     status = _device.readDeviceStatus(deviceStatus);
     if (_verbose && status.ok()) printDeviceStatus(deviceStatus, "mix_status");
     if (!status.ok()) {
@@ -2462,7 +2462,7 @@ void Ldc1614IdfCli::advanceMixedSession() {
   }
   if (_session.phase == SessionPhase::MIX_READY) {
     bool ready = false;
-    LDC1614::DeviceStatus observed;
+    LDC161x::DeviceStatus observed;
     status = _device.readDataReady(ready, observed);
     if (_verbose) printf("mix_ready=%u\n", ready ? 1U : 0U);
     if (!status.ok()) {
@@ -2475,7 +2475,7 @@ void Ldc1614IdfCli::advanceMixedSession() {
   if (_session.phase == SessionPhase::MIX_INTB) {
     bool asserted = false;
     status = _device.readIntb(asserted);
-    if (status.is(LDC1614::Err::INVALID_CONFIG)) {
+    if (status.is(LDC161x::Err::INVALID_CONFIG)) {
       ++_session.stats.skipped;
     } else if (!status.ok()) {
       _session.iterationFailed = true;
@@ -2491,7 +2491,7 @@ void Ldc1614IdfCli::advanceMixedSession() {
     const uint8_t channel =
         channelCount == 0U ? 0U : static_cast<uint8_t>(_session.index % channelCount);
     uint8_t code = 0;
-    status = _device.readInitDriveCurrent(static_cast<LDC1614::Channel>(channel), code);
+    status = _device.readInitDriveCurrent(static_cast<LDC161x::Channel>(channel), code);
     if (_verbose) {
       printf("mix_initdrive channel=%u code=%u\n", static_cast<unsigned>(channel),
              static_cast<unsigned>(code));
@@ -2517,11 +2517,11 @@ void Ldc1614IdfCli::advanceMixedSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceProbeSession() {
+void Ldc161xIdfCli::advanceProbeSession() {
   uint16_t value = 0;
   if (_session.phase == SessionPhase::PROBE_MANUFACTURER) {
-    const LDC1614::Status status =
-        _device.readRegister16(LDC1614::cmd::REG_MANUFACTURER_ID, value);
+    const LDC161x::Status status =
+        _device.readRegister16(LDC161x::cmd::REG_MANUFACTURER_ID, value);
     if (!status.ok()) {
       recordSessionFailure(status);
       ++_session.stats.failed;
@@ -2533,13 +2533,13 @@ void Ldc1614IdfCli::advanceProbeSession() {
     return;
   }
   if (_session.phase == SessionPhase::PROBE_DEVICE) {
-    LDC1614::Status status =
-        _device.readRegister16(LDC1614::cmd::REG_DEVICE_ID, value);
+    LDC161x::Status status =
+        _device.readRegister16(LDC161x::cmd::REG_DEVICE_ID, value);
     if (status.ok()) _session.deviceId = value;
     if (status.ok() &&
-        (_session.manufacturerId != LDC1614::cmd::MANUFACTURER_ID_VALUE ||
-         _session.deviceId != LDC1614::cmd::DEVICE_ID_VALUE)) {
-      status = LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+        (_session.manufacturerId != LDC161x::cmd::MANUFACTURER_ID_VALUE ||
+         _session.deviceId != LDC161x::cmd::DEVICE_ID_VALUE)) {
+      status = LDC161x::Status::Error(LDC161x::Err::DEVICE_NOT_FOUND,
                                       "Identity mismatch");
     }
     if (!status.ok()) {
@@ -2553,16 +2553,16 @@ void Ldc1614IdfCli::advanceProbeSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceDiscoverSession() {
+void Ldc161xIdfCli::advanceDiscoverSession() {
   if (_session.stopRequested) {
-    finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
+    finishSession(LDC161x::Status::Error(LDC161x::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
     return;
   }
   if (_platform.i2cReadRegister == nullptr) {
-    const LDC1614::Status status = LDC1614::Status::Error(
-        LDC1614::Err::INVALID_CONFIG,
+    const LDC161x::Status status = LDC161x::Status::Error(
+        LDC161x::Err::INVALID_CONFIG,
         "Protocol-qualified discovery callback unavailable");
     recordSessionFailure(status);
     finishSession(status, "FAILED");
@@ -2571,8 +2571,8 @@ void Ldc1614IdfCli::advanceDiscoverSession() {
   const uint8_t address = _session.discoveryAddress;
   uint16_t value = 0U;
   if (_session.phase == SessionPhase::DISCOVER_MANUFACTURER) {
-    const LDC1614::Status status = _platform.i2cReadRegister(
-        address, LDC1614::cmd::REG_MANUFACTURER_ID, value,
+    const LDC161x::Status status = _platform.i2cReadRegister(
+        address, LDC161x::cmd::REG_MANUFACTURER_ID, value,
         _platform.discoveryTimeoutMs, _platform.user);
     ++_session.stats.completed;
     if (!status.ok()) {
@@ -2582,10 +2582,10 @@ void Ldc1614IdfCli::advanceDiscoverSession() {
              address, address == FIRST_LDC_ADDRESS ? "ADDR_GND" : "ADDR_VDD",
              static_cast<unsigned>(status.code), static_cast<long>(status.detail));
       if (address == LAST_LDC_ADDRESS) {
-        const LDC1614::Status terminal =
+        const LDC161x::Status terminal =
             _session.discoveryMatched != 0U
-                ? LDC1614::Status::Ok()
-                : LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+                ? LDC161x::Status::Ok()
+                : LDC161x::Status::Error(LDC161x::Err::DEVICE_NOT_FOUND,
                                           "No protocol-qualified LDC161x found");
         if (!terminal.ok()) recordSessionFailure(terminal);
         finishSession(terminal, terminal.ok() ? "SUCCESS" : "FAILED");
@@ -2600,15 +2600,15 @@ void Ldc1614IdfCli::advanceDiscoverSession() {
     return;
   }
 
-  const LDC1614::Status status = _platform.i2cReadRegister(
-      address, LDC1614::cmd::REG_DEVICE_ID, value,
+  const LDC161x::Status status = _platform.i2cReadRegister(
+      address, LDC161x::cmd::REG_DEVICE_ID, value,
       _platform.discoveryTimeoutMs, _platform.user);
   ++_session.stats.completed;
   if (status.ok()) _session.deviceId = value;
   const bool match = status.ok() &&
                      _session.manufacturerId ==
-                         LDC1614::cmd::MANUFACTURER_ID_VALUE &&
-                     _session.deviceId == LDC1614::cmd::DEVICE_ID_VALUE;
+                         LDC161x::cmd::MANUFACTURER_ID_VALUE &&
+                     _session.deviceId == LDC161x::cmd::DEVICE_ID_VALUE;
   if (match) ++_session.discoveryMatched;
   else if (status.ok()) ++_session.discoveryMismatched;
   else ++_session.discoveryFailed;
@@ -2621,10 +2621,10 @@ void Ldc1614IdfCli::advanceDiscoverSession() {
          static_cast<unsigned>(status.code), static_cast<long>(status.detail));
 
   if (address == LAST_LDC_ADDRESS) {
-    const LDC1614::Status terminal =
+    const LDC161x::Status terminal =
         _session.discoveryMatched != 0U
-            ? LDC1614::Status::Ok()
-            : LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+            ? LDC161x::Status::Ok()
+            : LDC161x::Status::Error(LDC161x::Err::DEVICE_NOT_FOUND,
                                       "No protocol-qualified LDC161x found");
     if (!terminal.ok()) recordSessionFailure(terminal);
     finishSession(terminal, terminal.ok() ? "SUCCESS" : "FAILED");
@@ -2636,9 +2636,9 @@ void Ldc1614IdfCli::advanceDiscoverSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceIdentityStressSession() {
+void Ldc161xIdfCli::advanceIdentityStressSession() {
   if (_session.index >= _session.count) {
-    finishSession(_session.stats.failed == 0U ? LDC1614::Status::Ok()
+    finishSession(_session.stats.failed == 0U ? LDC161x::Status::Ok()
                                               : _session.stats.lastFailure,
                   _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
     return;
@@ -2646,16 +2646,16 @@ void Ldc1614IdfCli::advanceIdentityStressSession() {
   uint16_t value = 0U;
   const bool manufacturer =
       _session.phase == SessionPhase::STRESS_ID_MANUFACTURER;
-  LDC1614::Status status = _device.readRegister16(
-      manufacturer ? LDC1614::cmd::REG_MANUFACTURER_ID
-                   : LDC1614::cmd::REG_DEVICE_ID,
+  LDC161x::Status status = _device.readRegister16(
+      manufacturer ? LDC161x::cmd::REG_MANUFACTURER_ID
+                   : LDC161x::cmd::REG_DEVICE_ID,
       value);
   if (status.ok()) {
     const uint16_t expected = manufacturer
-                                  ? LDC1614::cmd::MANUFACTURER_ID_VALUE
-                                  : LDC1614::cmd::DEVICE_ID_VALUE;
+                                  ? LDC161x::cmd::MANUFACTURER_ID_VALUE
+                                  : LDC161x::cmd::DEVICE_ID_VALUE;
     if (value != expected) {
-      status = LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+      status = LDC161x::Status::Error(LDC161x::Err::DEVICE_NOT_FOUND,
                                       "Identity mismatch", value);
     }
   }
@@ -2677,13 +2677,13 @@ void Ldc1614IdfCli::advanceIdentityStressSession() {
   _session.phase = SessionPhase::STRESS_ID_MANUFACTURER;
 }
 
-void Ldc1614IdfCli::advanceResetStressSession() {
+void Ldc161xIdfCli::advanceResetStressSession() {
   if (_session.index >= _session.count) {
-    finishSession(LDC1614::Status::Ok(), "SUCCESS");
+    finishSession(LDC161x::Status::Ok(), "SUCCESS");
     return;
   }
-  const LDC1614::Status status =
-      scheduleSessionJob(LDC1614::JobKind::RESET_AND_REAPPLY);
+  const LDC161x::Status status =
+      scheduleSessionJob(LDC161x::JobKind::RESET_AND_REAPPLY);
   if (!status.inProgress()) {
     ++_session.stats.completed;
     ++_session.stats.failed;
@@ -2693,7 +2693,7 @@ void Ldc1614IdfCli::advanceResetStressSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
+void Ldc161xIdfCli::advanceBusFrequencyStressSession() {
   if (_session.phase == SessionPhase::STRESS_BUS_FREQ_RESTORE) {
     _session.restoreStatus = _platform.i2cSetFrequency(
         _session.initialFrequencyHz, _platform.user);
@@ -2702,8 +2702,8 @@ void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
     if (_session.restoreStatus.ok() &&
         (!restored.open ||
          restored.frequencyHz != _session.initialFrequencyHz)) {
-      _session.restoreStatus = LDC1614::Status::Error(
-          LDC1614::Err::I2C_BUS,
+      _session.restoreStatus = LDC161x::Status::Error(
+          LDC161x::Err::I2C_BUS,
           "Owner frequency restore did not reach initial state",
           static_cast<int32_t>(restored.frequencyHz));
     }
@@ -2712,11 +2712,11 @@ void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
       finishSession(_session.restoreStatus, "FAILED");
       return;
     }
-    _device.invalidateAppliedState(LDC1614::Status::Error(
-        LDC1614::Err::CONFIG_DIRTY,
+    _device.invalidateAppliedState(LDC161x::Status::Error(
+        LDC161x::Err::CONFIG_DIRTY,
         "Owner restored I2C frequency; full initialization required"));
-    const LDC1614::Status scheduled =
-        scheduleSessionJob(LDC1614::JobKind::INITIALIZE);
+    const LDC161x::Status scheduled =
+        scheduleSessionJob(LDC161x::JobKind::INITIALIZE);
     if (!scheduled.inProgress()) {
       _session.restoreStatus = scheduled;
       recordSessionFailure(scheduled);
@@ -2738,14 +2738,14 @@ void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
                                    : (firstHz == STRESS_LOW_I2C_FREQUENCY_HZ
                                           ? MAX_I2C_FREQUENCY_HZ
                                           : STRESS_LOW_I2C_FREQUENCY_HZ);
-  LDC1614::Status changed =
+  LDC161x::Status changed =
       _platform.i2cSetFrequency(requestedHz, _platform.user);
   const I2cBusInfo active = _platform.i2cBusInfo(_platform.user);
   _session.activeFrequencyHz = active.frequencyHz;
   if (changed.ok() &&
       (!active.open || active.frequencyHz != requestedHz)) {
-    changed = LDC1614::Status::Error(
-        LDC1614::Err::I2C_BUS,
+    changed = LDC161x::Status::Error(
+        LDC161x::Err::I2C_BUS,
         "Owner frequency callback did not reach requested state",
         static_cast<int32_t>(active.frequencyHz));
   }
@@ -2757,11 +2757,11 @@ void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
     _session.phase = SessionPhase::STRESS_BUS_FREQ_RESTORE;
     return;
   }
-  _device.invalidateAppliedState(LDC1614::Status::Error(
-      LDC1614::Err::CONFIG_DIRTY,
+  _device.invalidateAppliedState(LDC161x::Status::Error(
+      LDC161x::Err::CONFIG_DIRTY,
       "Owner changed I2C frequency; full initialization required"));
-  const LDC1614::Status scheduled =
-      scheduleSessionJob(LDC1614::JobKind::INITIALIZE);
+  const LDC161x::Status scheduled =
+      scheduleSessionJob(LDC161x::JobKind::INITIALIZE);
   if (!scheduled.inProgress()) {
     ++_session.stats.completed;
     ++_session.stats.failed;
@@ -2771,7 +2771,7 @@ void Ldc1614IdfCli::advanceBusFrequencyStressSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceDumpSession() {
+void Ldc161xIdfCli::advanceDumpSession() {
   const bool all = _session.kind == SessionKind::DUMP_ALL;
   const uint8_t* registers = all ? ALL_REGISTERS : CONFIG_REGISTERS;
   const size_t registerCount =
@@ -2783,14 +2783,14 @@ void Ldc1614IdfCli::advanceDumpSession() {
   }
   if (_session.registerIndex >= registerCount) {
     finishSession(_session.stats.failed == 0U
-                      ? LDC1614::Status::Ok()
+                      ? LDC161x::Status::Ok()
                       : _session.stats.lastFailure,
                   _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
     return;
   }
   const uint8_t reg = registers[_session.registerIndex++];
   uint16_t value = 0;
-  const LDC1614::Status status = _device.readRegister16(reg, value);
+  const LDC161x::Status status = _device.readRegister16(reg, value);
   ++_session.stats.completed;
   if (status.ok()) {
     ++_session.stats.passed;
@@ -2804,15 +2804,15 @@ void Ldc1614IdfCli::advanceDumpSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceVerifySession(bool selfTest) {
+void Ldc161xIdfCli::advanceVerifySession(bool selfTest) {
   while (_session.registerIndex < sizeof(CONFIG_REGISTERS)) {
     const uint8_t reg = CONFIG_REGISTERS[_session.registerIndex];
     uint16_t expected = 0;
     uint16_t mask = 0;
-    const LDC1614::Status expectedStatus =
-        LDC1614::LDC1614::expectedConfigurationRegister(
+    const LDC161x::Status expectedStatus =
+        LDC161x::LDC161x::expectedConfigurationRegister(
             _device.config(), reg, expected, mask);
-    if (expectedStatus.is(LDC1614::Err::INVALID_PARAM)) {
+    if (expectedStatus.is(LDC161x::Err::INVALID_PARAM)) {
       ++_session.registerIndex;
       continue;
     }
@@ -2827,7 +2827,7 @@ void Ldc1614IdfCli::advanceVerifySession(bool selfTest) {
       return;
     }
     uint16_t actual = 0;
-    const LDC1614::Status readStatus = _device.readRegister16(reg, actual);
+    const LDC161x::Status readStatus = _device.readRegister16(reg, actual);
     ++_session.registerIndex;
     ++_session.stats.completed;
     if (!readStatus.ok()) {
@@ -2850,15 +2850,15 @@ void Ldc1614IdfCli::advanceVerifySession(bool selfTest) {
         selfTestPass("configuration register");
       } else {
         selfTestFail("configuration register",
-                     LDC1614::Status::Error(LDC1614::Err::CONFIG_DIRTY,
+                     LDC161x::Status::Error(LDC161x::Err::CONFIG_DIRTY,
                                             "Configuration readback mismatch", reg));
       }
     } else if (match) {
       ++_session.stats.passed;
     } else {
       ++_session.stats.failed;
-      recordSessionFailure(LDC1614::Status::Error(
-          LDC1614::Err::CONFIG_DIRTY, "Configuration readback mismatch", reg));
+      recordSessionFailure(LDC161x::Status::Error(
+          LDC161x::Err::CONFIG_DIRTY, "Configuration readback mismatch", reg));
     }
     return;
   }
@@ -2867,32 +2867,32 @@ void Ldc1614IdfCli::advanceVerifySession(bool selfTest) {
   } else {
     const bool clean =
         _session.stats.failed == 0U && _session.stats.skipped == 0U;
-    finishSession(clean ? LDC1614::Status::Ok()
+    finishSession(clean ? LDC161x::Status::Ok()
                         : _session.stats.lastFailure,
                   clean ? "SUCCESS" : "FAILED");
   }
 }
 
-void Ldc1614IdfCli::advanceSelfTestSession() {
+void Ldc161xIdfCli::advanceSelfTestSession() {
   if (_session.stopRequested) {
-    finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
+    finishSession(LDC161x::Status::Error(LDC161x::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
     return;
   }
   if (_session.phase == SessionPhase::SELF_PURE) {
-    const LDC1614::Status validation =
+    const LDC161x::Status validation =
         _device.isBound()
-            ? LDC1614::LDC1614::validateConfig(_device.config())
-            : LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+            ? LDC161x::LDC161x::validateConfig(_device.config())
+            : LDC161x::Status::Error(LDC161x::Err::NOT_BOUND,
                                      "Driver not bound");
     if (validation.ok()) selfTestPass("desired configuration validation");
     else selfTestFail("desired configuration validation", validation);
 
-    LDC1614::FrameTiming timing;
-    const LDC1614::Status timingStatus =
+    LDC161x::FrameTiming timing;
+    const LDC161x::Status timingStatus =
         _device.isBound()
-            ? LDC1614::LDC1614::estimateFrameTiming(
+            ? LDC161x::LDC161x::estimateFrameTiming(
                   _device.config(), _device.config().channels, timing)
             : validation;
     if (timingStatus.ok()) selfTestPass("frame timing helper");
@@ -2901,8 +2901,8 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
     bool driveHelperOk = true;
     for (uint8_t code = 0; code <= 31U; ++code) {
       uint16_t microamps = 0;
-      if (!LDC1614::LDC1614::nominalDriveCurrentMicroamps(
-               LDC1614::DriveCurrentCode(code), microamps)
+      if (!LDC161x::LDC161x::nominalDriveCurrentMicroamps(
+               LDC161x::DriveCurrentCode(code), microamps)
                .ok() ||
           microamps == 0U) {
         driveHelperOk = false;
@@ -2913,28 +2913,28 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
       selfTestPass("drive-current helper");
     } else {
       selfTestFail("drive-current helper",
-                   LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                   LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                           "Drive-current helper failed"));
     }
 
-    const LDC1614::DeviceStatus decodedStatus =
-        LDC1614::LDC1614::decodeDeviceStatus(0U);
-    const LDC1614::ChannelSample decodedSample =
-        LDC1614::LDC1614::decodeChannelSample(0U, 0U);
+    const LDC161x::DeviceStatus decodedStatus =
+        LDC161x::LDC161x::decodeDeviceStatus(0U);
+    const LDC161x::ChannelSample decodedSample =
+        LDC161x::LDC161x::decodeChannelSample(0U, 0U);
     if (decodedStatus.observed && decodedStatus.raw == 0U &&
         decodedSample.rawCount28 == 0U) {
       selfTestPass("STATUS/DATA decode helpers");
     } else {
       selfTestFail("STATUS/DATA decode helpers",
-                   LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                   LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                           "Decode helper invariant failed"));
     }
 
-    const uint16_t encoded = LDC1614::LDC1614::encodeErrorReporting(
-        LDC1614::ErrorReporting::all());
+    const uint16_t encoded = LDC161x::LDC161x::encodeErrorReporting(
+        LDC161x::ErrorReporting::all());
     if (encoded != 0U) selfTestPass("error-routing encoder");
     else selfTestFail("error-routing encoder",
-                      LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+                      LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                              "Error encoder returned zero"));
     _session.phase = SessionPhase::SELF_MANUFACTURER;
     return;
@@ -2942,10 +2942,10 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
 
   if (_session.phase == SessionPhase::SELF_MANUFACTURER) {
     uint16_t value = 0;
-    LDC1614::Status status =
-        _device.readRegister16(LDC1614::cmd::REG_MANUFACTURER_ID, value);
-    if (status.ok() && value != LDC1614::cmd::MANUFACTURER_ID_VALUE) {
-      status = LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+    LDC161x::Status status =
+        _device.readRegister16(LDC161x::cmd::REG_MANUFACTURER_ID, value);
+    if (status.ok() && value != LDC161x::cmd::MANUFACTURER_ID_VALUE) {
+      status = LDC161x::Status::Error(LDC161x::Err::DEVICE_NOT_FOUND,
                                       "Manufacturer ID mismatch", value);
     }
     _session.manufacturerId = value;
@@ -2957,10 +2957,10 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
 
   if (_session.phase == SessionPhase::SELF_DEVICE) {
     uint16_t value = 0;
-    LDC1614::Status status =
-        _device.readRegister16(LDC1614::cmd::REG_DEVICE_ID, value);
-    if (status.ok() && value != LDC1614::cmd::DEVICE_ID_VALUE) {
-      status = LDC1614::Status::Error(LDC1614::Err::DEVICE_NOT_FOUND,
+    LDC161x::Status status =
+        _device.readRegister16(LDC161x::cmd::REG_DEVICE_ID, value);
+    if (status.ok() && value != LDC161x::cmd::DEVICE_ID_VALUE) {
+      status = LDC161x::Status::Error(LDC161x::Err::DEVICE_NOT_FOUND,
                                       "Device ID mismatch", value);
     }
     _session.deviceId = value;
@@ -2971,8 +2971,8 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
   }
 
   if (_session.phase == SessionPhase::SELF_STATUS) {
-    LDC1614::DeviceStatus deviceStatus;
-    const LDC1614::Status status = _device.readDeviceStatus(deviceStatus);
+    LDC161x::DeviceStatus deviceStatus;
+    const LDC161x::Status status = _device.readDeviceStatus(deviceStatus);
     if (status.ok()) {
       selfTestPass("STATUS transport/decode");
       if (_verbose) printDeviceStatus(deviceStatus, "selftest_status");
@@ -2985,8 +2985,8 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
 
   if (_session.phase == SessionPhase::SELF_READY) {
     bool ready = false;
-    LDC1614::DeviceStatus observed;
-    const LDC1614::Status status = _device.readDataReady(ready, observed);
+    LDC161x::DeviceStatus observed;
+    const LDC161x::Status status = _device.readDataReady(ready, observed);
     if (status.ok()) selfTestPass("readiness API");
     else selfTestFail("readiness API", status);
     _session.phase = SessionPhase::SELF_INTB;
@@ -2995,10 +2995,10 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
 
   if (_session.phase == SessionPhase::SELF_INTB) {
     bool asserted = false;
-    const LDC1614::Status status = _device.readIntb(asserted);
+    const LDC161x::Status status = _device.readIntb(asserted);
     if (status.ok()) {
       selfTestPass("INTB observation");
-    } else if (status.is(LDC1614::Err::INVALID_CONFIG)) {
+    } else if (status.is(LDC161x::Err::INVALID_CONFIG)) {
       selfTestSkip("INTB observation", "callback/output not configured");
     } else {
       selfTestFail("INTB observation", status);
@@ -3017,8 +3017,8 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
     }
     const uint8_t channel = _session.physicalChannel++;
     uint8_t code = 0;
-    const LDC1614::Status status = _device.readInitDriveCurrent(
-        static_cast<LDC1614::Channel>(channel), code);
+    const LDC161x::Status status = _device.readInitDriveCurrent(
+        static_cast<LDC161x::Channel>(channel), code);
     char name[40];
     std::snprintf(name, sizeof(name), "INIT_IDRIVE channel %u",
                   static_cast<unsigned>(channel));
@@ -3034,17 +3034,17 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
 
   if (_session.phase == SessionPhase::SELF_ACQUIRE) {
     if (_device.appliedConfigState() !=
-        LDC1614::AppliedConfigState::APPLIED_ACTIVE) {
+        LDC161x::AppliedConfigState::APPLIED_ACTIVE) {
       selfTestSkip("acquisition transport", "device is not APPLIED_ACTIVE");
       selfTestSkip("sensor quality", "no acquisition was attempted");
       finishSession(_session.stats.failed == 0U
-                        ? LDC1614::Status::Ok()
+                        ? LDC161x::Status::Ok()
                         : _session.stats.lastFailure,
                     _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
       return;
     }
     _session.channels = _device.config().channels;
-    const LDC1614::Status status = scheduleSessionAcquire();
+    const LDC161x::Status status = scheduleSessionAcquire();
     if (!status.inProgress()) {
       selfTestFail("acquisition transport", status);
       selfTestSkip("sensor quality", "acquisition start failed");
@@ -3053,7 +3053,7 @@ void Ldc1614IdfCli::advanceSelfTestSession() {
   }
 }
 
-void Ldc1614IdfCli::advanceSession(uint64_t now) {
+void Ldc161xIdfCli::advanceSession(uint64_t now) {
   switch (_session.kind) {
     case SessionKind::NONE: return;
     case SessionKind::PROBE: advanceProbeSession(); return;
@@ -3075,33 +3075,33 @@ void Ldc1614IdfCli::advanceSession(uint64_t now) {
   }
 }
 
-void Ldc1614IdfCli::handleSessionOperationResult(
-    const LDC1614::OperationResult& result) {
+void Ldc161xIdfCli::handleSessionOperationResult(
+    const LDC161x::OperationResult& result) {
   _lastResult = result;
   _hasLastResult = true;
   const bool terminalSuccess =
-      result.outcome == LDC1614::TerminalOutcome::SUCCESS &&
+      result.outcome == LDC161x::TerminalOutcome::SUCCESS &&
       result.status.ok();
-  const bool expectsSample = _pending.kind == LDC1614::JobKind::ACQUIRE;
-  const LDC1614::Status effectiveStatus =
+  const bool expectsSample = _pending.kind == LDC161x::JobKind::ACQUIRE;
+  const LDC161x::Status effectiveStatus =
       terminalSuccess && expectsSample && !result.hasSampleBatch
-          ? LDC1614::Status::Error(
-                LDC1614::Err::RESULT_NOT_READY,
+          ? LDC161x::Status::Error(
+                LDC161x::Err::RESULT_NOT_READY,
                 "Successful acquisition omitted its complete sample batch")
           : result.status;
   const bool success = terminalSuccess &&
                        (!expectsSample || result.hasSampleBatch);
-  if (result.outcome != LDC1614::TerminalOutcome::CANCELLED) {
+  if (result.outcome != LDC161x::TerminalOutcome::CANCELLED) {
     recordLatency(_pending.startedMs, result.completedUptimeMs);
   }
   if (!success) {
-    LDC1614::OperationResult effectiveResult = result;
+    LDC161x::OperationResult effectiveResult = result;
     if (terminalSuccess) {
-      effectiveResult.outcome = LDC1614::TerminalOutcome::FAILED;
+      effectiveResult.outcome = LDC161x::TerminalOutcome::FAILED;
     }
     effectiveResult.status = effectiveStatus;
     printResult(effectiveResult);
-    if (result.outcome != LDC1614::TerminalOutcome::CANCELLED) {
+    if (result.outcome != LDC161x::TerminalOutcome::CANCELLED) {
       recordSessionFailure(effectiveStatus);
     }
   } else if (result.hasSampleBatch) {
@@ -3113,9 +3113,9 @@ void Ldc1614IdfCli::handleSessionOperationResult(
   }
 
   if (_session.stopRequested ||
-      result.outcome == LDC1614::TerminalOutcome::CANCELLED) {
+      result.outcome == LDC161x::TerminalOutcome::CANCELLED) {
     _pending = PendingOperation{};
-    finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
+    finishSession(LDC161x::Status::Error(LDC161x::Err::CANCELLED,
                                          "CLI session cancelled"),
                   "CANCELLED");
     return;
@@ -3146,9 +3146,9 @@ void Ldc1614IdfCli::handleSessionOperationResult(
         finishSession(effectiveStatus, "FAILED");
         return;
       }
-      _session.restoreStatus = LDC1614::Status::Ok();
-      const LDC1614::Status terminal =
-          _session.stats.failed == 0U ? LDC1614::Status::Ok()
+      _session.restoreStatus = LDC161x::Status::Ok();
+      const LDC161x::Status terminal =
+          _session.stats.failed == 0U ? LDC161x::Status::Ok()
                                       : _session.stats.lastFailure;
       finishSession(terminal,
                     _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
@@ -3172,7 +3172,7 @@ void Ldc1614IdfCli::handleSessionOperationResult(
   if (_session.kind == SessionKind::SELF_TEST) {
     if (success) {
       selfTestPass("acquisition transport");
-      const LDC1614::SampleBatch& batch = result.sampleBatch;
+      const LDC161x::SampleBatch& batch = result.sampleBatch;
       if (batch.validChannels.bits == batch.selectedChannels.bits &&
           batch.errorChannels.empty()) {
         selfTestPass("sensor quality");
@@ -3186,7 +3186,7 @@ void Ldc1614IdfCli::handleSessionOperationResult(
     }
     _pending = PendingOperation{};
     finishSession(_session.stats.failed == 0U
-                      ? LDC1614::Status::Ok()
+                      ? LDC161x::Status::Ok()
                       : _session.stats.lastFailure,
                   _session.stats.failed == 0U ? "SUCCESS" : "FAILED");
     return;
@@ -3205,7 +3205,7 @@ void Ldc1614IdfCli::handleSessionOperationResult(
   }
 
   if (_session.kind == SessionKind::SAMPLE_RATE) {
-    LDC1614::Status acceptance = effectiveStatus;
+    LDC161x::Status acceptance = effectiveStatus;
     bool accepted = success;
     bool selected = false;
     bool valid = false;
@@ -3216,13 +3216,13 @@ void Ldc1614IdfCli::handleSessionOperationResult(
     double frequency = 0.0;
     if (success) {
       const uint8_t bit = static_cast<uint8_t>(1U << _session.channel);
-      const LDC1614::SampleBatch& batch = result.sampleBatch;
+      const LDC161x::SampleBatch& batch = result.sampleBatch;
       selected = (batch.selectedChannels.bits & bit) != 0U;
       valid = (batch.validChannels.bits & bit) != 0U;
       fresh = (batch.freshChannels.bits & bit) != 0U;
       error = (batch.errorChannels.bits & bit) != 0U;
       overrun = (batch.overrunChannels.bits & bit) != 0U;
-      const LDC1614::DeviceStatus& observed = batch.statusBefore;
+      const LDC161x::DeviceStatus& observed = batch.statusBefore;
       ++_session.readyChecks;
       ++_session.sampleReadyChecks;
       _session.lastReadyStatus = observed;
@@ -3244,15 +3244,15 @@ void Ldc1614IdfCli::handleSessionOperationResult(
         return;
       }
       recordBatchStats(batch);
-      const LDC1614::Status frequencyStatus =
-          LDC1614::LDC1614::calculateSensorFrequencyHz(
-              _device.config(), static_cast<LDC1614::Channel>(_session.channel),
+      const LDC161x::Status frequencyStatus =
+          LDC161x::LDC161x::calculateSensorFrequencyHz(
+              _device.config(), static_cast<LDC161x::Channel>(_session.channel),
               batch.channel[_session.channel].rawCount28, frequency);
       if (!frequencyStatus.ok()) {
         accepted = false;
         acceptance = frequencyStatus;
       } else {
-        const LDC1614::ChannelConfig& channelConfig =
+        const LDC161x::ChannelConfig& channelConfig =
             _device.config().channel[_session.channel];
         withinBounds = frequency >= channelConfig.expectedSensorMinHz &&
                        frequency <= channelConfig.expectedSensorMaxHz;
@@ -3260,8 +3260,8 @@ void Ldc1614IdfCli::handleSessionOperationResult(
       if (accepted &&
           (!selected || !valid || !fresh || error || overrun || !withinBounds)) {
         accepted = false;
-        acceptance = LDC1614::Status::Error(
-            LDC1614::Err::CONVERSION_NOT_READY,
+        acceptance = LDC161x::Status::Error(
+            LDC161x::Err::CONVERSION_NOT_READY,
             withinBounds
                 ? "Sample-rate batch was stale, invalid, or faulted"
                 : "Sample-rate frequency outside configured bounds",
@@ -3273,8 +3273,8 @@ void Ldc1614IdfCli::handleSessionOperationResult(
                                  (withinBounds ? 0x20U : 0U)));
       }
     } else if (acceptance.ok()) {
-      acceptance = LDC1614::Status::Error(
-          LDC1614::Err::I2C_ERROR,
+      acceptance = LDC161x::Status::Error(
+          LDC161x::Err::I2C_ERROR,
           "Sample-rate acquisition ended without a complete batch");
     }
     printf("samplerate_sample=%lu selected=%u valid=%u fresh=%u error=%u "
@@ -3313,7 +3313,7 @@ void Ldc1614IdfCli::handleSessionOperationResult(
   _pending = PendingOperation{};
 }
 
-void Ldc1614IdfCli::handleOperationResult(const LDC1614::OperationResult& result) {
+void Ldc161xIdfCli::handleOperationResult(const LDC161x::OperationResult& result) {
   if (_pending.owner == OperationOwner::SESSION) {
     handleSessionOperationResult(result);
     return;
@@ -3332,11 +3332,11 @@ void Ldc1614IdfCli::handleOperationResult(const LDC1614::OperationResult& result
   _pending = PendingOperation{};
 }
 
-void Ldc1614IdfCli::drainResults() {
+void Ldc161xIdfCli::drainResults() {
   uint8_t drained = 0;
-  while (_device.resultAvailable() && drained < LDC1614::LDC1614::RESULT_CAPACITY) {
-    LDC1614::OperationResult result;
-    const LDC1614::Status takeStatus = _device.takeResult(result);
+  while (_device.resultAvailable() && drained < LDC161x::LDC161x::RESULT_CAPACITY) {
+    LDC161x::OperationResult result;
+    const LDC161x::Status takeStatus = _device.takeResult(result);
     if (!takeStatus.ok()) {
       logError("takeResult failed");
       printStatus(takeStatus);
@@ -3356,8 +3356,8 @@ void Ldc1614IdfCli::drainResults() {
   }
   if (_pending.owner != OperationOwner::NONE &&
       !_device.jobProgress().active && !_device.resultAvailable()) {
-    const LDC1614::Status lost = LDC1614::Status::Error(
-        LDC1614::Err::RESULT_NOT_READY,
+    const LDC161x::Status lost = LDC161x::Status::Error(
+        LDC161x::Err::RESULT_NOT_READY,
         "Correlated terminal result missing");
     const OperationOwner owner = _pending.owner;
     const CommandId command = _pending.command;
@@ -3375,17 +3375,17 @@ void Ldc1614IdfCli::drainResults() {
   }
 }
 
-void Ldc1614IdfCli::stopActiveWork() {
+void Ldc161xIdfCli::stopActiveWork() {
   if (_session.kind != SessionKind::NONE) {
     _session.stopRequested = true;
     if (_pending.owner == OperationOwner::SESSION && _device.jobProgress().active) {
-      const LDC1614::Status status = _device.cancelJob();
+      const LDC161x::Status status = _device.cancelJob();
       if (!status.ok()) {
         recordSessionFailure(status);
         finishSession(status, "FAILED");
       }
     } else if (_pending.owner == OperationOwner::NONE) {
-      finishSession(LDC1614::Status::Error(LDC1614::Err::CANCELLED,
+      finishSession(LDC161x::Status::Error(LDC161x::Err::CANCELLED,
                                            "CLI session cancelled"),
                     "CANCELLED");
     }
@@ -3395,10 +3395,10 @@ void Ldc1614IdfCli::stopActiveWork() {
     printStatus(_device.cancelJob());
     return;
   }
-  printStatus(LDC1614::Status::Ok());
+  printStatus(LDC161x::Status::Ok());
 }
 
-PromptAction Ldc1614IdfCli::service() {
+PromptAction Ldc161xIdfCli::service() {
   _lastNowMs = nowMs();
   if (_device.jobProgress().active) {
     // A service pass that polls never also invokes a direct diagnostic
@@ -3424,9 +3424,9 @@ PromptAction Ldc1614IdfCli::service() {
   return PromptAction::NONE;
 }
 
-PromptAction Ldc1614IdfCli::handleDump(const ParsedLine& line) {
+PromptAction Ldc161xIdfCli::handleDump(const ParsedLine& line) {
   if (line.argc == 2U && std::strcmp(line.argv[1], "config") == 0) {
-    const LDC1614::Status status =
+    const LDC161x::Status status =
         startSession(SessionKind::DUMP_CONFIG, CommandId::DUMP);
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
@@ -3436,7 +3436,7 @@ PromptAction Ldc1614IdfCli::handleDump(const ParsedLine& line) {
     printf("%s[W]%s DATA and STATUS reads consume destructive evidence\n",
            cli_style::code(_colorEnabled, cli_style::Color::YELLOW),
            resetColor(_colorEnabled));
-    const LDC1614::Status status =
+    const LDC161x::Status status =
         startSession(SessionKind::DUMP_ALL, CommandId::DUMP);
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
@@ -3444,10 +3444,10 @@ PromptAction Ldc1614IdfCli::handleDump(const ParsedLine& line) {
   return usage("dump config\ndump all confirm");
 }
 
-PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) {
+PromptAction Ldc161xIdfCli::handleCommand(CommandId id, const ParsedLine& line) {
   uint64_t value = 0;
   uint64_t second = 0;
-  LDC1614::Status status;
+  LDC161x::Status status;
 
   if (id == CommandId::HELP) {
     if (line.argc > 2U) return usage("help / ? [command]");
@@ -3480,8 +3480,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     printf("version=%s firmware_git=%s firmware_status=%s build_timestamp=%sT%s "
            "platform=%s framework=%s framework_version=%s idf_version=%s "
            "target=%s i2c_backend=%s frequency_hz=%lu\n",
-           LDC1614::VERSION, LDC1614::GIT_COMMIT, LDC1614::GIT_STATUS,
-           LDC1614::BUILD_DATE, LDC1614::BUILD_TIME, _platform.platformName,
+           LDC161x::VERSION, LDC161x::GIT_COMMIT, LDC161x::GIT_STATUS,
+           LDC161x::BUILD_DATE, LDC161x::BUILD_TIME, _platform.platformName,
            _platform.frameworkName, _platform.frameworkVersion,
            _platform.idfVersion, _platform.targetName, _platform.i2cBackend,
            static_cast<unsigned long>(bus.frequencyHz));
@@ -3535,8 +3535,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if (line.argc != 1U) return usage("end");
     _device.end();
     _pending = PendingOperation{};
-    _lastResult = LDC1614::OperationResult{};
-    _lastBatch = LDC1614::SampleBatch{};
+    _lastResult = LDC161x::OperationResult{};
+    _lastBatch = LDC161x::SampleBatch{};
     _hasLastResult = false;
     _hasLastBatch = false;
     _stagedInitialized = false;
@@ -3558,9 +3558,9 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
                                          : "apply [deadline_ms]");
     }
     status = scheduleCommandJob(
-        id, id == CommandId::INIT ? LDC1614::JobKind::INITIALIZE
-                                  : LDC1614::JobKind::APPLY_CONFIG,
-        LDC1614::ChannelMask{}, deadlineMs);
+        id, id == CommandId::INIT ? LDC161x::JobKind::INITIALIZE
+                                  : LDC161x::JobKind::APPLY_CONFIG,
+        LDC161x::ChannelMask{}, deadlineMs);
     if (!status.inProgress()) {
       printStatus(status);
       printf("CLI result: command=%s session=0 outcome=FAILED code=%u\n",
@@ -3581,8 +3581,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
       return usage("resetreapply [ms] confirm");
     }
     status = scheduleCommandJob(CommandId::RESET_REAPPLY,
-                                LDC1614::JobKind::RESET_AND_REAPPLY,
-                                LDC1614::ChannelMask{}, deadlineMs);
+                                LDC161x::JobKind::RESET_AND_REAPPLY,
+                                LDC161x::ChannelMask{}, deadlineMs);
     if (!status.inProgress()) {
       printStatus(status);
       printf("CLI result: command=resetreapply session=0 outcome=FAILED code=%u\n",
@@ -3623,7 +3623,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   if (id == CommandId::RESULT) {
     if (line.argc != 1U) return usage("result");
     if (!_hasLastResult) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::RESULT_NOT_READY,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::RESULT_NOT_READY,
                                          "No cached terminal result"));
     } else {
       printResult(_lastResult);
@@ -3634,8 +3634,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if (line.argc != 2U || !requireConfirmation(line.argv[1])) {
       return usage("invalidate confirm");
     }
-    _device.invalidateAppliedState(LDC1614::Status::Error(
-        LDC1614::Err::CONFIG_DIRTY, "Owner invalidated applied state"));
+    _device.invalidateAppliedState(LDC161x::Status::Error(
+        LDC161x::Err::CONFIG_DIRTY, "Owner invalidated applied state"));
     println("CLI result: command=invalidate outcome=SUCCESS code=0");
     printState();
     return promptActionForCurrentState();
@@ -3646,10 +3646,10 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     status = _platform.i2cRecover != nullptr
                  ? _platform.i2cRecover(_platform.user)
-                 : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+                 : LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                           "Bus recovery callback unavailable");
     _device.invalidateAppliedState(
-        status.ok() ? LDC1614::Status::Error(LDC1614::Err::I2C_BUS,
+        status.ok() ? LDC161x::Status::Error(LDC161x::Err::I2C_BUS,
                                              "Owner reinitialized I2C bus")
                     : status);
     printStatus(status);
@@ -3661,7 +3661,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   }
   if (id == CommandId::BUS_FREQ) {
     if (_platform.i2cBusInfo == nullptr) {
-      status = LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+      status = LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                       "Bus information callback unavailable");
       printStatus(status);
       return promptActionForCurrentState();
@@ -3684,14 +3684,14 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     status = _platform.i2cSetFrequency != nullptr
                  ? _platform.i2cSetFrequency(static_cast<uint32_t>(value),
                                              _platform.user)
-                 : LDC1614::Status::Error(
-                       LDC1614::Err::INVALID_CONFIG,
+                 : LDC161x::Status::Error(
+                       LDC161x::Err::INVALID_CONFIG,
                        "Bus-frequency callback unavailable");
     const I2cBusInfo after = _platform.i2cBusInfo(_platform.user);
     if (status.ok() &&
         (!after.open || after.frequencyHz != static_cast<uint32_t>(value))) {
-      status = LDC1614::Status::Error(
-          LDC1614::Err::I2C_BUS,
+      status = LDC161x::Status::Error(
+          LDC161x::Err::I2C_BUS,
           "Owner frequency callback did not reach requested state",
           static_cast<int32_t>(after.frequencyHz));
     }
@@ -3700,8 +3700,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if (_device.isBound() && (!status.ok() || frequencyChanged)) {
       _device.invalidateAppliedState(
           status.ok()
-              ? LDC1614::Status::Error(
-                    LDC1614::Err::CONFIG_DIRTY,
+              ? LDC161x::Status::Error(
+                    LDC161x::Err::CONFIG_DIRTY,
                     "Owner changed I2C frequency; full initialization required")
               : status);
     }
@@ -3730,8 +3730,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     } else if (line.argc != 1U) {
       return usage("read / acquire [mask]");
     }
-    status = scheduleCommandJob(CommandId::READ, LDC1614::JobKind::ACQUIRE,
-                                LDC1614::ChannelMask{static_cast<uint8_t>(mask)},
+    status = scheduleCommandJob(CommandId::READ, LDC161x::JobKind::ACQUIRE,
+                                LDC161x::ChannelMask{static_cast<uint8_t>(mask)},
                                 static_cast<uint32_t>(JOB_DEADLINE_MS));
     if (!status.inProgress()) {
       printStatus(status);
@@ -3743,7 +3743,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   if (id == CommandId::LAST) {
     if (line.argc != 1U && line.argc != 2U) return usage("last [channel]");
     if (!_hasLastBatch) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::RESULT_NOT_READY,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::RESULT_NOT_READY,
                                          "No cached sample batch"));
       return promptActionForCurrentState();
     }
@@ -3753,16 +3753,16 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     if (!parseUnsigned(line.argv[1], 3U, value) ||
         (_device.isBound() && _device.config().variant ==
-                                  LDC1614::DeviceVariant::LDC1612 &&
+                                  LDC161x::DeviceVariant::LDC1612 &&
          value >= 2U)) {
       return usage("last [channel]");
     }
     const uint8_t bit = static_cast<uint8_t>(1U << value);
     if ((_lastBatch.selectedChannels.bits & bit) == 0U) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::INVALID_PARAM,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::INVALID_PARAM,
                                          "Channel absent from cached batch"));
     } else {
-      LDC1614::SampleBatch one = _lastBatch;
+      LDC161x::SampleBatch one = _lastBatch;
       one.selectedChannels.bits &= bit;
       one.validChannels.bits &= bit;
       one.freshChannels.bits &= bit;
@@ -3785,7 +3785,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     status = startSession(SessionKind::WATCH, CommandId::WATCH,
                           static_cast<uint32_t>(count),
-                          LDC1614::ChannelMask{static_cast<uint8_t>(mask)},
+                          LDC161x::ChannelMask{static_cast<uint8_t>(mask)},
                           static_cast<uint32_t>(period));
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
@@ -3794,13 +3794,13 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     uint64_t count = 0;
     if (line.argc != 3U || !parseUnsigned(line.argv[1], 3U, value) ||
         !_device.isBound() ||
-        (_device.config().variant == LDC1614::DeviceVariant::LDC1612 && value >= 2U) ||
+        (_device.config().variant == LDC161x::DeviceVariant::LDC1612 && value >= 2U) ||
         !parseUnsigned(line.argv[2], MAX_SESSION_COUNT, count) || count == 0U) {
       return usage("samplerate <channel> <count>");
     }
     status = startSession(SessionKind::SAMPLE_RATE, CommandId::SAMPLE_RATE,
                           static_cast<uint32_t>(count),
-                          LDC1614::channelBit(static_cast<LDC1614::Channel>(value)),
+                          LDC161x::channelBit(static_cast<LDC161x::Channel>(value)),
                           0U, static_cast<uint8_t>(value));
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
@@ -3809,7 +3809,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   if (id == CommandId::READY) {
     if (line.argc != 1U) return usage("ready / drdy");
     bool ready = false;
-    LDC1614::DeviceStatus observed;
+    LDC161x::DeviceStatus observed;
     status = _device.readDataReady(ready, observed);
     printf("ready=%u code=%u\n", ready ? 1U : 0U,
            static_cast<unsigned>(status.code));
@@ -3819,7 +3819,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   }
   if (id == CommandId::STATUS || id == CommandId::STATUS_RAW) {
     if (line.argc != 1U) return usage(id == CommandId::STATUS ? "status" : "status_raw");
-    LDC1614::DeviceStatus deviceStatus;
+    LDC161x::DeviceStatus deviceStatus;
     status = _device.readDeviceStatus(deviceStatus);
     if (id == CommandId::STATUS_RAW) {
       printf("status_raw=0x%04X code=%u\n", deviceStatus.raw,
@@ -3842,16 +3842,16 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   if (id == CommandId::INIT_DRIVE) {
     if (line.argc != 2U || !parseUnsigned(line.argv[1], 3U, value) ||
         (_device.isBound() && _device.config().variant ==
-                                  LDC1614::DeviceVariant::LDC1612 &&
+                                  LDC161x::DeviceVariant::LDC1612 &&
          value >= 2U)) {
       return usage("initdrive <channel>");
     }
     uint8_t code = 0;
-    status = _device.readInitDriveCurrent(static_cast<LDC1614::Channel>(value), code);
+    status = _device.readInitDriveCurrent(static_cast<LDC161x::Channel>(value), code);
     uint16_t microamps = 0;
-    const LDC1614::Status currentStatus =
-        LDC1614::LDC1614::nominalDriveCurrentMicroamps(
-            LDC1614::DriveCurrentCode(code), microamps);
+    const LDC161x::Status currentStatus =
+        LDC161x::LDC161x::nominalDriveCurrentMicroamps(
+            LDC161x::DriveCurrentCode(code), microamps);
     printf("channel=%lu init_drive_code=%u microamps=%s%u code=%u\n",
            static_cast<unsigned long>(value), static_cast<unsigned>(code),
            currentStatus.ok() ? "" : "unavailable:", static_cast<unsigned>(microamps),
@@ -3978,23 +3978,23 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if ((line.argc != 3U && line.argc != 4U) ||
         !parseUnsigned(line.argv[channelArg], 3U, value) ||
         (_device.isBound() && _device.config().variant ==
-                                  LDC1614::DeviceVariant::LDC1612 && value >= 2U) ||
+                                  LDC161x::DeviceVariant::LDC1612 && value >= 2U) ||
         !parseUnsigned(line.argv[rawArg], 0x0FFFFFFFU, raw)) {
       return usage("freq <channel> <raw28>\nfreq <desired|staged> <channel> <raw28>");
     }
     ensureStagedProfile();
     if (std::strcmp(profile, "desired") == 0 && !_device.isBound()) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::NOT_BOUND,
                                          "Desired profile unavailable"));
       return promptActionForCurrentState();
     }
-    const LDC1614::Config& config = std::strcmp(profile, "staged") == 0
+    const LDC161x::Config& config = std::strcmp(profile, "staged") == 0
                                         ? _stagedConfig
                                         : _device.config();
     double frequency = 0.0;
-    status = LDC1614::LDC1614::calculateSensorFrequencyHz(
+    status = LDC161x::LDC161x::calculateSensorFrequencyHz(
         config,
-        static_cast<LDC1614::Channel>(value), static_cast<uint32_t>(raw),
+        static_cast<LDC161x::Channel>(value), static_cast<uint32_t>(raw),
         frequency);
     printf("profile=%s channel=%lu raw=0x%07lX frequency_hz=%.6f code=%u\n",
            profile, static_cast<unsigned long>(value),
@@ -4021,11 +4021,11 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
       return usage("timing [mask]\ntiming <desired|staged> [mask]");
     }
     if (std::strcmp(profile, "desired") == 0 && !_device.isBound()) {
-      printStatus(LDC1614::Status::Error(LDC1614::Err::NOT_BOUND,
+      printStatus(LDC161x::Status::Error(LDC161x::Err::NOT_BOUND,
                                          "Desired profile unavailable"));
       return promptActionForCurrentState();
     }
-    const LDC1614::Config& config = std::strcmp(profile, "staged") == 0
+    const LDC161x::Config& config = std::strcmp(profile, "staged") == 0
                                         ? _stagedConfig
                                         : _device.config();
     uint64_t mask = config.channels.bits;
@@ -4033,9 +4033,9 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
         (!parseUnsigned(line.argv[maskArg], 0x0FU, mask) || mask == 0U)) {
       return usage("timing [mask]\ntiming <desired|staged> [mask]");
     }
-    LDC1614::FrameTiming timing;
-    status = LDC1614::LDC1614::estimateFrameTiming(
-        config, LDC1614::ChannelMask{static_cast<uint8_t>(mask)}, timing);
+    LDC161x::FrameTiming timing;
+    status = LDC161x::LDC161x::estimateFrameTiming(
+        config, LDC161x::ChannelMask{static_cast<uint8_t>(mask)}, timing);
     printf("profile=%s mask=0x%02lX wake_settle_us=%" PRIu64 " conversion_us=%" PRIu64
            " sequential_frame_us=%" PRIu64 " acquisition_transfers=%u code=%u\n",
            profile, static_cast<unsigned long>(mask), timing.wakeAndSettleUs,
@@ -4050,8 +4050,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
       return usage("driveua <code>");
     }
     uint16_t microamps = 0;
-    status = LDC1614::LDC1614::nominalDriveCurrentMicroamps(
-        LDC1614::DriveCurrentCode(static_cast<uint8_t>(value)), microamps);
+    status = LDC161x::LDC161x::nominalDriveCurrentMicroamps(
+        LDC161x::DriveCurrentCode(static_cast<uint8_t>(value)), microamps);
     printf("code=%lu microamps=%u\n", static_cast<unsigned long>(value),
            static_cast<unsigned>(microamps));
     println("Nominal normal-drive lookup only; CH0 high-current ignores IDRIVE.");
@@ -4076,8 +4076,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   }
   if (id == CommandId::XFER) {
     if (_platform.i2cTransferStats == nullptr) {
-      status = LDC1614::Status::Error(
-          LDC1614::Err::INVALID_CONFIG,
+      status = LDC161x::Status::Error(
+          LDC161x::Err::INVALID_CONFIG,
           "Owner transport statistics callback unavailable");
       printStatus(status);
       return promptActionForCurrentState();
@@ -4130,8 +4130,8 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
            static_cast<unsigned long>(stats.discoveries),
            static_cast<unsigned long>(expectedTotal),
            total, match ? "SUCCESS" : "FAILED",
-           match ? static_cast<unsigned>(LDC1614::Err::OK)
-                 : static_cast<unsigned>(LDC1614::Err::INVALID_PARAM));
+           match ? static_cast<unsigned>(LDC161x::Err::OK)
+                 : static_cast<unsigned>(LDC161x::Err::INVALID_PARAM));
     return promptActionForCurrentState();
   }
   if (id == CommandId::SELFTEST) {
@@ -4151,7 +4151,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     status = startSession(SessionKind::STRESS, CommandId::STRESS,
                           static_cast<uint32_t>(count),
-                          LDC1614::ChannelMask{static_cast<uint8_t>(mask)});
+                          LDC161x::ChannelMask{static_cast<uint8_t>(mask)});
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
   }
@@ -4168,7 +4168,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     if (!valid) return usage("stress_mix <n> [mask] confirm");
     status = startSession(SessionKind::STRESS_MIX, CommandId::STRESS_MIX,
                           static_cast<uint32_t>(count),
-                          LDC1614::ChannelMask{static_cast<uint8_t>(mask)});
+                          LDC161x::ChannelMask{static_cast<uint8_t>(mask)});
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
   }
@@ -4219,7 +4219,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
     }
     status = startSession(SessionKind::SOAK, CommandId::SOAK,
                           static_cast<uint32_t>(seconds),
-                          LDC1614::ChannelMask{static_cast<uint8_t>(mask)}, 1000U);
+                          LDC161x::ChannelMask{static_cast<uint8_t>(mask)}, 1000U);
     if (!status.inProgress()) printStatus(status);
     return status.inProgress() ? PromptAction::NONE : promptActionForCurrentState();
   }
@@ -4229,7 +4229,7 @@ PromptAction Ldc1614IdfCli::handleCommand(CommandId id, const ParsedLine& line) 
   return promptActionForCurrentState();
 }
 
-PromptAction Ldc1614IdfCli::processCommand(const char* commandLine) {
+PromptAction Ldc161xIdfCli::processCommand(const char* commandLine) {
   ParsedLine line;
   if (!parseLine(commandLine, line)) return promptActionForCurrentState();
   const CommandId id = resolveCommand(line.argv[0]);
@@ -4238,14 +4238,14 @@ PromptAction Ldc1614IdfCli::processCommand(const char* commandLine) {
     return promptActionForCurrentState();
   }
   if (asynchronousWorkActive() && !commandAllowedWhileBusy(id)) {
-    printStatus(LDC1614::Status::Error(LDC1614::Err::BUSY,
+    printStatus(LDC161x::Status::Error(LDC161x::Err::BUSY,
                                        "CLI work active; use job or cancel"));
     return PromptAction::NONE;
   }
   return handleCommand(id, line);
 }
 
-static_assert(sizeof(Ldc1614IdfCli) <= 2048U,
+static_assert(sizeof(Ldc161xIdfCli) <= 2048U,
               "Diagnostic CLI fixed state must remain at most 2 KiB");
 
-}  // namespace ldc1614_idf_cli
+}  // namespace ldc161x_idf_cli

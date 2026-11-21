@@ -48,8 +48,8 @@ Thank you for considering contributing to this project!
   tests, and HIL parser together when the command or output contract changes.
 - The per-class transfer maxima (13/23, 15/25, 16/26, and `2 + 2N` up to 10)
   are restated in `README.md`, `docs/I2C_INTEGRATION.md`, and the `start*()`
-  doc comments in `include/LDC1614/LDC1614.h`. They derive from
-  `configurationTransferCount()` in `src/LDC1614.cpp`; change all four
+  doc comments in `include/LDC161x/LDC161x.h`. They derive from
+  `configurationTransferCount()` in `src/LDC161x.cpp`; change all four
   together, together with the software-reset and destructive-read prose.
 - Hardware claims require a retained structured result and its raw transcript
   with matching firmware-reported revision and source status.
@@ -58,7 +58,7 @@ Thank you for considering contributing to this project!
   `docs/HIL_VALIDATION.md`, `docs/reports/README.md`, and the released
   `CHANGELOG.md` entry. Update every current copy in the same change; never
   leave one describing a superseded run.
-- Maintainers follow [the release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md) and create a
+- Maintainers follow [the release procedure](https://github.com/janhavelka/LDC161x/blob/main/docs/RELEASING.md) and create a
   new annotated tag only after the exact release commit passes CI.
 
 ### What We Accept

@@ -3,7 +3,7 @@
  * @brief Example-owned ESP-IDF new-master I2C transport for ESP32 targets.
  *
  * This module is shared by the Arduino and native ESP-IDF diagnostics. It is
- * application glue, not part of the LDC1614 library API. The application owns
+ * application glue, not part of the LDC161x library API. The application owns
  * bus creation, device handles, serialization, timeout policy, and recovery.
  */
 
@@ -12,7 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "LDC1614/LDC1614.h"
+#include "LDC161x/LDC161x.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 
@@ -31,7 +31,7 @@ struct TransferStats {
   uint32_t writeReads = 0;
   uint32_t discoveries = 0;
   uint32_t failures = 0;
-  LDC1614::Status lastStatus = LDC1614::Status::Ok();
+  LDC161x::Status lastStatus = LDC161x::Status::Ok();
 };
 
 struct Context {
@@ -46,20 +46,20 @@ struct Context {
   TransferStats transferStats{};
 };
 
-LDC1614::Status open(Context& context, const BusConfig& config);
-LDC1614::Status close(Context& context);
-LDC1614::Status reopen(Context& context);
-LDC1614::Status recover(Context& context);
+LDC161x::Status open(Context& context, const BusConfig& config);
+LDC161x::Status close(Context& context);
+LDC161x::Status reopen(Context& context);
+LDC161x::Status recover(Context& context);
 uint32_t frequencyHz(const Context& context);
-LDC1614::Status setFrequency(Context& context, uint32_t frequencyHz);
+LDC161x::Status setFrequency(Context& context, uint32_t frequencyHz);
 
-LDC1614::Status write(uint8_t address, const uint8_t* data, size_t length,
+LDC161x::Status write(uint8_t address, const uint8_t* data, size_t length,
                       uint32_t timeoutMs, void* user);
-LDC1614::Status writeRead(uint8_t address, const uint8_t* txData,
+LDC161x::Status writeRead(uint8_t address, const uint8_t* txData,
                           size_t txLength, uint8_t* rxData, size_t rxLength,
                           uint32_t timeoutMs, void* user);
-LDC1614::Status intbAsserted(bool& asserted, void* user);
-LDC1614::Status readRegisterAt(Context& context, uint8_t address,
+LDC161x::Status intbAsserted(bool& asserted, void* user);
+LDC161x::Status readRegisterAt(Context& context, uint8_t address,
                                uint8_t registerAddress, uint16_t& value,
                                uint32_t timeoutMs);
 uint64_t uptimeMs();

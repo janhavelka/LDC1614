@@ -1,4 +1,4 @@
-# LDC1614 Reference Material
+# LDC161x Reference Material
 
 This directory holds source material used to implement and review the driver. It
 is intentionally separated from the maintained integration docs in `docs/`.

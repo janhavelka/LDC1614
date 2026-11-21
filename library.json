@@ -1,8 +1,9 @@
 {
-  "name": "LDC1614",
-  "version": "3.2.0",
+  "name": "LDC161x",
+  "version": "4.0.0",
   "description": "Framework-neutral cooperative LDC1614/LDC1612 28-bit inductance-to-digital converter driver",
   "keywords": [
+    "ldc161x",
     "ldc1614",
     "ldc1612",
     "inductance",
@@ -27,14 +28,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/janhavelka/LDC1614.git"
+    "url": "https://github.com/janhavelka/LDC161x.git"
   },
   "license": "MIT",
-  "homepage": "https://github.com/janhavelka/LDC1614",
+  "homepage": "https://github.com/janhavelka/LDC161x",
   "frameworks": "*",
   "platforms": "*",
   "headers": [
-    "LDC1614/LDC1614.h"
+    "LDC161x/LDC161x.h"
   ],
   "build": {
     "includeDir": "include",

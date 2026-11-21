@@ -1,4 +1,4 @@
-# LDC1614 Docs
+# LDC161x Docs
 
 This directory contains maintained integration and validation guides plus
 cited hardware evidence and vendor references. Start with the repository
@@ -14,12 +14,12 @@ cited hardware evidence and vendor references. Start with the repository
 - [HIL validation](HIL_VALIDATION.md) - hardware-in-the-loop procedure and evidence matrix.
 - [Validation status](VALIDATION_STATUS.md) - repeatable release checks,
   retained evidence boundaries, and hardware evidence still required.
-- [Code audit resolution](https://github.com/janhavelka/LDC1614/blob/main/docs/CODE_AUDIT_RESOLUTION.md) - disposition of every
+- [Code audit resolution](https://github.com/janhavelka/LDC161x/blob/main/docs/CODE_AUDIT_RESOLUTION.md) - disposition of every
   F01-F34 audit candidate, the 2026-10-03 datasheet feature matrix, and the
   resulting implementation changes.
-- [Retained branch review](https://github.com/janhavelka/LDC1614/blob/main/docs/RETAINED_BRANCH_AUDIT.md) - historical audit/port
+- [Retained branch review](https://github.com/janhavelka/LDC161x/blob/main/docs/RETAINED_BRANCH_AUDIT.md) - historical audit/port
   dispositions, remaining qualification work, and retain/retire procedure.
-- [Release procedure](https://github.com/janhavelka/LDC1614/blob/main/docs/RELEASING.md) - maintainer preflight, commit, annotated
+- [Release procedure](https://github.com/janhavelka/LDC161x/blob/main/docs/RELEASING.md) - maintainer preflight, commit, annotated
   tag, push, and GitHub release steps. This repository-only guide is excluded
   from the generic library package.
 
@@ -46,7 +46,7 @@ material are deliberately excluded from the public site.
 ## Reference Material
 
 - [Primary LDC1612/LDC1614 datasheet](reference/LDC1614_datasheet.pdf).
-- [Vendor PDF manifest](https://github.com/janhavelka/LDC1614/blob/main/docs/reference/PDF_MANIFEST.md) - page counts and verified
+- [Vendor PDF manifest](https://github.com/janhavelka/LDC161x/blob/main/docs/reference/PDF_MANIFEST.md) - page counts and verified
   SHA-256 checksums for every retained PDF.
 - Repository-only `reference/extracted-md/` - compact curated device notes used while
   implementing and reviewing the driver.
@@ -56,7 +56,7 @@ material are deliberately excluded from the public site.
 
 ## Evidence Boundaries
 
-The repository-only [`reports/`](https://github.com/janhavelka/LDC1614/blob/main/docs/reports/README.md)
+The repository-only [`reports/`](https://github.com/janhavelka/LDC161x/blob/main/docs/reports/README.md)
 archive retains only canonical structured HIL evidence and its SHA-256-bound raw
 serial captures. Superseded experiments, generated reports, consumer-specific
 ledgers, and one-time implementation instructions remain available through Git

@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace LDC1614 {
+namespace LDC161x {
 namespace cmd {
 
 // ============================================================================
@@ -278,4 +278,4 @@ static constexpr uint8_t regClockDividers(uint8_t ch) { return static_cast<uint8
 static constexpr uint8_t regDriveCurrent(uint8_t ch) { return static_cast<uint8_t>(REG_DRIVE_CURRENT0 + ch); }
 
 } // namespace cmd
-} // namespace LDC1614
+} // namespace LDC161x

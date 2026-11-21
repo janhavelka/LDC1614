@@ -19,7 +19,7 @@ Standalone commands:
 Reproducible build metadata:
   SOURCE_DATE_EPOCH=<unix-seconds>
       Use a deterministic UTC timestamp for injected build metadata.
-  LDC1614_REPRODUCIBLE_BUILD=1
+  LDC161X_REPRODUCIBLE_BUILD=1
       Use 1970-01-01 00:00:00 UTC when SOURCE_DATE_EPOCH is not set.
 """
 
@@ -161,7 +161,7 @@ def _build_metadata_datetime() -> datetime:
         except ValueError as exc:
             raise ValueError("SOURCE_DATE_EPOCH must be an integer Unix timestamp") from exc
 
-    if _truthy_env("LDC1614_REPRODUCIBLE_BUILD"):
+    if _truthy_env("LDC161X_REPRODUCIBLE_BUILD"):
         return datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
     return datetime.now()
@@ -361,7 +361,7 @@ def _usage() -> str:
         "  scripts/generate_version.py set X.Y.Z\n\n"
         "Environment:\n"
         "  SOURCE_DATE_EPOCH=<unix-seconds>       deterministic UTC build metadata\n"
-        "  LDC1614_REPRODUCIBLE_BUILD=1          use 1970-01-01 when SOURCE_DATE_EPOCH is absent"
+        "  LDC161X_REPRODUCIBLE_BUILD=1          use 1970-01-01 when SOURCE_DATE_EPOCH is absent"
     )
 
 

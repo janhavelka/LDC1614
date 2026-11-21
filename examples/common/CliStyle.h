@@ -1,14 +1,14 @@
 #pragma once
 
-#ifndef LDC1614_CLI_ENABLE_COLOR
-#define LDC1614_CLI_ENABLE_COLOR 1
+#ifndef LDC161X_CLI_ENABLE_COLOR
+#define LDC161X_CLI_ENABLE_COLOR 1
 #endif
 
-#ifndef LDC1614_CLI_COLOR_DEFAULT
-#define LDC1614_CLI_COLOR_DEFAULT 1
+#ifndef LDC161X_CLI_COLOR_DEFAULT
+#define LDC161X_CLI_COLOR_DEFAULT 1
 #endif
 
-namespace ldc1614_cli {
+namespace ldc161x_cli {
 namespace cli_style {
 
 enum class Color {
@@ -20,7 +20,7 @@ enum class Color {
 };
 
 inline const char* code(bool enabled, Color color) {
-#if LDC1614_CLI_ENABLE_COLOR
+#if LDC161X_CLI_ENABLE_COLOR
   if (!enabled) return "";
   switch (color) {
     case Color::RESET: return "\033[0m";
@@ -37,4 +37,4 @@ inline const char* code(bool enabled, Color color) {
 }
 
 }  // namespace cli_style
-}  // namespace ldc1614_cli
+}  // namespace ldc161x_cli

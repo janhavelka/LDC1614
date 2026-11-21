@@ -3,7 +3,7 @@
 This application is the independent native ESP-IDF counterpart of the Arduino
 bring-up CLI. It uses `app_main`, `driver/i2c_master.h`, native GPIO/timer/task
 APIs, a fixed input buffer, and a fixed-state command engine. It does not
-include or compile Arduino or `examples/common/Ldc1614Cli.*`; repository
+include or compile Arduino or `examples/common/Ldc161xCli.*`; repository
 contract checks keep both implementations aligned.
 
 ## Build and first checks

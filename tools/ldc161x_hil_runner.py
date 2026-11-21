@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Conservative serial HIL runner for LDC1614 diagnostic firmware.
+"""Conservative serial HIL runner for LDC161x diagnostic firmware.
 
 The runner never reports PASS when no serial hardware is supplied. Without a
 port it emits a NOT_RUN artifact. Optional fault/address checks remain gated
@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, TextIO, Tuple
 
-from ldc1614_cli_contract import (
+from ldc161x_cli_contract import (
     COMMAND_BY_NAME,
     COMMAND_SPECS,
     NO_SENSOR_COMMANDS as CONTRACT_NO_SENSOR_COMMANDS,
@@ -259,7 +259,7 @@ OPERATION_RESULT_PATTERN = re.compile(
 
 COMMAND_EVIDENCE_PATTERNS = {
     "help": (
-        re.compile(r"(?:===\s+LDC1614 CLI\s+===|\bhelp command=)", re.IGNORECASE),
+        re.compile(r"(?:===\s+LDC161(?:x|4) CLI\s+===|\bhelp command=)", re.IGNORECASE),
         re.compile(rf"\bcommand_count={len(COMMAND_SPECS)}\b", re.IGNORECASE),
     ),
     "version": (
@@ -661,7 +661,7 @@ OK_PATTERNS = [
 ]
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 PROMPT_BOUNDARY_PATTERN = re.compile(
-    r"(?:^|\r?\n)(?:>|ldc1614-idf>)\s*\Z",
+    r"(?:^|\r?\n)(?:>|ldc161(?:x|4)-idf>)\s*\Z",
     re.IGNORECASE,
 )
 SAMPLE_LINE_PATTERN = re.compile(r"\bSample\s+\d+\s*/\s*\d+\b", re.IGNORECASE)
@@ -824,7 +824,7 @@ RUNTIME_VERSION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 FIRMWARE_STARTUP_BANNER_PATTERN = re.compile(
-    r"===\s*LDC1614\s+(?:Arduino|Native ESP-IDF)\s+"
+    r"===\s*LDC161(?:x|4)\s+(?:Arduino|Native ESP-IDF)\s+"
     r"Diagnostic Bring-up Example\s*===",
     re.IGNORECASE,
 )
@@ -2853,7 +2853,7 @@ def run_serial_commands(
             message, [], journal.text(), 0.0, None, type(exc).__name__, False,
         ) from exc
 
-    prompt_patterns = [r">\s*$", r"ldc1614-idf>\s*$"]
+    prompt_patterns = [r">\s*$", r"ldc161(?:x|4)-idf>\s*$"]
     expected_patterns = compile_token_patterns(args.expect_token)
     failure_patterns = compile_token_patterns(args.failure_token)
     expected_failure_patterns = compile_token_patterns(args.expected_failure_token)
@@ -3469,7 +3469,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
     target_commits = {match.group(1).lower() for match in FIRMWARE_GIT_PATTERN.finditer(transcript)}
     target_statuses = {match.group(1).lower() for match in FIRMWARE_STATUS_PATTERN.finditer(transcript)}
     result: Dict[str, object] = {
-        "tool": "ldc1614_hil_runner",
+        "tool": "ldc161x_hil_runner",
         "timestamp_utc": timestamp_utc(),
         "host_git_commit": host_git_commit,
         "host_git_status": "dirty" if git_value(["status", "--porcelain"], "") else "clean",
@@ -3573,7 +3573,7 @@ def make_result(args: argparse.Namespace) -> Dict[str, object]:
 
 def render_markdown(result: Dict[str, object]) -> str:
     lines = [
-        "# LDC1614 HIL Run",
+        "# LDC161x HIL Run",
         "",
         f"Overall status: `{result['overall_status']}`",
         f"Timestamp UTC: `{result['timestamp_utc']}`",

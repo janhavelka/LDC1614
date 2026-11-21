@@ -1,7 +1,7 @@
-# Maintained Doxygen configuration for LDC1614 public documentation.
+# Maintained Doxygen configuration for LDC161x public documentation.
 
-PROJECT_NAME           = "LDC1614"
-PROJECT_NUMBER         = "3.2.0"
+PROJECT_NAME           = "LDC161x"
+PROJECT_NUMBER         = "4.0.0"
 PROJECT_BRIEF          = "Framework-neutral cooperative LDC1612/LDC1614 driver"
 OUTPUT_DIRECTORY       = docs/doxygen
 CREATE_SUBDIRS         = NO

@@ -3,12 +3,12 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "LDC1614/CommandTable.h"
-#include "LDC1614/Status.h"
+#include "LDC161x/CommandTable.h"
+#include "LDC161x/Status.h"
 
-namespace ldc1614_test {
+namespace ldc161x_test {
 
-namespace cmd = LDC1614::cmd;
+namespace cmd = LDC161x::cmd;
 
 /// Fixed-memory behavioral LDC1612/LDC1614 transport fixture.
 ///
@@ -17,9 +17,9 @@ namespace cmd = LDC1614::cmd;
 /// channel's unread indication, and can clear channel error/INTB evidence;
 /// STATUS returns a snapshot and clears sticky error/INTB and UNREADCONV
 /// evidence (SNOA959 sections 1.2 and 2.1).
-struct FakeLdc1614Device {
-  using Status = LDC1614::Status;
-  using Err = LDC1614::Err;
+struct FakeLdc161xDevice {
+  using Status = LDC161x::Status;
+  using Err = LDC161x::Err;
 
   static constexpr uint8_t NO_REG = 0xFF;
   static constexpr uint16_t STATUS_ERROR_MASK =
@@ -72,7 +72,7 @@ struct FakeLdc1614Device {
   uint16_t injectStatusErrors = 0;
   bool injectionPending = false;
 
-  FakeLdc1614Device() { resetDevice(); }
+  FakeLdc161xDevice() { resetDevice(); }
 
   void resetDevice() {
     for (uint16_t& value : reg) {
@@ -165,7 +165,7 @@ struct FakeLdc1614Device {
 
   static Status write(uint8_t address, const uint8_t* data, size_t len,
                       uint32_t timeoutMs, void* user) {
-    auto* self = static_cast<FakeLdc1614Device*>(user);
+    auto* self = static_cast<FakeLdc161xDevice*>(user);
     if (self == nullptr || data == nullptr || len != 3U) {
       return Status::Error(Err::INVALID_PARAM, "invalid fake write");
     }
@@ -192,7 +192,7 @@ struct FakeLdc1614Device {
   static Status writeRead(uint8_t address, const uint8_t* txData, size_t txLen,
                           uint8_t* rxData, size_t rxLen, uint32_t timeoutMs,
                           void* user) {
-    auto* self = static_cast<FakeLdc1614Device*>(user);
+    auto* self = static_cast<FakeLdc161xDevice*>(user);
     if (self == nullptr || txData == nullptr || txLen != 1U ||
         rxData == nullptr || rxLen != 2U) {
       return Status::Error(Err::INVALID_PARAM, "invalid fake read");
@@ -222,7 +222,7 @@ struct FakeLdc1614Device {
   }
 
   static Status readIntb(bool& asserted, void* user) {
-    auto* self = static_cast<FakeLdc1614Device*>(user);
+    auto* self = static_cast<FakeLdc161xDevice*>(user);
     if (self == nullptr) {
       asserted = false;
       return Status::Error(Err::INVALID_PARAM, "invalid fake INTB context");
@@ -363,4 +363,4 @@ private:
   }
 };
 
-}  // namespace ldc1614_test
+}  // namespace ldc161x_test

@@ -47,7 +47,7 @@ three `+` patches. Inspection of every patch confirms their scope:
 | `12fa1bfa12ff0599f755f153baacc94f8e726871` | Replaces generic prompts with a tailored five-stage hardening sequence. | Instructions, not implementation. Reintroducing `prompts/` also violates the current repository hygiene gate. |
 | `66b5968d40704827b071e24fdd1a9d169a41c8fd` | Revises report and AGENTS wording. | Preserve as historical evidence; do not overwrite current AGENTS or current validation status. |
 
-The [historical report at its exact tip](https://github.com/janhavelka/LDC1614/blob/66b5968d40704827b071e24fdd1a9d169a41c8fd/docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md)
+The [historical report at its exact tip](https://github.com/janhavelka/LDC161x/blob/66b5968d40704827b071e24fdd1a9d169a41c8fd/docs/LDC1614_INDUSTRY_READINESS_EXPLORATION_REPORT.md)
 is the source of the IDs below. `git cherry` only detects patch equivalence;
 the following conclusions also inspect the current public API, state machine,
 test cases, examples, and maintained guides. Source line numbers refer to the

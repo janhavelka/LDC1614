@@ -1,5 +1,5 @@
 /// @file main.cpp
-/// @brief LDC1614 Arduino diagnostic bring-up CLI example.
+/// @brief LDC161x Arduino diagnostic bring-up CLI example.
 /// @note This is diagnostic firmware, not a production bus manager or hardware
 /// validation claim. It is not part of the library core.
 
@@ -13,12 +13,12 @@
 #include "esp_system.h"
 
 #include "examples/common/BoardConfig.h"
-#include "examples/common/Ldc1614Cli.h"
+#include "examples/common/Ldc161xCli.h"
 #include "examples/esp32/I2cMasterTransport.h"
 
 namespace {
 
-LDC1614::LDC1614 device;
+LDC161x::LDC161x device;
 esp32_i2c::Context i2cContext{};
 
 void arduinoVPrintf(void*, const char* fmt, va_list args) {
@@ -35,7 +35,7 @@ uint64_t arduinoNowMs(void*) {
   return esp32_i2c::uptimeMs();
 }
 
-LDC1614::Status configureI2c(esp32_i2c::Context& context) {
+LDC161x::Status configureI2c(esp32_i2c::Context& context) {
   context.address = board::LDC_I2C_ADDRESS;
   context.intb = board::INTB_PIN < 0
                      ? GPIO_NUM_NC
@@ -50,9 +50,9 @@ LDC1614::Status configureI2c(esp32_i2c::Context& context) {
   return esp32_i2c::open(context, config);
 }
 
-ldc1614_cli::I2cBusInfo arduinoI2cBusInfo(void* user) {
+ldc161x_cli::I2cBusInfo arduinoI2cBusInfo(void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
-  ldc1614_cli::I2cBusInfo info{};
+  ldc161x_cli::I2cBusInfo info{};
   if (context == nullptr) return info;
   info.open = context->bus != nullptr && context->device != nullptr;
   info.port = static_cast<int8_t>(context->busConfig.port);
@@ -69,15 +69,15 @@ ldc1614_cli::I2cBusInfo arduinoI2cBusInfo(void* user) {
   return info;
 }
 
-LDC1614::Status arduinoI2cSetFrequency(uint32_t frequencyHz, void* user) {
+LDC161x::Status arduinoI2cSetFrequency(uint32_t frequencyHz, void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
   return context != nullptr
              ? esp32_i2c::setFrequency(*context, frequencyHz)
-             : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+             : LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                       "I2C frequency context missing");
 }
 
-LDC1614::Status arduinoI2cReadRegister(uint8_t address,
+LDC161x::Status arduinoI2cReadRegister(uint8_t address,
                                        uint8_t registerAddress,
                                        uint16_t& value, uint32_t timeoutMs,
                                        void* user) {
@@ -85,13 +85,13 @@ LDC1614::Status arduinoI2cReadRegister(uint8_t address,
   return context != nullptr
              ? esp32_i2c::readRegisterAt(*context, address, registerAddress,
                                          value, timeoutMs)
-             : LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+             : LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                       "I2C discovery context missing");
 }
 
-ldc1614_cli::I2cTransferStats arduinoI2cTransferStats(void* user) {
+ldc161x_cli::I2cTransferStats arduinoI2cTransferStats(void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
-  ldc1614_cli::I2cTransferStats stats{};
+  ldc161x_cli::I2cTransferStats stats{};
   if (context == nullptr) return stats;
   stats.writes = context->transferStats.writes;
   stats.writeReads = context->transferStats.writeReads;
@@ -101,35 +101,35 @@ ldc1614_cli::I2cTransferStats arduinoI2cTransferStats(void* user) {
   return stats;
 }
 
-LDC1614::Status arduinoI2cRecover(void* user) {
+LDC161x::Status arduinoI2cRecover(void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
   if (context == nullptr) {
-    return LDC1614::Status::Error(LDC1614::Err::INVALID_CONFIG,
+    return LDC161x::Status::Error(LDC161x::Err::INVALID_CONFIG,
                                   "I2C recovery context missing");
   }
   return esp32_i2c::recover(*context);
 }
 
-LDC1614::Config makeDefaultConfig(void* user) {
+LDC161x::Config makeDefaultConfig(void* user) {
   auto* context = static_cast<esp32_i2c::Context*>(user);
-  LDC1614::Config cfg;
+  LDC161x::Config cfg;
   cfg.i2cWrite = esp32_i2c::write;
   cfg.i2cWriteRead = esp32_i2c::writeRead;
   cfg.i2cUser = context;
   cfg.i2cTimeoutMs = board::I2C_TIMEOUT_MS;
   cfg.i2cAddress = board::LDC_I2C_ADDRESS == 0x2B
-                       ? LDC1614::I2cAddress::ADDR_VDD
-                       : LDC1614::I2cAddress::ADDR_GND;
+                       ? LDC161x::I2cAddress::ADDR_VDD
+                       : LDC161x::I2cAddress::ADDR_GND;
   cfg.variant = board::LDC_CHANNEL_COUNT == 2
-                    ? LDC1614::DeviceVariant::LDC1612
-                    : LDC1614::DeviceVariant::LDC1614;
-  cfg.channels = LDC1614::channelBit(LDC1614::Channel::CH0);
+                    ? LDC161x::DeviceVariant::LDC1612
+                    : LDC161x::DeviceVariant::LDC1614;
+  cfg.channels = LDC161x::channelBit(LDC161x::Channel::CH0);
   cfg.referenceClock =
-      LDC1614::ReferenceClock{LDC1614::RefClkSrc::INTERNAL, 43000000U, 200000U};
-  cfg.mode = LDC1614::OperatingMode::SINGLE_CHANNEL;
-  cfg.activeChannel = LDC1614::Channel::CH0;
-  cfg.deglitch = LDC1614::Deglitch::BW_10MHZ;
-  cfg.sensorActivation = LDC1614::SensorActivation::FULL_CURRENT;
+      LDC161x::ReferenceClock{LDC161x::RefClkSrc::INTERNAL, 43000000U, 200000U};
+  cfg.mode = LDC161x::OperatingMode::SINGLE_CHANNEL;
+  cfg.activeChannel = LDC161x::Channel::CH0;
+  cfg.deglitch = LDC161x::Deglitch::BW_10MHZ;
+  cfg.sensorActivation = LDC161x::SensorActivation::FULL_CURRENT;
   cfg.rpOverrideEnabled = true;
   cfg.autoAmplitudeCorrectionEnabled = false;
   cfg.highCurrentDriveEnabled = false;
@@ -147,7 +147,7 @@ LDC1614::Config makeDefaultConfig(void* user) {
   }
   cfg.channel[0].expectedSensorMinHz = 100000;
   cfg.channel[0].expectedSensorMaxHz = 5000000;
-  cfg.errorReporting = LDC1614::ErrorReporting::all();
+  cfg.errorReporting = LDC161x::ErrorReporting::all();
 
   if (board::INTB_PIN >= 0) {
     cfg.intbAsserted = esp32_i2c::intbAsserted;
@@ -156,8 +156,8 @@ LDC1614::Config makeDefaultConfig(void* user) {
   return cfg;
 }
 
-ldc1614_cli::Cli::Platform makeCliPlatform() {
-  ldc1614_cli::Cli::Platform platform;
+ldc161x_cli::Cli::Platform makeCliPlatform() {
+  ldc161x_cli::Cli::Platform platform;
   platform.user = &i2cContext;
   platform.vprintf = arduinoVPrintf;
   platform.makeConfig = makeDefaultConfig;
@@ -177,10 +177,10 @@ ldc1614_cli::Cli::Platform makeCliPlatform() {
   return platform;
 }
 
-ldc1614_cli::Cli ldcCli(device, makeCliPlatform());
+ldc161x_cli::Cli ldcCli(device, makeCliPlatform());
 
-void emitPrompt(ldc1614_cli::PromptAction action) {
-  if (action == ldc1614_cli::PromptAction::PRINT) {
+void emitPrompt(ldc161x_cli::PromptAction action) {
+  if (action == ldc161x_cli::PromptAction::PRINT) {
     ldcCli.printPrompt();
   }
 }
@@ -236,10 +236,10 @@ void setup() {
   board::initSerial();
   delay(100);
 
-  ldcCli.logInfo("=== LDC1614 Arduino Diagnostic Bring-up Example ===");
+  ldcCli.logInfo("=== LDC161x Arduino Diagnostic Bring-up Example ===");
   ldcCli.logInfo("Diagnostic firmware only; production apps own bus policy and validation.");
 
-  const LDC1614::Status i2cStatus = configureI2c(i2cContext);
+  const LDC161x::Status i2cStatus = configureI2c(i2cContext);
   if (!i2cStatus.ok()) {
     ldcCli.logError("Failed to initialize I2C");
     ldcCli.printStatus(i2cStatus);
@@ -252,7 +252,7 @@ void setup() {
 
   board::initIntbPin();
 
-  const LDC1614::Status st = device.bind(ldcCli.makeDefaultConfig());
+  const LDC161x::Status st = device.bind(ldcCli.makeDefaultConfig());
   if (!st.ok()) {
     ldcCli.logError("Failed to bind explicit device profile");
     ldcCli.printStatus(st);

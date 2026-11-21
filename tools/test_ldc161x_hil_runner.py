@@ -17,9 +17,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import ldc1614_cli_contract as contract
+import ldc161x_cli_contract as contract
 import check_cli_contract as cli_checker
-import ldc1614_hil_runner as runner
+import ldc161x_hil_runner as runner
 
 
 def sync_output(command: str, body: str = "") -> str:
@@ -131,7 +131,7 @@ def recovery_state_output() -> str:
 
 def help_output() -> str:
     labels = runner.HELP_SECTION_LABELS
-    lines = ["=== LDC1614 CLI ==="]
+    lines = ["=== LDC161x CLI ==="]
     current = None
     for spec in contract.COMMAND_SPECS:
         if spec.section != current:
@@ -495,7 +495,7 @@ class CliManifestTests(unittest.TestCase):
 class ClassifierTests(unittest.TestCase):
     def test_restart_during_any_command_cannot_pass(self) -> None:
         for framework in ("Arduino", "Native ESP-IDF"):
-            banner = f"=== LDC1614 {framework} Diagnostic Bring-up Example ===\n"
+            banner = f"=== LDC161x {framework} Diagnostic Bring-up Example ===\n"
             for command, output in (
                 ("version", version_output()),
                 ("init", async_output("init", 42)),
@@ -666,7 +666,7 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual("PASS", status, reason)
 
         colored = help_output().replace(
-            "=== LDC1614 CLI ===", "\x1b[36m=== LDC1614 CLI ===\x1b[0m"
+            "=== LDC161x CLI ===", "\x1b[36m=== LDC161x CLI ===\x1b[0m"
         )
         results = [
             {"command": "help", "status": "PASS", "output": colored},
@@ -1180,9 +1180,9 @@ class CheckerRobustnessTests(unittest.TestCase):
             cli_checker.require_bounded_unsigned_parser(invalid)
 
     def test_ambiguous_transaction_mapping_checker_rejects_bus_classification(self) -> None:
-        valid = """LDC1614::Status mapTransactionErr(esp_err_t error, const char* context) {
+        valid = """LDC161x::Status mapTransactionErr(esp_err_t error, const char* context) {
   if (error == ESP_ERR_INVALID_STATE) {
-    return LDC1614::Status::Error(LDC1614::Err::I2C_ERROR, context, error);
+    return LDC161x::Status::Error(LDC161x::Err::I2C_ERROR, context, error);
   }
   return mapEspErr(error, context);
 }
@@ -1613,7 +1613,8 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
 
         boot_banners = (
             "=== LDC1614 Arduino Diagnostic Bring-up Example ===",
-            "=== LDC1614 Native ESP-IDF Diagnostic Bring-up Example ===",
+            "=== LDC161x Arduino Diagnostic Bring-up Example ===",
+            "=== LDC161x Native ESP-IDF Diagnostic Bring-up Example ===",
         )
         for banner in boot_banners:
             with self.subTest(banner=banner):
@@ -1789,7 +1790,8 @@ class SerialExecutionAndDurabilityTests(unittest.TestCase):
         commit = runner.git_value(["rev-parse", "--short", "HEAD"])
         boot_banners = (
             "=== LDC1614 Arduino Diagnostic Bring-up Example ===",
-            "=== LDC1614 Native ESP-IDF Diagnostic Bring-up Example ===",
+            "=== LDC161x Arduino Diagnostic Bring-up Example ===",
+            "=== LDC161x Native ESP-IDF Diagnostic Bring-up Example ===",
         )
 
         for boot_banner in boot_banners:
